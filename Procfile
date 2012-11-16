@@ -1,3 +1,1 @@
-web: node web.js
-
-sentry: node main.js
+sentry: node worker.js
