@@ -1,5 +1,5 @@
 /*
- * worker.js: sentry worker main loop
+ * worker.js: the worker main loop
  *
  * (C) 2012 Ayatii Limited
  *
@@ -11,6 +11,8 @@ var logger = require('winston')
   , os = require('os')
   , sugar = require('sugar')
   ;
+
+var Sentry = require('./sentry').Sentry;
 
 var SOCKET_FILE = os.tmpDir() + '/sentry-' + Date.now() + '.sock';
 
@@ -39,6 +41,8 @@ function cleanUp() {
 function main() {
   setupLogging(logger);
   setupSignals();
+
+  var sentry = new Sentry();
 
   var server = net.createServer(function(c) {});
   server.listen(SOCKET_FILE, function() {

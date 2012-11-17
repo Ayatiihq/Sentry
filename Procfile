@@ -1,1 +1,1 @@
-sentry: node worker.js
+sentry: node main.js
