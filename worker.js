@@ -33,7 +33,6 @@ function cleanUp() {
   } catch (err) {
     logger.warn(err);
   }
-
   logger.info('Exiting Sentry');
 }
 
@@ -47,4 +46,4 @@ function main() {
   });
 }
 
-main();
+main(); 
