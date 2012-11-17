@@ -13,8 +13,8 @@
 
 var events = require('events')
   , logger = require('winston')
-  , sugar = require('sugar')
   , util = require('util')
+  , os = require('os')
   ;
 
 var Sentry = exports.Sentry = function() {
@@ -26,5 +26,19 @@ util.inherits(Sentry, events.EventEmitter);
 Sentry.prototype.init = function() {
   var self = this;
 
-  logger.info('Sentry up and running.');
+  var id = os.hostname() + '::' + process.pid;
+
+  logger.info('Sentry up and running. ID: ' + id);
+
+/*
+  logger.info('\tHostname: ' + os.hostname());
+  logger.info('\tPlatform: ' + os.platform());
+  logger.info('\tArch: ' + os.arch());
+  logger.info('\tRelease: ' + os.release());
+  logger.info('\tUptime: ' + os.uptime());
+  logger.info('\tPID: ' + process.pid);
+  logger.info('\tTitle: ' + process.title);
+  logger.info('\tMemory: ' + util.inspect(process.memoryUsage()));
+  logger.info('');
+  */
 }
