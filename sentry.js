@@ -18,6 +18,8 @@ var events = require('events')
   ;
 
 var Sentry = exports.Sentry = function() {
+  var id_ = '';
+
   this.init();
 }
 
@@ -26,10 +28,10 @@ util.inherits(Sentry, events.EventEmitter);
 Sentry.prototype.init = function() {
   var self = this;
 
-  var id = os.hostname() + '::' + process.pid;
+  self.id_ = os.hostname() + '::' + process.pid;
 
-  logger.info('Sentry up and running. ID: ' + id);
-
+  logger.info('Sentry up and running. ID: ' + self.id_);
+/*
   logger.info('\tHostname: ' + os.hostname());
   logger.info('\tPlatform: ' + os.platform());
   logger.info('\tArch: ' + os.arch());
@@ -38,6 +40,9 @@ Sentry.prototype.init = function() {
   logger.info('\tPID: ' + process.pid);
   logger.info('\tTitle: ' + process.title);
   logger.info('\tMemory: ' + util.inspect(process.memoryUsage()));
-  logger.info('');
+  logger.info('');*/
+}
 
+Sentry.prototype.getId = function() {
+  return this.id_;
 }
