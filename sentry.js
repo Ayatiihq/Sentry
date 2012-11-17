@@ -30,7 +30,6 @@ Sentry.prototype.init = function() {
 
   logger.info('Sentry up and running. ID: ' + id);
 
-/*
   logger.info('\tHostname: ' + os.hostname());
   logger.info('\tPlatform: ' + os.platform());
   logger.info('\tArch: ' + os.arch());
@@ -40,5 +39,5 @@ Sentry.prototype.init = function() {
   logger.info('\tTitle: ' + process.title);
   logger.info('\tMemory: ' + util.inspect(process.memoryUsage()));
   logger.info('');
-  */
+
 }
