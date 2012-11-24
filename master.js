@@ -3,11 +3,8 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Master is responsible for fulfilling any of the #Roles that are required by
- * the system. A Master is created once per process and will choose appropriate
- * roles depending on what it's master is signaling to it. It can change
- * roles on-the-fly, but normally waits to be signalled by the currently 
- * running role for a good time to do so. 
+ * Master represents the cluster to the rest of the hive, starts the appropriete
+ * number of workers, and uses the schedular to assign the correct roles to them.
  *
  */
 

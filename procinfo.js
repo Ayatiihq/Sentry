@@ -16,6 +16,9 @@ var cluster = require('cluster')
   , util = require('util')
   ;
 
+var EXPIRE_TIME_SECONDS = 30;
+var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS / 2;
+
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
   this.redis_ = null;
@@ -47,10 +50,40 @@ ProcInfo.prototype.createKey = function() {
   } else {
     self.key_ = 'worker:' + hostname + ':' + cluster.worker.id;
   }
-
   logger.info('Process key: ' + self.key_);
 }
 
 ProcInfo.prototype.onRedisReady = function() {
   var self = this;
+
+  // This is our TTL
+  setInterval(self.announce.bind(self), INTERVAL_TIME_SECONDS * 1000);
+
+  // Start us off
+  self.announce();
+}
+
+ProcInfo.prototype.announce = function() {
+  var self = this;
+  var data = '';
+
+  if (cluster.isMaster) {
+    data = self.getMasterData();
+  } else {
+    data = self.getWorkerData();
+  }
+
+  // Set the key, which expires the TTL...
+  self.redis_.set(self.key_, data, redis.print);
+
+  // ...so restate the TTL
+  self.redis_.expire(self.key_, EXPIRE_TIME_SECONDS);
+}
+
+ProcInfo.prototype.getMasterData = function() {
+  return 'master';
+}
+
+ProcInfo.prototype.getWorkerData = function() {
+  return 'worker' + cluster.worker.id;
 }

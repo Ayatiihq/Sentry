@@ -11,10 +11,11 @@ var redis = require('redis')
 
 var REDIS_URL = 'redis://redistogo:3d27f7cc29ad29c4415ff3a0508ced73@gar.redistogo.com:9214/';
 
+exports.print = redis.print;
+
 //
 // node-redis is special so you have to connect in a weirder way than normal
 //
-
 var gClient = null;
 
 exports.createAuthedClient = function() {
