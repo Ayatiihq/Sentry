@@ -1,1 +1,1 @@
-sentry: node main.js
+sentry: node sentry.js

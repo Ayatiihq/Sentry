@@ -8,13 +8,16 @@
  *
  */
 
-var events = require('events')
+var cluster = require('cluster')
+  , events = require('events')
   , logger = require('./logger').forFile('procinfo.js')
+  , os = require('os')
   , redis = require("./redis")
   , util = require('util')
   ;
 
 var ProcInfo = exports.ProcInfo = function() {
+  this.key_ = "undefined";
   this.redis_ = null;
 
   this.init();
@@ -25,12 +28,29 @@ util.inherits(ProcInfo, events.EventEmitter);
 ProcInfo.prototype.init = function() {
   var self = this;
 
+  self.createKey();
+
+  // Setup Redis, as that is the store of process data between the hive
   self.redis_ = redis.createAuthedClient();
-  self.redis_.on('ready', self.onReady.bind(self));
+  if (self.redis_.ready)
+    self.onRedisReady();
+  else
+    self.redis_.on('ready', self.onRedisReady.bind(self));
 }
 
-ProcInfo.prototype.onReady = function() {
+ProcInfo.prototype.createKey = function() {
   var self = this;
+  var hostname = os.hostname();
 
-  logger.info('Ready (redis: ' + self.redis_.server_info.redis_version + ')');
+  if (cluster.isMaster) {
+    self.key_ = 'master:' + hostname;
+  } else {
+    self.key_ = 'worker:' + hostname + ':' + cluster.worker.id;
+  }
+
+  logger.info('Process key: ' + self.key_);
+}
+
+ProcInfo.prototype.onRedisReady = function() {
+  var self = this;
 }

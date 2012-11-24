@@ -23,7 +23,7 @@ var cluster = require('cluster')
 var ProcInfo = require('./procinfo').ProcInfo;
 
 var Worker = exports.Worker = function() {
-  this.socketFile_ = os.tmpDir() + '/worker-' + cluster.worker.id + '.sock';
+  this.socketFile_ = "";
   this.procinfo_ = null;
   this.server_ = null;
 
@@ -35,6 +35,7 @@ util.inherits(Worker, events.EventEmitter);
 Worker.prototype.init = function() {
   var self = this;
 
+  self.socketFile_ = os.tmpDir() + '/worker-' + cluster.worker.id + '.sock';
   self.procinfo_ = new ProcInfo();
 
   self.startServer();
@@ -52,19 +53,23 @@ Worker.prototype.init = function() {
 
 Worker.prototype.startServer = function() {
   var self = this;
+
+  // In case bad stuff happened before
+  self.cleanupSocket();
   
   self.server_ = net.createServer(function(c) {});
   self.server_.listen(self.socketFile_, function() {
     logger.info('Server started (' + self.socketFile_ + ')');
   });
+  process.on('exit', self.cleanupSocket.bind(self));
+}
 
-  process.on('exit', function () {
-    try {
-      fs.unlinkSync(self.socketFile_);
+Worker.prototype.cleanupSocket = function() {
+  var self = this;
 
-    } catch (err) {
-      logger.warn(err);
-    }
-    logger.info('Exiting worker');
-  });
+  try {
+    fs.unlinkSync(self.socketFile_);
+  } catch (err) {
+    ;
+  }
 }

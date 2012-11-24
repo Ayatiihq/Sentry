@@ -9,18 +9,17 @@
  */
 
 var cluster = require('cluster')
+  , os = require('os')
   , winston = require('winston');
 
 var Logger = function(filename) {
-  var id = "";
+  var id = os.hostname();
 
-  if (cluster.isMaster) {
-    id = "master";
-  } else {
-    id = cluster.worker.id;
+  if (!cluster.isMaster) {
+    id += ':' + cluster.worker.id;
   }
 
-  this.prefix_ = id + '::' + filename + ': ';
+  this.prefix_ = id + ':' + filename + ': ';
 }
 
 Logger.prototype.info = function(string, object) {
