@@ -8,34 +8,48 @@
  *
  */
 
-var winston = require('winston');
+var cluster = require('cluster')
+  , winston = require('winston');
 
 var logger = exports;
 
 var Logger = function(filename) {
-  this.filename_ = filename + ': ';
+  var id = "";
+
+  if (cluster.isMaster) {
+    id = "master";
+  } else {
+    id = cluster.worker.id;
+  }
+
+  this.prefix_ = id + '::' + filename + ': ';
 }
 
 Logger.prototype.info = function(string, object) {
   object = typeof object !== 'undefined' ? object : {};
-  winston.info(this.filename_ + string, object );
+  winston.info(this.prefix_ + string, object );
 }
 
 Logger.prototype.debug = function(string, object) {
   object = typeof object !== 'undefined' ? object : {};
-  winston.debug(this.filename_ + string, object );
+  winston.debug(this.prefix_ + string, object );
 }
 
 Logger.prototype.warn = function(string, object) {
   object = typeof object !== 'undefined' ? object : {};
-  winston.warn(this.filename_ + string, object );
+  winston.warn(this.prefix_ + string, object );
 }
 
 Logger.prototype.error = function(string, object) {
   object = typeof object !== 'undefined' ? object : {};
-  winston.error(this.filename_ + string, object );
+  winston.error(this.prefix_ + string, object );
 }
 
 logger.forFile = function(filename) {
   return new Logger(filename);
+}
+
+logger.init = function() {
+  winston.remove(winston.transports.Console);
+  winston.add(winston.transports.Console, { colorize: true, timestamp: true });
 }
