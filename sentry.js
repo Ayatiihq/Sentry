@@ -1,52 +1,38 @@
 /*
- * sentry.js: the sentry
+ * sentry.js: the sentry main loop
  *
  * (C) 2012 Ayatii Limited
  *
- * Sentry is responsible for fulfilling any of the #Roles that are required by
- * the system. A Sentry is created once per process and will choose appropriate
- * roles depending on what the #Scheduler is signaling to it. It can change
- * roles on-the-fly, but normally waits to be signalled by the currently 
- * running role for a good time to do so. 
- *
  */
 
-var events = require('events')
-  , logger = require('./logger').forFile('sentry.js')
-  , util = require('util')
+var cluster = require('cluster')
+  , logger = require('./logger')
   , os = require('os')
+  , sugar = require('sugar')
   ;
 
-var Heartbeat = require('./heartbeat').Heartbeat;
+var Master = require('./master').Master
+  , Worker = require('./worker').Worker;
 
-var Sentry = exports.Sentry = function() {
-  this.id_ = '';
-  this.heartbeat_ = null;
-
-  this.init();
+function setupSignals() {
+  process.on('SIGINT', function() {
+    process.exit(1);
+  });
 }
 
-util.inherits(Sentry, events.EventEmitter);
+function main() {
+  var task = null;
 
-Sentry.prototype.init = function() {
-  var self = this;
+  logger.init();
+  logger = logger.forFile('main.js');
 
-  self.id_ = os.hostname() + '::' + process.pid;
-  self.heartbeat_ = new Heartbeat();
+  setupSignals();
 
-  logger.info('Sentry up and running. ID: ' + self.id_);
-/*
-  logger.info('\tHostname: ' + os.hostname());
-  logger.info('\tPlatform: ' + os.platform());
-  logger.info('\tArch: ' + os.arch());
-  logger.info('\tRelease: ' + os.release());
-  logger.info('\tUptime: ' + os.uptime());
-  logger.info('\tPID: ' + process.pid);
-  logger.info('\tTitle: ' + process.title);
-  logger.info('\tMemory: ' + util.inspect(process.memoryUsage()));
-  logger.info('');*/
+  if (cluster.isMaster) {
+    task = new Master();
+  } else {
+    tast = new Worker();
+  }
 }
 
-Sentry.prototype.getId = function() {
-  return this.id_;
-}
+main(); 
