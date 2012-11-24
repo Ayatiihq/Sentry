@@ -33,12 +33,22 @@ ProcInfo.prototype.init = function() {
 
   self.createKey();
 
+  if (cluster.isMaster) {
+    self.initRedis();
+  } else {
+    self.onReady();
+  }
+}
+
+ProcInfo.prototype.initRedis = function() {
+  var self = this;
+
   // Setup Redis, as that is the store of process data between the hive
   self.redis_ = redis.createAuthedClient();
   if (self.redis_.ready)
     self.onRedisReady();
   else
-    self.redis_.on('ready', self.onRedisReady.bind(self));
+    self.redis_.on('ready', self.onReady.bind(self));
 }
 
 ProcInfo.prototype.createKey = function() {
@@ -53,7 +63,7 @@ ProcInfo.prototype.createKey = function() {
   logger.info('Process key: ' + self.key_);
 }
 
-ProcInfo.prototype.onRedisReady = function() {
+ProcInfo.prototype.onReady = function() {
   var self = this;
 
   // This is our TTL
@@ -68,16 +78,35 @@ ProcInfo.prototype.announce = function() {
   var data = '';
 
   if (cluster.isMaster) {
-    data = self.getMasterData();
+    var data = self.getMasterData();
+
+    self.announceKeyValue(self.key_, data);
+  
   } else {
-    data = self.getWorkerData();
+    var data = self.getWorkerData();
+
+    // We send it up to the Master to deal with
+    process.send({
+      worker: cluster.worker.id,
+      type: "workerAnnounce",
+      key: self.key_,
+      value: data
+    });
   }
+}
+
+ProcInfo.prototype.announceWorker = function(key, value) {
+  var self = this;
+  self.announceKeyValue(key, value)
+}
+
+ProcInfo.prototype.announceKeyValue = function(key, value) {
+  var self = this;
 
   // Set the key, which expires the TTL...
-  self.redis_.set(self.key_, data, redis.print);
-
+  self.redis_.set(key, value);
   // ...so restate the TTL
-  self.redis_.expire(self.key_, EXPIRE_TIME_SECONDS);
+  self.redis_.expire(key, EXPIRE_TIME_SECONDS);
 }
 
 ProcInfo.prototype.getMasterData = function() {

@@ -42,11 +42,24 @@ Master.prototype.createWorkers = function() {
   logger.info('Forking ' + n_workers + ' workers')
   
   for (var i = 0; i < n_workers; i++) {
-    cluster.fork();
+    var worker = cluster.fork();
+
+    worker.on('message', self.onWorkerMessage.bind(self));
   }
   cluster.on('exit', self.onWorkerExit.bind(self));
 }
 
 Master.prototype.onWorkerExit = function(worker, code, signal) {
   logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal:' + signal);
+}
+
+Master.prototype.onWorkerMessage = function(message) {
+  var self = this;
+
+  if (message.type === 'workerAnnounce') {
+    self.procinfo_.announceWorker(message.key, message.value);
+  }
+  else {
+    logger.warn('Unknown worker message: ' + util.inspect(message));
+  }
 }
