@@ -12,13 +12,16 @@
  */
 
 var events = require('events')
-  , logger = require('winston')
+  , logger = require('./logger').forFile('sentry.js')
   , util = require('util')
   , os = require('os')
   ;
 
+var Heartbeat = require('./heartbeat').Heartbeat;
+
 var Sentry = exports.Sentry = function() {
-  var id_ = '';
+  this.id_ = '';
+  this.heartbeat_ = null;
 
   this.init();
 }
@@ -29,6 +32,7 @@ Sentry.prototype.init = function() {
   var self = this;
 
   self.id_ = os.hostname() + '::' + process.pid;
+  self.heartbeat_ = new Heartbeat();
 
   logger.info('Sentry up and running. ID: ' + self.id_);
 /*

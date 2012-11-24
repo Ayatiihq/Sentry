@@ -1,5 +1,5 @@
 /*
- * worker.js: the worker main loop
+ * main.js: the sentry main loop
  *
  * (C) 2012 Ayatii Limited
  *
@@ -21,6 +21,7 @@ function setupLogging(log) {
 }
 
 function setupSignals() {
+  return;
   process.on('SIGINT', function() {
     process.exit(1);
   });
@@ -30,7 +31,7 @@ function main() {
   setupLogging(logger);
   setupSignals();
 
-  if (cluster.isMaster) {
+  if (cluster.isMaster && !process.env.SENTRY_SINGLE_WORKER) {
     for (var i = 0; i < os.cpus().length; i++) {
       cluster.fork();
     }
