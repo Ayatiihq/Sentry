@@ -11,8 +11,6 @@
 var cluster = require('cluster')
   , winston = require('winston');
 
-var logger = exports;
-
 var Logger = function(filename) {
   var id = "";
 
@@ -45,11 +43,11 @@ Logger.prototype.error = function(string, object) {
   winston.error(this.prefix_ + string, object );
 }
 
-logger.forFile = function(filename) {
+exports.forFile = function(filename) {
   return new Logger(filename);
 }
 
-logger.init = function() {
+exports.init = function() {
   winston.remove(winston.transports.Console);
   winston.add(winston.transports.Console, { colorize: true, timestamp: true });
 }
