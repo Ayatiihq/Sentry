@@ -17,7 +17,7 @@ var cluster = require('cluster')
   ;
 
 var EXPIRE_TIME_SECONDS = 30;
-var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS / 2;
+var INTERVAL_TIME_SECONDS = 15;
 
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
