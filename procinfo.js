@@ -10,14 +10,16 @@
 
 var cluster = require('cluster')
   , events = require('events')
+  , json = require('jsonify')
   , logger = require('./logger').forFile('procinfo.js')
   , os = require('os')
   , redis = require("./redis")
+  , sugar = require('sugar')
   , util = require('util')
   ;
 
-var EXPIRE_TIME_SECONDS = 30;
-var INTERVAL_TIME_SECONDS = 15;
+var EXPIRE_TIME_SECONDS = 60;
+var INTERVAL_TIME_SECONDS = 30;
 
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
@@ -75,7 +77,6 @@ ProcInfo.prototype.onReady = function() {
 
 ProcInfo.prototype.announce = function() {
   var self = this;
-  var data = '';
 
   if (cluster.isMaster) {
     var data = self.getMasterData();
@@ -110,9 +111,34 @@ ProcInfo.prototype.announceKeyValue = function(key, value) {
 }
 
 ProcInfo.prototype.getMasterData = function() {
-  return 'master';
+  var data = {};
+
+  data.timestamp = Date.now();
+  data.hostname = os.hostname();
+  data.type = os.type();
+  data.platform = os.platform();
+  data.arch = os.arch();
+  data.release = os.release();
+  data.cpus = os.cpus();
+  data.uptime = os.uptime();
+  data.totalmem = os.totalmem();
+  data.freemem = os.freemem();
+  data.pid = process.pid;
+  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.processUptime = process.uptime();
+
+  return json.stringify(data);
 }
 
 ProcInfo.prototype.getWorkerData = function() {
-  return 'worker' + cluster.worker.id;
+  var data = {};
+
+  data.timestamp = Date.now();
+  data.role = "idle";
+  data.workerId = cluster.worker.id;
+  data.pid = process.pid;
+  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.processUptime = process.uptime();
+
+  return json.stringify(data);
 }

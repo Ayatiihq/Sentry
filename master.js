@@ -37,11 +37,11 @@ Master.prototype.init = function() {
 
 Master.prototype.createWorkers = function() {
   var self = this;
-  var n_workers = os.cpus().length;
+  var nWorkers = os.cpus().length;
 
-  logger.info('Forking ' + n_workers + ' workers')
+  logger.info('Forking ' + nWorkers + ' workers')
   
-  for (var i = 0; i < n_workers; i++) {
+  for (var i = 0; i < nWorkers; i++) {
     var worker = cluster.fork();
 
     worker.on('message', self.onWorkerMessage.bind(self));

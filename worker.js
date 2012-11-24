@@ -39,16 +39,6 @@ Worker.prototype.init = function() {
   self.procinfo_ = new ProcInfo();
 
   self.startServer();
-/*
-  logger.info('\tHostname: ' + os.hostname());
-  logger.info('\tPlatform: ' + os.platform());
-  logger.info('\tArch: ' + os.arch());
-  logger.info('\tRelease: ' + os.release());
-  logger.info('\tUptime: ' + os.uptime());
-  logger.info('\tPID: ' + process.pid);
-  logger.info('\tTitle: ' + process.title);
-  logger.info('\tMemory: ' + util.inspect(process.memoryUsage()));
-  logger.info('');*/
 }
 
 Worker.prototype.startServer = function() {
