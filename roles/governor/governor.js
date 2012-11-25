@@ -13,13 +13,36 @@ var events = require('events')
   , util = require('util')
   ;
 
+var Role = require('../role').Role;
+
 var Governor = exports.Role = function() {
   this.init();
 }
 
-util.inherits(Governor, events.EventEmitter);
+util.inherits(Governor, Role);
 
 Governor.prototype.init = function() {
   var self = this;
   logger.info('Governor up and running');
+}
+
+//
+// Overrides
+
+Role.prototype.getName = function() {
+  return "governor";
+}
+
+Role.prototype.getDisplayName = function() {
+  return "Governor";
+}
+
+Role.prototype.start = function() {
+  var self = this;
+  self.emit('started');
+}
+
+Role.prototype.end = function() {
+  var self = this;
+  self.emit('ended');
 }

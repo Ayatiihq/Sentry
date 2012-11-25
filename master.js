@@ -9,6 +9,7 @@
  */
 
 var cluster = require('cluster')
+  , config = require('./config')
   , events = require('events')
   , logger = require('./logger').forFile('master.js')
   , util = require('util')
@@ -37,7 +38,7 @@ Master.prototype.init = function() {
 
 Master.prototype.createWorkers = function() {
   var self = this;
-  var nWorkers = os.cpus().length;
+  var nWorkers = Math.min(os.cpus().length, config.MAX_WORKERS);
 
   logger.info('Forking ' + nWorkers + ' workers')
   
@@ -60,8 +61,8 @@ Master.prototype.onWorkerMessage = function(worker, message) {
 
   if (message.type === 'workerAnnounce') {
     self.procinfo_.announceWorker(message.key, message.value);
-  }
-  else {
+  
+  } else {
     logger.warn('Unknown worker message: ' + util.inspect(message));
   }
 }
