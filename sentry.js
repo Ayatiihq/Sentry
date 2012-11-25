@@ -31,7 +31,7 @@ function main() {
   if (cluster.isMaster) {
     task = new Master();
   } else {
-    tast = new Worker();
+    task = new Worker();
   }
 }
 

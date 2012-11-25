@@ -44,16 +44,18 @@ Master.prototype.createWorkers = function() {
   for (var i = 0; i < nWorkers; i++) {
     var worker = cluster.fork();
 
-    worker.on('message', self.onWorkerMessage.bind(self));
+    worker.on('message', function(message) {
+      self.onWorkerMessage(worker, message);
+    });
   }
   cluster.on('exit', self.onWorkerExit.bind(self));
 }
 
 Master.prototype.onWorkerExit = function(worker, code, signal) {
-  logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal:' + signal);
+  logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
 }
 
-Master.prototype.onWorkerMessage = function(message) {
+Master.prototype.onWorkerMessage = function(worker, message) {
   var self = this;
 
   if (message.type === 'workerAnnounce') {
