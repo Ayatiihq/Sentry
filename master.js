@@ -34,6 +34,7 @@ Master.prototype.init = function() {
   
   self.scheduler_ = new Scheduler();
   self.scheduler_.on('createWorker', self.createWorker.bind(self));
+  self.scheduler_.on('changeWorkerRole', self.changeWorkerRole.bind(self));
 
   cluster.on('exit', self.onWorkerExit.bind(self));
 
@@ -66,5 +67,16 @@ Master.prototype.onWorkerMessage = function(worker, message) {
   
   } else {
     logger.warn('Unknown worker message: ' + util.inspect(message));
+  }
+}
+
+Master.prototype.changeWorkerRole = function(worker, rolename) {
+  if (worker.role === "idle") {
+    worker.role = rolename;
+    worker.send({ type: "roleChange", newRole: rolename });
+  } else {
+    worker.send({ type: "end" });
+    // FIXME: Add timeout to kill if we haven't received the exit signal
+    // in X minutes
   }
 }

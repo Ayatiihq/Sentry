@@ -17,6 +17,10 @@ var cluster = require('cluster')
   , os = require('os')
   ;
 
+var MIN_CHECK_INTERVAL_SECONDS = 4;
+var MAX_CHECK_INTERVAL_SECONDS = 5;
+var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 60;
+
 var Scheduler = exports.Scheduler = function() {
   this.redis_ = null;
   this.singletons_ = null;
@@ -62,12 +66,24 @@ Scheduler.prototype.watchSingletons = function() {
   }
 
   // Keep it a bit haphazard for checking but no more than 5 mins
-  setInterval(self.tryOwnSingletonLocks.bind(self),
-              Number.random(120, 300) * 1000);
+  var interval = Number.random(MIN_CHECK_INTERVAL_SECONDS, MAX_CHECK_INTERVAL_SECONDS) ;
+  setInterval(self.tryOwnSingletonLocks.bind(self), interval * 1000);
 }
 
 Scheduler.prototype.tryOwnSingletonLocks = function() {
-  logger.info('Checking Singleton locks');
+  var self = this;
+
+  self.singletons_.forEach(function (rolename) {
+    logger.info('Checking ' + rolename + ' lock');
+
+    if (self.isWorkerAvailableForRoleChange() === null) {
+      logger.info('No available workers');
+      return;
+    }
+
+    self.tryOwnSingletonLock(rolename);
+  });
+
   /*
   for singleton in Singletons && workersAvailable():
     lockowned = tryOwnLock(singleton);
@@ -82,6 +98,43 @@ Scheduler.prototype.tryOwnSingletonLocks = function() {
     end
   end
   */
+}
+
+Scheduler.prototype.isWorkerAvailableForRoleChange = function() {
+  var self = this;
+
+  for (var id in cluster.workers) {
+    var worker = cluster.workers[id];
+
+    // If the role is not a singleton, then it's available
+    if (self.singletons_.indexOf(worker.role) === -1)
+      return id;
+  }
+
+  return null;
+}
+
+Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
+  var self = this;
+
+  var key = 'lock:' + rolename;
+  self.redis_.setnx(key, 1, function (err, reply) {
+    if (reply !== 0) {
+      logger.info('Successfully acquired lock for ' + rolename);
+
+      var wid = self.isWorkerAvailableForRoleChange();
+      if (wid !== null) {
+        // Set an expire in case something bad happens when changing the role
+        self.redis_.expire(key, SINGLETON_ACQUIRE_TIMEOUT_SECONDS);
+
+        self.emit('changeWorkerRole', cluster.workers[wid], rolename);
+      
+      } else {
+        console.info('No workers available for new role, releasing lock');
+        self.redis_.del(key);
+      }
+    }
+  });
 }
 
 Scheduler.prototype.createWorkers = function() {

@@ -27,6 +27,10 @@ var Worker = exports.Worker = function() {
   this.procinfo_ = null;
   this.server_ = null;
 
+  this.currentRoleName_ = "idle";
+  this.role_ = null;
+  this.oldRole_ = null;
+
   this.init();
 }
 
@@ -37,7 +41,10 @@ Worker.prototype.init = function() {
 
   self.socketFile_ = os.tmpDir() + '/worker-' + cluster.worker.id + '.sock';
   self.procinfo_ = new ProcInfo();
-
+  
+  process.on('message', self.onMessage.bind(self));
+  process.on('exit', self.cleanupSocket.bind(self));
+  
   self.startServer();
 }
 
@@ -46,12 +53,11 @@ Worker.prototype.startServer = function() {
 
   // In case bad stuff happened before
   self.cleanupSocket();
-  
+
   self.server_ = net.createServer(function(c) {});
   self.server_.listen(self.socketFile_, function() {
     logger.info('Server started (' + self.socketFile_ + ')');
   });
-  process.on('exit', self.cleanupSocket.bind(self));
 }
 
 Worker.prototype.cleanupSocket = function() {
@@ -62,4 +68,32 @@ Worker.prototype.cleanupSocket = function() {
   } catch (err) {
     ;
   }
+}
+
+Worker.prototype.onMessage = function(message) {
+  var self = this;
+
+  if (message.type === "roleChange") {
+    self.switchRoles(message.newRole);
+    logger.info('Role change: ' + self.currentRoleName_);
+  
+  } else {
+    logger.warn('Unknown message: ' + util.inspect(message));
+  }
+}
+
+Worker.prototype.switchRoles = function(rolename) {
+  var self = this;
+
+  if (self.oldRole_ !== null) {
+    // Notify and put the old role on the back-burner
+    self.oldRole_ = self.role_;
+    self.oldRole_.end();
+    // FIXME: Add a kill timer here
+  }
+
+  self.procinfo_.setRole(rolename);
+  self.currentRoleName_ = rolename;
+  var Role = require('./roles/' + rolename).Role;
+  self.role_ = new Role();
 }

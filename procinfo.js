@@ -25,6 +25,7 @@ var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS/2;
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
   this.redis_ = null;
+  this.role_ = 'idle';
 
   this.init();
 }
@@ -132,14 +133,20 @@ ProcInfo.prototype.getMasterData = function() {
 }
 
 ProcInfo.prototype.getWorkerData = function() {
+  var self = this;
   var data = {};
 
   data.timestamp = Date.now();
-  data.role = "idle";
+  data.role = self.role_;
   data.workerId = cluster.worker.id;
   data.pid = process.pid;
   data.memoryUsage = json.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
   return json.stringify(data);
+}
+
+ProcInfo.prototype.setRole = function(rolename) {
+  var self = this;
+  self.role_ = rolename;
 }
