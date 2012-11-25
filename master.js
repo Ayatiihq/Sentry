@@ -46,9 +46,10 @@ Master.prototype.createWorker = function() {
 
   var worker = cluster.fork();
   worker.role = "idle";
-  worker.on('message', function(message) {
+  /*worker.on('message', function(message) {
     self.onWorkerMessage(worker, message);
-  });
+  });*/
+  worker.on('message', self.onWorkerMessage.bind(this, worker));
 
   logger.info('Created worker ' + worker.id);
 }

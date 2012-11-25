@@ -9,6 +9,7 @@
  */
 
 var cluster = require('cluster')
+  , config = require('./config')
   , events = require('events')
   , json = require('jsonify')
   , logger = require('./logger').forFile('procinfo.js')
@@ -18,8 +19,8 @@ var cluster = require('cluster')
   , util = require('util')
   ;
 
-var EXPIRE_TIME_SECONDS = 60;
-var INTERVAL_TIME_SECONDS = 30;
+var EXPIRE_TIME_SECONDS = config.ANNOUNCE_EXPIRE_TIME_SECONDS;
+var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS/2;
 
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
@@ -48,7 +49,7 @@ ProcInfo.prototype.initRedis = function() {
   // Setup Redis, as that is the store of process data between the hive
   self.redis_ = redis.createAuthedClient();
   if (self.redis_.ready)
-    self.onRedisReady();
+    self.onReady();
   else
     self.redis_.on('ready', self.onReady.bind(self));
 }

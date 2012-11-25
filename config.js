@@ -24,3 +24,5 @@ config.SINGLETON_ROLES = getArrayEnv(process.env.SENTRY_SINGLETON_ROLES, "govern
 config.EXCLUDE_ROLES = getArrayEnv(process.env.SENTRY_EXCLUDE_ROLES, "");
 
 config.MAX_WORKERS = getEnv(process.env.SENTRY_MAX_WORKERS, 32);
+
+config.ANNOUNCE_EXPIRE_TIME_SECONDS = getEnv(process.env.SENTRY_ANNOUNCE_EXPIRE_TIME_SECONDS, 60);
