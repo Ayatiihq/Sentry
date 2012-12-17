@@ -83,21 +83,6 @@ Scheduler.prototype.tryOwnSingletonLocks = function() {
 
     self.tryOwnSingletonLock(rolename);
   });
-
-  /*
-  for singleton in Singletons && workersAvailable():
-    lockowned = tryOwnLock(singleton);
-    if lockowned:
-      if workersAvailable():
-        setExpiresTime(singleton);
-        worker = chooseLeastBusyWorker();
-        emit("changeWorkerRole", worker, singleton);
-      else
-        unlock(singleton);
-      end
-    end
-  end
-  */
 }
 
 Scheduler.prototype.isWorkerAvailableForRoleChange = function() {

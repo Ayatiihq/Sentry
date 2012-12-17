@@ -18,6 +18,8 @@ var cluster = require('cluster')
 var ProcInfo = require('./procinfo').ProcInfo
   , Scheduler = require('./scheduler').Scheduler;
 
+var WORKER_KILL_WAIT_SECONDS = 60;
+
 var Master = exports.Master = function() {
   this.procinfo_ = null;
   this.scheduler_ = null;
@@ -47,16 +49,24 @@ Master.prototype.createWorker = function() {
 
   var worker = cluster.fork();
   worker.role = "idle";
-  /*worker.on('message', function(message) {
-    self.onWorkerMessage(worker, message);
-  });*/
   worker.on('message', self.onWorkerMessage.bind(this, worker));
+  worker.killId = 0;
 
   logger.info('Created worker ' + worker.id);
+
+  return worker;
 }
 
 Master.prototype.onWorkerExit = function(worker, code, signal) {
-  logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
+  if (worker.suicide === true) {
+    logger.info('Worker ' + worker.id + " died as expected.");
+    if (worker.killId !== 0)
+      clearTimeout(worker.killId);
+  } else {
+    logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
+  }
+
+  // FIXME: Create a new one
 }
 
 Master.prototype.onWorkerMessage = function(worker, message) {
@@ -71,12 +81,25 @@ Master.prototype.onWorkerMessage = function(worker, message) {
 }
 
 Master.prototype.changeWorkerRole = function(worker, rolename) {
-  if (worker.role === "idle") {
+  var self = this;
+
+  if (worker.role === "idle" && 0) {
     worker.role = rolename;
     worker.send({ type: "roleChange", newRole: rolename });
-  } else {
-    worker.send({ type: "end" });
-    // FIXME: Add timeout to kill if we haven't received the exit signal
-    // in X minutes
+    return;
   }
+
+  // Try ending the current worker in this slot nicely
+  worker.send({ type: "end" });
+  worker.killId = setTimeout(self.forceKillWorker.bind(self, worker),
+                             WORKER_KILL_WAIT_SECONDS * 1000);
+
+  // Create a new worker and set it's role
+  newWorker = self.createWorker();
+  newWorker.role = rolename;
+  newWorker.send({ type: "roleChange", newRole: rolename });
+}
+
+Master.prototype.forceKillWorker = function(worker) {
+  worker.destroy();
 }

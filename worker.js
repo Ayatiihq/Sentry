@@ -77,6 +77,10 @@ Worker.prototype.onMessage = function(message) {
     self.switchRoles(message.newRole);
     logger.info('Role change: ' + self.currentRoleName_);
   
+  } else if (message.type == 'end') {
+    logger.info('Exiting as requested');
+    cluster.worker.destroy();
+
   } else {
     logger.warn('Unknown message: ' + util.inspect(message));
   }
