@@ -83,7 +83,7 @@ Master.prototype.onWorkerMessage = function(worker, message) {
 Master.prototype.changeWorkerRole = function(worker, rolename) {
   var self = this;
 
-  if (worker.role === "idle" && 0) {
+  if (worker.role === "idle") {
     worker.role = rolename;
     worker.send({ type: "roleChange", newRole: rolename });
     return;
