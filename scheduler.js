@@ -19,8 +19,8 @@ var cluster = require('cluster')
 
 var RolesCache = require('./roles/roles-cache.js').RolesCache;
 
-var MIN_CHECK_INTERVAL_SECONDS = 15;
-var MAX_CHECK_INTERVAL_SECONDS = 30;
+var MIN_CHECK_INTERVAL_SECONDS = 180;
+var MAX_CHECK_INTERVAL_SECONDS = 300;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 
 var Scheduler = exports.Scheduler = function() {
