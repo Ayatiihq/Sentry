@@ -86,7 +86,7 @@ Worker.prototype.onMessage = function(message) {
 Worker.prototype.setRole = function(rolename) {
   var self = this;
 
-  logger.info('Role change: ' + self.currentRoleName_);
+  logger.info('Role change: ' + rolename);
 
   self.procinfo_.setRole(rolename);
   self.currentRoleName_ = rolename;

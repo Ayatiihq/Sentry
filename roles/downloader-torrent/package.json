@@ -1,4 +1,6 @@
 {
   "name": "downloader-torrent",
-  "main": "./downloader-torrent.js"
+  "main": "./downloader-torrent.js",
+  "type": "scalable",
+  "queues": ["downloader-torrent:priority", "downloader-torrent"]
 }

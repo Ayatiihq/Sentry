@@ -1,4 +1,5 @@
 {
   "name": "governor",
-  "main": "./governor.js"
+  "main": "./governor.js",
+  "type": "singleton"
 }

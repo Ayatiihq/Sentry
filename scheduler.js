@@ -17,12 +17,15 @@ var cluster = require('cluster')
   , os = require('os')
   ;
 
+var RolesCache = require('./roles/roles-cache.js').RolesCache;
+
 var MIN_CHECK_INTERVAL_SECONDS = 15;
 var MAX_CHECK_INTERVAL_SECONDS = 30;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 60;
 
 var Scheduler = exports.Scheduler = function() {
   this.redis_ = null;
+  this.roleCache_ = null;
   this.singletons_ = null;
 
   this.init();
@@ -32,6 +35,8 @@ util.inherits(Scheduler, events.EventEmitter);
 
 Scheduler.prototype.init = function() {
   var self = this;
+
+  self.roleCache_ = new RolesCache();
 
   self.initRedis();
 }
