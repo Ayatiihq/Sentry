@@ -43,12 +43,14 @@ Master.prototype.init = function() {
   self.tryFillWorkerSlots();
 }
 
-Master.prototype.changeWorkerRole = function(worker, rolename) {
+Master.prototype.changeWorkerRole = function(worker, rolename, callback) {
   var self = this;
 
   if (worker.role === "idle") {
     worker.role = rolename;
     worker.send({ type: "roleChange", newRole: rolename });
+
+    callback(worker);
     return;
   }
 
@@ -61,6 +63,8 @@ Master.prototype.changeWorkerRole = function(worker, rolename) {
   newWorker = self.createWorker();
   newWorker.role = rolename;
   newWorker.send({ type: "roleChange", newRole: rolename });
+
+  callback(newWorker);
 }
 
 Master.prototype.forceKillWorker = function(worker) {
@@ -69,7 +73,7 @@ Master.prototype.forceKillWorker = function(worker) {
 
 Master.prototype.onWorkerExit = function(worker, code, signal) {
   var self = this;
-  
+
   if (worker.suicide === true) {
     logger.info('Worker ' + worker.id + " died as expected.");
     if (worker.killId !== 0)
@@ -114,6 +118,7 @@ Master.prototype.onWorkerMessage = function(worker, message) {
 
   if (message.type === 'workerAnnounce') {
     self.procinfo_.announceWorker(message.key, message.value);
+    self.procinfo_.announceWorkerRole(message.key, worker.role);
   
   } else {
     logger.warn('Unknown worker message: ' + util.inspect(message));

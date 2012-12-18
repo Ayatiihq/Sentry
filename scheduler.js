@@ -19,14 +19,13 @@ var cluster = require('cluster')
 
 var RolesCache = require('./roles/roles-cache.js').RolesCache;
 
-var MIN_CHECK_INTERVAL_SECONDS = 5;
-var MAX_CHECK_INTERVAL_SECONDS = 10;
-var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 60;
+var MIN_CHECK_INTERVAL_SECONDS = 15;
+var MAX_CHECK_INTERVAL_SECONDS = 30;
+var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 
 var Scheduler = exports.Scheduler = function() {
   this.redis_ = null;
   this.rolesCache_ = null;
-  this.singletons_ = null;
 
   this.init();
 }
@@ -91,7 +90,7 @@ Scheduler.prototype.isWorkerAvailableForRoleChange = function() {
   for (var id in cluster.workers) {
     var worker = cluster.workers[id];
 
-    // If the role is not a singleton, then it's available
+    // If the worker's role is not a singleton, then it's available
     var index = self.rolesCache_.getSingletonRoles().findIndex(function(info) {
       return info.name === worker.role;
     });
@@ -118,8 +117,8 @@ Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
         // Set an expire in case something bad happens when changing the role
         self.redis_.expire(key, SINGLETON_ACQUIRE_TIMEOUT_SECONDS);
 
-        self.emit('changeWorkerRole', cluster.workers[wid], rolename);
-      
+        self.emit('changeWorkerRole', cluster.workers[wid], rolename, self.onSingletonAcquired.bind(self, key));
+
       } else {
         console.info('No workers available for new role, releasing lock');
         self.redis_.del(key);
@@ -128,11 +127,36 @@ Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
   });
 }
 
+Scheduler.prototype.onSingletonAcquired = function(key, worker) {
+  var self = this;
+
+  logger.info('Acquired Singleton: ' + worker.role + ', setting up TTL');
+
+  var uid = setInterval(function() {
+    self.redis_.set(key, 1);
+    self.redis_.expire(key, SINGLETON_ACQUIRE_TIMEOUT_SECONDS);
+  }, (SINGLETON_ACQUIRE_TIMEOUT_SECONDS/2) * 1000);
+    
+  worker.on('exit', function() {
+    clearInterval(uid);
+    self.redis_.del(key);
+  });
+}
+
 //
 // Public
 //
 Scheduler.prototype.findRoleForWorker = function(worker) {
   var self = this;
-  
-  // Do something clever
+
+  // Get the swarm's current state with regards to the fulfilled roles
+  self.redis_.keys('role:*', function(err, reply) {
+    if (reply === 0) {
+      console.warn('Unable to get existing roles in swarm, leaving worker idle');
+      return;
+    }
+
+    //var rolename = self.getPriorityRole(reply);
+    console.log(reply);
+  });
 }

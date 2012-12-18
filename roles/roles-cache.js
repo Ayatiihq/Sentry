@@ -3,8 +3,8 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * RolesCache tells the Master what processes to start and the roles they should 
- * perform.
+ * RolesCache compiles a cache of all the available roles so the scheduler can
+ * easily enumerate them.
  *
  */
 
@@ -50,13 +50,13 @@ RolesCache.prototype.onRolesDirRead = function(err, files) {
   self.emit('ready');
 }
 
-RolesCache.prototype.loadRole = function(roleinfopath) {
+RolesCache.prototype.loadRole = function(infopath) {
   var self = this;
 
-  logger.info('Loading role: ' + roleinfopath);
+  logger.info('Loading role: ' + infopath);
 
   try {
-    var info = require(roleinfopath);
+    var info = require(infopath);
     
     if (info.type === 'singleton') {
       self.singletonRoles_.push(info);
@@ -68,7 +68,7 @@ RolesCache.prototype.loadRole = function(roleinfopath) {
       console.warn('Unable to process role of type: ' + info.type);
     }
   } catch (error) {
-    logger.warn('Unable to load role: ' + rolepath + ': ' + error);
+    logger.warn('Unable to load role: ' + infopath + ': ' + error);
   }
 }
 

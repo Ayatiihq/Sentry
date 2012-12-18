@@ -103,6 +103,11 @@ ProcInfo.prototype.announceWorker = function(key, value) {
   self.announceKeyValue(key, value)
 }
 
+ProcInfo.prototype.announceWorkerRole = function(key, rolename) {
+  var self = this;
+  self.announceKeyValue('role:' + rolename + ':' + key, 1);
+}
+
 ProcInfo.prototype.announceKeyValue = function(key, value) {
   var self = this;
 
@@ -149,4 +154,6 @@ ProcInfo.prototype.getWorkerData = function() {
 ProcInfo.prototype.setRole = function(rolename) {
   var self = this;
   self.role_ = rolename;
+
+  self.announce.bind(self);
 }
