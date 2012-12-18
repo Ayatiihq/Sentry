@@ -29,7 +29,6 @@ var Worker = exports.Worker = function() {
 
   this.currentRoleName_ = "idle";
   this.role_ = null;
-  this.oldRole_ = null;
 
   this.init();
 }
@@ -73,31 +72,65 @@ Worker.prototype.cleanupSocket = function() {
 Worker.prototype.onMessage = function(message) {
   var self = this;
 
-  if (message.type === "roleChange") {
-    self.switchRoles(message.newRole);
-    logger.info('Role change: ' + self.currentRoleName_);
-  
-  } else if (message.type == 'end') {
-    logger.info('Exiting as requested');
-    cluster.worker.destroy();
+  if (message.type === 'roleChange') {
+    self.setRole(message.newRole);
 
+  } else if (message.type === 'end') {
+    self.startExit();
+  
   } else {
     logger.warn('Unknown message: ' + util.inspect(message));
   }
 }
 
-Worker.prototype.switchRoles = function(rolename) {
+Worker.prototype.setRole = function(rolename) {
   var self = this;
 
-  if (self.oldRole_ !== null) {
-    // Notify and put the old role on the back-burner
-    self.oldRole_ = self.role_;
-    self.oldRole_.end();
-    // FIXME: Add a kill timer here
-  }
+  logger.info('Role change: ' + self.currentRoleName_);
 
   self.procinfo_.setRole(rolename);
   self.currentRoleName_ = rolename;
+  
   var Role = require('./roles/' + rolename).Role;
   self.role_ = new Role();
+  self.role_.on('ended', self.onRoleEnded.bind(self));
+  self.role_.on('finished', self.onRoleFinished.bind(self));
+  self.role_.on('error', self.onRoleError.bind(self));
+  
+  self.role_.start();
+}
+
+Worker.prototype.startExit = function() {
+  var self = this;
+
+  logger.info('Exiting as requested by master');
+
+  if (self.role_ !== null) {
+    // The role will signal when it's done and we'll destroy ourselves
+    self.role_.end();
+  } else {
+    // No current role, so just exit
+    cluster.worker.destroy();
+  }
+}
+
+Worker.prototype.onRoleEnded = function() {
+  var self = this;
+
+  logger.info('Role "' + self.currentRoleName_ + '" has ended, exiting');
+  cluster.worker.destroy();
+}
+
+Worker.prototype.onRoleFinished = function() {
+  var self = this;
+
+  logger.info('Role "' + self.currentRoleName_ + '" has finished, exiting');
+  cluster.worker.destroy();
+}
+
+Worker.prototype.onRoleError = function() {
+  var self = this;
+
+  logger.info('Role "' + self.currentRoleName_ + '" has an error, exiting');
+  cluster.worker.destroy();
 }

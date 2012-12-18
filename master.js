@@ -9,6 +9,7 @@
  */
 
 var cluster = require('cluster')
+  , config = require('./config')
   , events = require('events')
   , logger = require('./logger').forFile('master.js')
   , util = require('util')
@@ -35,49 +36,11 @@ Master.prototype.init = function() {
   self.procinfo_ = new ProcInfo();
   
   self.scheduler_ = new Scheduler();
-  self.scheduler_.on('createWorker', self.createWorker.bind(self));
   self.scheduler_.on('changeWorkerRole', self.changeWorkerRole.bind(self));
 
   cluster.on('exit', self.onWorkerExit.bind(self));
 
-  // Now we're ready to start processing workers
-  self.scheduler_.start();
-}
-
-Master.prototype.createWorker = function() {
-  var self = this;
-
-  var worker = cluster.fork();
-  worker.role = "idle";
-  worker.on('message', self.onWorkerMessage.bind(this, worker));
-  worker.killId = 0;
-
-  logger.info('Created worker ' + worker.id);
-
-  return worker;
-}
-
-Master.prototype.onWorkerExit = function(worker, code, signal) {
-  if (worker.suicide === true) {
-    logger.info('Worker ' + worker.id + " died as expected.");
-    if (worker.killId !== 0)
-      clearTimeout(worker.killId);
-  } else {
-    logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
-  }
-
-  // FIXME: Create a new one
-}
-
-Master.prototype.onWorkerMessage = function(worker, message) {
-  var self = this;
-
-  if (message.type === 'workerAnnounce') {
-    self.procinfo_.announceWorker(message.key, message.value);
-  
-  } else {
-    logger.warn('Unknown worker message: ' + util.inspect(message));
-  }
+  self.tryFillWorkerSlots();
 }
 
 Master.prototype.changeWorkerRole = function(worker, rolename) {
@@ -102,4 +65,55 @@ Master.prototype.changeWorkerRole = function(worker, rolename) {
 
 Master.prototype.forceKillWorker = function(worker) {
   worker.destroy();
+}
+
+Master.prototype.onWorkerExit = function(worker, code, signal) {
+  if (worker.suicide === true) {
+    logger.info('Worker ' + worker.id + " died as expected.");
+    if (worker.killId !== 0)
+      clearTimeout(worker.killId);
+  } else {
+    logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
+  }
+
+  self.tryFillWorkerSlots();
+}
+
+Master.prototype.tryFillWorkerSlots = function() {
+  var self = this;
+  var nPossibleWorkers = Math.min(os.cpus().length, config.MAX_WORKERS);
+  var nActiveWorkers = Object.size(cluster.workers);
+  var nNewWorkers = nPossibleWorkers - nActiveWorkers;
+
+  if (nNewWorkers < 1)
+    return;
+ 
+  for (var i = 0; i < nNewWorkers; i++) {
+    var worker = self.createWorker();
+    self.scheduler_.findRoleForWorker(worker);
+  }
+}
+
+Master.prototype.createWorker = function() {
+  var self = this;
+
+  var worker = cluster.fork();
+  worker.role = "idle";
+  worker.on('message', self.onWorkerMessage.bind(this, worker));
+  worker.killId = 0;
+
+  logger.info('Created worker ' + worker.id);
+
+  return worker;
+}
+
+Master.prototype.onWorkerMessage = function(worker, message) {
+  var self = this;
+
+  if (message.type === 'workerAnnounce') {
+    self.procinfo_.announceWorker(message.key, message.value);
+  
+  } else {
+    logger.warn('Unknown worker message: ' + util.inspect(message));
+  }
 }

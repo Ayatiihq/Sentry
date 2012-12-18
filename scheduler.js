@@ -122,20 +122,11 @@ Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
   });
 }
 
-Scheduler.prototype.createWorkers = function() {
-  var self = this;
-  var nWorkers = Math.min(os.cpus().length, config.MAX_WORKERS);
- 
-  for (var i = 0; i < nWorkers; i++) {
-    self.emit('createWorker');
-  }
-}
-
 //
 // Public
 //
-Scheduler.prototype.start = function() {
+Scheduler.prototype.findRoleForWorker = function(worker) {
   var self = this;
   
-  self.createWorkers();
+  // Do something clever
 }
