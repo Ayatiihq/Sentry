@@ -1,4 +1,4 @@
-/*
+  /*
  * scheduler.js: the scheduler
  *
  * (C) 2012 Ayatii Limited
@@ -156,7 +156,51 @@ Scheduler.prototype.findRoleForWorker = function(worker) {
       return;
     }
 
-    //var rolename = self.getPriorityRole(reply);
-    console.log(reply);
+    var roles = self.getRolesByNumber(reply);
+    console.log(roles);
+    if (roles.length > 0) {
+      self.emit('changeWorkerRole', worker, roles[0].name);
+    }
   });
+}
+
+Scheduler.prototype.getRolesByNumber = function(reply) {
+  var self = this;
+  var hash = {};
+  
+  // Add the roles we can handle
+  self.rolesCache_.getScalableRoles().forEach(function(info) {
+    hash[info.name] = { name: info.name, count: 0 };
+  });
+
+  // Weight against our own that are running, to keep things interesting
+  for (var id in cluster.workers) {
+    worker = cluster.workers[id];
+
+    if (Object.has(hash, worker.role)) {
+      hash[worker.role].count = 1;
+    }
+  }
+
+  // Order the roles we can do by those that are already running in the swarm
+  reply.forEach(function(key) {
+    var role = key.split(':')[1];
+
+    if (Object.has(hash, role)) {
+      hash[role].count++;
+    }
+  });
+
+  // Convert to array and order by running roles ASC
+  var ret = [];
+
+  Object.keys(hash, function(key, value) {
+    ret.push(value);
+  });
+
+  ret = ret.min(function(n) {
+    return n.count;
+  }, true);
+
+  return Object.isArray(ret) ? ret.randomize() : ret;
 }

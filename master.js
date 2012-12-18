@@ -46,6 +46,9 @@ Master.prototype.init = function() {
 Master.prototype.changeWorkerRole = function(worker, rolename, callback) {
   var self = this;
 
+  if (callback === undefined)
+    callback = function() {};
+
   if (worker.role === "idle") {
     worker.role = rolename;
     worker.send({ type: "roleChange", newRole: rolename });
@@ -118,7 +121,9 @@ Master.prototype.onWorkerMessage = function(worker, message) {
 
   if (message.type === 'workerAnnounce') {
     self.procinfo_.announceWorker(message.key, message.value);
-    self.procinfo_.announceWorkerRole(message.key, worker.role);
+
+    if (worker.role !== 'idle')
+      self.procinfo_.announceWorkerRole(message.key, worker.role);
   
   } else {
     logger.warn('Unknown worker message: ' + util.inspect(message));

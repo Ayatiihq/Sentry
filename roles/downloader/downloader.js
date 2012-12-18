@@ -7,7 +7,10 @@
  *
  */
 
-var events = require('events');
+var events = require('events')
+  , logger = require('../../logger').forFile('downloader.js')
+  , util = require('util')
+  ;
 
 var Role = require('../role').Role;
 
