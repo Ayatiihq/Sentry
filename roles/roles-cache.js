@@ -43,6 +43,11 @@ RolesCache.prototype.onRolesDirRead = function(err, files) {
       return;
     self.loadRole('./' + file + '/package.json');
   });
+
+  self.removeRoles();
+
+  self.ready_ = true;
+  self.emit('ready');
 }
 
 RolesCache.prototype.loadRole = function(roleinfopath) {
@@ -65,6 +70,12 @@ RolesCache.prototype.loadRole = function(roleinfopath) {
   } catch (error) {
     logger.warn('Unable to load role: ' + rolepath + ': ' + error);
   }
+}
+
+RolesCache.prototype.removeRoles = function() {
+  // Remove roles that
+  // - Have been exluded by envvar variables
+  // - Do not apply to this platform
 }
 
 //

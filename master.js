@@ -68,6 +68,8 @@ Master.prototype.forceKillWorker = function(worker) {
 }
 
 Master.prototype.onWorkerExit = function(worker, code, signal) {
+  var self = this;
+  
   if (worker.suicide === true) {
     logger.info('Worker ' + worker.id + " died as expected.");
     if (worker.killId !== 0)

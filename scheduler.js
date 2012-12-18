@@ -19,13 +19,13 @@ var cluster = require('cluster')
 
 var RolesCache = require('./roles/roles-cache.js').RolesCache;
 
-var MIN_CHECK_INTERVAL_SECONDS = 15;
-var MAX_CHECK_INTERVAL_SECONDS = 30;
+var MIN_CHECK_INTERVAL_SECONDS = 5;
+var MAX_CHECK_INTERVAL_SECONDS = 10;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 60;
 
 var Scheduler = exports.Scheduler = function() {
   this.redis_ = null;
-  this.roleCache_ = null;
+  this.rolesCache_ = null;
   this.singletons_ = null;
 
   this.init();
@@ -36,7 +36,7 @@ util.inherits(Scheduler, events.EventEmitter);
 Scheduler.prototype.init = function() {
   var self = this;
 
-  self.roleCache_ = new RolesCache();
+  self.rolesCache_ = new RolesCache();
 
   self.initRedis();
 }
@@ -49,26 +49,22 @@ Scheduler.prototype.initRedis = function() {
   if (self.redis_.ready)
     self.onReady();
   else
-    self.redis_.on('ready', self.onReady.bind(self));
+    self.redis_.once('ready', self.onReady.bind(self));
 }
 
 Scheduler.prototype.onReady = function() {
   var self = this;
+
+  if (!self.rolesCache_.isReady()) {
+    self.rolesCache_.once('ready', self.onReady.bind(self));
+    return;
+  }
 
   self.watchSingletons();
 }
 
 Scheduler.prototype.watchSingletons = function() {
   var self = this;
-
-  // Get list of singletons we're meant to watch
-  self.singletons_ = config.SINGLETON_ROLES;
-  self.singletons_ = self.singletons_.subtract(config.EXCLUDE_ROLES);
-
-  if (self.singletons_.length === 0) {
-    logger.info('No singletons to process');
-    return;
-  }
 
   // Keep it a bit haphazard for checking but no more than 5 mins
   var interval = Number.random(MIN_CHECK_INTERVAL_SECONDS, MAX_CHECK_INTERVAL_SECONDS) ;
@@ -78,14 +74,13 @@ Scheduler.prototype.watchSingletons = function() {
 Scheduler.prototype.tryOwnSingletonLocks = function() {
   var self = this;
 
-  self.singletons_.forEach(function (rolename) {
-    logger.info('Checking ' + rolename + ' lock');
+  self.rolesCache_.getSingletonRoles().forEach(function (roleinfo) {
+    var rolename = roleinfo.name;
 
     if (self.isWorkerAvailableForRoleChange() === null) {
       logger.info('No available workers');
       return;
     }
-
     self.tryOwnSingletonLock(rolename);
   });
 }
@@ -97,7 +92,11 @@ Scheduler.prototype.isWorkerAvailableForRoleChange = function() {
     var worker = cluster.workers[id];
 
     // If the role is not a singleton, then it's available
-    if (self.singletons_.indexOf(worker.role) === -1)
+    var index = self.rolesCache_.getSingletonRoles().findIndex(function(info) {
+      return info.name === worker.role;
+    });
+
+    if (index === -1)
       return id;
   }
 
@@ -106,6 +105,8 @@ Scheduler.prototype.isWorkerAvailableForRoleChange = function() {
 
 Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
   var self = this;
+
+  logger.info('Checking ' + rolename + ' lock');
 
   var key = 'lock:' + rolename;
   self.redis_.setnx(key, 1, function (err, reply) {
