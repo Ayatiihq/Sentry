@@ -120,7 +120,7 @@ Scheduler.prototype.tryOwnSingletonLock = function(rolename) {
         self.emit('changeWorkerRole', cluster.workers[wid], rolename, self.onSingletonAcquired.bind(self, key));
 
       } else {
-        console.info('No workers available for new role, releasing lock');
+        logger.info('No workers available for new role, releasing lock');
         self.redis_.del(key);
       }
     }
@@ -152,12 +152,11 @@ Scheduler.prototype.findRoleForWorker = function(worker) {
   // Get the swarm's current state with regards to the fulfilled roles
   self.redis_.keys('role:*', function(err, reply) {
     if (reply === 0) {
-      console.warn('Unable to get existing roles in swarm, leaving worker idle');
+      logger.warn('Unable to get existing roles in swarm, leaving worker idle');
       return;
     }
 
     var roles = self.getRolesByNumber(reply);
-    console.log(roles);
     if (roles.length > 0) {
       self.emit('changeWorkerRole', worker, roles[0].name);
     }

@@ -73,9 +73,30 @@ RolesCache.prototype.loadRole = function(infopath) {
 }
 
 RolesCache.prototype.removeRoles = function() {
+  var self = this;
+
   // Remove roles that
-  // - Have been exluded by envvar variables
   // - Do not apply to this platform
+
+  config.EXCLUDE_ROLES.forEach(function(rolename) {
+    self.singletonRoles_.remove(function(info) {
+      return info.name === rolename;
+    });
+    
+    self.scalableRoles_.remove(function(info) {
+      return info.name === rolename;
+    });
+  });
+
+  if (config.INCLUDE_ROLES.length > 0) {
+    self.singletonRoles_.remove(function(info) {
+      return config.INCLUDE_ROLES.findIndex(info.name) === -1;
+    });
+
+    self.scalableRoles_.remove(function(info) {
+      return config.INCLUDE_ROLES.findIndex(info.name) === -1;
+    });
+  }
 }
 
 //
