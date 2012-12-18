@@ -1,0 +1,4 @@
+{
+  "name": "downloader-torrent",
+  "main": "./downloader-torrent.js"
+}

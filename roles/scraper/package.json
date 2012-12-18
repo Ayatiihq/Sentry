@@ -1,0 +1,4 @@
+{
+  "name": "scraper",
+  "main": "./scraper.js"
+}

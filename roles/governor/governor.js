@@ -3,8 +3,8 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Governor represents the cluster to the rest of the hive, starts the appropriete
- * number of workers, and uses the schedular to assign the correct roles to them.
+ * Governor is the main role. It is a singleton and is responsibile for setting
+ * the heartbeat for the rest of the system.
  *
  */
 
@@ -29,20 +29,20 @@ Governor.prototype.init = function() {
 //
 // Overrides
 
-Role.prototype.getName = function() {
+Governor.prototype.getName = function() {
   return "governor";
 }
 
-Role.prototype.getDisplayName = function() {
+Governor.prototype.getDisplayName = function() {
   return "Governor";
 }
 
-Role.prototype.start = function() {
+Governor.prototype.start = function() {
   var self = this;
   self.emit('started');
 }
 
-Role.prototype.end = function() {
+Governor.prototype.end = function() {
   var self = this;
   self.emit('ended');
 }

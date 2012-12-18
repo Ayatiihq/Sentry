@@ -17,8 +17,8 @@ var cluster = require('cluster')
   , os = require('os')
   ;
 
-var MIN_CHECK_INTERVAL_SECONDS = 4;
-var MAX_CHECK_INTERVAL_SECONDS = 5;
+var MIN_CHECK_INTERVAL_SECONDS = 15;
+var MAX_CHECK_INTERVAL_SECONDS = 30;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 60;
 
 var Scheduler = exports.Scheduler = function() {
