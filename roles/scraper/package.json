@@ -1,0 +1,6 @@
+{
+  "name": "scraper",
+  "main": "./scraper.js",
+  "type": "scalable",
+  "queues": ["scraper:priority", "scraper"]
+}

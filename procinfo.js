@@ -9,6 +9,7 @@
  */
 
 var cluster = require('cluster')
+  , config = require('./config')
   , events = require('events')
   , json = require('jsonify')
   , logger = require('./logger').forFile('procinfo.js')
@@ -18,12 +19,13 @@ var cluster = require('cluster')
   , util = require('util')
   ;
 
-var EXPIRE_TIME_SECONDS = 60;
-var INTERVAL_TIME_SECONDS = 30;
+var EXPIRE_TIME_SECONDS = config.ANNOUNCE_EXPIRE_TIME_SECONDS;
+var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS/2;
 
 var ProcInfo = exports.ProcInfo = function() {
   this.key_ = "undefined";
   this.redis_ = null;
+  this.role_ = 'idle';
 
   this.init();
 }
@@ -48,7 +50,7 @@ ProcInfo.prototype.initRedis = function() {
   // Setup Redis, as that is the store of process data between the hive
   self.redis_ = redis.createAuthedClient();
   if (self.redis_.ready)
-    self.onRedisReady();
+    self.onReady();
   else
     self.redis_.on('ready', self.onReady.bind(self));
 }
@@ -101,6 +103,11 @@ ProcInfo.prototype.announceWorker = function(key, value) {
   self.announceKeyValue(key, value)
 }
 
+ProcInfo.prototype.announceWorkerRole = function(key, rolename) {
+  var self = this;
+  self.announceKeyValue('role:' + rolename + ':' + key, 1);
+}
+
 ProcInfo.prototype.announceKeyValue = function(key, value) {
   var self = this;
 
@@ -131,14 +138,22 @@ ProcInfo.prototype.getMasterData = function() {
 }
 
 ProcInfo.prototype.getWorkerData = function() {
+  var self = this;
   var data = {};
 
   data.timestamp = Date.now();
-  data.role = "idle";
+  data.role = self.role_;
   data.workerId = cluster.worker.id;
   data.pid = process.pid;
   data.memoryUsage = json.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
   return json.stringify(data);
+}
+
+ProcInfo.prototype.setRole = function(rolename) {
+  var self = this;
+  self.role_ = rolename;
+
+  self.announce.bind(self);
 }

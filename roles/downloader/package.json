@@ -1,0 +1,6 @@
+{
+  "name": "downloader",
+  "main": "./downloader.js",
+  "type": "scalable",
+  "queues": ["downloader:priority", "downloader"]
+}
