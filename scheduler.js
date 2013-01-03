@@ -152,8 +152,8 @@ Scheduler.prototype.findRoleForWorker = function(worker) {
   // Get the swarm's current state with regards to the fulfilled roles
   self.redis_.keys('role:*', function(err, reply) {
     if (reply === 0) {
-      logger.warn('Unable to get existing roles in swarm, leaving worker idle');
-      return;
+      logger.warn('Unable to get existing roles in swarm');
+      reply = [];
     }
 
     var roles = self.getRolesByNumber(reply);

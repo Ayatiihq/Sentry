@@ -49,25 +49,24 @@ Master.prototype.changeWorkerRole = function(worker, rolename, callback) {
   if (callback === undefined)
     callback = function() {};
 
-  if (worker.role === "idle") {
-    worker.role = rolename;
-    worker.send({ type: "roleChange", newRole: rolename });
+  if (worker.role !== "idle") {
+    // Try ending the current worker in this slot nicely
+    worker.send({ type: "end" });
+    worker.killId = setTimeout(self.forceKillWorker.bind(self, worker),
+                               WORKER_KILL_WAIT_SECONDS * 1000);
 
-    callback(worker);
-    return;
+    // Create a new worker
+    worker = self.createWorker();
   }
 
-  // Try ending the current worker in this slot nicely
-  worker.send({ type: "end" });
-  worker.killId = setTimeout(self.forceKillWorker.bind(self, worker),
-                             WORKER_KILL_WAIT_SECONDS * 1000);
+  self.setWorkerRole(worker, rolename, callback);
+}
 
-  // Create a new worker and set it's role
-  newWorker = self.createWorker();
-  newWorker.role = rolename;
-  newWorker.send({ type: "roleChange", newRole: rolename });
+Master.prototype.setWorkerRole = function(worker, rolename, callback) {
+  worker.role = rolename;
+  worker.send({ type: "roleChange", newRole: rolename });
 
-  callback(newWorker);
+  callback(worker);
 }
 
 Master.prototype.forceKillWorker = function(worker) {

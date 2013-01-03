@@ -14,7 +14,7 @@ function getEnv(value, defaultValue) {
 // Splits out FOO_BAR="baz,boe,bun" into an array
 function getArrayEnv(value, defaultValue) {
   value = typeof value !== 'undefined' ? value.split(',') : defaultValue;
-  return valuegi;
+  return value;
 }
 
 var config = exports;
