@@ -13,7 +13,7 @@ var connString = process.env.DATABASE_URL || "postgres://njpatel@localhost/njpat
 
 var drops = [ "DROP TABLE notices;"
             , "DROP TABLE downloads;"
-            , "DROP TABLE verification;"
+            , "DROP TABLE verifications;"
             , "DROP TABLE users;"
             , "DROP TABLE urirelations;"
             , "DROP TABLE uris;"
