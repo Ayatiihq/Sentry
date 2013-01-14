@@ -1,47 +1,47 @@
 /*
- * scraper.js: the scraper
+ * scraper.js: the base class for scrapes
  *
  * (C) 2012 Ayatii Limited
- *
- * Scraper is the general link scraping role.
  *
  */
 
 var events = require('events')
-  , logger = require('../../logger').forFile('scraper.js')
+  , logger = require('../logger').forFile('scraper.js')
   , util = require('util')
   ;
 
-var Role = require('../role').Role;
-
-var Scraper = exports.Role = function() {
+var Scraper = exports.Scraper = function() {
   this.init();
+
+  //
+  // Signals
+  //
+
+  // "started" - When the scraper starts working
+  
+  // "ended" - When the scraper stops working
+  
+  // "finished" - When the scraper has no more tasks to complete
+
+  // "error" - When there is an error to stops the scraper from continuing it's
+  //           work
 }
 
-util.inherits(Scraper, Role);
+util.inherits(Scraper, events.EventEmitter);
 
 Scraper.prototype.init = function() {
-  var self = this;
-  logger.info('Scraper up and running');
 }
-
-//
-// Overrides
 
 Scraper.prototype.getName = function() {
   return "scraper";
 }
 
-Scraper.prototype.getDisplayName = function() {
-  return "Scraper";
-}
-
 Scraper.prototype.start = function() {
   var self = this;
-  self.emit('started');
+  logger.warn(self.getName() + " has no start method");
 }
 
 Scraper.prototype.end = function() {
   var self = this;
-  self.emit('ended');
+  logger.warn(self.getName() + " has no end method");
 }

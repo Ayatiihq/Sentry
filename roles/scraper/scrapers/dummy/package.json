@@ -1,0 +1,8 @@
+{
+  "name": "dummy",
+  "main": "./dummmy.js",
+  "types": {
+    "tv": "*",
+    "film": "*"
+  }
+}
