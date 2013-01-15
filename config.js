@@ -30,3 +30,8 @@ config.ANNOUNCE_EXPIRE_TIME_SECONDS = getEnv(process.env.SENTRY_ANNOUNCE_EXPIRE_
 config.EXCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SCRAPERS, []);
 
 config.INCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_INCLUDE_SCRAPERS, []);
+
+config.DATABASE_URL = getEnv(process.env.DATABASE_URL, 'postgres://aclmotoryefhcq:1dtTxQOUqGrrSGpWrgB8iKyE3o@ec2-54-243-250-1.compute-1.amazonaws.com:5432/df778jkmqe298e');
+
+// Governor
+config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
