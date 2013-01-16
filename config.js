@@ -31,7 +31,7 @@ config.EXCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SCRAPERS, []);
 
 config.INCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_INCLUDE_SCRAPERS, []);
 
-config.DATABASE_URL = getEnv(process.env.DATABASE_URL, 'postgres://aclmotoryefhcq:1dtTxQOUqGrrSGpWrgB8iKyE3o@ec2-54-243-250-1.compute-1.amazonaws.com:5432/df778jkmqe298e');
+config.DATABASE_URL = getEnv(process.env.DATABASE_URL, 'postgres://evqkjcjargxydk:WEUFwJzuOEqasrOfGxKCWjVb8B@ec2-54-243-229-57.compute-1.amazonaws.com:5432/d2brn3c2pum57a');
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);

@@ -19,7 +19,7 @@ var cluster = require('cluster')
 
 var SCRAPERS_DIR = path.dirname(module.filename) + '/scraper/scrapers';
 
-var Scrapers = exports.Scrapers = function() {
+var Scrapers = module.exports = function() {
   this.ready_ = false;
   this.scrapers_ = [];
   this.scrapersByType_ = {};
@@ -107,6 +107,8 @@ Scrapers.prototype.sortScrapers = function() {
         self.scrapersByType_[type] = [];
       }
       self.scrapersByType_[type].push(scraper);
+
+      scraper[type + '.regex'] = new RegExp(scraper.types[type]);
     }
   });
 }
@@ -122,8 +124,16 @@ Scrapers.prototype.getScrapers = function() {
   return this.scrapers_;
 }
 
-Scrapers.prototype.getScrapersForType = function(type) {
-  return this.scrapersByType_[type];
+Scrapers.prototype.getScrapersForType = function(type, scope) {
+  var self = this;
+
+  var scrapers = this.scrapersByType_[type];
+  if (scrapers !== undefined && scope !== undefined) {
+    scrapers.remove(function(scraper) {
+      return !scraper[type + '.regex'].test(scope);
+    });
+  }
+  return scrapers;
 }
 
 Scrapers.prototype.getScraperTypes = function() {

@@ -11,7 +11,7 @@ var logger = require('../logger')
 
 var config = require('../config');
 
-var Scrapers = require('../roles/scrapers.js').Scrapers;
+var Scrapers = require('../roles/scrapers.js');
 
 function setupSignals() {
   process.on('SIGINT', function() {
