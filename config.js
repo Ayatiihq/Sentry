@@ -31,7 +31,16 @@ config.EXCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SCRAPERS, []);
 
 config.INCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_INCLUDE_SCRAPERS, []);
 
+// External Services
 config.DATABASE_URL = getEnv(process.env.DATABASE_URL, 'postgres://evqkjcjargxydk:WEUFwJzuOEqasrOfGxKCWjVb8B@ec2-54-243-229-57.compute-1.amazonaws.com:5432/d2brn3c2pum57a');
+
+config.IRONMQ_TOKEN = getEnv(process.env.IRONMQ_TOKEN, 'yTY3n98ywCuj1HpMMe2_6dp8a7U');
+
+config.IRONMQ_PROJECT = getEnv(process.env.IRONMQ_PROJECT, '50cf775e8e7d1447f5004d56');
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
+
+config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_GOVERNOR_SCRAPER_QUEUE, 'scraper');
+
+config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_GOVERNOR_SCRAPER_QUEUE_PRIORITY, 'scraper.priority');

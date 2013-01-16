@@ -9,9 +9,10 @@ exports.scraper = {
   jobState: {
     QUEUED: 0,
     PAUSED: 1,
-    COMPLETED: 2,
-    CANCELLED: 3,
-    ERRORED: 4
+    STARTED: 2,
+    COMPLETED: 3,
+    CANCELLED: 4,
+    ERRORED: 5
   }
 
 };

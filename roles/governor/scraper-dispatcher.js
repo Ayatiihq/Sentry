@@ -9,7 +9,9 @@
 
 var config = require('../../config')
   , events = require('events')
+  , ironmq = require('ironmq')
   , logger = require('../../logger').forFile('scraper-dispatcher.js')
+  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
   , states = require('../../states')
   , util = require('util')
   ;
@@ -31,6 +33,13 @@ var qActiveJobs = " \
   WHERE \
     campaign = $1 \
   ORDER BY scraper, created DESC \
+;";
+
+var qAddJob = " \
+  INSERT INTO scraperjobs \
+    (campaign, scraper, properties) \
+  VALUES \
+    ($1, $2, 'msgId => $3') \
 ;";
 
 var ScraperDispatcher = module.exports = function(postgres) {
@@ -92,11 +101,6 @@ ScraperDispatcher.prototype.checkCampaign = function(campaign) {
   });
 }
 
-// For every scraper:
-//   makeSureCanHandleThisCampaign();
-//   makeSureDoesntHaveExistingJobs();
-//   makeSureEnoughTimeHasPassedSinceLastCompleted();
-//   createNewJob();
 ScraperDispatcher.prototype.enqueueJobsForCampaign = function(campaign, lastJobs) {
   var self = this;
   var types = campaign.type.split('.'); // we get tv.live
@@ -110,11 +114,17 @@ ScraperDispatcher.prototype.enqueueJobsForCampaign = function(campaign, lastJobs
   }
 
   scrapers.forEach(function(scraper) {
-    if (self.scraperIgnoredByCampaign(campaign, scraper))
-      return;
+    logJob(campaign, scraper, 'Checking job status');
 
-    if (self.scraperHasExistingValidJob(campaign, lastJobs, scraper))
+    if (self.scraperIgnoredByCampaign(campaign, scraper)) {
+      logJob(campaign, scraper, 'Scraper is ignored for this campaign');
       return;
+    }
+
+    if (self.scraperHasExistingValidJob(campaign, lastJobs, scraper)) {
+      logJob(campaign, scraper, 'Existing job in progress');
+      return;
+    }
 
     self.createScraperJob(campaign, scraper);
   });
@@ -149,6 +159,8 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   switch (lastJob.state) {
     case state.QUEUED:
     case state.PAUSED:
+    case state.STARTED:
+      // FIXME: We should probably still check if it's been in the queue for ages
       return true;
 
     case state.COMPLETED:
@@ -172,11 +184,46 @@ ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper,
   return finished.isBefore(intervalAgo);
 }
 
+// Add job to queue
+// Add job to postgres
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
-  console.log('creating job');
+  var self = this;
+
+  logJob(campaign, scraper, 'Creating job');
+
+  var msg = {};
+  msg.campaignId = campaign.id;
+  msg.scraper = scraper.name;
+  msg.created = new Date();
+  
+  mq.queues(config.SCRAPER_QUEUE).put(JSON.stringify(msg), function(err, obj) {
+    if (err) {
+      logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
+      return;
+    }
+
+    var query = self.postgres_.query("INSERT INTO scraperjobs (campaign, scraper, properties) VALUES ($1, $2, 'msgId => " +  obj.ids[0] + "')",
+                                     [campaign.id, scraper.name],
+                                     function(err, result) {
+      if (err) {
+        logJobWarn(campaign, scraper, 'Unable to insert job: ' + err);
+      
+      } else {
+        logJob(campaign, scraper, 'Successfully created job ' + obj.ids[0]);        
+      }
+    });
+  });
 }
 
 ScraperDispatcher.prototype.arrayFromPgArray = function(arrStr) {
   var clean = arrStr.substr(1, arrStr.length - 2);
   return clean.split(',');
+}
+
+function logJob(campaign, scraper, log) {
+  logger.info(campaign.name + ': ' + scraper.name + ': ' + log);
+}
+
+function logJobWarn(campaign, scraper, log) {
+  logger.warn(campaign.name + ': ' + scraper.name + ': ' + log);
 }
