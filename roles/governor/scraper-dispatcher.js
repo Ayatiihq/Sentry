@@ -35,13 +35,6 @@ var qActiveJobs = " \
   ORDER BY scraper, created DESC \
 ;";
 
-var qAddJob = " \
-  INSERT INTO scraperjobs \
-    (campaign, scraper, properties) \
-  VALUES \
-    ($1, $2, 'msgId => $3') \
-;";
-
 var ScraperDispatcher = module.exports = function(postgres) {
   this.postgres_ = postgres;
   this.scrapers_;

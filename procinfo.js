@@ -11,7 +11,6 @@
 var cluster = require('cluster')
   , config = require('./config')
   , events = require('events')
-  , json = require('jsonify')
   , logger = require('./logger').forFile('procinfo.js')
   , os = require('os')
   , redis = require("./redis")
@@ -131,10 +130,10 @@ ProcInfo.prototype.getMasterData = function() {
   data.totalmem = os.totalmem();
   data.freemem = os.freemem();
   data.pid = process.pid;
-  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.memoryUsage = JSON.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
-  return json.stringify(data);
+  return JSON.stringify(data);
 }
 
 ProcInfo.prototype.getWorkerData = function() {
@@ -145,10 +144,10 @@ ProcInfo.prototype.getWorkerData = function() {
   data.role = self.role_;
   data.workerId = cluster.worker.id;
   data.pid = process.pid;
-  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.memoryUsage = JSON.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
-  return json.stringify(data);
+  return JSON.stringify(data);
 }
 
 ProcInfo.prototype.setRole = function(rolename) {
