@@ -15,11 +15,10 @@ var config = require('../../config')
   , util = require('util')
   ;
 
-var ScraperDispatcher = require('./scraper-dispatcher');
+var Role = require('../role')
+  , ScraperDispatcher = require('./scraper-dispatcher');
 
-var Role = require('../role').Role;
-
-var Governor = exports.Role = function() {
+var Governor = module.exports = function() {
   this.postgres_ = null;
 
   this.init();

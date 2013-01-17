@@ -16,12 +16,12 @@ var cluster = require('cluster')
   , os = require('os')
   ;
 
-var ProcInfo = require('./procinfo').ProcInfo
-  , Scheduler = require('./scheduler').Scheduler;
+var ProcInfo = require('./procinfo')
+  , Scheduler = require('./scheduler');
 
 var WORKER_KILL_WAIT_SECONDS = 60;
 
-var Master = exports.Master = function() {
+var Master = module.exports = function() {
   this.procinfo_ = null;
   this.scheduler_ = null;
 

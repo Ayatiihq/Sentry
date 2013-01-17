@@ -18,7 +18,7 @@ var cluster = require('cluster')
 
 var ROLES_DIR = './roles';
 
-var RolesCache = exports.RolesCache = function() {
+var RolesCache = module.exports = function() {
   this.ready_ = false;
   this.singletonRoles_ = [];
   this.scalableRoles_ = [];

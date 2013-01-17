@@ -17,13 +17,13 @@ var cluster = require('cluster')
   , os = require('os')
   ;
 
-var RolesCache = require('./roles/roles-cache.js').RolesCache;
+var RolesCache = require('./roles/roles-cache.js');
 
 var MIN_CHECK_INTERVAL_SECONDS = 180;
 var MAX_CHECK_INTERVAL_SECONDS = 300;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 
-var Scheduler = exports.Scheduler = function() {
+var Scheduler = module.exports = function() {
   this.redis_ = null;
   this.rolesCache_ = null;
 

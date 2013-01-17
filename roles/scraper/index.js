@@ -12,9 +12,9 @@ var events = require('events')
   , util = require('util')
   ;
 
-var Role = require('../role').Role;
+var Role = require('../role');
 
-var Scraper = exports.Role = function() {
+var Scraper = module.exports = function() {
   this.init();
 }
 

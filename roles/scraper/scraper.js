@@ -10,7 +10,7 @@ var events = require('events')
   , util = require('util')
   ;
 
-var Scraper = exports.Scraper = function() {
+var Scraper = module.exports = function() {
   this.init();
 
   //

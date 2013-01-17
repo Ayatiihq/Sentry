@@ -14,7 +14,7 @@ var events = require('events')
   , util = require('util')
   ;
 
-var Role = exports.Role = function() {
+var Role = module.exports = function() {
   this.init();
 
   //

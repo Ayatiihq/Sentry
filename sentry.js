@@ -11,8 +11,8 @@ var cluster = require('cluster')
   , sugar = require('sugar')
   ;
 
-var Master = require('./master').Master
-  , Worker = require('./worker').Worker;
+var Master = require('./master')
+  , Worker = require('./worker');
 
 function setupSignals() {
   process.on('SIGINT', function() {

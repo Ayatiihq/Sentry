@@ -32,7 +32,7 @@ function main() {
   }
 
   var rolename = process.argv[2];
-  var Role = require('../roles/' + rolename).Role;
+  var Role = require('../roles/' + rolename);
   var instance = new Role();
   instance.on('started', function() {
     logger.info('Started ' + instance.getDisplayName());

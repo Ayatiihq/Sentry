@@ -22,7 +22,7 @@ var cluster = require('cluster')
 var EXPIRE_TIME_SECONDS = config.ANNOUNCE_EXPIRE_TIME_SECONDS;
 var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS/2;
 
-var ProcInfo = exports.ProcInfo = function() {
+var ProcInfo = module.exports = function() {
   this.key_ = "undefined";
   this.redis_ = null;
   this.role_ = 'idle';

@@ -14,9 +14,9 @@ var events = require('events')
   , util = require('util')
   ;
 
-var Role = require('../scraper').Scraper;
+var Scraper = require('../scraper');
 
-var Dummy = exports.Scraper = function() {
+var Dummy = module.exports = function() {
   this.init();
 }
 
