@@ -160,17 +160,22 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   if (!lastJob)
     return false;
 
+  logJob(campaign, scraper, 'Inspecting existing job ' + lastJob.id);
+
   // It has a job logged, but is it valid?
   switch (lastJob.state) {
     case state.QUEUED:
     case state.PAUSED:
       return !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
+
     case state.STARTED:
       return true;
 
-    case state.COMPLETED:
     case state.CANCELLED:
     case state.ERRORED:
+      return false;
+
+    case state.COMPLETED:
     case state.EXPIRED:
       var jobValid = !self.scraperIntervalElapsed(campaign, scraper, lastJob);
       if (!jobValid) {
