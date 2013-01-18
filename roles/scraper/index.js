@@ -16,7 +16,8 @@ var config = require('../../config')
   , util = require('util')
   ;
 
-var Role = require('../role');
+var Role = require('../role')
+  , Scrapers = require('../scrapers')
 
 var QUEUE_CHECK_INTERVAL = 1000 * 5;
 
@@ -33,6 +34,7 @@ var qDeleteJob = " \
 
 var Scraper = module.exports = function() {
   this.postgres_ = null;
+  this.scrapers_ = null;
   this.started_ = false;
 
   this.queue_ = mq.queues(config.SCRAPER_QUEUE);
@@ -48,6 +50,7 @@ util.inherits(Scraper, Role);
 Scraper.prototype.init = function() {
   var self = this;
 
+  self.scrapers_ = new Scrapers();
   pg.connect(config.DATABASE_URL, this.onDatabaseConnection.bind(this));  
 }
 
@@ -123,30 +126,41 @@ Scraper.prototype.processJobs = function(queue, jobs) {
 
     job.queue_ = queue;
 
-    self.checkJobValidity(job, function(err) {
+    var j = job;
+    j.body = JSON.parse(j.body);
+
+    self.checkJobValidity(j, function(err) {
       if (err) {
-        handleFail(err, job);
+        handleFail(err, j);
         return;
       }
 
-      self.getJobDetails(job, function(err) {
+      self.getJobDetails(j, function(err) {
         if (err) {
-          handleFail(err, job);
+          handleFail(err, j);
           return;
         }
 
-        self.startJob(job);
+        self.startJob(j);
       });
     });
   });
 }
 
 Scraper.prototype.checkJobValidity = function(job, callback) {
-  callback(null);
+  var self = this
+    , err = null
+    ;
+
+  if (!self.scrapers_.has(job.body.scraper, job.body.type)) {
+    err = new Error(util.format('No match for %s and %s', job.body.scraper, job.body.type));
+  }
+
+  callback(err);
 }
 
 Scraper.prototype.getJobDetails = function(job, callback) {
-  callback(new Error('Its fucked'));
+  callback(new Error('ollo'));
 }
 
 Scraper.prototype.startJob = function(job) {
