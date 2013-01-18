@@ -10,15 +10,35 @@
 var config = require('../../config')
   , events = require('events')
   , logger = require('../../logger').forFile('index.js')
-  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)  
+  , pg = require('pg').native  
+  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
+  , states = require('../../states')  
   , util = require('util')
   ;
 
 var Role = require('../role');
 
+var QUEUE_CHECK_INTERVAL = 1000 * 5;
+
+var qDeleteJob = " \
+  UPDATE scraperjobs \
+  SET \
+    state = $1, \
+    started = current_timestamp, \
+    finished = current_timestamp, \
+    properties = properties || '\"reason\"=>\"%s\"' \
+  WHERE \
+    properties->'msgId' = '%s' \
+;";
+
 var Scraper = module.exports = function() {
-  this.q_ = mq.queues(config.SCRAPER_QUEUE);
-  this.pq_ = mq.queues(config.SCRAPER_QUEUE_PRIORITY);
+  this.postgres_ = null;
+  this.started_ = false;
+
+  this.queue_ = mq.queues(config.SCRAPER_QUEUE);
+  this.priorityQueue_ = mq.queues(config.SCRAPER_QUEUE_PRIORITY);
+
+  this.poll = 0;
 
   this.init();
 }
@@ -28,22 +48,131 @@ util.inherits(Scraper, Role);
 Scraper.prototype.init = function() {
   var self = this;
 
-  self.q_.get(function(err, msgs) {
-    if (err) {
-      logger.warn(err);
-      return;
-    }
-    msgs.forEach(function(msg) {
-      console.log(msg);
-      
-      self.q_.del(msg.id, function(err, obj) {
-        if (err)
+  pg.connect(config.DATABASE_URL, this.onDatabaseConnection.bind(this));  
+}
+
+Scraper.prototype.onDatabaseConnection = function(error, client) {
+  var self = this;
+
+  if (error) {
+    console.log('Unable to connect to the database, exiting', error);
+    self.emit('error', error);
+    return;
+  }
+
+  self.postgres_ = client;
+
+  if (self.started_)
+    self.findJobs();
+}
+
+Scraper.prototype.findJobs = function() {
+  var self = this;
+
+  if (self.poll)
+    return;
+
+  self.poll = setTimeout(self.checkAvailableJob.bind(self), QUEUE_CHECK_INTERVAL);
+  logger.info('Job search enqueued');
+}
+
+Scraper.prototype.checkAvailableJob = function() {
+  var self = this;
+
+  self.poll = 0;
+
+  logger.info('Checking priority queue');
+  self.priorityQueue_.get(function(err, msgs) {
+    if (err || !msgs || !msgs.length) {
+      if (err) logger.warn(err);
+
+      logger.info('Checking default queue');
+      self.queue_.get(function(err, msgs) {
+        if (err) {
           logger.warn(err);
+          self.findJobs();
+        } else if (!msgs || !msgs.length) {
+          self.findJobs();
+        } else {
+          self.processJobs(self.queue_, msgs);
+        }
+      });
+    } else {
+      self.processJobs(self.priorityQueue_, msgs);
+    }
+  });
+}
+
+Scraper.prototype.processJobs = function(queue, jobs) {
+  var self = this;
+  var nJobsProcessing = jobs.length;
+
+  function handleFail(err, job) {
+    logger.warn(err);
+
+    nJobsProcessing -= 1;
+    self.deleteJob(err, job);
+
+    if (nJobsProcessing < 1) {
+      self.findJobs();
+    }
+  }
+
+  jobs.forEach(function(job) {
+    logger.info('Processing ' + JSON.stringify(job));
+
+    job.queue_ = queue;
+
+    self.checkJobValidity(job, function(err) {
+      if (err) {
+        handleFail(err, job);
+        return;
+      }
+
+      self.getJobDetails(job, function(err) {
+        if (err) {
+          handleFail(err, job);
+          return;
+        }
+
+        self.startJob(job);
       });
     });
   });
+}
 
-  logger.info('Scraper up and running');
+Scraper.prototype.checkJobValidity = function(job, callback) {
+  callback(null);
+}
+
+Scraper.prototype.getJobDetails = function(job, callback) {
+  callback(new Error('Its fucked'));
+}
+
+Scraper.prototype.startJob = function(job) {
+  logger.info('Starting job '  + job.id);
+}
+
+Scraper.prototype.deleteJob = function(err, job) {
+  var self = this;
+
+  logger.info('Cancelling job ' + job.id);
+
+  err = err ? err : "unknown";
+
+  // Compile the query with variables that don't work through node-postgres
+  var query = util.format(qDeleteJob, err, job.id);
+  self.postgres_.query(query,
+                       [states.scraper.jobState.CANCELLED],
+                       function(err, result) {
+                         if (err)
+                          logger.warn('Unable to cancel job ' + job.id + ': ' + err);
+                       });
+
+  // Delete the job from the queue
+  job.queue_.del(job.id, function(err) {
+    if (err) logger.warn(utils.formate('Unable to remove job (%s) from queue: %s', job.id, err));
+  });
 }
 
 //
@@ -59,6 +188,11 @@ Scraper.prototype.getDisplayName = function() {
 
 Scraper.prototype.start = function() {
   var self = this;
+
+  self.started_ = true;
+  if (self.postgres_)
+    self.findJobs();
+
   self.emit('started');
 }
 
