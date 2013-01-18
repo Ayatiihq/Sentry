@@ -28,8 +28,19 @@ util.inherits(Scraper, Role);
 Scraper.prototype.init = function() {
   var self = this;
 
-  this.q_.get(function(err, msgs) {
-    console.log(msgs);
+  self.q_.get(function(err, msgs) {
+    if (err) {
+      logger.warn(err);
+      return;
+    }
+    msgs.forEach(function(msg) {
+      console.log(msg);
+      
+      self.q_.del(msg.id, function(err, obj) {
+        if (err)
+          logger.warn(err);
+      });
+    });
   });
 
   logger.info('Scraper up and running');

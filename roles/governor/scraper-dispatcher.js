@@ -35,6 +35,12 @@ var qActiveJobs = " \
   ORDER BY scraper, created DESC \
 ;";
 
+var qInsertJob = " \
+  INSERT INTO scraperjobs \
+    (campaign, scraper, properties) \
+  VALUES ($1, $2, 'msgId => %s') \
+;";
+
 var qExpireJob = " \
   UPDATE scraperjobs \
   SET state = $1 \
@@ -215,14 +221,20 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
   msg.campaignId = campaign.id;
   msg.scraper = scraper.name;
   msg.created = new Date();
-  
-  mq.queues(config.SCRAPER_QUEUE).put(JSON.stringify(msg), function(err, obj) {
-    if (err) {
+  // Stick timeout in message as bindings behave weirdly wrt timeout on msg replies
+  msg.timeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
+
+  var options = {};
+  options.timeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
+  options.expires_in = config.SCRAPER_JOB_EXPIRES_SECONDS;
+ 
+  mq.queues(config.SCRAPER_QUEUE).put(JSON.stringify(msg), options, function(err, obj) {
+    if (err || obj === undefined || obj.ids === undefined) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
       return;
     }
 
-    var query = self.postgres_.query("INSERT INTO scraperjobs (campaign, scraper, properties) VALUES ($1, $2, 'msgId => " +  obj.ids[0] + "')",
+    var query = self.postgres_.query(util.format(qInsertJob, obj.ids[0]),
                                      [campaign.id, scraper.name],
                                      function(err, result) {
       if (err) {

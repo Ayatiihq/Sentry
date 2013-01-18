@@ -6,7 +6,6 @@
  */
 
 var logger = require('../logger')
-  , net = require('net')
   ;
 
 var config = require('../config');
@@ -39,11 +38,6 @@ function main() {
   });
 
   instance.start();
-
-  var server = net.createServer(function() {});
-  server.listen(8001);
-
-  instance.end();
 }
 
 main(); 

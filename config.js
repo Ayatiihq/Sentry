@@ -41,6 +41,10 @@ config.IRONMQ_PROJECT = getEnv(process.env.IRONMQ_PROJECT, '50cf775e8e7d1447f500
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 
-config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_GOVERNOR_SCRAPER_QUEUE, 'scraper');
+config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_SCRAPER_QUEUE, 'scraper');
 
-config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_GOVERNOR_SCRAPER_QUEUE_PRIORITY, 'scraper.priority');
+config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SCRAPER_QUEUE_PRIORITY, 'scraper.priority');
+
+config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60 * 5); // 5 mins
+
+config.SCRAPER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_EXPIRES_SECONDS, 60 * 60 * 12); // 12 hours

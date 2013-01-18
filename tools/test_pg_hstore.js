@@ -8,7 +8,9 @@
 var config = require('../config')
   , pg = require('pg').native
   , seq = require('parseq').seq
-  , sugar = require('sugar');
+  , sugar = require('sugar')
+  , util = require('util')
+  ;
 
 function pgReply(client, err, result) {
   if (err)
@@ -27,7 +29,7 @@ function main() {
 
   pg.connect(config.DATABASE_URL, function(err, client) {
     
-    client.query("INSERT INTO scraperjobs (campaign, scraper, properties) VALUES ($1, $2, 'msgId => " + '23415452345' + "')",
+    client.query(util.format("INSERT INTO scraperjobs (campaign, scraper, properties) VALUES ($1, $2, 'msgId => %s')", '234523452345'),
                  [1, 'test'],
                  function(err, result) {
       if (err) 
