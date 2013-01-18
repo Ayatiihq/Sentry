@@ -1,5 +1,5 @@
 /*
- * scraper.js: the base class for scrapes
+ * scraper.js: the base class for scrapers
  *
  * (C) 2012 Ayatii Limited
  *

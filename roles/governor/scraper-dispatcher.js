@@ -35,6 +35,12 @@ var qActiveJobs = " \
   ORDER BY scraper, created DESC \
 ;";
 
+var qExpireJob = " \
+  UPDATE scraperjobs \
+  SET state = $1 \
+  WHERE id = $2 \
+;";
+
 var ScraperDispatcher = module.exports = function(postgres) {
   this.postgres_ = postgres;
   this.scrapers_;
@@ -152,14 +158,21 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   switch (lastJob.state) {
     case state.QUEUED:
     case state.PAUSED:
+      return !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
     case state.STARTED:
-      // FIXME: We should probably still check if it's been in the queue for ages
       return true;
 
     case state.COMPLETED:
     case state.CANCELLED:
     case state.ERRORED:
-      return !self.scraperIntervalElapsed(campaign, scraper, lastJob);
+    case state.EXPIRED:
+      var jobValid = !self.scraperIntervalElapsed(campaign, scraper, lastJob);
+      if (!jobValid) {
+        self.setJobAsExpired(lastJob);
+        logJob(campaign, scraper, 'Setting last job as expired');
+      }
+      return jobValid;
+
 
     default:
       console.log('Job state not recognized: ' + lastJob.state + 
@@ -175,6 +188,20 @@ ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper,
   var intervalAgo = new Date.create('' + campaign.sweepintervalminutes + ' minutes ago');
 
   return finished.isBefore(intervalAgo);
+}
+
+ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper, lastJob) {
+  var created = new Date(lastJob.created);
+  var intervalAgo = new Date.create('' + 60 * 12 + ' minutes ago');
+
+  return created.isBefore(intervalAgo);
+}
+
+ScraperDispatcher.prototype.setJobAsExpired = function(lastJob) {
+  var self = this;
+
+  self.postgres_.query(qExpireJob, [states.scraper.jobState.EXPIRED, lastJob.id]);
+
 }
 
 // Add job to queue

@@ -7,14 +7,19 @@
  *
  */
 
-var events = require('events')
+var config = require('../../config')
+  , events = require('events')
   , logger = require('../../logger').forFile('index.js')
+  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)  
   , util = require('util')
   ;
 
 var Role = require('../role');
 
 var Scraper = module.exports = function() {
+  this.q_ = mq.queues(config.SCRAPER_QUEUE);
+  this.pq_ = mq.queues(config.SCRAPER_QUEUE_PRIORITY);
+
   this.init();
 }
 
@@ -22,6 +27,11 @@ util.inherits(Scraper, Role);
 
 Scraper.prototype.init = function() {
   var self = this;
+
+  this.q_.get(function(err, msgs) {
+    console.log(msgs);
+  });
+
   logger.info('Scraper up and running');
 }
 

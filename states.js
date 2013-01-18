@@ -12,7 +12,8 @@ exports.scraper = {
     STARTED: 2,
     COMPLETED: 3,
     CANCELLED: 4,
-    ERRORED: 5
+    ERRORED: 5,
+    EXPIRED: 6
   }
 
 };

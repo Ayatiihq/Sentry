@@ -2,5 +2,8 @@
   "name": "downloader",
   "main": "./downloader.js",
   "type": "scalable",
-  "queues": ["downloader:priority", "downloader"]
+  "queues":  {
+    "priority": "downloader.priority",
+    "default": "downloader"
+  }
 }

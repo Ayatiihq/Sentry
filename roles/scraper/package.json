@@ -2,5 +2,8 @@
   "name": "scraper",
   "main": "./index.js",
   "type": "scalable",
-  "queues": ["scraper:priority", "scraper"]
+  "queues":  {
+    "priority": "scraper:priority",
+    "default": "scraper"
+  }
 }
