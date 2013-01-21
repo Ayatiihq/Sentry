@@ -21,6 +21,20 @@ var Role = require('../role')
 
 var QUEUE_CHECK_INTERVAL = 1000 * 5;
 
+var qJobDetails = " \
+  SELECT \
+    scraperjobs.*, \
+    campaigns.name AS campaignName, \
+    campaigns.names AS campaignNames, \
+    campaigns.properties AS campaignProperties \
+  FROM \
+    scraperjobs, campaigns \
+  WHERE \
+    scraperjobs.campaign = campaigns.id \
+  AND \
+    scraperjobs.properties->'msgId' = '%s' \
+;";
+
 var qDeleteJob = " \
   UPDATE scraperjobs \
   SET \
@@ -152,7 +166,7 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
     , err = null
     ;
 
-  if (!self.scrapers_.has(job.body.scraper, job.body.type)) {
+  if (!self.scrapers_.hasScraperForType(job.body.scraper, job.body.type)) {
     err = new Error(util.format('No match for %s and %s', job.body.scraper, job.body.type));
   }
 
@@ -160,7 +174,19 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 }
 
 Scraper.prototype.getJobDetails = function(job, callback) {
-  callback(new Error('ollo'));
+  var self = this;
+
+  var query = util.format(qJobDetails, job.id);
+  self.postgres_.query(query, function(err, reply) {
+    if (err) {
+      ;
+    } else if (reply.rowCount < 1) {
+      err = new Error(util.format('Found no results for %s', job.id));
+    } else {
+      job.details = reply.rows[0];
+    }
+    callback(err);
+  });
 }
 
 Scraper.prototype.startJob = function(job) {
