@@ -8,9 +8,9 @@
  */
 
 var config = require('../../config')
+  , db = require('../database')
   , events = require('events')
   , logger = require('../../logger').forFile('index.js')
-  , pg = require('pg').native  
   , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
   , states = require('../../states')  
   , util = require('util')
@@ -21,33 +21,8 @@ var Role = require('../role')
 
 var QUEUE_CHECK_INTERVAL = 1000 * 5;
 
-var qJobDetails = " \
-  SELECT \
-    scraperjobs.*, \
-    campaigns.name AS campaignName, \
-    campaigns.names AS campaignNames, \
-    campaigns.properties AS campaignProperties \
-  FROM \
-    scraperjobs, campaigns \
-  WHERE \
-    scraperjobs.campaign = campaigns.id \
-  AND \
-    scraperjobs.properties->'msgId' = '%s' \
-;";
-
-var qDeleteJob = " \
-  UPDATE scraperjobs \
-  SET \
-    state = $1, \
-    started = current_timestamp, \
-    finished = current_timestamp, \
-    properties = properties || '\"reason\"=>\"%s\"' \
-  WHERE \
-    properties->'msgId' = '%s' \
-;";
-
 var Scraper = module.exports = function() {
-  this.postgres_ = null;
+  this.db_ = null;
   this.scrapers_ = null;
   this.started_ = false;
 
@@ -65,19 +40,13 @@ Scraper.prototype.init = function() {
   var self = this;
 
   self.scrapers_ = new Scrapers();
-  pg.connect(config.DATABASE_URL, this.onDatabaseConnection.bind(this));  
+
+  if (!db.isReady())
+    db.on('ready', self.onDatabaseReady.bind(self));
 }
 
-Scraper.prototype.onDatabaseConnection = function(error, client) {
+Scraper.prototype.onDatabaseReady = function(error, client) {
   var self = this;
-
-  if (error) {
-    console.log('Unable to connect to the database, exiting', error);
-    self.emit('error', error);
-    return;
-  }
-
-  self.postgres_ = client;
 
   if (self.started_)
     self.findJobs();
@@ -176,21 +145,21 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 Scraper.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  var query = util.format(qJobDetails, job.id);
-  self.postgres_.query(query, function(err, reply) {
-    if (err) {
-      ;
-    } else if (reply.rowCount < 1) {
-      err = new Error(util.format('Found no results for %s', job.id));
-    } else {
-      job.details = reply.rows[0];
-    }
-    callback(err);
+  var q = db.getJobDetails(job.id);
+  q.on('row', function(details) {
+    job.details = details;
+    callback(null);
   });
+
+  q.on('error', function(err) {
+    callback(err);
+  });  
 }
+
 
 Scraper.prototype.startJob = function(job) {
   logger.info('Starting job '  + job.id);
+  logger.info(job.details);
 }
 
 Scraper.prototype.deleteJob = function(err, job) {
@@ -200,18 +169,20 @@ Scraper.prototype.deleteJob = function(err, job) {
 
   err = err ? err : "unknown";
 
-  // Compile the query with variables that don't work through node-postgres
-  var query = util.format(qDeleteJob, err, job.id);
-  self.postgres_.query(query,
-                       [states.scraper.jobState.CANCELLED],
-                       function(err, result) {
-                         if (err)
-                          logger.warn('Unable to cancel job ' + job.id + ': ' + err);
-                       });
+  var query = db.deleteJob(job.id, states.scraper.jobState.CANCELLED, err);
+  query.on('error', function(err) {
+    if (err) {
+      logger.warn('Unable to cancel job ' + job.id + ': ' + err);
+    }
+  });
 
-  // Delete the job from the queue
-  job.queue_.del(job.id, function(err) {
-    if (err) logger.warn(utils.formate('Unable to remove job (%s) from queue: %s', job.id, err));
+  query.on('end', function() {
+    // Delete the job from the queue now
+    job.queue_.del(job.id, function(err) {
+      if (err) {
+        logger.warn(utils.format('Unable to remove job (%s) from queue: %s', job.id, err));
+      }
+    });
   });
 }
 
@@ -230,7 +201,7 @@ Scraper.prototype.start = function() {
   var self = this;
 
   self.started_ = true;
-  if (self.postgres_)
+  if (db.isReady())
     self.findJobs();
 
   self.emit('started');
