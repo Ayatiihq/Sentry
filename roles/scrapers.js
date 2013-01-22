@@ -8,8 +8,7 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('../config')
+var config = require('../config')
   , events = require('events')
   , fs = require('fs')
   , logger = require('../logger').forFile('scrapers.js')
@@ -138,4 +137,35 @@ Scrapers.prototype.getScrapersForType = function(type, scope) {
 
 Scrapers.prototype.getScraperTypes = function() {
   return Object.keys(this.scrapersByType_);
+}
+
+Scrapers.prototype.hasScraperForType = function(scraperName, types) {
+  var self = this
+    , type = types = types ? types : ""
+    , scope = undefined
+    ;
+
+  if ((types = types.split('.')).length > 1) {
+    type = types[0];
+    scope = types[1];
+  }
+
+  var scrapers = self.scrapersByType_[type];
+  if (!scrapers)
+    return false;
+
+  var ret = scrapers.find(function(scraper) {
+    if (scraper.name === scraperName)
+      return true;
+  });
+
+  if (ret) {
+    if (scope) {
+      return ret[type + '.regex'].test(scope);
+    } else {
+      return true;
+    }
+  }
+
+  return false;
 }

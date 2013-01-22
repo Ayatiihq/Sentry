@@ -8,6 +8,7 @@
  */
 
 var config = require('../../config')
+  , db = require('../database')
   , events = require('events')
   , ironmq = require('ironmq')
   , logger = require('../../logger').forFile('scraper-dispatcher.js')
@@ -18,37 +19,7 @@ var config = require('../../config')
 
 var Scrapers = require('../scrapers');
 
-var qActiveCampaigns = " \
-  SELECT id, name, sweepintervalminutes, type, scrapersenabled, scrapersignored \
-  FROM campaigns \
-  WHERE \
-    sweepenabled AND \
-    sweepfromdate < current_timestamp AND \
-    sweeptodate > current_timestamp \
-;";
-
-var qActiveJobs = " \
-  SELECT DISTINCT ON (scraper) id, scraper, created, started, finished, state \
-  FROM scraperjobs \
-  WHERE \
-    campaign = $1 \
-  ORDER BY scraper, created DESC \
-;";
-
-var qInsertJob = " \
-  INSERT INTO scraperjobs \
-    (campaign, scraper, properties) \
-  VALUES ($1, $2, 'msgId => %s') \
-;";
-
-var qExpireJob = " \
-  UPDATE scraperjobs \
-  SET state = $1 \
-  WHERE id = $2 \
-;";
-
-var ScraperDispatcher = module.exports = function(postgres) {
-  this.postgres_ = postgres;
+var ScraperDispatcher = module.exports = function() {
   this.scrapers_;
 
   this.init();
@@ -82,7 +53,7 @@ ScraperDispatcher.prototype.start = function() {
 ScraperDispatcher.prototype.iterateCampaigns = function() {
   var self = this;
 
-  var query = self.postgres_.query(qActiveCampaigns);
+  var query = db.getActiveCampaigns();
   query.on('row', function(row) {
     self.checkCampaign(row);
   });
@@ -93,7 +64,7 @@ ScraperDispatcher.prototype.checkCampaign = function(campaign) {
   var self = this;
 
   var lastJobs = {};
-  var query = self.postgres_.query(qActiveJobs, [campaign.id]);
+  var query = db.getActiveJobs(campaign.id);
   
   query.on('row', function(row) {
     lastJobs[row.scraper] = row;
@@ -166,24 +137,28 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   switch (lastJob.state) {
     case state.QUEUED:
     case state.PAUSED:
-      return !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
+      var jobValid = !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
+      if (!jobValid) {
+        self.setJobAsExpired(lastJob, "Queued/Paused for too long");
+      }
+      return jobValid;
 
     case state.STARTED:
-      return true;
+      var jobValid = !self.scraperStartedForTooLong(campaign, scraper, lastJob);
+      if (!jobValid) {
+        self.setJobAsExpired(lastJob, "Started for too long");
+      }
+      return jobValid;
 
     case state.CANCELLED:
     case state.ERRORED:
       return false;
 
     case state.COMPLETED:
-    case state.EXPIRED:
-      var jobValid = !self.scraperIntervalElapsed(campaign, scraper, lastJob);
-      if (!jobValid) {
-        self.setJobAsExpired(lastJob);
-        logJob(campaign, scraper, 'Setting last job as expired');
-      }
-      return jobValid;
+      return !self.scraperIntervalElapsed(campaign, scraper, lastJob);
 
+    case state.EXPIRED:
+      return false;
 
     default:
       console.log('Job state not recognized: ' + lastJob.state + 
@@ -201,6 +176,13 @@ ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper,
   return finished.isBefore(intervalAgo);
 }
 
+ScraperDispatcher.prototype.scraperStartedForTooLong = function(campaign, scraper, lastJob) {
+  var started = new Date(lastJob.started);
+  var intervalAgo = new Date.create('' + 60 + ' minutes ago');
+
+  return started.isBefore(intervalAgo);
+}
+
 ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper, lastJob) {
   var created = new Date(lastJob.created);
   var intervalAgo = new Date.create('' + 60 * 12 + ' minutes ago');
@@ -208,15 +190,12 @@ ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper
   return created.isBefore(intervalAgo);
 }
 
-ScraperDispatcher.prototype.setJobAsExpired = function(lastJob) {
-  var self = this;
-
-  self.postgres_.query(qExpireJob, [states.scraper.jobState.EXPIRED, lastJob.id]);
-
+ScraperDispatcher.prototype.setJobAsExpired = function(lastJob, reason) {
+  db.closeJob(lastJob.id, states.scraper.jobState.EXPIRED, reason);
 }
 
 // Add job to queue
-// Add job to postgres
+// Add job to database
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
   var self = this;
 
@@ -225,6 +204,7 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
   var msg = {};
   msg.campaignId = campaign.id;
   msg.scraper = scraper.name;
+  msg.type = campaign.type;
   msg.created = new Date();
   // Stick timeout in message as bindings behave weirdly wrt timeout on msg replies
   msg.timeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
@@ -239,15 +219,14 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
       return;
     }
 
-    var query = self.postgres_.query(util.format(qInsertJob, obj.ids[0]),
-                                     [campaign.id, scraper.name],
-                                     function(err, result) {
+    var query = db.insertJob(campaign.id, scraper.name, { msgId: obj.ids[0], test: "\"hello\"" });
+    query.on('error', function(err) {
       if (err) {
         logJobWarn(campaign, scraper, 'Unable to insert job: ' + err);
-      
-      } else {
-        logJob(campaign, scraper, 'Successfully created job ' + obj.ids[0]);        
       }
+    });
+    query.on('end', function() {
+      logJob(campaign, scraper, 'Successfully created job ' + obj.ids[0]);
     });
   });
 }

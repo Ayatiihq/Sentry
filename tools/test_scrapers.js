@@ -38,6 +38,7 @@ function main() {
       console.log(scrapers.getScrapersForType(type));
       console.log('\n');
     });
+    console.log(scrapers.hasScraperForType('dummy', 'tv'));
 
     process.exit(0);
   });

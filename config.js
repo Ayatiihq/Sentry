@@ -45,6 +45,6 @@ config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_SCRAPER_QUEUE, 'scraper');
 
 config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SCRAPER_QUEUE_PRIORITY, 'scraper.priority');
 
-config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60 * 5); // 5 mins
+config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60);
 
 config.SCRAPER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_EXPIRES_SECONDS, 60 * 60 * 12); // 12 hours

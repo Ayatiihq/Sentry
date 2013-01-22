@@ -9,6 +9,7 @@
  */
 
 var config = require('../../config')
+  , db = require('../database')
   , events = require('events')
   , logger = require('../../logger').forFile('governor.js')
   , pg = require('pg').native
@@ -19,8 +20,6 @@ var Role = require('../role')
   , ScraperDispatcher = require('./scraper-dispatcher');
 
 var Governor = module.exports = function() {
-  this.postgres_ = null;
-
   this.init();
 }
 
@@ -29,21 +28,16 @@ util.inherits(Governor, Role);
 Governor.prototype.init = function() {
   var self = this;
 
-  pg.connect(config.DATABASE_URL, this.onDatabaseConnection.bind(this));
+  if (db.isReady())
+    self.onDatabaseReady();
+  else
+    db.on('ready', self.onDatabaseReady.bind(self));
 
   logger.info('Running');
 }
 
-Governor.prototype.onDatabaseConnection = function(error, client) {
+Governor.prototype.onDatabaseReady = function() {
   var self = this;
-
-  if (error) {
-    console.log('Unable to connect to the database, exitting', error);
-    self.emit('error', error);
-    return;
-  }
-
-  self.postgres_ = client;
 
   self.initJobs();
 }
@@ -51,7 +45,7 @@ Governor.prototype.onDatabaseConnection = function(error, client) {
 Governor.prototype.initJobs = function() {
   var self = this;
 
-  self.scraperDispatcher_ = new ScraperDispatcher(self.postgres_);
+  self.scraperDispatcher_ = new ScraperDispatcher();
 }
 
 //

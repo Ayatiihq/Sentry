@@ -1,24 +1,23 @@
 /*
- * roles-cache.js: managing the availab
+ * roles.js: managing the available roles
  *
  * (C) 2012 Ayatii Limited
  *
- * RolesCache compiles a cache of all the available roles so the scheduler can
+ * Roles compiles a cache of all the available roles so the scheduler can
  * easily enumerate them.
  *
  */
 
-var cluster = require('cluster')
-  , config = require('../config')
+var config = require('../config')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('../logger').forFile('roles-cache.js')
+  , logger = require('../logger').forFile('roles.js')
   , util = require('util')
   ;
 
 var ROLES_DIR = './roles';
 
-var RolesCache = module.exports = function() {
+var Roles = module.exports = function() {
   this.ready_ = false;
   this.singletonRoles_ = [];
   this.scalableRoles_ = [];
@@ -26,16 +25,16 @@ var RolesCache = module.exports = function() {
   this.init();
 }
 
-util.inherits(RolesCache, events.EventEmitter);
+util.inherits(Roles, events.EventEmitter);
 
-RolesCache.prototype.init = function() {
+Roles.prototype.init = function() {
   var self = this;
 
-  // Workes from toplevel
+  // Works from toplevel
   fs.readdir(ROLES_DIR, self.onRolesDirRead.bind(self));
 }
 
-RolesCache.prototype.onRolesDirRead = function(err, files) {
+Roles.prototype.onRolesDirRead = function(err, files) {
   var self = this;
 
   files.forEach(function(file) {
@@ -50,7 +49,7 @@ RolesCache.prototype.onRolesDirRead = function(err, files) {
   self.emit('ready');
 }
 
-RolesCache.prototype.loadRole = function(infopath) {
+Roles.prototype.loadRole = function(infopath) {
   var self = this;
 
   logger.info('Loading role: ' + infopath);
@@ -72,7 +71,7 @@ RolesCache.prototype.loadRole = function(infopath) {
   }
 }
 
-RolesCache.prototype.removeRoles = function() {
+Roles.prototype.removeRoles = function() {
   var self = this;
 
   // Remove roles that
@@ -102,14 +101,14 @@ RolesCache.prototype.removeRoles = function() {
 //
 // Public
 //
-RolesCache.prototype.isReady = function() {
+Roles.prototype.isReady = function() {
   return this.ready_;
 }
 
-RolesCache.prototype.getSingletonRoles = function() {
+Roles.prototype.getSingletonRoles = function() {
   return this.singletonRoles_;
 }
 
-RolesCache.prototype.getScalableRoles = function() {
+Roles.prototype.getScalableRoles = function() {
   return this.scalableRoles_;
 }
