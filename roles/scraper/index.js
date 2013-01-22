@@ -45,7 +45,7 @@ Scraper.prototype.init = function() {
     db.on('ready', self.onDatabaseReady.bind(self));
 }
 
-Scraper.prototype.onDatabaseReady = function(error, client) {
+Scraper.prototype.onDatabaseReady = function() {
   var self = this;
 
   if (self.started_)
@@ -169,7 +169,7 @@ Scraper.prototype.deleteJob = function(err, job) {
 
   err = err ? err : "unknown";
 
-  var query = db.deleteJob(job.id, states.scraper.jobState.CANCELLED, err);
+  var query = db.closeJob(job.id, states.scraper.jobState.CANCELLED, err);
   query.on('error', function(err) {
     if (err) {
       logger.warn('Unable to cancel job ' + job.id + ': ' + err);
