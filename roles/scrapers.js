@@ -119,6 +119,19 @@ Scrapers.prototype.isReady = function() {
   return this.ready_;
 }
 
+Scrapers.prototype.getScraper = function(scraperName) {
+  var self = this;
+  var ret = null;
+
+  self.scrapers_.forEach(function(scraper) {
+    if (scraper.name == scraperName) {
+      ret = scraper;
+    }
+  });
+
+  return ret; 
+}
+
 Scrapers.prototype.getScrapers = function() {
   return this.scrapers_;
 }

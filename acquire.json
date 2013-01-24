@@ -1,0 +1,5 @@
+{
+  "config": "config.js",
+  "logger": "logger.js",
+  "states": "states.js"
+}

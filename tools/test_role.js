@@ -4,8 +4,10 @@
  * (C) 2012 Ayatii Limited
  *
  */
+require('acquire');
 
-var logger = require('../logger')
+var config = require('../config')
+  , logger = acquire('logger')
   ;
 
 var config = require('../config');

@@ -145,21 +145,44 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 Scraper.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  var q = db.getJobDetails(job.id);
-  q.on('row', function(details) {
+  var query = db.getJobDetails(job.id);
+  query.on('row', function(details) {
     job.details = details;
     callback(null);
   });
 
-  q.on('error', function(err) {
+  query.on('error', function(err) {
     callback(err);
   });  
 }
 
 
 Scraper.prototype.startJob = function(job) {
+  var self = this;
+
   logger.info('Starting job '  + job.id);
-  logger.info(job.details);
+
+  var scraper = self.scrapers_.getScraper(job.body.scraper);
+  if (!scraper) {
+    logger.warn('Unable to find scraper ' + job.body.scraper);
+    self.findJobs();
+    return;
+  }
+
+  try {
+    var modPath = './scrapers/' + scraper.name;
+    console.log(modPath);
+    var Scraper = require(modPath);
+    scraper = new Scraper();
+
+  } catch(err) {
+    logger.warn(util.format('Unabled to load scraper %s: %s', job.body.scraper, err));
+    self.findJobs();
+    return;
+  }
+
+  scraper.start();
+  scraper.finish();
 }
 
 Scraper.prototype.deleteJob = function(err, job) {

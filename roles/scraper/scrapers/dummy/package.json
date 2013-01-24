@@ -1,6 +1,6 @@
 {
   "name": "dummy",
-  "main": "./dummmy.js",
+  "main": "./index.js",
   "types": {
     "tv": ".*",
     "film": ".*"
