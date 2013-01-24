@@ -8,16 +8,17 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , logger = require('./logger').forFile('scheduler.js')
-  , redis = require('./redis')
+  , logger = acquire('logger').forFile('scheduler.js')
+  , redis = acquire('redis')
   , util = require('util')
   , os = require('os')
   ;
 
-var Roles = require('./roles/roles.js');
+var Roles = acquire('roles');
 
 var MIN_CHECK_INTERVAL_SECONDS = 180;
 var MAX_CHECK_INTERVAL_SECONDS = 300;

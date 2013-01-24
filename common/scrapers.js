@@ -17,7 +17,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var SCRAPERS_DIR = path.dirname(module.filename) + '/scraper/scrapers';
+var SCRAPERS_DIR = __dirname + '/../roles/scraper/scrapers';
 
 var Scrapers = module.exports = function() {
   this.ready_ = false;

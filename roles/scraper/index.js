@@ -8,7 +8,7 @@
  */
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = require('../database')
+  , db = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('index.js')
   , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
@@ -16,8 +16,8 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Role = require('../role')
-  , Scrapers = require('../scrapers')
+var Role = acquire('role')
+  , Scrapers = acquire('scrapers')
 
 var QUEUE_CHECK_INTERVAL = 1000 * 5;
 

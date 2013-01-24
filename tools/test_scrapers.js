@@ -11,7 +11,7 @@ var acquire = require('acquire')
   , net = require('net')
   ;
 
-var Scrapers = require('../roles/scrapers.js');
+var Scrapers = acquire('scrapers');
 
 function setupSignals() {
   process.on('SIGINT', function() {

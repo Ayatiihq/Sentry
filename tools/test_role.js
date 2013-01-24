@@ -10,8 +10,6 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   ;
 
-var config = require('../config');
-
 function setupSignals() {
   process.on('SIGINT', function() {
     process.exit(1);

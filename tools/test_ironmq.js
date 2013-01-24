@@ -11,9 +11,7 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   ;
 
-var config = require('../config');
-
-var Scrapers = require('../roles/scrapers.js');
+var Scrapers = acquire('scrapers');
 
 function setupSignals() {
   process.on('SIGINT', function() {

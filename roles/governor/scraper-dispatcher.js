@@ -9,7 +9,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = require('../database')
+  , db = acquire('database')
   , events = require('events')
   , ironmq = require('ironmq')
   , logger = acquire('logger').forFile('scraper-dispatcher.js')
@@ -18,7 +18,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Scrapers = require('../scrapers');
+var Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
   this.scrapers_;

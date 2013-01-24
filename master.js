@@ -8,10 +8,11 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , logger = require('./logger').forFile('master.js')
+  , logger = acquire('logger').forFile('master.js')
   , util = require('util')
   , os = require('os')
   ;

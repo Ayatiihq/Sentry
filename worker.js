@@ -11,10 +11,11 @@
  *
  */
 
-var cluster = require('cluster')
+var acquire = require('acquire')
+  , cluster = require('cluster')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('./logger').forFile('worker.js')
+  , logger = acquire('logger').forFile('worker.js')
   , net = require('net')
   , util = require('util')
   , os = require('os')

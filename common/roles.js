@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var ROLES_DIR = './roles';
+var ROLES_DIR = __dirname + '/../roles/';
 
 var Roles = module.exports = function() {
   this.ready_ = false;
@@ -41,7 +41,7 @@ Roles.prototype.onRolesDirRead = function(err, files) {
   files.forEach(function(file) {
     if (file.endsWith('.js'))
       return;
-    self.loadRole('./' + file + '/package.json');
+    self.loadRole(ROLES_DIR + file + '/package.json');
   });
 
   self.removeRoles();

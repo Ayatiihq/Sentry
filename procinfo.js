@@ -8,12 +8,13 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , logger = require('./logger').forFile('procinfo.js')
+  , logger = acquire('logger').forFile('procinfo.js')
   , os = require('os')
-  , redis = require("./redis")
+  , redis = acquire("redis")
   , sugar = require('sugar')
   , util = require('util')
   ;

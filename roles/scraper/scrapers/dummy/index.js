@@ -15,7 +15,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Scraper = require('../scraper');
+var Scraper = acquire('scraper');
 
 var Dummy = module.exports = function() {
   this.init();

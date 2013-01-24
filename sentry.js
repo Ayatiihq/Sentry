@@ -5,8 +5,9 @@
  *
  */
 
-var cluster = require('cluster')
-  , logger = require('./logger')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , logger = acquire('logger')
   , os = require('os')
   , sugar = require('sugar')
   ;

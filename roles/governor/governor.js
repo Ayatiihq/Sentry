@@ -10,14 +10,14 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = require('../database')
+  , db = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('governor.js')
   , pg = require('pg').native
   , util = require('util')
   ;
 
-var Role = require('../role')
+var Role = acquire('role')
   , ScraperDispatcher = require('./scraper-dispatcher');
 
 var Governor = module.exports = function() {
