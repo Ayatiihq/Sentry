@@ -6,13 +6,13 @@
  * Scraper is the general link scraping role.
  *
  */
-
-var config = require('../../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , db = require('../database')
   , events = require('events')
-  , logger = require('../../logger').forFile('index.js')
+  , logger = acquire('logger').forFile('index.js')
   , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
-  , states = require('../../states')  
+  , states = acquire('states')  
   , util = require('util')
   ;
 

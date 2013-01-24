@@ -8,10 +8,11 @@
  *
  */
 
-var config = require('../../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , db = require('../database')
   , events = require('events')
-  , logger = require('../../logger').forFile('governor.js')
+  , logger = acquire('logger').forFile('governor.js')
   , pg = require('pg').native
   , util = require('util')
   ;

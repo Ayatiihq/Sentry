@@ -8,9 +8,9 @@
  * timeout.
  *
  */
-require('acquire');
 
-var events = require('events')
+var acquire = require('acquire')
+  , events = require('events')
   , logger = acquire('logger').forFile('dummy.js')
   , util = require('util')
   ;

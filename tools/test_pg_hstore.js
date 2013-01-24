@@ -5,7 +5,8 @@
  *
  */
 
-var config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , pg = require('pg').native
   , seq = require('parseq').seq
   , sugar = require('sugar')

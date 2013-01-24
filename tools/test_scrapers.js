@@ -5,11 +5,11 @@
  *
  */
 
-var logger = require('../logger')
+var acquire = require('acquire')
+  , config = acquire('config');
+  , logger = acquire('logger')
   , net = require('net')
   ;
-
-var config = require('../config');
 
 var Scrapers = require('../roles/scrapers.js');
 

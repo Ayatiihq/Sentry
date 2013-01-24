@@ -4,9 +4,9 @@
  * (C) 2012 Ayatii Limited
  *
  */
-require('acquire');
 
-var config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , logger = acquire('logger')
   ;
 

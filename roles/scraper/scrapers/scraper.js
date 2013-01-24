@@ -5,9 +5,8 @@
  *
  */
 
-require('acquire');
-
-var events = require('events')
+var acquire = require('acquire')
+  , events = require('events')
   , logger = acquire('logger').forFile('scraper.js')
   , util = require('util')
   ;
@@ -20,6 +19,8 @@ var Scraper = module.exports = function() {
   //
 
   // "started" - When the scraper starts working
+
+  // "paused" - When the scraper has paused itself
 
   // "finished" - When the scraper has no more tasks to complete
 

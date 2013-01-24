@@ -5,9 +5,10 @@
  *
  */
 
-var config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
-  , logger = require('../logger')
+  , logger = acquire('logger')
   ;
 
 var config = require('../config');

@@ -8,10 +8,11 @@
  *
  */
 
-var config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('../logger').forFile('scrapers.js')
+  , logger = acquire('logger').forFile('scrapers.js')
   , path = require('path')
   , util = require('util')
   ;

@@ -7,13 +7,14 @@
  *
  */
 
-var config = require('../../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , db = require('../database')
   , events = require('events')
   , ironmq = require('ironmq')
-  , logger = require('../../logger').forFile('scraper-dispatcher.js')
+  , logger = acquire('logger').forFile('scraper-dispatcher.js')
   , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
-  , states = require('../../states')
+  , states = acquire('states')
   , util = require('util')
   ;
 

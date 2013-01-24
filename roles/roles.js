@@ -8,10 +8,11 @@
  *
  */
 
-var config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('../logger').forFile('roles.js')
+  , logger = acquire('logger').forFile('roles.js')
   , util = require('util')
   ;
 
