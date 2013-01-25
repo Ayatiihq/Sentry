@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('database.js')
   , pg = require('pg').native
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -55,6 +56,12 @@ Database.prototype.init = function() {
   pg.connect(config.DATABASE_URL, self.onDatabaseConnection.bind(self));
 }
 
+Database.prototype.getClient = function(callback) {
+  var self = this;
+
+  pg.connect(config.DATABASE_URL, callback);
+}
+
 Database.prototype.onDatabaseConnection = function(error, client) {
   var self = this;
 
@@ -79,6 +86,7 @@ Database.prototype.isReady = function() {
 
 Database.prototype.getActiveCampaigns = function() {
   var self = this;
+  
   var qActiveCampaigns = "SELECT id, name, sweepintervalminutes, type, scrapersenabled, scrapersignored \
                           FROM campaigns \
                           WHERE \
@@ -115,21 +123,76 @@ Database.prototype.insertJob = function(campaignId, scraper, properties) {
   return new Query(query);
 }
 
-Database.prototype.closeJob = function(id, state, reason) {
+Database.prototype.startJob = function(id, properties) {
   var self = this;
-  reason = reason ? reason : "";
+  properties = properties ? properties : {};
 
-  var rawQDeleteJob = "UPDATE scraperjobs \
+  var rawQStartJob = "UPDATE scraperjobs \
                        SET \
                          state = $1, \
                          started = current_timestamp, \
-                         finished = current_timestamp, \
-                         properties = properties || '\"reason\"=>\"%s\"' \
+                         properties = properties || '%s' \
                        WHERE \
                          properties->'msgId' = '%s' \
                        ;";
 
-  var statement = util.format(rawQDeleteJob, reason, id);
+  var statement = util.format(rawQStartJob, objToPropertyString(properties), id);
+  var query = self.client_.query(statement, states.scraper.jobState.STARTED);
+
+  return new Query(query);
+}
+
+Database.prototype.pauseJob = function(id, properties) {
+  var self = this;
+  properties = properties ? properties : {};
+
+  var rawQPauseJob = "UPDATE scraperjobs \
+                       SET \
+                         state = $1, \
+                         properties = properties || '%s' \
+                       WHERE \
+                         properties->'msgId' = '%s' \
+                       ;";
+
+  var statement = util.format(rawQPauseJob, objToPropertyString(properties), id);
+  var query = self.client_.query(statement, states.scraper.jobState.PAUSED);
+
+  return new Query(query);
+}
+
+Database.prototype.finishJob = function(id, properties) {
+  var self = this;
+  properties = properties ? properties : {};
+
+  var rawQFinishJob = "UPDATE scraperjobs \
+                       SET \
+                         state = $1, \
+                         finished = current_timestamp, \
+                         properties = properties || '%s' \
+                       WHERE \
+                         properties->'msgId' = '%s' \
+                       ;";
+
+  var statement = util.format(rawQFinishJob, objToPropertyString(properties), id);
+  var query = self.client_.query(statement, states.scraper.jobState.COMPLETED);
+
+  return new Query(query);
+}
+
+Database.prototype.closeJob = function(id, state, err) {
+  var self = this;
+  err = err ? err : "";
+
+  var rawQDeleteJob = "UPDATE scraperjobs \
+                       SET \
+                         state = $1, \
+                         finished = current_timestamp, \
+                         properties = properties || '\"error\"=>\"%s\"' \
+                       WHERE \
+                         properties->'msgId' = '%s' \
+                       ;";
+
+  var statement = util.format(rawQDeleteJob, err, id);
   var query = self.client_.query(statement, [state]);
 
   return new Query(query);
@@ -225,8 +288,6 @@ function objToPropertyString(obj) {
     ret += util.format(template, key, escapeString(value));
     i++;
   });
-
-  console.log(ret);
 
   return ret;
 }
