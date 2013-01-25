@@ -113,7 +113,7 @@ ProcInfo.prototype.announceKeyValue = function(key, value) {
 
   // Set the key, which expires the TTL...
   self.redis_.set(key, value);
-  // ...so restate the TTL
+  // ...so restore the TTL
   self.redis_.expire(key, EXPIRE_TIME_SECONDS);
 }
 
@@ -155,5 +155,5 @@ ProcInfo.prototype.setRole = function(rolename) {
   var self = this;
   self.role_ = rolename;
 
-  self.announce.bind(self);
+  self.announce();
 }

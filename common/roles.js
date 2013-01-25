@@ -39,7 +39,7 @@ Roles.prototype.onRolesDirRead = function(err, files) {
   var self = this;
 
   files.forEach(function(file) {
-    if (file.endsWith('.js'))
+    if (file.endsWith('.js') || file[0] === '.')
       return;
     self.loadRole(ROLES_DIR + file + '/package.json');
   });
@@ -57,6 +57,11 @@ Roles.prototype.loadRole = function(infopath) {
 
   try {
     var info = require(infopath);
+
+    if (info.disabled) {
+      logger.info(util.format('Ignoring role %s: It is disabled', info.name));
+      return;
+    }
     
     if (info.type === 'singleton') {
       self.singletonRoles_.push(info);
@@ -65,7 +70,7 @@ Roles.prototype.loadRole = function(infopath) {
       self.scalableRoles_.push(info);
     
     } else {
-      console.warn('Unable to process role of type: ' + info.type);
+      logger.warn('Unable to process role of type: ' + info.type);
     }
   } catch (error) {
     logger.warn('Unable to load role: ' + infopath + ': ' + error);
