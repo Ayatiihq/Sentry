@@ -31,6 +31,8 @@ var Scraper = module.exports = function() {
 
   this.poll = 0;
 
+  this.runningScrapers_ = [];
+
   this.init();
 }
 
@@ -159,30 +161,52 @@ Scraper.prototype.getJobDetails = function(job, callback) {
 
 Scraper.prototype.startJob = function(job) {
   var self = this;
+  var jobState = states.scraper.jobState;
 
-  logger.info('Starting job '  + job.id);
+  self.loadScraperForJob(job, function(err, scraper) {
+    if (err) {
+      logger.warn(util.format('Unable to start job %s: %s', job.id, err));
+      db.closeJob(job.id, jobState.ERRORED, { error: err });
+      self.findJobs();
+      return;
+    }
+    
+    logger.info('Starting job '  + job.id);
 
-  var scraper = self.scrapers_.getScraper(job.body.scraper);
-  if (!scraper) {
-    logger.warn('Unable to find scraper ' + job.body.scraper);
-    self.findJobs();
+    self.runningScrapers_.push(scraper);
+
+    scraper.on('paused', function(state) {
+      logger.info('Scraper paused');
+    });
+    scraper.on('finished', function() {
+      logger.info('Scraper finished');
+    });
+    scraper.on('error', function(err) {
+      logger.warn('Scraper error');
+    });
+
+    scraper.start();
+  });
+}
+
+Scraper.prototype.loadScraperForJob = function(job, callback) {
+  var self = this;
+
+  var scraperInfo = self.scrapers_.getScraper(job.body.scraper);
+  if (!scraperInfo) {
+    callback(new Error('Unable to find scraper'));
     return;
   }
 
   try {
-    var modPath = './scrapers/' + scraper.name;
-    console.log(modPath);
+    var modPath = './scrapers/' + scraperInfo.name;
     var Scraper = require(modPath);
     scraper = new Scraper();
+    callback(null, scraper);
 
   } catch(err) {
-    logger.warn(util.format('Unabled to load scraper %s: %s', job.body.scraper, err));
-    self.findJobs();
-    return;
+    callback(err);
   }
-
-  scraper.start();
-  scraper.finish();
 }
 
 Scraper.prototype.deleteJob = function(err, job) {
