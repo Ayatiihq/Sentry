@@ -4,6 +4,7 @@
   "description": "Sentry piracy dectection and protection system.",
   
   "dependencies": {
+    "azure": "0.6.x",
     "ironmq": "0.1.x",
     "parseq": "0.2.x",
     "pg": "0.10.x",
