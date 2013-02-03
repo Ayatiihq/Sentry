@@ -1,10 +1,9 @@
 /*
  * lock.js: acquire a system-wide lock on an entity.
  *
- * We use uniquely named queues to acquire locks on resources. Queues that exist
- * and have a size > 1 mean that there is a lock in progress. A message on the
- * queue as a timeout value, and hence if the lock owner no longer exists, the
- * queue will become empty in time.
+ * We use azure tables and some double-checking to build a locking system which
+ * scales easily. It's not as fast as redis, but it'll work with the existing
+ * system and is extendable with metadata etc if we want it.
  *
  * (C) 2012 Ayatii Limited
  *
@@ -15,7 +14,6 @@ var acquire = require('acquire')
   , config = acquire('config')
   , logger = acquire('logger').forFile('lock.js')
   , os = require('os')
-  , seq = require('parseq').seq
   , sugar = require('sugar')
   , util = require('util')
   ;
@@ -23,7 +21,7 @@ var acquire = require('acquire')
 var LOCK_TABLE = "locks";
 
 var Lock = module.exports = function() {
-  var tableService_ = null;
+  this.tableService_ = null;
 
   this.init();
 }
@@ -63,7 +61,7 @@ Lock.prototype.createAndCheckLock = function(domain, lockname, ttl, callback) {
     ownerId: self.getOwnerId(domain, lockname)
   };
 
-  self.tableService_.insertEntity(LOCK_TABLE, task, function (err) {
+  self.tableService_.insertEntity(LOCK_TABLE, task, function(err) {
     if (err) {
       callback(null);
     } else {
