@@ -2,5 +2,9 @@
   "name": "downloader-torrent",
   "main": "./downloader-torrent.js",
   "type": "scalable",
-  "queues": ["downloader-torrent:priority", "downloader-torrent"]
+  "queues":  {
+    "priority": "downloader-torrent.priority",
+    "default": "downloader-torrent"
+  },
+  "disabled": true
 }

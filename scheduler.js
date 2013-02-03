@@ -8,24 +8,25 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , logger = require('./logger').forFile('scheduler.js')
-  , redis = require('./redis')
+  , logger = acquire('logger').forFile('scheduler.js')
+  , redis = acquire('redis')
   , util = require('util')
   , os = require('os')
   ;
 
-var RolesCache = require('./roles/roles-cache.js').RolesCache;
+var Roles = acquire('roles');
 
 var MIN_CHECK_INTERVAL_SECONDS = 180;
 var MAX_CHECK_INTERVAL_SECONDS = 300;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 
-var Scheduler = exports.Scheduler = function() {
+var Scheduler = module.exports = function() {
   this.redis_ = null;
-  this.rolesCache_ = null;
+  this.roles_ = null;
 
   this.init();
 }
@@ -35,7 +36,7 @@ util.inherits(Scheduler, events.EventEmitter);
 Scheduler.prototype.init = function() {
   var self = this;
 
-  self.rolesCache_ = new RolesCache();
+  self.roles_ = new Roles();
 
   self.initRedis();
 }
@@ -54,8 +55,8 @@ Scheduler.prototype.initRedis = function() {
 Scheduler.prototype.onReady = function() {
   var self = this;
 
-  if (!self.rolesCache_.isReady()) {
-    self.rolesCache_.once('ready', self.onReady.bind(self));
+  if (!self.roles_.isReady()) {
+    self.roles_.once('ready', self.onReady.bind(self));
     return;
   }
 
@@ -73,7 +74,7 @@ Scheduler.prototype.watchSingletons = function() {
 Scheduler.prototype.tryOwnSingletonLocks = function() {
   var self = this;
 
-  self.rolesCache_.getSingletonRoles().forEach(function (roleinfo) {
+  self.roles_.getSingletonRoles().forEach(function (roleinfo) {
     var rolename = roleinfo.name;
 
     if (self.isWorkerAvailableForRoleChange() === null) {
@@ -91,7 +92,7 @@ Scheduler.prototype.isWorkerAvailableForRoleChange = function() {
     var worker = cluster.workers[id];
 
     // If the worker's role is not a singleton, then it's available
-    var index = self.rolesCache_.getSingletonRoles().findIndex(function(info) {
+    var index = self.roles_.getSingletonRoles().findIndex(function(info) {
       return info.name === worker.role;
     });
 
@@ -168,7 +169,7 @@ Scheduler.prototype.getRolesByNumber = function(reply) {
   var hash = {};
   
   // Add the roles we can handle
-  self.rolesCache_.getScalableRoles().forEach(function(info) {
+  self.roles_.getScalableRoles().forEach(function(info) {
     hash[info.name] = { name: info.name, count: 0 };
   });
 

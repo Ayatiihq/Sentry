@@ -11,18 +11,19 @@
  *
  */
 
-var cluster = require('cluster')
+var acquire = require('acquire')
+  , cluster = require('cluster')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('./logger').forFile('worker.js')
+  , logger = acquire('logger').forFile('worker.js')
   , net = require('net')
   , util = require('util')
   , os = require('os')
   ;
 
-var ProcInfo = require('./procinfo').ProcInfo;
+var ProcInfo = require('./procinfo');
 
-var Worker = exports.Worker = function() {
+var Worker = module.exports = function() {
   this.socketFile_ = "";
   this.procinfo_ = null;
   this.server_ = null;
@@ -91,7 +92,7 @@ Worker.prototype.setRole = function(rolename) {
   self.procinfo_.setRole(rolename);
   self.currentRoleName_ = rolename;
   
-  var Role = require('./roles/' + rolename).Role;
+  var Role = require('./roles/' + rolename);
   self.role_ = new Role();
   self.role_.on('ended', self.onRoleEnded.bind(self));
   self.role_.on('finished', self.onRoleFinished.bind(self));

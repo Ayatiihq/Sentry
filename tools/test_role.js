@@ -5,11 +5,10 @@
  *
  */
 
-var logger = require('../logger')
-  , net = require('net')
+var acquire = require('acquire')
+  , config = acquire('config')
+  , logger = acquire('logger')
   ;
-
-var config = require('../config');
 
 function setupSignals() {
   process.on('SIGINT', function() {
@@ -32,18 +31,13 @@ function main() {
   }
 
   var rolename = process.argv[2];
-  var Role = require('../roles/' + rolename).Role;
+  var Role = require('../roles/' + rolename);
   var instance = new Role();
   instance.on('started', function() {
     logger.info('Started ' + instance.getDisplayName());
   });
 
   instance.start();
-
-  var server = net.createServer(function() {});
-  server.listen(8001);
-
-  instance.end();
 }
 
 main(); 

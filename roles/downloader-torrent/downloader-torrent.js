@@ -8,14 +8,15 @@
  *
  */
 
-var events = require('events')
-  , logger = require('../../logger').forFile('downloader-torrent.js')
+var acquire = require('acquire')
+  , events = require('events')
+  , logger = acquire('logger').forFile('downloader-torrent.js')
   , util = require('util')
   ;
 
-var Role = require('../role').Role;
+var Role = acquire('role');
 
-var DownloaderTorrent = exports.Role = function() {
+var DownloaderTorrent = module.exports = function() {
   this.init();
 }
 

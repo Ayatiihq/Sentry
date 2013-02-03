@@ -4,7 +4,7 @@
   "description": "Sentry piracy dectection and protection system.",
   
   "dependencies": {
-    "jsonify": "0.0.x",
+    "ironmq": "0.1.x",
     "parseq": "0.2.x",
     "pg": "0.10.x",
     "redis": "0.8.x",

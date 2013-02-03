@@ -5,14 +5,15 @@
  *
  */
 
-var cluster = require('cluster')
-  , logger = require('./logger')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , logger = acquire('logger')
   , os = require('os')
   , sugar = require('sugar')
   ;
 
-var Master = require('./master').Master
-  , Worker = require('./worker').Worker;
+var Master = require('./master')
+  , Worker = require('./worker');
 
 function setupSignals() {
   process.on('SIGINT', function() {

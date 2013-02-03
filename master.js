@@ -8,20 +8,21 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , logger = require('./logger').forFile('master.js')
+  , logger = acquire('logger').forFile('master.js')
   , util = require('util')
   , os = require('os')
   ;
 
-var ProcInfo = require('./procinfo').ProcInfo
-  , Scheduler = require('./scheduler').Scheduler;
+var ProcInfo = require('./procinfo')
+  , Scheduler = require('./scheduler');
 
 var WORKER_KILL_WAIT_SECONDS = 60;
 
-var Master = exports.Master = function() {
+var Master = module.exports = function() {
   this.procinfo_ = null;
   this.scheduler_ = null;
 

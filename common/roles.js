@@ -1,24 +1,24 @@
 /*
- * roles-cache.js: managing the availab
+ * roles.js: managing the available roles
  *
  * (C) 2012 Ayatii Limited
  *
- * RolesCache compiles a cache of all the available roles so the scheduler can
+ * Roles compiles a cache of all the available roles so the scheduler can
  * easily enumerate them.
  *
  */
 
-var cluster = require('cluster')
-  , config = require('../config')
+var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , fs = require('fs')
-  , logger = require('../logger').forFile('roles-cache.js')
+  , logger = acquire('logger').forFile('roles.js')
   , util = require('util')
   ;
 
-var ROLES_DIR = './roles';
+var ROLES_DIR = __dirname + '/../roles/';
 
-var RolesCache = exports.RolesCache = function() {
+var Roles = module.exports = function() {
   this.ready_ = false;
   this.singletonRoles_ = [];
   this.scalableRoles_ = [];
@@ -26,22 +26,22 @@ var RolesCache = exports.RolesCache = function() {
   this.init();
 }
 
-util.inherits(RolesCache, events.EventEmitter);
+util.inherits(Roles, events.EventEmitter);
 
-RolesCache.prototype.init = function() {
+Roles.prototype.init = function() {
   var self = this;
 
-  // Workes from toplevel
+  // Works from toplevel
   fs.readdir(ROLES_DIR, self.onRolesDirRead.bind(self));
 }
 
-RolesCache.prototype.onRolesDirRead = function(err, files) {
+Roles.prototype.onRolesDirRead = function(err, files) {
   var self = this;
 
   files.forEach(function(file) {
-    if (file.endsWith('.js'))
+    if (file.endsWith('.js') || file[0] === '.')
       return;
-    self.loadRole('./' + file + '/package.json');
+    self.loadRole(ROLES_DIR + file + '/package.json');
   });
 
   self.removeRoles();
@@ -50,13 +50,18 @@ RolesCache.prototype.onRolesDirRead = function(err, files) {
   self.emit('ready');
 }
 
-RolesCache.prototype.loadRole = function(infopath) {
+Roles.prototype.loadRole = function(infopath) {
   var self = this;
 
   logger.info('Loading role: ' + infopath);
 
   try {
     var info = require(infopath);
+
+    if (info.disabled) {
+      logger.info(util.format('Ignoring role %s: It is disabled', info.name));
+      return;
+    }
     
     if (info.type === 'singleton') {
       self.singletonRoles_.push(info);
@@ -65,14 +70,14 @@ RolesCache.prototype.loadRole = function(infopath) {
       self.scalableRoles_.push(info);
     
     } else {
-      console.warn('Unable to process role of type: ' + info.type);
+      logger.warn('Unable to process role of type: ' + info.type);
     }
   } catch (error) {
     logger.warn('Unable to load role: ' + infopath + ': ' + error);
   }
 }
 
-RolesCache.prototype.removeRoles = function() {
+Roles.prototype.removeRoles = function() {
   var self = this;
 
   // Remove roles that
@@ -102,14 +107,14 @@ RolesCache.prototype.removeRoles = function() {
 //
 // Public
 //
-RolesCache.prototype.isReady = function() {
+Roles.prototype.isReady = function() {
   return this.ready_;
 }
 
-RolesCache.prototype.getSingletonRoles = function() {
+Roles.prototype.getSingletonRoles = function() {
   return this.singletonRoles_;
 }
 
-RolesCache.prototype.getScalableRoles = function() {
+Roles.prototype.getScalableRoles = function() {
   return this.scalableRoles_;
 }

@@ -8,13 +8,13 @@
  *
  */
 
-var cluster = require('cluster')
-  , config = require('./config')
+var acquire = require('acquire')
+  , cluster = require('cluster')
+  , config = acquire('config')
   , events = require('events')
-  , json = require('jsonify')
-  , logger = require('./logger').forFile('procinfo.js')
+  , logger = acquire('logger').forFile('procinfo.js')
   , os = require('os')
-  , redis = require("./redis")
+  , redis = acquire("redis")
   , sugar = require('sugar')
   , util = require('util')
   ;
@@ -22,7 +22,7 @@ var cluster = require('cluster')
 var EXPIRE_TIME_SECONDS = config.ANNOUNCE_EXPIRE_TIME_SECONDS;
 var INTERVAL_TIME_SECONDS = EXPIRE_TIME_SECONDS/2;
 
-var ProcInfo = exports.ProcInfo = function() {
+var ProcInfo = module.exports = function() {
   this.key_ = "undefined";
   this.redis_ = null;
   this.role_ = 'idle';
@@ -113,7 +113,7 @@ ProcInfo.prototype.announceKeyValue = function(key, value) {
 
   // Set the key, which expires the TTL...
   self.redis_.set(key, value);
-  // ...so restate the TTL
+  // ...so restore the TTL
   self.redis_.expire(key, EXPIRE_TIME_SECONDS);
 }
 
@@ -131,10 +131,10 @@ ProcInfo.prototype.getMasterData = function() {
   data.totalmem = os.totalmem();
   data.freemem = os.freemem();
   data.pid = process.pid;
-  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.memoryUsage = JSON.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
-  return json.stringify(data);
+  return JSON.stringify(data);
 }
 
 ProcInfo.prototype.getWorkerData = function() {
@@ -145,15 +145,15 @@ ProcInfo.prototype.getWorkerData = function() {
   data.role = self.role_;
   data.workerId = cluster.worker.id;
   data.pid = process.pid;
-  data.memoryUsage = json.stringify(process.memoryUsage());
+  data.memoryUsage = JSON.stringify(process.memoryUsage());
   data.processUptime = process.uptime();
 
-  return json.stringify(data);
+  return JSON.stringify(data);
 }
 
 ProcInfo.prototype.setRole = function(rolename) {
   var self = this;
   self.role_ = rolename;
 
-  self.announce.bind(self);
+  self.announce();
 }

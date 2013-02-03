@@ -57,9 +57,10 @@ var scraperJobsTableQuery =
   scraper varchar(255) NOT NULL CHECK (scraper <> ''), \
   campaign int8 REFERENCES campaigns(id),              \
   created timestamp DEFAULT current_timestamp,         \
-  modified timestamp DEFAULT current_timestamp,        \
-  completed timestamp,                                 \
-  state int2 DEFAULT 0                                 \
+  started timestamp DEFAULT current_timestamp,         \
+  finished timestamp,                                  \
+  state int2 DEFAULT 0,                                \
+  properties hstore                                    \
 );";
 
 var urisTableQuery = 

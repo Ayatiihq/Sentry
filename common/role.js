@@ -9,12 +9,13 @@
  *
  */
 
-var events = require('events')
-  , logger = require('../logger').forFile('role.js')
+var acquire = require('acquire')
+  , events = require('events')
+  , logger = acquire('logger').forFile('role.js')
   , util = require('util')
   ;
 
-var Role = exports.Role = function() {
+var Role = module.exports = function() {
   this.init();
 
   //

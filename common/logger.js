@@ -23,21 +23,25 @@ var Logger = function(filename) {
 }
 
 Logger.prototype.info = function(string, object) {
+  string = Object.isObject(string) ? JSON.stringify(string) : string;
   object = typeof object !== 'undefined' ? object : {};
   winston.info(this.prefix_ + string, object );
 }
 
 Logger.prototype.debug = function(string, object) {
+  string = Object.isObject(string) ? JSON.stringify(string) : string;  
   object = typeof object !== 'undefined' ? object : {};
   winston.debug(this.prefix_ + string, object );
 }
 
 Logger.prototype.warn = function(string, object) {
+  string = Object.isObject(string) ? JSON.stringify(string) : string;  
   object = typeof object !== 'undefined' ? object : {};
   winston.warn(this.prefix_ + string, object );
 }
 
 Logger.prototype.error = function(string, object) {
+  string = Object.isObject(string) ? JSON.stringify(string) : string;  
   object = typeof object !== 'undefined' ? object : {};
   winston.error(this.prefix_ + string, object );
 }

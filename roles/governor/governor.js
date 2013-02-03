@@ -8,14 +8,19 @@
  *
  */
 
-var events = require('events')
-  , logger = require('../../logger').forFile('governor.js')
+var acquire = require('acquire')
+  , config = acquire('config')
+  , db = acquire('database')
+  , events = require('events')
+  , logger = acquire('logger').forFile('governor.js')
+  , pg = require('pg').native
   , util = require('util')
   ;
 
-var Role = require('../role').Role;
+var Role = acquire('role')
+  , ScraperDispatcher = require('./scraper-dispatcher');
 
-var Governor = exports.Role = function() {
+var Governor = module.exports = function() {
   this.init();
 }
 
@@ -23,12 +28,30 @@ util.inherits(Governor, Role);
 
 Governor.prototype.init = function() {
   var self = this;
-  logger.info('Governor up and running');
+
+  if (db.isReady())
+    self.onDatabaseReady();
+  else
+    db.on('ready', self.onDatabaseReady.bind(self));
+
+  logger.info('Running');
+}
+
+Governor.prototype.onDatabaseReady = function() {
+  var self = this;
+
+  self.initJobs();
+}
+
+Governor.prototype.initJobs = function() {
+  var self = this;
+
+  self.scraperDispatcher_ = new ScraperDispatcher();
 }
 
 //
 // Overrides
-
+//
 Governor.prototype.getName = function() {
   return "governor";
 }

@@ -7,14 +7,15 @@
  *
  */
 
-var events = require('events')
-  , logger = require('../../logger').forFile('downloader.js')
+var acquire = require('acquire')
+  , events = require('events')
+  , logger = acquire('logger').forFile('downloader.js')
   , util = require('util')
   ;
 
-var Role = require('../role').Role;
+var Role = acquire('role');
 
-var Downloader = exports.Role = function() {
+var Downloader = module.exports = function() {
   this.init();
 }
 
