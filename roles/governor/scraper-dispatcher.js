@@ -137,7 +137,6 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   // It has a job logged, but is it valid?
   switch (lastJob.state) {
     case state.QUEUED:
-    case state.PAUSED:
       var jobValid = !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
       if (!jobValid) {
         self.setJobAsExpired(lastJob, "Queued/Paused for too long");
@@ -151,6 +150,7 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
       }
       return jobValid;
 
+    case state.PAUSED:
     case state.CANCELLED:
     case state.ERRORED:
       return false;

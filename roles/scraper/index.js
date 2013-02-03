@@ -166,7 +166,7 @@ Scraper.prototype.startJob = function(job) {
   self.loadScraperForJob(job, function(err, scraper) {
     if (err) {
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      db.closeJob(job.id, jobState.ERRORED, { error: err });
+      db.closeJob(job.id, jobState.ERRORED, err);
       self.findJobs();
       return;
     }
@@ -175,16 +175,12 @@ Scraper.prototype.startJob = function(job) {
 
     self.runningScrapers_.push(scraper);
 
-    scraper.on('paused', function(state) {
-      logger.info('Scraper paused');
-    });
-    scraper.on('finished', function() {
-      logger.info('Scraper finished');
-    });
-    scraper.on('error', function(err) {
-      logger.warn('Scraper error');
-    });
+    scraper.on('started', self.onScraperStarted.bind(self, scraper, job));
+    scraper.on('paused', self.onScraperPaused.bind(self, scraper, job));
+    scraper.on('finished', self.onScraperFinished.bind(self, scraper, job));
+    scraper.on('error', self.onScraperError.bind(self, scraper, job));
 
+    self.doScraperStartWatch(scraper, job);
     scraper.start();
   });
 }
@@ -231,6 +227,61 @@ Scraper.prototype.deleteJob = function(err, job) {
       }
     });
   });
+}
+
+Scraper.prototype.doScraperStartWatch = function(scraper, job) {
+  var self = this;
+  var err = new Error(util.format('Scraper took too long to start: %s', scraper.getName()));
+
+  scraper.watchId = setTimeout(self.onScraperError.bind(self, scraper, job, err),
+                               1000 * 60);
+}
+
+Scraper.prototype.onScraperStarted = function(scraper, job) {
+  var self = this;
+
+  if (scraper.watchId) {
+    clearTimeout(scraper.watchId);
+    scraper.watchId = -1;
+  }
+
+  var query = db.startJob(job.id, {});
+  query.on('error', function(err) {
+    logger.warn(util.format('Unable to mark job (%s) as started', job.id));
+  });
+}
+
+Scraper.prototype.onScraperPaused = function(scraper, job, state) {
+  var self = this;
+
+  var query = db.pauseJob(job.id, state);
+  query.on('error', function(err) {
+    logger.warn(util.format('Unable to mark job (%s) as paused: %s', job.id, err));
+  });
+
+  self.findJobs();
+}
+
+Scraper.prototype.onScraperFinished = function(scraper, job) {
+  var self = this;
+
+  var query = db.finishJob(job.id, {});
+  query.on('error', function(err) {
+    logger.warn(util.format('Unable to mark job (%s) as finished: %s', job.id, err));
+  });
+
+  self.findJobs();
+}
+
+Scraper.prototype.onScraperError = function(scraper, job, jerr) {
+  var self = this;
+
+  var query = db.closeJob(job.id, states.scraper.jobState.ERRORED, jerr);
+  query.on('error', function(err) {
+    logger.warn(util.format('Unable to mark job (%s) as errored (%s): %s', job.id, jerr, err));
+  });
+
+  self.findJobs();
 }
 
 //

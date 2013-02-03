@@ -35,12 +35,12 @@ Dummy.prototype.getName = function() {
   return "dummy";
 }
 
-Dummy.prototype.start = function() {
+Dummy.prototype.start = function(state) {
   var self = this;
-  self.emit('started');
+  //self.emit('started');
 }
 
-Dummy.prototype.finish = function() {
+Dummy.prototype.stop = function() {
   var self = this;
   self.emit('finished');
 }

@@ -18,14 +18,16 @@ var Scraper = module.exports = function() {
   // Signals
   //
 
-  // "started" - When the scraper starts working
+  // "started" - When the scraper starts working, this must be sent once any
+  //             state checking etc is done by the scraper and work starts
 
-  // "paused" - When the scraper has paused itself
+  // "paused" - When the scraper has paused itself. Args: object representing
+  //            object's state. I.e. self.emit('paused', { lastPageScraped: 11 });
 
   // "finished" - When the scraper has no more tasks to complete
 
   // "error" - When there is an error to stops the scraper from continuing it's
-  //           work
+  //           work. Args: the error object
 }
 
 util.inherits(Scraper, events.EventEmitter);
@@ -37,12 +39,12 @@ Scraper.prototype.getName = function() {
   return "scraper";
 }
 
-Scraper.prototype.start = function() {
+Scraper.prototype.start = function(state) {
   var self = this;
   logger.warn(self.getName() + " has no start method");
 }
 
-Scraper.prototype.finish = function() {
+Scraper.prototype.stop = function() {
   var self = this;
-  logger.warn(self.getName() + " has no finish method");
+  logger.warn(self.getName() + " has no stop method");
 }
