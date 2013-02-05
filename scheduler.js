@@ -167,6 +167,7 @@ Scheduler.prototype.findRoleForWorker = function(worker) {
 
 Scheduler.prototype.getRolesByNumber = function(workers) {
   var self = this;
+  
   var hash = {};
   
   // Add the roles we can handle

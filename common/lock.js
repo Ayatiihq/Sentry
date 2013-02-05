@@ -20,6 +20,11 @@ var acquire = require('acquire')
 
 var LOCK_TABLE = "locks";
 
+/**
+ * System-wide resource locking.
+ *
+ * @return {object}
+ */
 var Lock = module.exports = function() {
   this.tableService_ = null;
 
@@ -57,7 +62,7 @@ Lock.prototype.createAndCheckLock = function(domain, lockname, ttl, callback) {
   var task = {
     PartitionKey: domain,
     RowKey: lockname,
-    expires: Date.create(ttl + 'seconds from now'),
+    expires: Date.utc.create(ttl + 'seconds from now'),
     ownerId: self.getOwnerId(domain, lockname)
   };
 
@@ -105,9 +110,9 @@ Lock.prototype.tryLock = function(domain, lockname, ttl, callback) {
     if (err) {
       self.createAndCheckLock(domain, lockname, ttl, callback);
     } else {
-      var then = Date.create(entity.expires);
+      var then = Date.utc.create(entity.expires);
 
-      if (then.isBefore(ttl + ' seconds ago')) {
+      if (then.isPast()) {
         self.tryTakeLock(domain, lockname, ttl, callback);
       } else {
         callback(null);
@@ -134,7 +139,7 @@ Lock.prototype.extendLock = function(token, ttl, callback) {
 
   self.tableService_.queryEntity(LOCK_TABLE, token.PartitionKey, token.RowKey, function(err, entity) {
     if (entity.ownerId === token.ownerId) {
-      token.expires = Date.create(ttl + 'seconds from now');
+      token.expires = Date.utc.create(ttl + 'seconds from now');
 
       self.tableService_.updateEntity(LOCK_TABLE, token, function(err) {
         callback(err);

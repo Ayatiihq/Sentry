@@ -19,7 +19,7 @@ var acquire = require('acquire')
 var Role = acquire('role')
   , Scrapers = acquire('scrapers')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 5;
+var QUEUE_CHECK_INTERVAL = 1000 * 60;
 
 var Scraper = module.exports = function() {
   this.db_ = null;
