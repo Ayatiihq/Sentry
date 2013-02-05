@@ -1,5 +1,5 @@
 /*
- * test_swarm.js: list ironmq
+ * test_swarm.js: test Swarm
  *
  * (C) 2012 Ayatii Limited
  *

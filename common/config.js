@@ -38,9 +38,9 @@ config.IRONMQ_TOKEN = getEnv(process.env.IRONMQ_TOKEN, 'yTY3n98ywCuj1HpMMe2_6dp8
 
 config.IRONMQ_PROJECT = getEnv(process.env.IRONMQ_PROJECT, '50cf775e8e7d1447f5004d56');
 
-config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'dustbowl');
+config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleus');
 
-config.AZURE_NETWORK_KEY = getEnv(process.env.AZURE_NETWORK_KEY, 'MIGNAwGwCVRCdgIxmFpi2KrPhEkgxaPSMxNow41hXz6YM0plPbQvL0Qr6P5Wt8JDdzcTaH9xBtUODwH4gZxkYQ==');
+config.AZURE_NETWORK_KEY = getEnv(process.env.AZURE_NETWORK_KEY, 'IoPtjg8kxGXJoHrD6ucPMOrTnSdUPW02t3i9pFVH1gRRQv5gBhT68sS+LNeZF8wyctRXK4lyyee1o3sNXf0SLw==');
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);

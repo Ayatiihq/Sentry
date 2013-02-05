@@ -1,5 +1,5 @@
 /*
- * test_lock.js: list ironmq
+ * test_lock.js: test Lock
  *
  * (C) 2012 Ayatii Limited
  *
@@ -10,8 +10,7 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   ;
 
-var Lock = acquire('lock')
-  , Scrapers = acquire('scrapers');
+var Lock = acquire('lock');
 
 function setupSignals() {
   process.on('SIGINT', function() {

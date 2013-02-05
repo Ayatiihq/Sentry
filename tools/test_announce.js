@@ -1,5 +1,5 @@
 /*
- * test_announce.js: list ironmq
+ * test_announce.js: tests announcements
  *
  * (C) 2012 Ayatii Limited
  *
@@ -10,8 +10,7 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   ;
 
-var Announce = acquire('announce')
-  , Scrapers = acquire('scrapers');
+var Announce = acquire('announce');
 
 function setupSignals() {
   process.on('SIGINT', function() {
@@ -21,7 +20,7 @@ function setupSignals() {
 
 function main() {
   logger.init();
-  logger = logger.forFile('test_lock.js');
+  logger = logger.forFile('test_announce.js');
 
   setupSignals();
 
