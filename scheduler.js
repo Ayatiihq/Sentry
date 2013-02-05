@@ -18,7 +18,8 @@ var acquire = require('acquire')
   ;
 
 var Lock = acquire('lock')
-  , Roles = acquire('roles');
+  , Roles = acquire('roles')
+  , Swarm = acquire('swarm');
 
 var MIN_CHECK_INTERVAL_SECONDS = 30;
 var MAX_CHECK_INTERVAL_SECONDS = 35;
@@ -27,6 +28,7 @@ var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 var Scheduler = module.exports = function() {
   this.lock_ = null;
   this.roles_ = null;
+  this.swarm_ = null;
 
   this.init();
 }
@@ -38,6 +40,7 @@ Scheduler.prototype.init = function() {
 
   self.lock_ = new Lock();
   self.roles_ = new Roles();
+  self.swarm_ = new Swarm();
 
   self.doleWorkers_ = [];
 
@@ -150,23 +153,19 @@ Scheduler.prototype.findRoleForWorker = function(worker) {
     return;
   }
 
-  /* FIXME: We need a azure-based way to do this
-  // Get the swarm's current state with regards to the fulfilled roles
-  self.redis_.keys('role:*', function(err, reply) {
-    if (reply === 0) {
-      logger.warn('Unable to get existing roles in swarm');
-      reply = [];
+  self.swarm_.listWorkers(function(err, workers) {
+    if (err) {
+      logger.warn('Unable to get accurate worker list: ' + err);
+      workers = [];
+    }
+    var roles = self.getRolesByNumber(workers);
+    if (roles.length > 0) {
+      self.emit('changeWorkerRole', worker, roles[0].name);
     }
   });
-  */
-  var reply = [];
-  var roles = self.getRolesByNumber(reply);
-  if (roles.length > 0) {
-    self.emit('changeWorkerRole', worker, roles[0].name);
-  }
 }
 
-Scheduler.prototype.getRolesByNumber = function(reply) {
+Scheduler.prototype.getRolesByNumber = function(workers) {
   var self = this;
   var hash = {};
   
@@ -185,11 +184,9 @@ Scheduler.prototype.getRolesByNumber = function(reply) {
   }
 
   // Order the roles we can do by those that are already running in the swarm
-  reply.forEach(function(key) {
-    var role = key.split(':')[1];
-
-    if (Object.has(hash, role)) {
-      hash[role].count++;
+  workers.forEach(function(worker) {
+    if (Object.has(hash, worker.role)) {
+      hash[worker.role].count++;
     }
   });
 
