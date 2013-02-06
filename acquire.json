@@ -1,5 +1,6 @@
 {
   "announce": "common/announce.js",
+  "clients": "common/clients.js",
   "config": "common/config.js",
   "database": "common/database.js",
   "lock": "common/lock.js",

@@ -42,6 +42,10 @@ config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleu
 
 config.AZURE_NETWORK_KEY = getEnv(process.env.AZURE_NETWORK_KEY, 'IoPtjg8kxGXJoHrD6ucPMOrTnSdUPW02t3i9pFVH1gRRQv5gBhT68sS+LNeZF8wyctRXK4lyyee1o3sNXf0SLw==');
 
+config.AZURE_CORE_ACCOUNT = getEnv(process.env.AZURE_CORE_ACCOUNT, 'goldrush');
+
+config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQbTT2sql8YrldYYdO4RhKnT4OTNfK+diveKbuDvqmxz0poyB9m2VpafBQLySvsaXNOA==');
+
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 

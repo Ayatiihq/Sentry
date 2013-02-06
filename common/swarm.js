@@ -50,7 +50,7 @@ Swarm.prototype.init = function() {
  * Get a list of currently active masters.
  *
  * @param {function(err, roles)} callback The callback to consume the masters, err is valid if there was an error.
- * @return {array}
+ * @return {undefined}
  */
 Swarm.prototype.listMasters = function(callback) {
   var self = this
