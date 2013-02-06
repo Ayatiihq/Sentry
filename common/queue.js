@@ -35,7 +35,7 @@ Queue.prototype.init = function() {
                                                 config.AZURE_NETWORK_KEY);
   self.queueService_.createQueueIfNotExists(self.queue_, function(err) {
     if (err)
-      console.warn(err);
+      logger.warn(err);
   });
 }
 
@@ -59,7 +59,6 @@ function messageIsValid(message) {
  * @param {function(err)}   callback    A callback to receive an error if the request fails.
  * @return {undefined}
  */
-
 Queue.prototype.push = function(message, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
