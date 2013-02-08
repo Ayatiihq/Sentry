@@ -1,8 +1,7 @@
 /*
  * clients.js: the client table
  *
- * Wraps the client table, caches the data, listens on the service bus for
- * any cache invalidations.
+ * Wraps the client table.
  *
  * (C) 2012 Ayatii Limited
  *
@@ -17,24 +16,18 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Swarm = acquire('swarm')
-  , TableBus = require('./tablebus')
-  ;
+var Swarm = acquire('swarm');
 
 var TABLE = 'clients';
 var PARTITION = '0';
-var TOPIC = 'tables';
 
 /**
- * Wraps and caches the clients table.
+ * Wraps the clients table.
  * 
  * @return {object}
  */
 var Clients = module.exports = function() {
   this.tableService_ = null;
-  this.serviceBus_ = null;
-
-  this.cache_ = null;
 
   this.init();
 }
@@ -48,22 +41,6 @@ Clients.prototype.init = function() {
     if (err)
       logger.warn(err);
   });
-
-  self.initServiceBus();
-}
-
-Clients.prototype.initServiceBus = function() {
-  var self = this;
-
-  TableBus.on('table:' + TABLE, self.onBusMessage.bind(self));
-}
-
-Clients.prototype.onBusMessage = function(message, action) {
-  var self = this;
-
-  if (action === 'invalidate') {
-    self.cache_ = null;
-  }
 }
 
 function defaultCallback(err) {
@@ -90,18 +67,8 @@ Clients.prototype.listClients = function(callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (self.cache_) {
-    callback(null, self.cache_);
-    return;
-  }
-
   var query = azure.TableQuery.select().from(TABLE);
-  self.tableService_.queryEntities(query, function(err, clients) {
-    if (!err)
-      self.cache_ = clients;
-
-    callback(err, self.cache_);
-  });
+  self.tableService_.queryEntities(query, callback);
 }
 
 /**
@@ -122,11 +89,9 @@ Clients.prototype.add = function(client, callback) {
 
   client.PartitionKey = PARTITION;
   client.RowKey = self.genClientKey(client.name);
-  client.created = new Date.utc.create();
+  client.created = Date.utc.create().toISOString();
 
   self.tableService_.insertEntity(TABLE, client, callback);
-  self.cache_ = null;
-  self.invalidate();
 }
 
 /**
@@ -145,8 +110,6 @@ Clients.prototype.update = function(updates, callback) {
     return;
   }
   self.tableService_.mergeEntity(TABLE, updates, callback);
-  self.cache_ = null;
-  self.invalidate();
 }
 
 /**
@@ -165,18 +128,4 @@ Clients.prototype.remove = function(client, callback) {
     return;
   }
   self.tableService_.deleteEntity(TABLE, client, callback);
-  self.cache_ = null;
-  self.invalidate();
-}
-
-/**
- * Invalidates the caches of all Clients instances in the network.
- *
- * @return    {undefined}
- */
-Clients.prototype.invalidate = function() {
-  var self = this;
-
-  self.cache_ = null;
-  TableBus.send(TABLE, 'invalidate');
 }
