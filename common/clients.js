@@ -12,13 +12,18 @@ var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
   , crypto = require('crypto')
-  , logger = acquire('logger').forFile('queue.js')
+  , logger = acquire('logger').forFile('clients.js')
   , sugar = require('sugar')
   , util = require('util')
   ;
 
+var Swarm = acquire('swarm')
+  , TableBus = require('./tablebus')
+  ;
+
 var TABLE = 'clients';
 var PARTITION = '0';
+var TOPIC = 'tables';
 
 /**
  * Wraps and caches the clients table.
@@ -27,6 +32,7 @@ var PARTITION = '0';
  */
 var Clients = module.exports = function() {
   this.tableService_ = null;
+  this.serviceBus_ = null;
 
   this.cache_ = null;
 
@@ -42,11 +48,27 @@ Clients.prototype.init = function() {
     if (err)
       logger.warn(err);
   });
+
+  self.initServiceBus();
+}
+
+Clients.prototype.initServiceBus = function() {
+  var self = this;
+
+  TableBus.on('table:' + TABLE, self.onBusMessage.bind(self));
+}
+
+Clients.prototype.onBusMessage = function(message, action) {
+  var self = this;
+
+  if (action === 'invalidate') {
+    self.cache_ = null;
+  }
 }
 
 function defaultCallback(err) {
   if (err)
-    logger.warn(err);
+    logger.warn('Reply Error: %s', err);
 }
 
 Clients.prototype.genClientKey = function(name) {
@@ -74,7 +96,12 @@ Clients.prototype.listClients = function(callback) {
   }
 
   var query = azure.TableQuery.select().from(TABLE);
-  self.tableService_.queryEntities(query, callback);
+  self.tableService_.queryEntities(query, function(err, clients) {
+    if (!err)
+      self.cache_ = clients;
+
+    callback(err, self.cache_);
+  });
 }
 
 /**
@@ -99,6 +126,7 @@ Clients.prototype.add = function(client, callback) {
 
   self.tableService_.insertEntity(TABLE, client, callback);
   self.cache_ = null;
+  self.invalidate();
 }
 
 /**
@@ -118,6 +146,7 @@ Clients.prototype.update = function(updates, callback) {
   }
   self.tableService_.mergeEntity(TABLE, updates, callback);
   self.cache_ = null;
+  self.invalidate();
 }
 
 /**
@@ -137,4 +166,17 @@ Clients.prototype.remove = function(client, callback) {
   }
   self.tableService_.deleteEntity(TABLE, client, callback);
   self.cache_ = null;
+  self.invalidate();
+}
+
+/**
+ * Invalidates the caches of all Clients instances in the network.
+ *
+ * @return    {undefined}
+ */
+Clients.prototype.invalidate = function() {
+  var self = this;
+
+  self.cache_ = null;
+  TableBus.send(TABLE, 'invalidate');
 }

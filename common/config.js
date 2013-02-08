@@ -46,6 +46,8 @@ config.AZURE_CORE_ACCOUNT = getEnv(process.env.AZURE_CORE_ACCOUNT, 'goldrush');
 
 config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQbTT2sql8YrldYYdO4RhKnT4OTNfK+diveKbuDvqmxz0poyB9m2VpafBQLySvsaXNOA==');
 
+config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
+
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 

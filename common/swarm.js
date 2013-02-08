@@ -9,7 +9,7 @@ var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
   , cluster = require('cluster')
-  , logger = acquire('logger').forFile('announce.js')
+  , logger = acquire('logger').forFile('swarm.js')
   , os = require('os')
   , sugar = require('sugar')
   , util = require('util')
@@ -118,4 +118,13 @@ Swarm.prototype.listWorkers = function(callback) {
     }
     callback(err, ret);
   });
+}
+
+/**
+ * Returns an unique id for this process.
+ *
+ * @return {string} an unique id for this instance.
+ */
+Swarm.getUID = function() {
+  return util.format('%s-%s', os.hostname(), process.pid);
 }

@@ -50,6 +50,8 @@ function main() {
         updates.testUpdated = true;
         clients.update(updates);
       }
+
+      clients.invalidate();
     });
   }, 1000 * 3);
 }

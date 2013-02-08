@@ -12,5 +12,6 @@
   "scraper": "common/scraper.js",
   "scrapers": "common/scrapers.js",
   "states": "common/states.js",
-  "swarm": "common/swarm.js"
+  "swarm": "common/swarm.js",
+  "tablebus": "common/tablebus.js"
 }
