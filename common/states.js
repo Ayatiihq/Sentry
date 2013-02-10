@@ -17,3 +17,15 @@ exports.scraper = {
   }
 
 };
+
+exports.jobs = {
+  state: {
+    QUEUED: 0,
+    PAUSED: 1,
+    STARTED: 2,
+    COMPLETED: 3,
+    CANCELLED: 4,
+    ERRORED: 5,
+    EXPIRED: 6
+  }
+}

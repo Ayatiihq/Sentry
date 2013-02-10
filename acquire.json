@@ -4,6 +4,7 @@
   "clients": "common/clients.js",
   "config": "common/config.js",
   "database": "common/database.js",
+  "jobs": "common/jobs.js",
   "lock": "common/lock.js",
   "logger": "common/logger.js",
   "queue": "common/queue.js",

@@ -54,9 +54,7 @@ function ifUndefined(test, falsey) {
 }
 
 Campaigns.prototype.genCampaignKey = function(name) {
-  var shasum = crypto.createHash('sha1');
-  shasum.update(name + Date.utc.create().toISOString());
-  return shasum.digest('hex');
+  return Date.utc.create().getTime() + '.' + name;
 }
 
 //

@@ -49,9 +49,7 @@ function defaultCallback(err) {
 }
 
 Clients.prototype.genClientKey = function(name) {
-  var shasum = crypto.createHash('sha1');
-  shasum.update(name + Date.utc.create().toISOString());
-  return shasum.digest('hex');
+  return name;
 }
 
 //
@@ -89,7 +87,7 @@ Clients.prototype.add = function(client, callback) {
 
   client.PartitionKey = PARTITION;
   client.RowKey = self.genClientKey(client.name);
-  client.created = Date.utc.create().toISOString();
+  client.created = Date.utc.create().getTime();
 
   self.tableService_.insertEntity(TABLE, client, callback);
 }
