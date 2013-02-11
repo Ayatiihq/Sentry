@@ -8,26 +8,26 @@
  */
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('index.js')
-  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
   , states = acquire('states')  
   , util = require('util')
   ;
 
-var Role = acquire('role')
+var Jobs = acquire('jobs')
+  , Queue = acquire('queue')
+  , Role = acquire('role')
   , Scrapers = acquire('scrapers')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 60;
+var QUEUE_CHECK_INTERVAL = 1000 * 10;
 
 var Scraper = module.exports = function() {
-  this.db_ = null;
+  this.jobs_ = null;
+  this.queue_ = null;
+  this.priorityQueue_ = null;
+
   this.scrapers_ = null;
   this.started_ = false;
-
-  this.queue_ = mq.queues(config.SCRAPER_QUEUE);
-  this.priorityQueue_ = mq.queues(config.SCRAPER_QUEUE_PRIORITY);
 
   this.poll = 0;
 
@@ -41,17 +41,10 @@ util.inherits(Scraper, Role);
 Scraper.prototype.init = function() {
   var self = this;
 
+  self.jobs_ = new Jobs('scraper');
+  self.queue_ = new Queue(config.SCRAPER_QUEUE);
+  self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
   self.scrapers_ = new Scrapers();
-
-  if (!db.isReady())
-    db.on('ready', self.onDatabaseReady.bind(self));
-}
-
-Scraper.prototype.onDatabaseReady = function() {
-  var self = this;
-
-  if (self.started_)
-    self.findJobs();
 }
 
 Scraper.prototype.findJobs = function() {
@@ -70,23 +63,24 @@ Scraper.prototype.checkAvailableJob = function() {
   self.poll = 0;
 
   logger.info('Checking priority queue');
-  self.priorityQueue_.get(function(err, msgs) {
-    if (err || !msgs || !msgs.length) {
-      if (err) logger.warn(err);
+  self.priorityQueue_.pop(function(err, message) {
+    if (err || !message) {
+      if (err)
+        logger.warn('Unable to check priority queue: ' + err);
 
       logger.info('Checking default queue');
-      self.queue_.get(function(err, msgs) {
+      self.queue_.pop(config.SCRAPER_JOB_TIMEOUT_SECONDS, function(err, message) {
         if (err) {
           logger.warn(err);
           self.findJobs();
-        } else if (!msgs || !msgs.length) {
+        } else if (!message) {
           self.findJobs();
         } else {
-          self.processJobs(self.queue_, msgs);
+          self.processJobs(self.queue_, [message]);
         }
       });
     } else {
-      self.processJobs(self.priorityQueue_, msgs);
+      self.processJobs(self.queue_, [message]);
     }
   });
 }
@@ -99,7 +93,7 @@ Scraper.prototype.processJobs = function(queue, jobs) {
     logger.warn(err);
 
     nJobsProcessing -= 1;
-    self.deleteJob(err, job);
+    self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.CANCELLED, err);
 
     if (nJobsProcessing < 1) {
       self.findJobs();
@@ -112,8 +106,6 @@ Scraper.prototype.processJobs = function(queue, jobs) {
     job.queue_ = queue;
 
     var j = job;
-    j.body = JSON.parse(j.body);
-
     self.checkJobValidity(j, function(err) {
       if (err) {
         handleFail(err, j);
@@ -147,31 +139,32 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 Scraper.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  var query = db.getJobDetails(job.id);
-  query.on('row', function(details) {
+  self.jobs_.getDetails(job.body.campaignId, job.body.jobId, function(err, details) {
     job.details = details;
-    callback(null);
-  });
-
-  query.on('error', function(err) {
+    if (!err) {
+      var state = parseInt(job.details.state)
+        , s = states.jobs.state;
+      if (state !== states.QUEUED || state !== states.PAUSED)
+        err = new Error('Job does not have a ready state');
+    }
     callback(err);
-  });  
+  });
 }
 
 
 Scraper.prototype.startJob = function(job) {
   var self = this;
-  var jobState = states.scraper.jobState;
+  var jobState = states.jobs.state;
 
   self.loadScraperForJob(job, function(err, scraper) {
     if (err) {
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      db.closeJob(job.id, jobState.ERRORED, err);
+      self.jobs.close(job.body.campaignId, job.body.jobId, jobState.ERRORED, err);
       self.findJobs();
       return;
     }
     
-    logger.info('Starting job '  + job.id);
+    logger.info('Starting job '  + job.body.jobId);
 
     self.runningScrapers_.push(scraper);
 
@@ -205,30 +198,6 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   }
 }
 
-Scraper.prototype.deleteJob = function(err, job) {
-  var self = this;
-
-  logger.info('Cancelling job ' + job.id);
-
-  err = err ? err : "unknown";
-
-  var query = db.closeJob(job.id, states.scraper.jobState.CANCELLED, err);
-  query.on('error', function(err) {
-    if (err) {
-      logger.warn('Unable to cancel job ' + job.id + ': ' + err);
-    }
-  });
-
-  query.on('end', function() {
-    // Delete the job from the queue now
-    job.queue_.del(job.id, function(err) {
-      if (err) {
-        logger.warn(utils.format('Unable to remove job (%s) from queue: %s', job.id, err));
-      }
-    });
-  });
-}
-
 Scraper.prototype.doScraperStartWatch = function(scraper, job) {
   var self = this;
   var err = new Error(util.format('Scraper took too long to start: %s', scraper.getName()));
@@ -245,18 +214,16 @@ Scraper.prototype.onScraperStarted = function(scraper, job) {
     scraper.watchId = -1;
   }
 
-  var query = db.startJob(job.id, {});
-  query.on('error', function(err) {
-    logger.warn(util.format('Unable to mark job (%s) as started', job.id));
+  self.jobs_.start(job.body.campaignId, job.body.jobId, function(err) {
+    logger.warn('Unable to make job as started ' + job.body.jobId + ': ' + err);
   });
 }
 
-Scraper.prototype.onScraperPaused = function(scraper, job, state) {
+Scraper.prototype.onScraperPaused = function(scraper, job, snapshot) {
   var self = this;
 
-  var query = db.pauseJob(job.id, state);
-  query.on('error', function(err) {
-    logger.warn(util.format('Unable to mark job (%s) as paused: %s', job.id, err));
+  self.jobs_.pause(job.body.campaignId, job.body.jobId, state, function(err) {
+    logger.warn('Unable to make job as paused ' + job.body.jobId + ': ' + err);
   });
 
   self.findJobs();
@@ -265,9 +232,8 @@ Scraper.prototype.onScraperPaused = function(scraper, job, state) {
 Scraper.prototype.onScraperFinished = function(scraper, job) {
   var self = this;
 
-  var query = db.finishJob(job.id, {});
-  query.on('error', function(err) {
-    logger.warn(util.format('Unable to mark job (%s) as finished: %s', job.id, err));
+  self.jobs_.complete(job.body.campaignId, job.body.jobId, function(err) {
+    logger.warn('Unable to make job as complete ' + job.body.jobId + ': ' + err);
   });
 
   self.findJobs();
@@ -276,9 +242,9 @@ Scraper.prototype.onScraperFinished = function(scraper, job) {
 Scraper.prototype.onScraperError = function(scraper, job, jerr) {
   var self = this;
 
-  var query = db.closeJob(job.id, states.scraper.jobState.ERRORED, jerr);
-  query.on('error', function(err) {
-    logger.warn(util.format('Unable to mark job (%s) as errored (%s): %s', job.id, jerr, err));
+  logger.warn('Scraper error: ' + jerr);
+  self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.ERRORED, jerr, function(err) {
+    logger.warn('Unable to make job as errored ' + job.body.jobId + ': ' + err);
   });
 
   self.findJobs();
@@ -299,8 +265,7 @@ Scraper.prototype.start = function() {
   var self = this;
 
   self.started_ = true;
-  if (db.isReady())
-    self.findJobs();
+  self.findJobs();
 
   self.emit('started');
 }
