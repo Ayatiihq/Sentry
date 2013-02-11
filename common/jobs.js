@@ -174,7 +174,9 @@ Jobs.prototype.getDetails = function(campaign, job, callback) {
                               .from(TABLE)
                               .where('PartitionKey eq ?', partition)
                               .and('RowKey eq ?', job);
-  self.tableService_.queryEntities(query, self.unpackOne.bind(self, callback));
+  self.tableService_.queryEntities(query, self.unpack.bind(self, function(err, list) {
+    callback(err, list ? list[0] : list)
+  }));
 }
 
 
@@ -198,13 +200,16 @@ Jobs.prototype.add = function(campaign, job, callback) {
     return callback(new Error('job should be valid and have a consumer'));
   }
   
-  job = self.pack(job);
   job.PartitionKey = partition;
   job.RowKey = self.genJobKey(job.consumer);
   job.created = Date.utc.create().getTime();
   job.started = -1;
   job.finished = -1;
   job.state = ifUndefined(job.state, states.jobs.state.QUEUED);
+  job.reason = '';
+  job.snapshot = {};
+  job.metadata = {};
+  job = self.pack(job);
 
   self.tableService_.insertEntity(TABLE, job, function(err) {
     callback(err, job.RowKey);

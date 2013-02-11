@@ -209,7 +209,6 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
 
     var opts = {};
     opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
-    opts.visibilitytimeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
 
     var msg = {};
     msg.campaignId = campaign.RowKey;

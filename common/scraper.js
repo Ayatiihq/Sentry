@@ -48,3 +48,10 @@ Scraper.prototype.stop = function() {
   var self = this;
   logger.warn(self.getName() + " has no stop method");
 }
+
+// If the processing of the job takes too long then isAlive expects the callback
+// to be called with 'null' if everything is fine, otherwise 'err' if there is
+// an issue.
+Scraper.prototype.isAlive = function(callback) {
+  callback(null);
+}
