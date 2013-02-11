@@ -10,7 +10,6 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('governor.js')
   , pg = require('pg').native
@@ -29,18 +28,8 @@ util.inherits(Governor, Role);
 Governor.prototype.init = function() {
   var self = this;
 
-  if (db.isReady())
-    self.onDatabaseReady();
-  else
-    db.on('ready', self.onDatabaseReady.bind(self));
-
-  logger.info('Running');
-}
-
-Governor.prototype.onDatabaseReady = function() {
-  var self = this;
-
   self.initJobs();
+  logger.info('Running');
 }
 
 Governor.prototype.initJobs = function() {

@@ -37,7 +37,7 @@ function main() {
       process.exit();
     }
 
-    var c = camps[0].RowKey;
+    var c = camps[0];
 
     if (argv[2] === 'add') {
       var data = JSON.parse(argv[4]);
@@ -50,6 +50,9 @@ function main() {
           console.warn(err);
           process.exit();
         }
+
+        if (argv.length == 2)
+          console.log(list);
 
         if(argv[2] === 'details')
           jobs.getDetails(c, list[0].RowKey, console.log);

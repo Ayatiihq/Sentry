@@ -9,19 +9,22 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , db = acquire('database')
   , events = require('events')
-  , ironmq = require('ironmq')
   , logger = acquire('logger').forFile('scraper-dispatcher.js')
-  , mq = require('ironmq')(config.IRONMQ_TOKEN)(config.IRONMQ_PROJECT)
   , states = acquire('states')
   , util = require('util')
   ;
 
-var Scrapers = acquire('scrapers');
+var Campaigns = acquire('campaigns')
+  , Jobs = acquire('jobs')
+  , Queue = acquire('queue')
+  , Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
-  this.scrapers_;
+  this.campaigns_ = null;
+  this.jobs_ = null;
+  this.queue_ = null;
+  this.scrapers_ = null;
 
   this.init();
 }
@@ -31,14 +34,16 @@ util.inherits(ScraperDispatcher, events.EventEmitter);
 ScraperDispatcher.prototype.init = function() {
   var self = this;
 
+  self.campaigns_ = new Campaigns();
+  self.jobs_ = new Jobs('scraper');
+  self.queue_ = new Queue('scraper');
+
   self.scrapers_ = new Scrapers();
   if (self.scrapers_.isReady()) {
     self.start();
   } else {
     self.scrapers_.on('ready', self.start.bind(self));
   }
-
-  logger.info('Running');
 }
 
 ScraperDispatcher.prototype.start = function() {
@@ -54,27 +59,23 @@ ScraperDispatcher.prototype.start = function() {
 ScraperDispatcher.prototype.iterateCampaigns = function() {
   var self = this;
 
-  var query = db.getActiveCampaigns();
-  query.on('row', function(row) {
-    self.checkCampaign(row);
+  self.campaigns_.listActiveCampaigns(function(err, campaigns) {
+    if (err)
+      logger.warn(err);
+    else
+      campaigns.forEach(self.checkCampaign.bind(self));
   });
-  query.on('error', logger.warn);
 }
 
 ScraperDispatcher.prototype.checkCampaign = function(campaign) {
   var self = this;
 
-  var lastJobs = {};
-  var query = db.getActiveJobs(campaign.id);
-  
-  query.on('row', function(row) {
-    lastJobs[row.scraper] = row;
-  });
-
-  query.on('end', self.enqueueJobsForCampaign.bind(self, campaign, lastJobs));
-  
-  query.on('error', function(error) {
-    logger.warn('Unable to get last jobs for ' + campaign.name + ': ' + error);
+  self.jobs_.listActiveJobs(campaign, function(err, jobs, mappedJobs) {
+    if (err) {
+      logger.warn('Unable to get active jobs for campaign: ' + campaign + ': ' + err);
+      return;
+    }
+    self.enqueueJobsForCampaign(campaign, mappedJobs);
   });
 }
 
@@ -110,15 +111,12 @@ ScraperDispatcher.prototype.enqueueJobsForCampaign = function(campaign, lastJobs
 ScraperDispatcher.prototype.scraperIgnoredByCampaign = function(campaign, scraper) {
   var self = this;
 
-  if (campaign.scrapersenabled) {
-    var enabled = self.arrayFromPgArray(campaign.scrapersenabled)
-    console.log(enabled);
-    return !enabled.any(scraper.name);
+  if (campaign.scrapersEnabled.length) {
+    return !campaign.scrapersEnabled.any(scraper.name);
   }
 
-  if (campaign.scrapersignored) {
-    var ignored = self.arrayFromPgArray(campaign.scrapersignored)
-    return ignored.any(scraper.name);
+  if (campaign.scrapersIgnored.length) {
+    return campaign.scrapersIgnored.any(scraper.name);
   }
 
   return false;
@@ -172,7 +170,7 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
 
 ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper, lastJob) {
   var finished = new Date(lastJob.finished);
-  var intervalAgo = new Date.create('' + campaign.sweepintervalminutes + ' minutes ago');
+  var intervalAgo = new Date.create('' + campaign.sweepIntervalMinutes + ' minutes ago');
 
   return finished.isBefore(intervalAgo);
 }
@@ -186,55 +184,46 @@ ScraperDispatcher.prototype.scraperStartedForTooLong = function(campaign, scrape
 
 ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper, lastJob) {
   var created = new Date(lastJob.created);
-  var intervalAgo = new Date.create('' + 60 * 12 + ' minutes ago');
+  var intervalAgo = new Date.create('' + 60 * 6 + ' minutes ago');
 
   return created.isBefore(intervalAgo);
 }
 
-ScraperDispatcher.prototype.setJobAsExpired = function(lastJob, reason) {
-  db.closeJob(lastJob.id, states.scraper.jobState.EXPIRED, reason);
+ScraperDispatcher.prototype.setJobAsExpired = function(job, reason) {
+  self.jobs_.close(job, states.jobs.state.EXPIRED, reason);
 }
 
-// Add job to queue
 // Add job to database
+// Add job to queue
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
   var self = this;
 
   logJob(campaign, scraper, 'Creating job');
 
-  var msg = {};
-  msg.campaignId = campaign.id;
-  msg.scraper = scraper.name;
-  msg.type = campaign.type;
-  msg.created = new Date();
-  // Stick timeout in message as bindings behave weirdly wrt timeout on msg replies
-  msg.timeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
-
-  var options = {};
-  options.timeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
-  options.expires_in = config.SCRAPER_JOB_EXPIRES_SECONDS;
- 
-  mq.queues(config.SCRAPER_QUEUE).put(JSON.stringify(msg), options, function(err, obj) {
-    if (err || obj === undefined || obj.ids === undefined) {
+  self.jobs_.add(campaign, { consumer: scraper.name }, function(err, uid) {
+    if (err) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
       return;
     }
 
-    var query = db.insertJob(campaign.id, scraper.name, { msgId: obj.ids[0], test: "\"hello\"" });
-    query.on('error', function(err) {
+    var opts = {};
+    opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
+    opts.visibilitytimeout = config.SCRAPER_JOB_TIMEOUT_SECONDS;
+
+    var msg = {};
+    msg.campaignId = campaign.RowKey;
+    msg.jobId = uid;
+    msg.scraper = scraper.name;
+    msg.type = campaign.type;
+    msg.created = Date.utc.create().getTime();
+
+    self.queue_.push(msg, opts, function(err) {
       if (err) {
-        logJobWarn(campaign, scraper, 'Unable to insert job: ' + err);
+        logger.warn('Unable to insert message ' + msg + ': ' + err);
+        self.queue_.close(uid, states.jobs.state.ERRRORED, err);
       }
     });
-    query.on('end', function() {
-      logJob(campaign, scraper, 'Successfully created job ' + obj.ids[0]);
-    });
   });
-}
-
-ScraperDispatcher.prototype.arrayFromPgArray = function(arrStr) {
-  var clean = arrStr.substr(1, arrStr.length - 2);
-  return clean.split(',');
 }
 
 function logJob(campaign, scraper, log) {

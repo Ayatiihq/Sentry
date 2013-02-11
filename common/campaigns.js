@@ -150,8 +150,8 @@ Campaigns.prototype.add = function(client, campaign, callback) {
   campaign.sweepIntervalMinutes = ifUndefined(campaign.sweepIntervalMinutes, 180);
   campaign.names = JSON.stringify(ifUndefined(campaign.names, []));
   campaign.metadata = JSON.stringify(ifUndefined(campaign.metadata, {}));
-  campaign.scrapersEnabled = JSON.stringify(ifUndefined(campaign.scrapersEnabled, {}));
-  campaign.scrapersIgnored = JSON.stringify(ifUndefined(campaign.scrapersIgnored,  {}));
+  campaign.scrapersEnabled = JSON.stringify(ifUndefined(campaign.scrapersEnabled, []));
+  campaign.scrapersIgnored = JSON.stringify(ifUndefined(campaign.scrapersIgnored,  []));
 
   self.tableService_.insertEntity(TABLE, campaign, callback);
 }

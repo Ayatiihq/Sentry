@@ -55,22 +55,33 @@ function messageIsValid(message) {
 /**
  * Push a message to the end of the queue.
  *
- * @param {string|object}   message     The message to push to the queue. Objects are parsed into JSON automatically.
- * @param {function(err)}   callback    A callback to receive an error if the request fails.
+ * @param {string|object}          message              The message to push to the queue. Objects are parsed into JSON automatically.
+ * @param {object|function(err)}   optionsOrCallback    The message options, or the callback.
+ * @param {function(err)}          callback             A callback to receive an error if the request fails.
  * @return {undefined}
  */
-Queue.prototype.push = function(message, callback) {
+Queue.prototype.push = function(message, options, callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
-
+  
   if (!message) {
     callback(new Error('message cannot be null'));
     return;
   }
 
-  message = JSON.stringify(message);
+  if (!options) {
+    callback = defaultCallback;
+    options = {};
 
-  self.queueService_.createMessage(self.queue_, message, callback);
+  } else if (Object.isFunction(options)) {
+    callback = options;
+    options = {};
+  
+  } else if (Object.isObject(options)) {
+    callback = callback ? callback : defaultCallback;
+  }
+
+  message = JSON.stringify(message);
+  self.queueService_.createMessage(self.queue_, message, options, callback);
 }
 
 /**

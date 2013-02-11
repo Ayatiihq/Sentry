@@ -25,7 +25,7 @@ function main() {
   setupSignals();
 
   var queue = new Queue("test-queue2");
-  queue.push({ id: 'foobar', message: 'This was an object' });
+  queue.push({ id: 'foobar', message: 'This was an object' }, { visibilitytimeout: 60, messagettl: 300 });
   
   console.log('Waiting for request to finish');
 
