@@ -15,14 +15,16 @@ var acquire = require('acquire')
   ;
 
 var Jobs = acquire('jobs')
+  , Links = acquire('links')
   , Queue = acquire('queue')
   , Role = acquire('role')
   , Spiders = acquire('spiders')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 60;
+var QUEUE_CHECK_INTERVAL = 1000 * 5;
 
 var Spider = module.exports = function() {
   this.jobs_ = null;
+  this.links_ = null;
   this.queue_ = null;
   this.priorityQueue_ = null;
 
@@ -42,6 +44,7 @@ Spider.prototype.init = function() {
   var self = this;
 
   self.jobs_ = new Jobs('spider');
+  self.links_ = new Links();  
   self.queue_ = new Queue(config.SPIDER_QUEUE);
   self.priorityQueue_ = new Queue(config.SPIDER_QUEUE_PRIORITY);
   self.spiders_ = new Spiders();
@@ -107,48 +110,29 @@ Spider.prototype.processJobs = function(queue, jobs) {
     job.queue_ = queue;
 
     var j = job;
-    self.checkJobValidity(j, function(err) {
+    self.getJobDetails(j, function(err) {
       if (err) {
         handleFail(err, j);
         return;
       }
 
-      self.getJobDetails(j, function(err) {
-        if (err) {
-          handleFail(err, j);
-          return;
-        }
-
-        self.startJob(j);
-      });
+      self.startJob(j);
     });
   });
-}
-
-Spider.prototype.checkJobValidity = function(job, callback) {
-  var self = this
-    , err = null
-    ;
-
-  if (!self.spiders_.hasSpiderForType(job.body.spider, job.body.type)) {
-    err = new Error(util.format('No match for %s and %s', job.body.spider, job.body.type));
-  }
-
-  callback(err);
 }
 
 Spider.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  self.jobs_.getDetails(job.body.campaignId, job.body.jobId, function(err, details) {
+  self.jobs_.getDetails(job.body.spider, job.body.jobId, function(err, details) {
     job.details = details;
-    if (!err) {
+    if (!err && job.details) {
       var state = parseInt(job.details.state)
         , s = states.jobs.state;
       if (state != s.QUEUED && state != s.PAUSED)
         err = new Error('Job does not have a ready state');
     }
-    callback(err);
+    callback(err ? err : job.details ? null : new Error('could not get details'));
   });
 }
 
@@ -159,7 +143,7 @@ Spider.prototype.startJob = function(job) {
   self.loadSpiderForJob(job, function(err, spider) {
     if (err) {
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      self.jobs_.close(job.body.campaignId, job.body.jobId, jobState.ERRORED, err);
+      self.jobs_.close(job.body.spider, job.body.jobId, jobState.ERRORED, err);
       job.queue_.delete(job);
       self.findJobs();
       return;
@@ -173,6 +157,8 @@ Spider.prototype.startJob = function(job) {
     spider.on('paused', self.onSpiderPaused.bind(self, spider, job));
     spider.on('finished', self.onSpiderFinished.bind(self, spider, job));
     spider.on('error', self.onSpiderError.bind(self, spider, job));
+    
+    spider.on('link', self.onSpiderLink.bind(self, spider, job));
 
     self.doSpiderStartWatch(spider, job);
     self.doSpiderTakesTooLongWatch(spider, job);
@@ -212,7 +198,7 @@ Spider.prototype.doSpiderTakesTooLongWatch = function(spider, job) {
   var self = this;
 
   spider.longId = setInterval(self.isSpiderStalled.bind(self, spider, job),
-                               1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 2));
+                               1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 20));
 }
 
 Spider.prototype.isSpiderStalled = function(spider, job) {
@@ -244,7 +230,7 @@ Spider.prototype.onSpiderStarted = function(spider, job) {
     spider.watchId = -1;
   }
 
-  self.jobs_.start(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.start(job.body.spider, job.body.jobId, function(err) {
     if (err)
       logger.warn('Unable to make job as started ' + job.body.jobId + ': ' + err);
   });
@@ -253,7 +239,7 @@ Spider.prototype.onSpiderStarted = function(spider, job) {
 Spider.prototype.onSpiderPaused = function(spider, job, snapshot) {
   var self = this;
 
-  self.jobs_.pause(job.body.campaignId, job.body.jobId, state, function(err) {
+  self.jobs_.pause(job.body.spider, job.body.jobId, state, function(err) {
     if (err)
       logger.warn('Unable to make job as paused ' + job.body.jobId + ': ' + err);
   });
@@ -264,7 +250,7 @@ Spider.prototype.onSpiderPaused = function(spider, job, snapshot) {
 Spider.prototype.onSpiderFinished = function(spider, job) {
   var self = this;
 
-  self.jobs_.complete(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.complete(job.body.spider, job.body.jobId, function(err) {
     if (err)
       logger.warn('Unable to make job as complete ' + job.body.jobId + ': ' + err);
   });
@@ -278,13 +264,18 @@ Spider.prototype.onSpiderError = function(spider, job, jerr) {
   jerr = jerr ? jerr : new Error('unknown');
 
   logger.warn('Spider error: ' + jerr);
-  self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.ERRORED, jerr.toString(), function(err) {
+  self.jobs_.close(job.body.spider, job.body.jobId, states.jobs.state.ERRORED, jerr.toString(), function(err) {
     if (err)
       logger.warn('Unable to make job as errored ' + job.body.jobId + ': ' + err);
   });
   job.queue_.delete(job);
   self.cleanup(spider, job);
   self.findJobs();
+}
+
+Spider.prototype.onSpiderLink = function(spider, job, link) {
+  var self = this;
+  self.links_.add(link);
 }
 
 Spider.prototype.cleanup = function(spider, job) {

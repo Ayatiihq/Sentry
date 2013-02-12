@@ -1,11 +1,9 @@
 /*
- * dummy.js: a dummy scraper
+ * dummy.js: a dummy spider
  *
  * (C) 2012 Ayatii Limited
  *
- * Scraper that can scrape all types of media and always takes 5mins to complete
- * it's job. It can be paused and, if so, it will resume it's five minute
- * timeout.
+ * Spider.
  *
  */
 
@@ -15,17 +13,17 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Scraper = acquire('scraper');
+var Spider = acquire('spider');
 
 var Dummy = module.exports = function() {
   this.init();
 }
 
-util.inherits(Dummy, Scraper);
+util.inherits(Dummy, Spider);
 
 Dummy.prototype.init = function() {
   var self = this;
-  logger.info('Scraper up and running');
+  logger.info('Spider up and running');
 }
 
 //
@@ -50,6 +48,8 @@ Dummy.prototype.isAlive = function(cb) {
 
   logger.info('Is alive called');
 
+  self.emitLink();
+
   if (!self.alive)
     self.alive = 1;
   else
@@ -59,4 +59,20 @@ Dummy.prototype.isAlive = function(cb) {
     cb(new Error('exceeded'));
   else
     cb();
+}
+
+Dummy.prototype.emitLink = function() {
+  var self = this
+    , link = {}
+    ;
+
+  link.type = 'tv.live';
+  link.uri = 'http://www.example.com/qwe123';
+  link.parent = '';
+  link.source = 'dummy';
+  link.channel = 'neiltv';
+  link.genre = 'awesome';
+  link.metadata = {};
+
+  self.emit('link', link);
 }

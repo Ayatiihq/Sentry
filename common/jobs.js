@@ -156,8 +156,8 @@ Jobs.prototype.listActiveJobs = function(domain, callback) {
  * Get details of a job.
  *
  * @param  {stringOrObject}        domain    The domain the job belongs to.
- * @param  {string}                job      The uid of the Job.
- * @param  {function(err, job)}    callback    The callback to receive the details, or the error.
+ * @param  {string}                job       The uid of the Job.
+ * @param  {function(err, job)}    callback  The callback to receive the details, or the error.
  * @return {undefined}
  */
 Jobs.prototype.getDetails = function(domain, job, callback) {

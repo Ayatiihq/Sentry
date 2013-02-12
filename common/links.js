@@ -20,7 +20,7 @@ var acquire = require('acquire')
 var TABLE = 'links'
   , PACK_LIST = ['metadata']
   , SCHEMAS = {
-    "tv.live": ['uri', 'parent', 'source', 'channel', 'genre', 'metadata']
+    "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata']
     }
   ;
 
@@ -93,7 +93,7 @@ Links.prototype.unpack = function(callback, err, entities) {
   callback(err, entities);
 }
 
-Links.prototype.add = function(entity, callback) {
+Links.prototype.insert = function(entity, callback) {
   var self = this;
 
   self.tableService_.insertEntity(TABLE, entity, function(err) {
@@ -132,15 +132,15 @@ Links.prototype.get = function(partition, from, callback) {
 // Public Methods
 //
 /**
- * Add a live tv link.
+ * Add a link.
  *
  * @param  {object}            link        The found link.
  * @param  {function(err,uid)} callback    A callback to receive the uid of the uri, or an error.
  * @return {undefined}
  */
-Links.prototype.addLive = function(link, callback) {
+Links.prototype.add = function(link, callback) {
   var self = this
-    , type = 'tv.live'
+    , type = link.type
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -163,22 +163,25 @@ Links.prototype.addLive = function(link, callback) {
   link.created = Date.utc.create().getTime();
   link = self.pack(link);
 
-  self.add(link, callback);
+  self.insert(link, callback);
 }
 
 
 /**
- * Get new live tv links from #date.
+ * Get new links of type #type, from #date.
  *
+ * @param {string}                type        The type of link.
  * @param {date}                  from        When to retrieve new links from.
  * @param {function(err,links)}   callback    Callback to receive links, or error.
  * @return {undefined}
  */
-Links.prototype.getLive = function(from, callback) {
+Links.prototype.getLinks = function(type, from, callback) {
   var self = this;
+
+  console.log(type, from, callback);
 
   from = from.getTime();
   callback = callback ? callback : defaultCallback;
 
-  self.get('tv.live', from, callback);
+  self.get(type, from, callback);
 }

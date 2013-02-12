@@ -30,13 +30,13 @@ function main() {
   var links = new Links();
   var action = argv[2];
 
-  if (action === 'getLive') {
-    links.getLive(Date.utc.create(argv[3]), console.log);
+  if (action === 'get') {
+    links.getLinks(argv[3], Date.utc.create(argv[4]), console.log);
   }
 
-  if (action === 'addLive') {
+  if (action === 'add') {
     var link = JSON.parse(argv[3]);
-    links.addLive(link);
+    links.add(link);
   }
 }
 
