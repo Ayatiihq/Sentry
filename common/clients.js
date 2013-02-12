@@ -10,7 +10,6 @@
 var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
-  , crypto = require('crypto')
   , logger = acquire('logger').forFile('clients.js')
   , sugar = require('sugar')
   , util = require('util')

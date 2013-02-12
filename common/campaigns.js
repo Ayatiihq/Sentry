@@ -10,7 +10,6 @@
 var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
-  , crypto = require('crypto')
   , logger = acquire('logger').forFile('campaigns.js')
   , sugar = require('sugar')
   , util = require('util')
@@ -53,8 +52,8 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
-Campaigns.prototype.genCampaignKey = function(name) {
-  return Date.utc.create().getTime() + '.' + name;
+Campaigns.prototype.genCampaignKey = function(client, campaign) {
+  return util.format('%s.%s', client, campaign);
 }
 
 //
@@ -126,8 +125,8 @@ Campaigns.prototype.add = function(client, campaign, callback) {
   
   callback = callback ? callback : defaultCallback;
 
-  if (!(client && client.RowKey)) {
-    callback(new Error('client should exist & have valid RowKey'));
+  if (!(client && client.RowKey && client.name)) {
+    callback(new Error('client should exist and have a valid RowKey & name'));
     return;
   }
 
@@ -137,7 +136,7 @@ Campaigns.prototype.add = function(client, campaign, callback) {
   }
 
   campaign.PartitionKey = client.RowKey;
-  campaign.RowKey = self.genCampaignKey(campaign.name);
+  campaign.RowKey = self.genCampaignKey(client.name, campaign.name);
 
   campaign.name = campaign.name;
   campaign.type = campaign.type;

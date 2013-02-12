@@ -21,7 +21,9 @@ exports.infringements = {
     UNVERIFIED: 0,
     VERIFIED: 1,
     FALSE_POSITIVE: 2,
-    NEEDS_SCRAPE: 3,
-    DEFERRED: 4
+    TAKE_DOWN_SENT: 3,
+    TAKEN_DOWN: 4,
+    NEEDS_SCRAPE: 5,
+    DEFERRED: 6
   }
 };

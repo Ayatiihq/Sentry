@@ -11,13 +11,15 @@ var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
   , logger = acquire('logger').forFile('infringements.js')
-  , seq = require('parseq').seq  
+  , seq = require('parseq').seq
   , sugar = require('sugar')
-  , URI = require('URIjs')
+  , states = require('./states')
   , util = require('util')
+  , utilities = require('./utilities')
   ;
 
-var TABLE = 'infringements'
+var RELATION_TABLE = 'infringementRelations'
+  , TABLE = 'infringements'
   , PACK_LIST = ['metadata']
   ;
 
@@ -41,10 +43,15 @@ Infringements.prototype.init = function() {
     if (err)
       logger.warn(err);
   });
+
+  self.tableService_.createTableIfNotExists(RELATION_TABLE, function(err) {
+    if (err)
+      logger.warn(err);
+  });
 }
 
 function defaultCallback(err) {
-  if (err)
+  if (err && err.code !== 'EntityAlreadyExists')
     logger.warn('Reply Error: %s', err);
 }
 
@@ -52,59 +59,37 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
-Infringements.normalizeURI = function(uri) {
-  var self = this
-    , uri = URI(uri)
-    ;
 
-  // Make it sane
-  uri.normalize();
-
-  // Remove www
-  if (uri.subdomain() === 'www')
-    uri.subdomain('');
-
-  // Alphabetize the querystring
-  var querystring = uri.query();
-  if (querystring && querystring.length > 0) {
-    // First remove the existing string
-    uri.search('');
-
-    // Get the params into something we can sort
-    var map = URI.parseQuery(querystring);
-    var list = [];
-    Object.keys(map, function(key) {
-      list.push({ key: key, value : map[key]});
-    });
-
-    list = list.sortBy(function(n) {
-      var val = n.value;
-      if (Object.isArray(val)) {
-        n.value = val.sortBy(function(v) {
-          return v;
-        });
-      }
-      return n.key;
-    });
-
-    //console.log(list);
-
-    list.forEach(function(n) {
-      var query = {};
-      query[n.key] = n.value;
-      uri.addSearch(query);
-    });
-  }
-
-  return uri.toString();
-}
 
 Infringements.prototype.genURIKey = function(name) {
   return Date.utc.create().getTime() + '.' + name;
 }
 
-Infringements.prototype.getURIFromCache = function(campaign, uri, source) {
+Infringements.prototype.getKeyFromCache = function(campaign, uri) {
+  // FIXME
   return undefined;
+}
+
+Infringements.prototype.updateCache = function(campaign, uri) {
+  // FIXME
+}
+
+Infringements.prototype.getKeyFromMetaCache = function(campaign, uri) {
+  // FIXME
+  return undefined;
+}
+
+Infringements.prototype.updateMetaCache = function(campaign, uri) {
+  // FIXME
+}
+
+Infringements.prototype.getKeyFromRelationCache = function(campaign, source, target) {
+  // FIXME
+  return undefined;
+}
+
+Infringements.prototype.updateRelationCache = function(campaign, source, target) {
+  // FIXME
 }
 
 Infringements.prototype.pack = function(entity) {
@@ -116,11 +101,15 @@ Infringements.prototype.pack = function(entity) {
   return entity;
 }
 
+Infringements.prototype.getMetaUIDForURI = function(uri, source) {
+  return 'meta:' + source + ' ' + uri;
+}
+
 //
 // Public Methods
 //
 /**
- * Add a URI for the campaign.
+ * Add a infringement for the campaign.
  *
  * @param  {stringOrObject}    campaign    The campaign the URI belongs to.
  * @param  {string}            uri         The uri to add.
@@ -133,31 +122,170 @@ Infringements.prototype.pack = function(entity) {
 Infringements.prototype.add = function(campaign, uri, type, source, metadata, callback) {
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , raw = uri
+    , key = utilities.genURIKey(uri)
     ;
 
   callback = callback ? callback : defaultCallback;
-  uri = self.normalizeURI(uri);
+  uri = utilities.normalizeURI(uri);
 
-  var id = self.getURIFromCache(campaign, uri, source);
+  var id = self.getKeyFromCache(campaign, key);
   if (id) {
     callback(null, id);
     return;
   }
 
   var entity = {};
-  entity.Partitionkey = campaign;
-  entity.RowKey = uri;
-  entity.raw = raw;
+  entity.PartitionKey = campaign;
+  entity.RowKey = key;
+  entity.uri = uri;
   entity.type = type;
   entity.source = source;
   entity.state = states.infringements.state.UNVERIFIED;
   entity.created = Date.utc.create().getTime();
-  entity.verified = -1;
   entity.metadata = metadata;
 
   entity = self.pack(entity);
 
-  // FIXME: What do we do for existing links & how do we keep cache uptodate?
-  self.tableService_.insertEntity(TABLE, campaign, callback);
+  self.tableService_.insertEntity(TABLE, entity, function(err) {
+    if (!err)
+      self.updateCache(campaign, key);
+
+    if (err && err.code === 'EntityAlreadyExists')
+      callback(null, key);
+    else
+      callback(err, err ? undefined : key);
+  });
+}
+
+/**
+ * Add a meta infringement (an infringement that doesn't have a unique URI of it's own). A
+ * relationship between the meta infringement and the original uri is automatically added.
+ *
+ * @param {stringOrObject}    campaign    The campaign the infringement belongs to.
+ * @param {string}            uri         The uri that contains the infringement.
+ * @param {string}            source      The source of the meta infringement (google, bing, etc).
+ * @param {object}            metadata    Metadata about the infringement.
+ * @param {function(err,uid)} callback    Callback to receive the uid of the infringement, or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.addMeta = function(campaign, uri, source, metadata, callback) {
+  var self = this
+    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , key = utilities.genURIKey(uri, source)
+    ;
+
+  callback = callback ? callback : defaultCallback;
+  uri = utilities.normalizeURI(uri);
+
+  var id = self.getKeyFromMetaCache(campaign, uri, source);
+  if (id) {
+    callback(null, id);
+    return;
+  }
+
+  var entity = {};
+  entity.PartitionKey = campaign;
+  entity.RowKey = key;
+  entity.uri = uri;
+  entity.type = 'meta';
+  entity.source = source;
+  entity.state = states.infringements.state.UNVERIFIED;
+  entity.created = Date.utc.create().getTime();
+  entity.metadata = metadata;
+
+  entity = self.pack(entity);
+
+  self.tableService_.insertEntity(TABLE, entity, function(err) {
+    if (!err) {
+      self.updateMetaCache(campaign, key);
+      self.addMetaRelation(campaign, uri, source);
+    }
+
+    if (err && err.code === 'EntityAlreadyExists')
+      callback(null, key);
+    else
+      callback(err, err ? undefined : key);
+  });
+}
+
+/**
+ * Adds a parent -> child relationship between uris.
+ *
+ * @param {stringOrObject}    campaign    The campaign the uris belong to.
+ * @param {string}            source      The parent URI.
+ * @param {string}            target      The child URI.
+ * @param {function(err)}     callback    A callback to handle errors.
+ * @return {undefined}   
+ */
+Infringements.prototype.addRelation = function(campaign, source, target, callback) {
+  var self = this
+    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , target = utilities.genURIKey(uri)
+    , source = utilities.genURIKey(uri)
+    ;
+
+  callback = callback ? callback : defaultCallback;
+
+  var id = self.getKeyFromRelationCache(campaign, source, target);
+  if (id) {
+    callback(null, id);
+    return;
+  }
+
+  var entity = {};
+  entity.PartitionKey = campaign;
+  entity.RowKey = target;
+  entity.source = source;
+  entity.created = Date.utc.create().getTime();
+
+  self.tableService_.insertEntity(RELATION_TABLE, entity, function(err) {
+    if (!err)
+      self.updateRelationCache(campaign, source, target);
+
+    if (err && err.code === 'EntityAlreadyExists')
+      callback(null);
+    else
+      callback(err);
+  });
+}
+
+/**
+ * Adds a parent -> child relationship between uris where source is a meta link.
+ *
+ * @param {stringOrObject}    campaign    The campaign the uris belong to.
+ * @param {string}            uri         The uri.
+ * @param {string}            source      The source of the meta infringement (google, bing, etc).
+ * @param {function(err)}     callback    A callback to handle errors.
+ * @return {undefined}   
+ */
+Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callback) {
+  var self = this
+    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , target = utilities.genURIKey(uri)
+    , source = utilities.genURIKey(uri, owner)
+    ;
+
+  callback = callback ? callback : defaultCallback;
+
+  var id = self.getKeyFromRelationCache(campaign, source, target);
+  if (id) {
+    callback(null, id);
+    return;
+  }
+
+  var entity = {};
+  entity.PartitionKey = campaign;
+  entity.RowKey = target;
+  entity.source = source;
+  entity.created = Date.utc.create().getTime();
+
+  self.tableService_.insertEntity(RELATION_TABLE, entity, function(err) {
+    if (!err)
+      self.updateRelationCache(campaign, source, target);
+
+    if (err && err.code === 'EntityAlreadyExists')
+      callback(null);
+    else
+      callback(err);
+  });
 }

@@ -3,6 +3,7 @@
   "campaigns": "common/campaigns.js",
   "clients": "common/clients.js",
   "config": "common/config.js",
+  "infringements": "common/infringements.js",
   "database": "common/database.js",
   "jobs": "common/jobs.js",
   "lock": "common/lock.js",
@@ -15,5 +16,6 @@
   "scrapers": "common/scrapers.js",
   "states": "common/states.js",
   "swarm": "common/swarm.js",
-  "tablebus": "common/tablebus.js"
+  "tablebus": "common/tablebus.js",
+  "utilities": "common/utilities.js"
 }
