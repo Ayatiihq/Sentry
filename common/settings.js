@@ -93,7 +93,9 @@ Settings.prototype.get = function(key, callback) {
   callback = callback ? callback : defaultCallback;
 
   self.tableService_.queryEntity(TABLE, self.partition_, key, function(err, entity) {
-    if (err)
+    if (err && err.code == 'ResourceNotFound')
+      callback();
+    else if (err)
       callback(err);
     else if (entity && entity.value) {
       callback(null, JSON.parse(entity.value));
@@ -149,4 +151,23 @@ Settings.prototype.setAll = function(properties, callback) {
   });
 
   self.tableService_.commitBatch(callback);
+}
+
+/**
+ * Delete a key.
+ *
+ * @param {string}            key           The key to remove.
+ * @param {function(err)}     callback      A callback to handle errors.
+ * @return {undefined}
+ */
+Settings.prototype.delete = function(key, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  var entity = {};
+  entity.PartitionKey = self.partition_;
+  entity.RowKey = key;
+
+  self.tableService_.deleteEntity(TABLE, entity, callback);
 }

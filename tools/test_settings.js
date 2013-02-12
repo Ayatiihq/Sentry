@@ -37,10 +37,13 @@ function main() {
     settings.getAll(console.log);
 
   if (action === 'set')
-    settings.set(argv[3], JSON.parse(argv[4]), console.log);
+    settings.set(argv[3], JSON.parse(argv[4]));
 
   if (action === 'setAll')
     settings.setAll(JSON.parse(argv[3]));
+
+  if (action === 'delete')
+    settings.delete(argv[3]);
 }
 
 main();
