@@ -11,7 +11,6 @@ var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
   , logger = acquire('logger').forFile('infringements.js')
-  , seq = require('parseq').seq
   , sugar = require('sugar')
   , states = require('./states')
   , util = require('util')
@@ -59,12 +58,6 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
-
-
-Infringements.prototype.genURIKey = function(name) {
-  return Date.utc.create().getTime() + '.' + name;
-}
-
 Infringements.prototype.getKeyFromCache = function(campaign, uri) {
   // FIXME
   return undefined;
@@ -99,10 +92,6 @@ Infringements.prototype.pack = function(entity) {
   });
 
   return entity;
-}
-
-Infringements.prototype.getMetaUIDForURI = function(uri, source) {
-  return 'meta:' + source + ' ' + uri;
 }
 
 //
