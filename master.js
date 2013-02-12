@@ -17,13 +17,13 @@ var acquire = require('acquire')
   , os = require('os')
   ;
 
-var ProcInfo = require('./procinfo')
+var Announce = acquire('announce')
   , Scheduler = require('./scheduler');
 
 var WORKER_KILL_WAIT_SECONDS = 60;
 
 var Master = module.exports = function() {
-  this.procinfo_ = null;
+  this.announce_ = null;
   this.scheduler_ = null;
 
   this.init();
@@ -34,7 +34,7 @@ util.inherits(Master, events.EventEmitter);
 Master.prototype.init = function() {
   var self = this;
 
-  self.procinfo_ = new ProcInfo();
+  self.announce_ = new Announce();
   
   self.scheduler_ = new Scheduler();
   self.scheduler_.on('changeWorkerRole', self.changeWorkerRole.bind(self));
@@ -119,13 +119,5 @@ Master.prototype.createWorker = function() {
 Master.prototype.onWorkerMessage = function(worker, message) {
   var self = this;
 
-  if (message.type === 'workerAnnounce') {
-    self.procinfo_.announceWorker(message.key, message.value);
-
-    if (worker.role !== 'idle')
-      self.procinfo_.announceWorkerRole(message.key, worker.role);
-  
-  } else {
-    logger.warn('Unknown worker message: ' + util.inspect(message));
-  }
+  logger.warn('Unknown worker message: ' + util.inspect(message));
 }

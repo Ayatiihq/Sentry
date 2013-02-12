@@ -4,9 +4,8 @@
  * NOTE: Keep states tied to domains so they don't all get confusing
  */
 
-exports.scraper = {
-
-  jobState: {
+exports.jobs = {
+  state: {
     QUEUED: 0,
     PAUSED: 1,
     STARTED: 2,
@@ -15,5 +14,16 @@ exports.scraper = {
     ERRORED: 5,
     EXPIRED: 6
   }
+};
 
+exports.infringements = {
+  state: {
+    UNVERIFIED: 0,
+    VERIFIED: 1,
+    FALSE_POSITIVE: 2,
+    TAKE_DOWN_SENT: 3,
+    TAKEN_DOWN: 4,
+    NEEDS_SCRAPE: 5,
+    DEFERRED: 6
+  }
 };

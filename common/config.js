@@ -32,18 +32,22 @@ config.EXCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SCRAPERS, []);
 config.INCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_INCLUDE_SCRAPERS, []);
 
 // External Services
-config.DATABASE_URL = getEnv(process.env.DATABASE_URL, 'postgres://evqkjcjargxydk:WEUFwJzuOEqasrOfGxKCWjVb8B@ec2-54-243-229-57.compute-1.amazonaws.com:5432/d2brn3c2pum57a');
+config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleus');
 
-config.IRONMQ_TOKEN = getEnv(process.env.IRONMQ_TOKEN, 'yTY3n98ywCuj1HpMMe2_6dp8a7U');
+config.AZURE_NETWORK_KEY = getEnv(process.env.AZURE_NETWORK_KEY, 'IoPtjg8kxGXJoHrD6ucPMOrTnSdUPW02t3i9pFVH1gRRQv5gBhT68sS+LNeZF8wyctRXK4lyyee1o3sNXf0SLw==');
 
-config.IRONMQ_PROJECT = getEnv(process.env.IRONMQ_PROJECT, '50cf775e8e7d1447f5004d56');
+config.AZURE_CORE_ACCOUNT = getEnv(process.env.AZURE_CORE_ACCOUNT, 'goldrush');
+
+config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQbTT2sql8YrldYYdO4RhKnT4OTNfK+diveKbuDvqmxz0poyB9m2VpafBQLySvsaXNOA==');
+
+config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 
 config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_SCRAPER_QUEUE, 'scraper');
 
-config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SCRAPER_QUEUE_PRIORITY, 'scraper.priority');
+config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SCRAPER_QUEUE_PRIORITY, 'scraper-priority');
 
 config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60);
 

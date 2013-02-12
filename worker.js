@@ -21,11 +21,11 @@ var acquire = require('acquire')
   , os = require('os')
   ;
 
-var ProcInfo = require('./procinfo');
+var Announce = acquire('announce');
 
 var Worker = module.exports = function() {
   this.socketFile_ = "";
-  this.procinfo_ = null;
+  this.announce_ = null;
   this.server_ = null;
 
   this.currentRoleName_ = "idle";
@@ -40,12 +40,21 @@ Worker.prototype.init = function() {
   var self = this;
 
   self.socketFile_ = os.tmpDir() + '/worker-' + cluster.worker.id + '.sock';
-  self.procinfo_ = new ProcInfo();
+  self.announce_ = new Announce(self.getAnnounceMetadata.bind(self));
   
   process.on('message', self.onMessage.bind(self));
   process.on('exit', self.cleanupSocket.bind(self));
   
   self.startServer();
+}
+
+Worker.prototype.getAnnounceMetadata = function() {
+  var self = this;
+  var metadata = {};
+
+  metadata.role = self.currentRoleName_;
+
+  return metadata;
 }
 
 Worker.prototype.startServer = function() {
@@ -89,7 +98,6 @@ Worker.prototype.setRole = function(rolename) {
 
   logger.info('Role change: ' + rolename);
 
-  self.procinfo_.setRole(rolename);
   self.currentRoleName_ = rolename;
   
   var Role = require('./roles/' + rolename);
@@ -99,6 +107,7 @@ Worker.prototype.setRole = function(rolename) {
   self.role_.on('error', self.onRoleError.bind(self));
   
   self.role_.start();
+  self.announce_.announce();
 }
 
 Worker.prototype.startExit = function() {

@@ -37,10 +37,26 @@ Dummy.prototype.getName = function() {
 
 Dummy.prototype.start = function(state) {
   var self = this;
-  //self.emit('started');
+  self.emit('started');
 }
 
 Dummy.prototype.stop = function() {
   var self = this;
   self.emit('finished');
+}
+
+Dummy.prototype.isAlive = function(cb) {
+  var self = this;
+
+  logger.info('Is alive called');
+
+  if (!self.alive)
+    self.alive = 1;
+  else
+    self.alive++;
+
+  if (self.alive > 4)
+    cb(new Error('exceeded'));
+  else
+    cb();
 }
