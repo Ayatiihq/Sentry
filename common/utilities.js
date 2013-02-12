@@ -80,3 +80,22 @@ Utilities.genURIKey = function(uri, meta) {
   shasum.update(uri);
   return shasum.digest('hex');
 }
+
+
+/**
+ * Generates a key that can be used in azure for links.
+ *
+ * @param {args}    arguments     The arguments to generate the key for.
+ * @return {string} key           The key.
+ */
+Utilities.genLinkKey = function() {
+  var string = '';
+
+  Object.values(arguments, function(arg) {
+    string += '.' + arg;
+  });
+
+  var shasum = crypto.createHash('sha1');
+  shasum.update(string);
+  return shasum.digest('hex');
+}

@@ -6,6 +6,7 @@
   "infringements": "common/infringements.js",
   "database": "common/database.js",
   "jobs": "common/jobs.js",
+  "links": "common/links.js",
   "lock": "common/lock.js",
   "logger": "common/logger.js",
   "queue": "common/queue.js",

@@ -104,7 +104,8 @@ Campaigns.prototype.unpack = function(callback, err, list) {
 
   list.forEach(function(campaign) {
     PACK_LIST.forEach(function(key) {
-      campaign[key] = JSON.parse(campaign[key]);
+      if (campaign[key])
+        campaign[key] = JSON.parse(campaign[key]);
     });
   });
 
