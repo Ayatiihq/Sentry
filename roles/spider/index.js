@@ -42,8 +42,8 @@ Spider.prototype.init = function() {
   var self = this;
 
   self.jobs_ = new Jobs('spider');
-  self.queue_ = new Queue(config.SCRAPER_QUEUE);
-  self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
+  self.queue_ = new Queue(config.SPIDER_QUEUE);
+  self.priorityQueue_ = new Queue(config.SPIDER_QUEUE_PRIORITY);
   self.spiders_ = new Spiders();
 }
 
@@ -69,7 +69,7 @@ Spider.prototype.checkAvailableJob = function() {
         logger.warn('Unable to check priority queue: ' + err);
 
       logger.info('Checking default queue');
-      self.queue_.pop(config.SCRAPER_JOB_TIMEOUT_SECONDS, function(err, message) {
+      self.queue_.pop(config.SPIDER_JOB_TIMEOUT_SECONDS, function(err, message) {
         if (err) {
           logger.warn(err);
           self.findJobs();
@@ -93,7 +93,7 @@ Spider.prototype.processJobs = function(queue, jobs) {
     logger.warn(err);
 
     nJobsProcessing -= 1;
-    self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.CANCELLED, err.toString());
+    self.jobs_.close(job.body.spider, job.body.jobId, states.jobs.state.CANCELLED, err.toString());
     job.queue_.delete(job);
 
     if (nJobsProcessing < 1) {
@@ -212,7 +212,7 @@ Spider.prototype.doSpiderTakesTooLongWatch = function(spider, job) {
   var self = this;
 
   spider.longId = setInterval(self.isSpiderStalled.bind(self, spider, job),
-                               1000 * (config.SCRAPER_JOB_TIMEOUT_SECONDS / 2));
+                               1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 2));
 }
 
 Spider.prototype.isSpiderStalled = function(spider, job) {
@@ -223,7 +223,7 @@ Spider.prototype.isSpiderStalled = function(spider, job) {
     self.onSpiderError(spider, job, err);
   }
 
-  var id = setTimeout(timedOut, 1000 * (config.SCRAPER_JOB_TIMEOUT_SECONDS / 4));
+  var id = setTimeout(timedOut, 1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 4));
 
   spider.isAlive(function(err) {
     clearTimeout(id);
@@ -231,7 +231,7 @@ Spider.prototype.isSpiderStalled = function(spider, job) {
     if (err) {
       timedOut(err);
     } else {
-      job.queue_.touch(job, config.SCRAPER_JOB_TIMEOUT_SECONDS);
+      job.queue_.touch(job, config.SPIDER_JOB_TIMEOUT_SECONDS);
     }
   });
 }
