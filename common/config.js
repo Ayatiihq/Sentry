@@ -31,6 +31,10 @@ config.EXCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SCRAPERS, []);
 
 config.INCLUDE_SCRAPERS = getArrayEnv(process.env.SENTRY_INCLUDE_SCRAPERS, []);
 
+config.EXCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SPIDERS, []);
+
+config.INCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_INCLUDE_SPIDERS, []);
+
 // External Services
 config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleus');
 
@@ -45,10 +49,20 @@ config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, '
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 
+config.GOVERNOR_SPIDER_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_SPIDER_CHECK_DELAY_MINUTES, 15);
+
 config.SCRAPER_QUEUE = getEnv(process.env.SENTRY_SCRAPER_QUEUE, 'scraper');
 
 config.SCRAPER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SCRAPER_QUEUE_PRIORITY, 'scraper-priority');
 
-config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60);
+config.SCRAPER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_TIMEOUT_SECONDS, 60 * 5);
 
 config.SCRAPER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SCRAPER_JOB_EXPIRES_SECONDS, 60 * 60 * 12); // 12 hours
+
+config.SPIDER_QUEUE = getEnv(process.env.SENTRY_SPIDER_QUEUE, 'spider');
+
+config.SPIDER_QUEUE_PRIORITY = getEnv(process.env.SENTRY_SPIDER_QUEUE_PRIORITY, 'spider-priority');
+
+config.SPIDER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SPIDER_JOB_TIMEOUT_SECONDS, 60 * 10);
+
+config.SPIDER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SPIDER_JOB_EXPIRES_SECONDS, 60 * 60 * 12); // 12 hours

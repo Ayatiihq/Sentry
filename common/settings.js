@@ -19,8 +19,8 @@ var TABLE = 'settings';
 
 /**
  * Create a new settings object for the domain which should be unique to the consumer and it's
- * arguments, so there are 'spider' level settings with domain '$spiderName', but there might be
- * 'spider & campaign' level settings with domain '$spiderName.$campaignId'.
+ * arguments, so there are 'spider' level settings with domain '$spiderName', but there might 
+ * be 'spider & campaign' level settings with domain '$spiderName.$campaignId'.
  *
  * @param {string}    domain     The domain representing the settings.
  * @return {object}
@@ -63,7 +63,9 @@ Settings.prototype.getAll = function(callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select().from(TABLE).where('PartitionKey eq ?', self.partition_);
+  var query = azure.TableQuery.select()
+                              .from(TABLE)
+                              .where('PartitionKey eq ?', self.partition_);
   
   self.tableService_.queryEntities(query, function(err, entities) {
     if (err) {

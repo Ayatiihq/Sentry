@@ -12,14 +12,17 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('governor.js')
-  , pg = require('pg').native
   , util = require('util')
   ;
 
 var Role = acquire('role')
-  , ScraperDispatcher = require('./scraper-dispatcher');
+  , ScraperDispatcher = require('./scraper-dispatcher')
+  , SpiderDispatcher = require('./spider-dispatcher')
+  ;
 
 var Governor = module.exports = function() {
+  this.scraperDispatcher_ = null;
+  this.spiderDispatcher_ = null;
   this.init();
 }
 
@@ -36,6 +39,7 @@ Governor.prototype.initJobs = function() {
   var self = this;
 
   self.scraperDispatcher_ = new ScraperDispatcher();
+  self.spiderDispatcher_ = new SpiderDispatcher();
 }
 
 //
