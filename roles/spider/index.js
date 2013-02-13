@@ -171,7 +171,7 @@ Spider.prototype.runSpider = function(spider, job) {
   self.doSpiderTakesTooLongWatch(spider, job);
 
   try {
-    spider.start();
+    spider.start(job);
   } catch (err) {
     self.onSpiderError(spider, job, err);
   }

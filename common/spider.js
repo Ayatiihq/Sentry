@@ -39,7 +39,7 @@ Spider.prototype.getName = function() {
   return "spider";
 }
 
-Spider.prototype.start = function() {
+Spider.prototype.start = function(job) {
   var self = this;
   logger.warn(self.getName() + " has no start method");
 }
