@@ -27,7 +27,7 @@ function main() {
 
   setupSignals();
 
-  var settings = new Settings('test');
+  var settings = new Settings('role.miner');
   var action = argv[2];
 
   if (action === 'get')

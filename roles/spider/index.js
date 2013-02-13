@@ -198,7 +198,7 @@ Spider.prototype.doSpiderTakesTooLongWatch = function(spider, job) {
   var self = this;
 
   spider.longId = setInterval(self.isSpiderStalled.bind(self, spider, job),
-                               1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 20));
+                               1000 * (config.SPIDER_JOB_TIMEOUT_SECONDS / 2));
 }
 
 Spider.prototype.isSpiderStalled = function(spider, job) {

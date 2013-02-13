@@ -56,6 +56,40 @@ Campaigns.prototype.genCampaignKey = function(client, campaign) {
   return util.format('%s.%s', client, campaign);
 }
 
+Campaigns.prototype.unpack = function(callback, err, list) {
+  var self = this;
+
+  if (err) {
+    callback(err);
+    return;
+  }
+
+  list.forEach(function(campaign) {
+    PACK_LIST.forEach(function(key) {
+      if (campaign[key])
+        campaign[key] = JSON.parse(campaign[key]);
+    });
+  });
+
+  callback(err, list);
+}
+
+Campaigns.prototype.unpackOne = function(callback, err, campaign) {
+  var self = this;
+
+  if (err) {
+    callback(err);
+    return;
+  }
+
+  PACK_LIST.forEach(function(key) {
+    if (campaign[key])
+      campaign[key] = JSON.parse(campaign[key]);
+  });
+
+  callback(err, campaign);
+}
+
 //
 // Public Methods
 //
@@ -76,7 +110,7 @@ Campaigns.prototype.listCampaigns = function(callback) {
 /**
  * Get a list of active campaigns.
  *
- * @param {function(err, roles)} callback The callback to consume the campaigns.
+ * @param {function(err,campaigns)} callback The callback to consume the campaigns.
  * @return {undefined}
  */
 Campaigns.prototype.listActiveCampaigns = function(callback) {
@@ -94,22 +128,20 @@ Campaigns.prototype.listActiveCampaigns = function(callback) {
   self.tableService_.queryEntities(query, self.unpack.bind(self, callback));
 }
 
-Campaigns.prototype.unpack = function(callback, err, list) {
+/**
+ * Get a campaign's details.
+ *
+ * @param {string}                    client      The client uid;
+ * @param {string}                    campaign    The campaign uid;
+ * @param {function(err, details)}    callback    The campaign details, or error.
+ * @return {undefined}
+ */
+Campaigns.prototype.getDetails = function(client, campaign, callback) {
   var self = this;
 
-  if (err) {
-    callback(err);
-    return;
-  }
+  callback = callback ? callback : defaultCallback;
 
-  list.forEach(function(campaign) {
-    PACK_LIST.forEach(function(key) {
-      if (campaign[key])
-        campaign[key] = JSON.parse(campaign[key]);
-    });
-  });
-
-  callback(err, list);
+  self.tableService_.queryEntity(TABLE, client, campaign, self.unpackOne.bind(self, callback));
 }
 
 /**

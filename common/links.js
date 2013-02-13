@@ -124,7 +124,6 @@ Links.prototype.get = function(partition, from, callback) {
                               .from(TABLE)
                               .where('PartitionKey eq ?', partition)
                               .and('created gt ?', from);
-
   self.tableService_.queryEntities(query, self.unpack.bind(self, callback));
 }
 
@@ -177,8 +176,6 @@ Links.prototype.add = function(link, callback) {
  */
 Links.prototype.getLinks = function(type, from, callback) {
   var self = this;
-
-  console.log(type, from, callback);
 
   from = from.getTime();
   callback = callback ? callback : defaultCallback;

@@ -210,6 +210,7 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
     opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
 
     var msg = {};
+    msg.clientId = campaign.PartitionKey;
     msg.campaignId = campaign.RowKey;
     msg.jobId = uid;
     msg.scraper = scraper.name;

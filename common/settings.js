@@ -35,8 +35,8 @@ var Settings = module.exports = function(domain) {
 Settings.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_CORE_ACCOUNT,
-                                                config.AZURE_CORE_KEY);
+  self.tableService_ = azure.createTableService(config.AZURE_NETWORK_ACCOUNT,
+                                                config.AZURE_NETWORK_KEY);
   self.tableService_.createTableIfNotExists(TABLE, function(err) {
     if (err)
       logger.warn(err);
@@ -75,7 +75,7 @@ Settings.prototype.getAll = function(callback) {
 
     var properties = {};
     entities.forEach(function(entity) {
-      properties[entity.RowKey] = JSON.parse(entity.value);
+      properties[entity.RowKey.unescapeURL(true)] = JSON.parse(entity.value);
     });
 
     callback(null, properties);
@@ -93,6 +93,7 @@ Settings.prototype.get = function(key, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
+  key = key.escapeURL(true);
 
   self.tableService_.queryEntity(TABLE, self.partition_, key, function(err, entity) {
     if (err && err.code == 'ResourceNotFound')
@@ -119,6 +120,7 @@ Settings.prototype.set = function(key, value, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
+  key = key.escapeURL(true);
 
   var entity = {};
   entity.PartitionKey = self.partition_;
@@ -140,13 +142,12 @@ Settings.prototype.setAll = function(properties, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-
   self.tableService_.beginBatch();
 
   Object.keys(properties, function(key) {
     var entity = {};
     entity.PartitionKey = self.partition_;
-    entity.RowKey = key;
+    entity.RowKey = key.escapeURL(true);
     entity.value = JSON.stringify(properties[key]);
 
     self.tableService_.insertOrReplaceEntity(TABLE, entity, callback);
@@ -169,7 +170,7 @@ Settings.prototype.delete = function(key, callback) {
 
   var entity = {};
   entity.PartitionKey = self.partition_;
-  entity.RowKey = key;
+  entity.RowKey = key.escapeURL(true);
 
   self.tableService_.deleteEntity(TABLE, entity, callback);
 }

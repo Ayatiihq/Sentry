@@ -25,7 +25,6 @@ util.inherits(Dummy, Scraper);
 
 Dummy.prototype.init = function() {
   var self = this;
-  logger.info('Scraper up and running');
 }
 
 //
@@ -35,8 +34,10 @@ Dummy.prototype.getName = function() {
   return "dummy";
 }
 
-Dummy.prototype.start = function(state) {
+Dummy.prototype.start = function(campaign, job) {
   var self = this;
+
+  logger.info('started for %s', campaign.name);
   self.emit('started');
 }
 
