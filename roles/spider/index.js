@@ -20,7 +20,7 @@ var Jobs = acquire('jobs')
   , Role = acquire('role')
   , Spiders = acquire('spiders')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 5;
+var QUEUE_CHECK_INTERVAL = 1000 * 60;
 
 var Spider = module.exports = function() {
   this.jobs_ = null;
@@ -148,22 +148,33 @@ Spider.prototype.startJob = function(job) {
       self.findJobs();
       return;
     }
-    
-    logger.info('Starting job '  + job.body.jobId);
 
-    self.runningSpiders_.push(spider);
-
-    spider.on('started', self.onSpiderStarted.bind(self, spider, job));
-    spider.on('paused', self.onSpiderPaused.bind(self, spider, job));
-    spider.on('finished', self.onSpiderFinished.bind(self, spider, job));
-    spider.on('error', self.onSpiderError.bind(self, spider, job));
-    
-    spider.on('link', self.onSpiderLink.bind(self, spider, job));
-
-    self.doSpiderStartWatch(spider, job);
-    self.doSpiderTakesTooLongWatch(spider, job);
-    spider.start();
+    self.runSpider(spider, job);
   });
+}
+
+Spider.prototype.runSpider = function(spider, job) {
+  var self = this;
+
+  logger.info('Starting job '  + job.body.jobId);
+
+  self.runningSpiders_.push(spider);
+
+  spider.on('started', self.onSpiderStarted.bind(self, spider, job));
+  spider.on('paused', self.onSpiderPaused.bind(self, spider, job));
+  spider.on('finished', self.onSpiderFinished.bind(self, spider, job));
+  spider.on('error', self.onSpiderError.bind(self, spider, job));
+  
+  spider.on('link', self.onSpiderLink.bind(self, spider, job));
+
+  self.doSpiderStartWatch(spider, job);
+  self.doSpiderTakesTooLongWatch(spider, job);
+
+  try {
+    spider.start();
+  } catch (err) {
+    self.onSpiderError(spider, job, err);
+  }
 }
 
 Spider.prototype.loadSpiderForJob = function(job, callback) {
@@ -175,15 +186,16 @@ Spider.prototype.loadSpiderForJob = function(job, callback) {
     return;
   }
 
+  var spider = null;
+  var err = null;
   try {
     var modPath = './spiders/' + spiderInfo.name;
     var Spider = require(modPath);
     spider = new Spider();
-    callback(null, spider);
-
-  } catch(err) {
-    callback(err);
+  } catch(error) {
+    err = error;
   }
+  callback(err, spider);
 }
 
 Spider.prototype.doSpiderStartWatch = function(spider, job) {
