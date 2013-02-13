@@ -61,7 +61,7 @@ Jobs.prototype.genJobKey = function(name) {
 
 Jobs.prototype.getPartitionKey = function(name) {
   var self = this;
-  return name + '.' + self.type_;
+  return self.type_ + '.' + name;
 }
 
 Jobs.prototype.pack = function(job) {
@@ -130,22 +130,22 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
 // Public Methods
 //
 /**
- * Get a list of active jobs for a campaign.
+ * Get a list of active jobs for a domain.
  *
- * @param  {stringOrObject}              campaign     The campaign to search active jobs for.
+ * @param  {stringOrObject}              domain     The domain to search active jobs for.
  * @param  {function(err, jobs, mapped)} callback     The callback to consume the jobs and a mapped version of the jobs.
  * @return {undefined}
  */
-Jobs.prototype.listActiveJobs = function(campaign, callback) {
+Jobs.prototype.listActiveJobs = function(domain, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , partition = self.getPartitionKey(campaign)
+    , domain = Object.isString(domain) ? domain : domain.RowKey
+    , partition = self.getPartitionKey(domain)
     , then = Date.utc.create('6 hours ago').getTime()
     ;
 
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select('PartitionKey, RowKey, consumer, scraper, created, started, finished, state')
+  var query = azure.TableQuery.select('PartitionKey, RowKey, consumer, created, started, finished, state')
                               .from(TABLE)
                               .where('PartitionKey eq ?', partition)
                               .and('created gt ?', then);
@@ -155,16 +155,16 @@ Jobs.prototype.listActiveJobs = function(campaign, callback) {
 /**
  * Get details of a job.
  *
- * @param  {stringOrObject}        campaign    The campaign the job belongs to.
- * @param  {string}                job      The uid of the Job.
- * @param  {function(err, job)}    callback    The callback to receive the details, or the error.
+ * @param  {stringOrObject}        domain    The domain the job belongs to.
+ * @param  {string}                job       The uid of the Job.
+ * @param  {function(err, job)}    callback  The callback to receive the details, or the error.
  * @return {undefined}
  */
-Jobs.prototype.getDetails = function(campaign, job, callback) {
+Jobs.prototype.getDetails = function(domain, job, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
-    , partition = self.getPartitionKey(campaign)
+    , partition = self.getPartitionKey(domain)
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -182,15 +182,15 @@ Jobs.prototype.getDetails = function(campaign, job, callback) {
 /**
  * Add a new job to the table.
  *
- * @param  {stringOrObject}    campaign    The campaign the job belongs to.
+ * @param  {stringOrObject}    domain    The domain the job belongs to.
  * @param  {object}            job         The job to add.
  * @param  {function(err,uid)} callback    A callback receive the uid.
  * @return {string}            uid         The UID generated for the job.
  */
-Jobs.prototype.add = function(campaign, job, callback) {
+Jobs.prototype.add = function(domain, job, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , partition = self.getPartitionKey(campaign)
+    , domain = Object.isString(domain) ? domain : domain.RowKey
+    , partition = self.getPartitionKey(domain)
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -220,21 +220,21 @@ Jobs.prototype.add = function(campaign, job, callback) {
 /**
  * Starts a job.
  *
- * @param  {stringOrObject}  campaign   The campaign the job belongs to.
+ * @param  {stringOrObject}  domain   The domain the job belongs to.
  * @param  {stringOrObject}  job        The job.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.start = function(campaign, job, callback) {
+Jobs.prototype.start = function(domain, job, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
     ;
 
   callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = self.getPartitionKey(campaign);
+  entity.PartitionKey = self.getPartitionKey(domain);
   entity.RowKey = job;
   entity.started = Date.utc.create().getTime();
   entity.state = states.jobs.state.STARTED;
@@ -246,22 +246,22 @@ Jobs.prototype.start = function(campaign, job, callback) {
 /**
  * Pauses a job.
  *
- * @param  {stringOrObject}  campaign   The campaign the job belongs to.
+ * @param  {stringOrObject}  domain   The domain the job belongs to.
  * @param  {stringOrObject}  job        The job.
  * @param  {string}          snapshot   A snapshot of the job's current state, for resuming.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.pause = function(campaign, job, snapshot, callback) {
+Jobs.prototype.pause = function(domain, job, snapshot, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
     ;
 
   callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = self.getPartitionKey(campaign);
+  entity.PartitionKey = self.getPartitionKey(domain);
   entity.RowKey = job;
   entity.state = states.jobs.state.PAUSED;
   entity.paused = Date.utc.create().getTime();
@@ -273,21 +273,21 @@ Jobs.prototype.pause = function(campaign, job, snapshot, callback) {
 /**
  * Complete a job.
  *
- * @param  {stringOrObject}  campaign   The campaign the job belongs to.
+ * @param  {stringOrObject}  domain   The domain the job belongs to.
  * @param  {stringOrObject}  job        The job.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.complete = function(campaign, job, callback) {
+Jobs.prototype.complete = function(domain, job, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
     ;
 
   callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = self.getPartitionKey(campaign);
+  entity.PartitionKey = self.getPartitionKey(domain);
   entity.RowKey = job;
   entity.state = states.jobs.state.COMPLETED;
   entity.finished = Date.utc.create().getTime();
@@ -298,23 +298,23 @@ Jobs.prototype.complete = function(campaign, job, callback) {
 /**
  * Close a job due to a reason.
  *
- * @param  {stringOrObject}  campaign   The campaign the job belongs to.
+ * @param  {stringOrObject}  domain   The domain the job belongs to.
  * @param  {stringOrObject}  job        The job.
  * @param  {int}             state      The state the job should be closed in. 
  * @param  {string}          reason     The reason why the job was closed.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.close = function(campaign, job, state, reason, callback) {
+Jobs.prototype.close = function(domain, job, state, reason, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
     ;
 
   callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = self.getPartitionKey(campaign);
+  entity.PartitionKey = self.getPartitionKey(domain);
   entity.RowKey = job;
   entity.state = state;
   entity.reason = reason;
@@ -326,22 +326,22 @@ Jobs.prototype.close = function(campaign, job, state, reason, callback) {
 /**
  * Close a job due to a reason.
  *
- * @param  {stringOrObject}  campaign   The campaign the job belongs to.
+ * @param  {stringOrObject}  domain   The domain the job belongs to.
  * @param  {stringOrObject}  job        The job.
  * @param  {object}          metadata   The new metadata.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.setMetadata = function(campaign, job, metadata, callback) {
+Jobs.prototype.setMetadata = function(domain, job, metadata, callback) {
   var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
+    , domain = Object.isString(domain) ? domain : domain.RowKey
     , job = Object.isString(job) ? job : job.RowKey
     ;
 
   callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = self.getPartitionKey(campaign);
+  entity.PartitionKey = self.getPartitionKey(domain);
   entity.RowKey = job;
   entity.metadata = JSON.stringify(metadata);
 

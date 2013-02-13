@@ -16,6 +16,8 @@
   "scraper": "common/scraper.js",
   "scrapers": "common/scrapers.js",
   "settings": "common/settings.js",
+  "spider": "common/spider.js",
+  "spiders": "common/spiders.js",
   "states": "common/states.js",
   "swarm": "common/swarm.js",
   "tablebus": "common/tablebus.js",

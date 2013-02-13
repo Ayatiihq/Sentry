@@ -18,16 +18,21 @@ var Scraper = module.exports = function() {
   // Signals
   //
 
-  // "started" - When the scraper starts working, this must be sent once any
-  //             state checking etc is done by the scraper and work starts
+  // ("started") - When the scraper starts working, this must be sent once any
+  //               state checking etc is done by the scraper and work starts
 
-  // "paused" - When the scraper has paused itself. Args: object representing
-  //            object's state. I.e. self.emit('paused', { lastPageScraped: 11 });
+  // ("finished") - When the scraper has no more tasks to complete
 
-  // "finished" - When the scraper has no more tasks to complete
+  // ("error", err) - When there is an error to stops the scraper from continuing it's
+  //                  work. Args: the error object
 
-  // "error" - When there is an error to stops the scraper from continuing it's
-  //           work. Args: the error object
+  // ("infringement", uri, metadata) - When an infringement is found.
+
+  // ("metaInfringement", uri, metadata) = When an meta infringement is found.
+
+  // ("relation", sourceUri, targetUri) - When a relation between uris is found.
+
+  // ("metaRelation", uri) - When a meta relation should be made.
 }
 
 util.inherits(Scraper, events.EventEmitter);
@@ -39,7 +44,7 @@ Scraper.prototype.getName = function() {
   return "scraper";
 }
 
-Scraper.prototype.start = function(state) {
+Scraper.prototype.start = function(campaign, job) {
   var self = this;
   logger.warn(self.getName() + " has no start method");
 }
@@ -53,5 +58,5 @@ Scraper.prototype.stop = function() {
 // to be called with 'null' if everything is fine, otherwise 'err' if there is
 // an issue.
 Scraper.prototype.isAlive = function(callback) {
-  callback(null);
+  callback(new Error('This method should be implemented'));
 }

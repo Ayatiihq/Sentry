@@ -1,0 +1,9 @@
+{
+  "name": "spider",
+  "main": "./index.js",
+  "type": "scalable",
+  "queues":  {
+    "priority": "spider:priority",
+    "default": "spider"
+  }
+}

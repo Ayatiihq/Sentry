@@ -14,14 +14,18 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Jobs = acquire('jobs')
+var Campaigns = acquire('campaigns')
+  , Infringements = acquire('infringements')
+  , Jobs = acquire('jobs')
   , Queue = acquire('queue')
   , Role = acquire('role')
   , Scrapers = acquire('scrapers')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 10;
+var QUEUE_CHECK_INTERVAL = 1000 * 60;
 
 var Scraper = module.exports = function() {
+  this.campaigns_ = null;
+  this.infringements_ = null;
   this.jobs_ = null;
   this.queue_ = null;
   this.priorityQueue_ = null;
@@ -41,6 +45,8 @@ util.inherits(Scraper, Role);
 Scraper.prototype.init = function() {
   var self = this;
 
+  self.campaigns_ = new Campaigns();
+  self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('scraper');
   self.queue_ = new Queue(config.SCRAPER_QUEUE);
   self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
@@ -50,7 +56,7 @@ Scraper.prototype.init = function() {
 Scraper.prototype.findJobs = function() {
   var self = this;
 
-  if (self.poll)
+  if (self.poll || self.runningScrapers_.length)
     return;
 
   self.poll = setTimeout(self.checkAvailableJob.bind(self), QUEUE_CHECK_INTERVAL);
@@ -143,29 +149,73 @@ Scraper.prototype.getJobDetails = function(job, callback) {
   self.jobs_.getDetails(job.body.campaignId, job.body.jobId, function(err, details) {
     job.details = details;
     if (!err) {
-      var state = parseInt(job.details.state)
-        , s = states.jobs.state;
-      if (state != s.QUEUED && state != s.PAUSED)
-        err = new Error('Job does not have a ready state');
+      if (job.details && job.details.state) {
+        var state = parseInt(job.details.state)
+          , s = states.jobs.state;
+        if (state != s.QUEUED && state != s.PAUSED)
+          err = new Error('Job does not have a ready state');
+      } else {
+        err = new Error('Unable to get job details: ' + job.body.jobId);
+      }
     }
-    callback(err);
+
+    if (!err) {
+      self.campaigns_.getDetails(job.body.clientId, job.body.campaignId, function(err, campaign) {
+        job.campaign = campaign;
+        if (!(job.campaign && job.campaign.type))
+          err = new Error('Unable to get campaign details');
+        callback(err);
+      });
+    } else {
+      callback(err);
+    }
   });
 }
 
 Scraper.prototype.startJob = function(job) {
   var self = this;
-  var jobState = states.jobs.state;
-
   self.loadScraperForJob(job, function(err, scraper) {
     if (err) {
+      var jobState = states.jobs.state;
+
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
       self.jobs_.close(job.body.campaignId, job.body.jobId, jobState.ERRORED, err);
       job.queue_.delete(job);
       self.findJobs();
       return;
     }
-    
-    logger.info('Starting job '  + job.body.jobId);
+    self.runScraper(scraper, job);
+  });
+}
+
+Scraper.prototype.loadScraperForJob = function(job, callback) {
+  var self = this;
+
+  logger.info('Loading scraper %s for job %s', job.body.scraper, job);
+
+  var scraperInfo = self.scrapers_.getScraper(job.body.scraper);
+  if (!scraperInfo) {
+    callback(new Error('Unable to find scraper'));
+    return;
+  }
+
+  var scraper = null;
+  var err = null;
+  try {
+    var modPath = './scrapers/' + scraperInfo.name;
+    var Scraper = require(modPath);
+    scraper = new Scraper();
+  } catch(error) {
+    err = error;
+  }
+
+  callback(err, scraper);
+}
+
+Scraper.prototype.runScraper = function(scraper, job) {
+    var self = this;
+
+    logger.info('Running job '  + job.body.jobId);
 
     self.runningScrapers_.push(scraper);
 
@@ -174,30 +224,20 @@ Scraper.prototype.startJob = function(job) {
     scraper.on('finished', self.onScraperFinished.bind(self, scraper, job));
     scraper.on('error', self.onScraperError.bind(self, scraper, job));
 
+    var campaign = job.campaign;
+    scraper.on('infringement', self.onScraperInfringement.bind(self, scraper, campaign));
+    scraper.on('metaInfringement', self.onScraperMetaInfringement.bind(self, scraper, campaign));
+    scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
+    scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
+
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
-    scraper.start();
-  });
-}
-
-Scraper.prototype.loadScraperForJob = function(job, callback) {
-  var self = this;
-
-  var scraperInfo = self.scrapers_.getScraper(job.body.scraper);
-  if (!scraperInfo) {
-    callback(new Error('Unable to find scraper'));
-    return;
-  }
-
-  try {
-    var modPath = './scrapers/' + scraperInfo.name;
-    var Scraper = require(modPath);
-    scraper = new Scraper();
-    callback(null, scraper);
-
-  } catch(err) {
-    callback(err);
-  }
+    
+    try {
+      scraper.start(campaign, job);
+    } catch(err) {
+      self.onScraperError(scraper, job, err);
+    }
 }
 
 Scraper.prototype.doScraperStartWatch = function(scraper, job) {
@@ -293,6 +333,50 @@ Scraper.prototype.cleanup = function(scraper, job) {
   clearTimeout(scraper.longId);
   clearTimeout(scraper.watchId);
   self.runningScrapers_.remove(scraper);
+}
+
+Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metadata) {
+  var self = this;
+
+  // FIXME: Check blacklists and spiders before adding infringement
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), metadata, function(err) {
+    if (err) {
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+    } else {
+      //FIXME: SEND TO GOVERNOR TO DO SOMETHING USEFUL WITH
+    }
+  });
+}
+
+Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
+  var self = this;
+
+  self.infringements_.addMeta(campaign, uri, scraper.getName(), metadata, function(err, id) {
+    if (err) {
+      logger.warn('Unable to add an meta infringement: %s %s %s %s', campaign, uri, metadata, err);
+    }
+  });
+}
+
+Scraper.prototype.onScraperRelation = function(scraper, campaign, sourceUri, targetUri) {
+  var self = this;
+
+  self.infringements_.addRelation(campaign, sourceUri, targetUri, function(err, id) {
+    if (err) {
+      logger.warn('Unable to add relation: %s %s %s %s', campaign, sourceUri, targetUri, err);
+    }
+  });
+}
+
+Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
+  var self = this
+    , source = scraper.getName()
+
+  self.infringements_.addMetaRelation(campaign, addMetaRelation, source, function(err, id) {
+    if (err) {
+      logger.warn('Unable to add relation: %s %s %s %s', campaign, addMetaRelation, source, err);
+    }
+  });
 }
 
 //

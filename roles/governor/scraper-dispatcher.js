@@ -124,14 +124,13 @@ ScraperDispatcher.prototype.scraperIgnoredByCampaign = function(campaign, scrape
 
 ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, lastJobs, scraper) {
   var self = this;
-  var state = states.scraper.jobState;
+  var state = states.jobs.state;
 
   var lastJob = lastJobs[scraper.name];
   if (!lastJob)
     return false;
 
   logJob(campaign, scraper, 'Inspecting existing job ' + lastJob.id + ' state: ' + lastJob.state);
-  console.log(typeof lastJob.state);
 
   // It has a job logged, but is it valid?
   switch (parseInt(lastJob.state)) {
@@ -211,6 +210,7 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
     opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
 
     var msg = {};
+    msg.clientId = campaign.PartitionKey;
     msg.campaignId = campaign.RowKey;
     msg.jobId = uid;
     msg.scraper = scraper.name;

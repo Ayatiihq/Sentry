@@ -1,0 +1,5 @@
+{
+  "name": "dummy",
+  "main": "./index.js",
+  "match": "https?://(%5B%5Cw-%5D+).example.com/?.*"
+}

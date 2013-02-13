@@ -10,6 +10,7 @@
 
 var cluster = require('cluster')
   , os = require('os')
+  , util = require('util')
   , winston = require('winston');
 
 var Logger = function(filename) {
@@ -22,28 +23,24 @@ var Logger = function(filename) {
   this.prefix_ = id + ':' + filename + ': ';
 }
 
-Logger.prototype.info = function(string, object) {
-  string = Object.isObject(string) ? JSON.stringify(string) : string;
-  object = typeof object !== 'undefined' ? object : {};
-  winston.info(this.prefix_ + string, object );
+Logger.prototype.info = function() {
+  var string = util.format.apply(null, arguments);
+  winston.info(this.prefix_ +  string);
 }
 
-Logger.prototype.debug = function(string, object) {
-  string = Object.isObject(string) ? JSON.stringify(string) : string;  
-  object = typeof object !== 'undefined' ? object : {};
-  winston.debug(this.prefix_ + string, object );
+Logger.prototype.debug = function() {
+  var string = util.format.apply(null, arguments);
+  winston.debug(this.prefix_ +  string);
 }
 
-Logger.prototype.warn = function(string, object) {
-  string = Object.isObject(string) ? JSON.stringify(string) : string;  
-  object = typeof object !== 'undefined' ? object : {};
-  winston.warn(this.prefix_ + string, object );
+Logger.prototype.warn = function() {
+  var string = util.format.apply(null, arguments);
+  winston.warn(this.prefix_ +  string);
 }
 
-Logger.prototype.error = function(string, object) {
-  string = Object.isObject(string) ? JSON.stringify(string) : string;  
-  object = typeof object !== 'undefined' ? object : {};
-  winston.error(this.prefix_ + string, object );
+Logger.prototype.error = function() {
+  var string = util.format.apply(null, arguments);
+  winston.error(this.prefix_ +  string);
 }
 
 exports.forFile = function(filename) {
