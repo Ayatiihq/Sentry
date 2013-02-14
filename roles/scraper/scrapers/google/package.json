@@ -1,6 +1,6 @@
 {
   "name": "google",
-  "main": "./index.js",
+  "main": "./google-scraper.js",
   "types": {
     "tv": ".*",
     "film": ".*"

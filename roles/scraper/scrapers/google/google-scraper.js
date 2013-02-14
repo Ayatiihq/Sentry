@@ -12,7 +12,7 @@
 
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('google.js')
+  , logger = acquire('logger').forFile('google-scraper.js')
   , util = require('util')
   , webdriver = require('selenium-webdriverjs')
   , sugar = require('sugar')
