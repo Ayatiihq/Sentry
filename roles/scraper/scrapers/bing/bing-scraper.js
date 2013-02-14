@@ -47,19 +47,16 @@ BingScraper.prototype.beginSearch = function () {
   var self = this;
   try {
     self.emit('started');
-    this.remoteClient.get('http://www.google.com'); // start at google.com
+    this.remoteClient.get('http://www.bing.com'); // start at google.com
 
-    this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
+    this.remoteClient.findElement(webdriver.By.css('input[id=sb_form_q]')) //finds <input name='q'>
     .sendKeys(self.searchTerm); // types out our search term into the input box
 
     // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-    this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
-      var actionSequence = new webdriver.ActionSequence(self.remoteClient);
-      actionSequence.mouseMove(element).mouseDown().mouseUp();
-    });
+    this.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
 
     // waits for a #search selector
-    this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
+    this.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
       if (element) {
         self.handleResults();
       }
@@ -113,7 +110,7 @@ BingScraper.prototype.emitLinks = function (linkList) {
 BingScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
   var $ = cheerio.load(source);
-  $('#search').find('#ires').find('#rso').children().each(function () {
+  $('#results').find('ul#wg0').children().each(function () {
     links.push($(this).find('a').attr('href'));
   });
   return links;
@@ -124,7 +121,7 @@ BingScraper.prototype.nextPage = function () {
   var self = this;
   // clicks the next page element.
   try {
-    self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
+    self.remoteClient.findElement(webdriver.By.css('a.sb_pagN')).click().then(function () { self.handleResults(); });
   } 
   catch (err) {
     self.emit('error', err);
@@ -134,7 +131,7 @@ BingScraper.prototype.nextPage = function () {
 
 BingScraper.prototype.checkHasNextPage = function (source) {
   var $ = cheerio.load(source);
-  if ($('a#pnnext').length < 1) { return false; }
+  if ($('a.sb_pagN').length < 1) { return false; }
   return true;
 };
 
