@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , request = require('request')
   , Seq = require('seq')
   , Service = require('./service')
-  , Callbacks = require('./callbacks')
+  , callbacks = require('./callbacks')
   ;
 
 require('enum').register();
@@ -33,20 +33,17 @@ util.inherits(FancyStreems, Spider);
 FancyStreems.prototype.init = function() {
   var self = this;
   self.results = []; 
-  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING']);
+  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING', 'IFRAME_PARSING']);
   //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
   
   self.root = "http://fancystreems.com/";
 
   self.categories = ['entertainment']; 
-  self.currentState = self.states.get('CATEGORY_PARSING');
+  self.currentState = self.states.CATEGORY_PARSING;
   logger.info('FancyStreems Spider up and running');  
   
-  var callbacks = new Callbacks(self.root);
-
-  console.log("callbacks prototype = " + JSON.stringify(callbacks));
-  
   FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
+  FancyStreems.prototype.scrapeService = callbacks.scrapeService;
 }
 
 //
@@ -83,7 +80,6 @@ FancyStreems.prototype.isAlive = function(cb) {
     cb();
 }
 
-
 FancyStreems.prototype.iterateRequests = function(collection){
   var self= this;
 
@@ -93,8 +89,8 @@ FancyStreems.prototype.iterateRequests = function(collection){
       request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
     })
     .seq(function(){
-      logger.info('Finished scraping categories ...');
-      self.sanityCheck();
+      logger.info('Finished state - ' + self.currentState);
+      self.moveOnToNextState();
     })    
   ;    
 }
@@ -112,13 +108,15 @@ FancyStreems.prototype.constructRequestURI = function(item){
 
   switch(this.currentState)
   {
-  case self.states.get('CATEGORY_PARSING'):
+  case self.states.CATEGORY_PARSING:
     uri = self.root + 'tvcat/' + item + 'tv.php';
     break;
+  case self.states.SERVICE_PARSING:
+    uri =  item.activeLink;
+    break;    
   }
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
-  logger.info('return URI : ' + uri);
   return uri;
 }
 
@@ -128,14 +126,35 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
 
   switch(this.currentState)
   {
-  case self.states.get('CATEGORY_PARSING'):
+  case self.states.CATEGORY_PARSING:
     cb =  self.scrapeCategory.bind(self, item, done);
     break;
+  case self.states.SERVICE_PARSING:
+    cb =  self.scrapeService.bind(self, item, done);
+    break;    
   }
 
   if(cb === null)
     self.emit('error', new Error('fetchAppropriateCallback : Callback  is null wtf ! - ' + JSON.stringify(item)));
-
   return cb;
 }
 
+FancyStreems.prototype.moveOnToNextState = function(){ 
+  var self = this;
+  var fun = null;
+
+  switch(this.currentState)
+  {
+  case self.states.CATEGORY_PARSING:
+    self.currentState = self.states.SERVICE_PARSING;
+    break;
+  case self.states.SERVICE_PARSING:
+    self.currentState = self.states.IFRAME_PARSING;
+    break;
+  }
+  // tmp
+  if(self.currentState.is(self.states.IFRAME_PARSING) === false){
+    logger.info("Moving on to %s state", self.currentState)
+    self.iterateRequests(self.results);
+  }
+}
