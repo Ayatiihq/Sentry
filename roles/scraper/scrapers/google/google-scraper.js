@@ -24,21 +24,28 @@ var Scraper = acquire('scraper');
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 
-var GoogleScraper = function (searchTerm, returncb) {
+/* GoogleScraper - is an event emitter object 
+    'finished' - scraper is finished scraping google
+    'started' - scraper started scraping.
+    'found-link'(string - uri) - scraper found a link in the search results
+    'error'(error) - scraper found an error, includes the error
+*/
+
+var GoogleScraper = function (searchTerm) {
   this.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   this.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
 
   this.searchTerm = searchTerm;
   this.idleTime = [5, 10]; // min/max time to click next page
-  this.urls = [];
-  this.indexedPages = 0;
-  this.returnCallback = returncb;
 };
+
+util.inherits(GoogleScraper, events.EventEmitter);
 
 GoogleScraper.prototype.beginSearch = function () {
   var self = this;
   try {
+    self.emit('started');
     this.remoteClient.get('http://www.google.com'); // start at google.com
 
     this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
@@ -56,30 +63,32 @@ GoogleScraper.prototype.beginSearch = function () {
         self.handleResults();
       }
       else {
+        self.emit('error', ERROR_NORESULTS);
         self.cleanup();
-        self.returnCallback(ERROR_NORESULTS, self.urls);
       }
     });
   }
   catch (err) {
+    self.emit('error', err);
     logger.warn("Error encountered when scraping google: %s", err.toString());
-    this.remoteClient.quit();
+    self.cleanup();
   }
 };
 
 GoogleScraper.prototype.handleResults = function () {
   var self = this;
   // we sleep 1000ms first to let the page render
-  self.remoteClient.sleep(2500)
+  self.remoteClient.sleep(2500);
 
   self.remoteClient.getPageSource().then(function sourceParser(source) {
     var newresults = self.getLinksFromSource(source);
     if (newresults.length < 1) {
+      self.emit('error', ERROR_NORESULTS);
       self.cleanup();
-      self.returnCallback(ERROR_NORESULTS, self.urls);
     }
     else {
-      self.urls = self.urls.concat(newresults);
+      self.emitLinks(newresults);
+
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
@@ -88,9 +97,15 @@ GoogleScraper.prototype.handleResults = function () {
       }
       else {
         self.cleanup();
-        self.returnCallback(false, self.urls); // end of results
       }
     }
+  });
+};
+
+GoogleScraper.prototype.emitLinks = function (linkList) {
+  var self = this;
+  linkList.each(function linkEmitter(link) {
+    self.emit('link-found', link);
   });
 };
 
@@ -111,6 +126,7 @@ GoogleScraper.prototype.nextPage = function () {
     self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
   } 
   catch (err) {
+    self.emit('error', err);
     logger.warn("Error encountered when scraping google: %s", err.toString());
   }
 };
@@ -123,6 +139,7 @@ GoogleScraper.prototype.checkHasNextPage = function (source) {
 
 
 GoogleScraper.prototype.cleanup = function () {
+  this.emit('finished');
   this.remoteClient.quit();
 };
 
@@ -148,13 +165,20 @@ Google.prototype.start = function(campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
-  self.scraper = new GoogleScraper(campaign.name, function onScraperFinished(error, urls) {
-    urls.each(function forEachUrl(url) {
-      self.emit('metaInfringement', url);
-    });
+  self.scraper = new GoogleScraper(campaign.name);
 
+  self.scraper.on('finished', function onFinished() {
     self.emit('finished');
   });
+
+  self.scraper.on('error', function onError(err) {
+    // do nuffink right now, handled elsewhere
+  });
+
+  self.scraper.on('found-link', function onFoundLink(link) {
+    self.emit('metaInfringement', link);
+  });
+ 
 
   self.scraper.beginSearch();
   self.emit('started');
