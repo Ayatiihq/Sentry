@@ -38,28 +38,33 @@ var GoogleScraper = function (searchTerm, returncb) {
 
 GoogleScraper.prototype.beginSearch = function () {
   var self = this;
+  try {
+    this.remoteClient.get('http://www.google.com'); // start at google.com
 
-  this.remoteClient.get('http://www.google.com'); // start at google.com
+    this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
+    .sendKeys(self.searchTerm); // types out our search term into the input box
 
-  this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
-  .sendKeys(self.searchTerm); // types out our search term into the input box
+    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
+    this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
+      var actionSequence = new webdriver.ActionSequence(self.remoteClient);
+      actionSequence.mouseMove(element).mouseDown().mouseUp();
+    });
 
-  // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-  this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
-    var actionSequence = new webdriver.ActionSequence(self.remoteClient);
-    actionSequence.mouseMove(element).mouseDown().mouseUp();
-  });
-
-  // waits for a #search selector
-  this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
-    if (element) {
-      self.handleResults();
-    }
-    else {
-      self.cleanup();
-      self.returnCallback(ERROR_NORESULTS, self.urls);
-    }
-  });
+    // waits for a #search selector
+    this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
+      if (element) {
+        self.handleResults();
+      }
+      else {
+        self.cleanup();
+        self.returnCallback(ERROR_NORESULTS, self.urls);
+      }
+    });
+  }
+  catch (err) {
+    logger.warn("Error encountered when scraping google: %s", err.toString());
+    this.remoteClient.quit();
+  }
 };
 
 GoogleScraper.prototype.handleResults = function () {
@@ -102,7 +107,12 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
 GoogleScraper.prototype.nextPage = function () {
   var self = this;
   // clicks the next page element.
-  self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
+  try {
+    self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
+  } 
+  catch (err) {
+    logger.warn("Error encountered when scraping google: %s", err.toString());
+  }
 };
 
 GoogleScraper.prototype.checkHasNextPage = function (source) {
