@@ -122,18 +122,25 @@ var scrapeService = function(service, done, err, resp, html)
           }
         }
       });
-      // some links are <a linked - dubious (not certain) TODO investigate
-      if(found_src === false){
-        parsedHTML(elem).find('a').each(function(i, innerA){
-          found_src = true;
-          service.endOfTheRoad();
-          self.emit('link', service.constructLink("a linked at service page", parsedHTML(innerA).attr('href')));
+      if(found_src === false){ // last gasp attempt => look for an rtmp link in there
+        parsedHTML(elem).find('script').each(function(i, innerScript){
+          if(parsedHTML(innerScript).text().match(/rtmp:\/\//g) !== null){
+            var makeAStab = parsedHTML(innerScript).text().split('rtmp://');
+            if(makeAStab.length > 1){
+              var innards = makeAStab[1].split("'");
+              if (innards.length > 1){
+                found_src = true;
+                service.endOfTheRoad();
+                self.emit('link', service.constructLink("embedded rtmp linked at service page", 'rtmp://' + innards[0]));                
+              }
+            }
+          }
         });
       }
 
       if (found_src === false){
         service.endOfTheRoad();
-        logger.warn("Unable to find where to go next from %s service page", service.name);
+        logger.warn("Unable to find where to go next from %s service page @ ", service.name, service.activeLink);
       }   
     }       
   });
