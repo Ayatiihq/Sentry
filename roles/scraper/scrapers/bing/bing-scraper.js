@@ -68,7 +68,7 @@ BingScraper.prototype.beginSearch = function () {
   }
   catch (err) {
     self.emit('error', err);
-    logger.warn("Error encountered when scraping google: %s", err.toString());
+    logger.warn("Error encountered when scraping bing: %s", err.toString());
     self.cleanup();
   }
 };
@@ -110,7 +110,7 @@ BingScraper.prototype.emitLinks = function (linkList) {
 BingScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
   var $ = cheerio.load(source);
-  $('#results').find('ul#wg0').children().each(function () {
+  $('#results').find('ul#wg0').children('li.sa_wr').each(function () {
     links.push($(this).find('a').attr('href'));
   });
   return links;
@@ -125,7 +125,7 @@ BingScraper.prototype.nextPage = function () {
   } 
   catch (err) {
     self.emit('error', err);
-    logger.warn("Error encountered when scraping google: %s", err.toString());
+    logger.warn("Error encountered when scraping bing: %s", err.toString());
   }
 };
 
