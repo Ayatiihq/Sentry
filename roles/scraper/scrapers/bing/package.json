@@ -1,0 +1,8 @@
+{
+  "name": "google",
+  "main": "./bing-scraper.js",
+  "types": {
+    "tv": ".*",
+    "film": ".*"
+  }
+}
