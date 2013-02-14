@@ -21,25 +21,32 @@ var acquire = require('acquire')
 
 require('enum').register();
 
-var FANCYSTREEMS_ROOT = "http://fancystreems.com/";
-
 var Spider = acquire('spider');
 
 var FancyStreems = module.exports = function() {
   this.init();
 }
 
-util.inherits(FancyStreems, Callbacks);
 util.inherits(FancyStreems, Spider);
+
 
 FancyStreems.prototype.init = function() {
   var self = this;
   self.results = []; 
   self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING']);
   //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
+  
+  self.root = "http://fancystreems.com/";
+
   self.categories = ['entertainment']; 
   self.currentState = self.states.get('CATEGORY_PARSING');
   logger.info('FancyStreems Spider up and running');  
+  
+  var callbacks = new Callbacks(self.root);
+
+  console.log("callbacks prototype = " + JSON.stringify(callbacks));
+  
+  FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
 }
 
 //
@@ -52,7 +59,7 @@ FancyStreems.prototype.getName = function() {
 FancyStreems.prototype.start = function(state) {
   var self = this;
   self.emit('started');
-  self.iterateRequests();
+  self.iterateRequests(self.categories);
 }
 
 FancyStreems.prototype.stop = function() {
@@ -83,12 +90,20 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done))
+      request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
     })
     .seq(function(){
       logger.info('Finished scraping categories ...');
+      self.sanityCheck();
     })    
   ;    
+}
+
+FancyStreems.prototype.sanityCheck = function(){
+  var self = this;
+  self.results.forEach(function(res){
+    console.log("\n\n " +  JSON.stringify(res));
+  });
 }
 
 FancyStreems.prototype.constructRequestURI = function(item){
@@ -98,11 +113,12 @@ FancyStreems.prototype.constructRequestURI = function(item){
   switch(this.currentState)
   {
   case self.states.get('CATEGORY_PARSING'):
-    uri = FANCYSTREEMS_ROOT + 'tvcat/' + item + 'tv.php';
+    uri = self.root + 'tvcat/' + item + 'tv.php';
     break;
   }
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
+  logger.info('return URI : ' + uri);
   return uri;
 }
 
