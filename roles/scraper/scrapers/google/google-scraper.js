@@ -144,24 +144,24 @@ GoogleScraper.prototype.cleanup = function () {
 };
 
 
-var Google = module.exports = function() {
+var Google = module.exports = function () {
   this.init();
-}
+};
 
 util.inherits(Google, Scraper);
 
-Google.prototype.init = function() {
+Google.prototype.init = function () {
   var self = this;
-}
+};
 
 //
 // Overrides
 //
-Google.prototype.getName = function() {
+Google.prototype.getName = function () {
   return "Google";
-}
+};
 
-Google.prototype.start = function(campaign, job) {
+Google.prototype.start = function (campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
@@ -178,18 +178,18 @@ Google.prototype.start = function(campaign, job) {
   self.scraper.on('found-link', function onFoundLink(link) {
     self.emit('metaInfringement', link);
   });
- 
+
 
   self.scraper.beginSearch();
   self.emit('started');
-}
+};
 
-Google.prototype.stop = function() {
+Google.prototype.stop = function () {
   var self = this;
   self.emit('finished');
-}
+};
 
-Google.prototype.isAlive = function(cb) {
+Google.prototype.isAlive = function (cb) {
   var self = this;
   cb();
-}
+};
