@@ -31,6 +31,7 @@ var ERROR_NORESULTS = "No search results found after searching";
     'error'(error) - scraper found an error, includes the error
 */
 
+//FIXME - do multiple searches with various search queries, will do after we get a base "this on its own works"
 var GoogleScraper = function (searchTerm) {
   events.EventEmitter.call(this);
   this.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')

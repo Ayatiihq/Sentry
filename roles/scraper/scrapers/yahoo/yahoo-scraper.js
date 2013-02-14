@@ -30,6 +30,7 @@ var ERROR_NORESULTS = "No search results found after searching";
     'found-link'(string - uri) - scraper found a link in the search results
     'error'(error) - scraper found an error, includes the error
 */
+//FIXME - do multiple searches with various search queries, will do after we get a base "this on its own works"
 
 var YahooScraper = function (searchTerm) {
   events.EventEmitter.call(this);
