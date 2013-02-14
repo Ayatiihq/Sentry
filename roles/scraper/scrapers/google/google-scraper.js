@@ -32,6 +32,7 @@ var ERROR_NORESULTS = "No search results found after searching";
 */
 
 var GoogleScraper = function (searchTerm) {
+  events.EventEmitter.call(this);
   this.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   this.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
@@ -105,7 +106,7 @@ GoogleScraper.prototype.handleResults = function () {
 GoogleScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   linkList.each(function linkEmitter(link) {
-    self.emit('link-found', link);
+    self.emit('found-link', link);
   });
 };
 
