@@ -12,7 +12,8 @@
     "winston": "0.6.x",
     "selenium-webdriverjs": "0.1.x",
     "cheerio": "0.10.x",
-    "request": "2.12.x"
+    "request": "2.12.x",
+    "enum": "0.2.x"
   },
   
   "engines": {

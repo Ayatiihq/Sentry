@@ -4,7 +4,7 @@
  * (C) 2013 Ayatii Limited
  *
  * Spider for the infamous Fancystreems
- *
+ * This is just a state-machine.
  */
 
 var acquire = require('acquire')
@@ -16,7 +16,10 @@ var acquire = require('acquire')
   , request = require('request')
   , Seq = require('seq')
   , Service = require('./service')
+  , Callbacks = require('./callbacks')
   ;
+
+require('enum').register();
 
 var FANCYSTREEMS_ROOT = "http://fancystreems.com/";
 
@@ -26,14 +29,17 @@ var FancyStreems = module.exports = function() {
   this.init();
 }
 
+util.inherits(FancyStreems, Callbacks);
 util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
   self.results = []; 
+  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING']);
   //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
-  self.categories = ['entertainment'];
-  logger.info('FancyStreems Spider up and running');
+  self.categories = ['entertainment']; 
+  self.currentState = self.states.get('CATEGORY_PARSING');
+  logger.info('FancyStreems Spider up and running');  
 }
 
 //
@@ -46,7 +52,7 @@ FancyStreems.prototype.getName = function() {
 FancyStreems.prototype.start = function(state) {
   var self = this;
   self.emit('started');
-  self.scrapeCategories();
+  self.iterateRequests();
 }
 
 FancyStreems.prototype.stop = function() {
@@ -59,8 +65,6 @@ FancyStreems.prototype.isAlive = function(cb) {
 
   logger.info('Is alive called');
 
-//  self.emitLink();
-
   if (!self.alive)
     self.alive = 1;
   else
@@ -72,67 +76,50 @@ FancyStreems.prototype.isAlive = function(cb) {
     cb();
 }
 
-/*FancyStreems.prototype.emitLink = function() {
-  var self = this
-    , link = {}
-    ;
 
-  link.type = 'tv.live';
-  link.uri = 'http://www.example.com/qwe123';
-  link.parent = '';
-  link.source = 'FancyStreems';
-  link.channel = 'neiltv';
-  link.genre = 'awesome';
-  link.metadata = {};
-
-  self.emit('link', link);
-}*/
-
-FancyStreems.prototype.scrapeCategories = function(){
+FancyStreems.prototype.iterateRequests = function(collection){
   var self= this;
 
-  Seq(self.categories)
-    .seqEach(function(cat){
+  Seq(collection)
+    .seqEach(function(item){
       var done = this;
-      request(FANCYSTREEMS_ROOT + 'tvcat/' + cat + 'tv.php', self.scrapeCategory.bind(self, cat, done));
+      request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done))
     })
     .seq(function(){
       logger.info('Finished scraping categories ...');
-      //self.scrape_services();
     })    
   ;    
 }
 
-FancyStreems.prototype.scrapeCategory = function(cat, done, err, resp, html){
+FancyStreems.prototype.constructRequestURI = function(item){
   var self = this;
-  if(err || resp.statusCode !== 200){
-    done();
-    return;
-  }      
-  category_index = cheerio.load(html);
-  category_index('h2').each(function(i, elem){
-    if(category_index(elem).hasClass('video_title')){
-      
-      var name = category_index(this).children().first().text().toLowerCase().trim();
-      var topLink = FANCYSTREEMS_ROOT + 'tvcat/' + cat + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
+  var uri = null;
 
-      logger.info('from category ' +  cat + ' ' + name + ' with link : ' + topLink);
-      
-      var service = new Service(name,
-                                cat,
-                                topLink);
+  switch(this.currentState)
+  {
+  case self.states.get('CATEGORY_PARSING'):
+    uri = FANCYSTREEMS_ROOT + 'tvcat/' + item + 'tv.php';
+    break;
+  }
+  if(uri === null)
+    self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
+  return uri;
+}
 
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + cat + " page", categoryLink));
-    }
-  });
-  var next = category_index('a#pagenext').attr('href');
-  if(next === null || next === undefined || next.isBlank()){
-    done();
+FancyStreems.prototype.fetchAppropriateCallback = function(item, done){ 
+  var self = this;
+  var cb = null;
+
+  switch(this.currentState)
+  {
+  case self.states.get('CATEGORY_PARSING'):
+    cb =  self.scrapeCategory.bind(self, item, done);
+    break;
   }
-  else{
-    //logger.info('paginate the category at random intervals : ' + cat);
-    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, cat, done));    
-  }
-}  
+
+  if(cb === null)
+    self.emit('error', new Error('fetchAppropriateCallback : Callback  is null wtf ! - ' + JSON.stringify(item)));
+
+  return cb;
+}
+

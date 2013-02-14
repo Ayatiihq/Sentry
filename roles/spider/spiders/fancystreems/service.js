@@ -11,8 +11,8 @@ var acquire = require('acquire');
 var logger = acquire('logger').forFile('Service.js')
 
 
-var Service = module.exports =  function() { 
-  this.init();
+var Service = module.exports =  function(name, genre, topLink) { 
+  this.init(name, genre, topLink);
 }
 
 Service.prototype.init = function(name, genre, topLink) {
@@ -49,7 +49,5 @@ Service.prototype.constructLink = function(childLinkSource, childLink){
   self.links.push({childLinkSource : childLink});
   self.activeLink = childLink;
 
-  logger.info("\n\n wtf : " +  linkToEmit.channel);
-  
   return linkToEmit;
 }
