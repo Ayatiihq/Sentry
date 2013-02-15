@@ -35,7 +35,10 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
-  self.results = []; 
+  self.results = []; // initial big dump of 
+  self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
+  self.complete = [] // used to store those services which completed to a satisfactory end. 
+
   self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING', 'IFRAME_PARSING']);
   //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
   
@@ -94,6 +97,10 @@ FancyStreems.prototype.iterateRequests = function(collection){
     })
     .seq(function(){
       logger.info('Finished state - ' + self.currentState);
+      logger.info("results length : " + self.results.length);
+      logger.info("Completed length : " + self.complete.length);
+      logger.info("InCompleted length : " + self.incomplete.length);
+      
       self.moveOnToNextState();
     })    
   ;    
@@ -168,6 +175,26 @@ FancyStreems.prototype.moveOnToNextState = function(){
     return;
     break;  
   }
+
   logger.info("Moving on to %s state", self.currentState)
   self.iterateRequests(collectionToUse);
+}
+
+
+FancyStreems.prototype.serviceCompleted = function(service, successfull){
+  var self = this;
+
+  var n = this.results.indexOf(service);
+  if(n < 0){
+    logger.err("We have a service which isn't in results - %s", service.name);
+    return;
+  }
+  self.results.splice(n,1);
+  
+  if(successfull === true){
+    self.complete.push(service);
+  } 
+  else{
+    self.incomplete.push(service);      
+  }
 }

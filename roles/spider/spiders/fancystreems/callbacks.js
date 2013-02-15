@@ -104,7 +104,7 @@ var scrapeService = function(service, done, err, resp, html)
       if(found_src === false){
         parsedHTML(elem).find('embed').each(function(i, innerEmbed){
           found_src = true;            
-          service.endOfTheRoad();
+          self.serviceCompleted(service, true)
           self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
         });
       }
@@ -117,7 +117,7 @@ var scrapeService = function(service, done, err, resp, html)
             var source = source_within[1].split('"');
             if(source.length === 2){
               source_uri = source[0];
-              service.endOfTheRoad();
+              self.serviceCompleted(service, true)
               self.emit('link', service.constructLink("silverlight at service page", source_uri));
             }
           }
@@ -131,16 +131,15 @@ var scrapeService = function(service, done, err, resp, html)
               var innards = makeAStab[1].split("'");
               if (innards.length > 1){
                 found_src = true;
-                service.endOfTheRoad();
+                self.serviceCompleted(service, true)
                 self.emit('link', service.constructLink("embedded rtmp linked at service page", 'rtmp://' + innards[0]));                
               }
             }
           }
         });
       }
-
       if (found_src === false){
-        service.endOfTheRoad();
+        self.serviceCompleted(service, false)
         logger.warn("Unable to find where to go next from %s service page @ ", service.name, service.activeLink);
       }   
     }       
@@ -180,21 +179,21 @@ var parse_meta_url = function(meta_markup){
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
   if (err || res.statusCode !== 200){
-    logger.warn("Couldn't fetch iframe for service %s @ %s", service.name, service.activeLink);
-    service.endOfTheRoad();
+    logger.warn("Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
+    self.serviceCompleted(service, false);
     done();
     return;      
   }
   // firstly ensure its not a meta refresh
   if(html.toString().has('<meta http-equiv="REFRESH"') === true){
     var redirect_to = parse_meta_url(html);
-    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink, redirect_to);
+    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink.uri, redirect_to);
     request(redirect_to, self.scrapeIndividualaLinksOnWindow.bind(self, service, done))
     return;
   }
   else{    
-    // Best way to identify the actual iframe which have the actual links to the streams is to look for imgs in <a>s
-    // which match /Link[0-9].png/g -
+    // Best way to identify the actual iframe which have the actual links to the streams
+    // is to look for imgs in <a>s  which match /Link[0-9].png/g -
     var iframe_parsed = cheerio.load(html);
     var embedded_results = []
 
@@ -206,16 +205,14 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
         }
       });
       if(relevant_a_link === true){
-        self.emit('link', service.constructLink("alink around png button on the screen",
-                                                auto_complete_uri(iframe_parsed(this).attr('href'))));                
-
-        // todo emit this !
-        //console.log("emit this baby : " + self.auto_complete_uri(iframe_parsed(this).attr('href')));
-        //embedded_results.push(auto_complete_uri(iframe_parsed(this).attr('href')));
+        var completed_uri = auto_complete_uri(iframe_parsed(this).attr('href'));
+        self.emit('link', service.constructLink("alink around png button on the screen", completed_uri));
+        embedded_results.push(completed_uri);
       }
-    });
-    //service.links.push({type: 'a-linked-with-imgs-on-embed', links : embedded_results});
-    done();
+    }); 
+    service.embeddedALinks = embedded_results;   
   }
+  done();
 }
+
 module.exports.scrapeIndividualaLinksOnWindow = scrapeIndividualaLinksOnWindow;
