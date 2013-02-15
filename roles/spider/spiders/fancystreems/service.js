@@ -23,10 +23,12 @@ Service.prototype.init = function(name, genre, topLink) {
 
   self.name = name;
   self.genre = genre;
-  // This property is to hold the count links on the screen (via the buttons at the top)
+  // This property is to hold the links on the screen (via the buttons at the top)
   // kinda ugly but inorder to be effecient we should store these as we find them
   // best place is on the service object itself.
-  self.embeddedALinksCount = 0;
+  // When ready these links should be used to create new service objects which we can 
+  // then repeat the pattern which went previously.
+  self.embeddedALinks = 0;
   // links will be used to hold all the links  we have 
   // found against this service, the key should be used to 
   // describe where the link was scraped.
@@ -56,10 +58,11 @@ Service.prototype.moveToNextLink = function(){
     return false;
   }
   if((n+1) > (self.links.length-1)){
-    logger.info("At the end of the links for " + self.name);
+    logger.info("At the end of the list of links for " + self.name);
     return false;
   }
   self.activeLink = self.links[n+1];
+  return true;
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){

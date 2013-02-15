@@ -240,7 +240,7 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
     if(embedded_results.length > 0){
       // we need to handle those with alinks differently => split them out.
       self.serviceHasEmbeddedLinks(service);
-      service.embeddedALinksCount = embedded_results.length;
+      service.embeddedALinks = embedded_results
     }
     else{
       target = scrapeShallowIframe(iframe_parsed);
@@ -322,10 +322,6 @@ var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
     else if(stream_within(js).attr('src') !== undefined){
       if(order === 0){
         service.stream_params.remote_js = stream_within(js).attr('src');
-        // Don't store the js uri as a link
-        //service.links.push({desc: 'remote js that iframe injects', uri: service.stream_params.remote_js});
-        //if(service.moveToNextLink() === false)
-        //  self.serviceCompleted(service, false);
         logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
         order = 1;
       }

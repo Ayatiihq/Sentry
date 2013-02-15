@@ -157,9 +157,10 @@ FancyStreems.prototype.constructRequestURI = function(item){
   case self.states.FINAL_STREAM_EXTRACTION:
     uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
     break;
-  case self.states.EMBEDDED_LINK_PARSING: // TODO
-    return;
-    break;
+    //case self.states.EMBEDDED_LINK_PARSING: 
+    //item.moveOnToNextLink();
+    //uri = {uri: item.activeLink.uri, timeout: 5000};
+    //break;
   }
 
   if(uri === null)
@@ -186,9 +187,9 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
     cb = self.scrapeStreamIDAndRemoteJsURI.bind(self, item, done);
     break;        
-  case self.states.EMBEDDED_LINK_PARSING:
-    cb = self.scrapeRemoteStreamingIframe.bind(self, item, done);
-    break;
+  //case self.states.EMBEDDED_LINK_PARSING:
+  //  cb = self.scrapeRemoteStreamingIframe.bind(self, item, done);
+  //  break;
   case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
     cb = self.formatRemoteStreamURI.bind(self, item, done);
     break;
@@ -210,36 +211,53 @@ FancyStreems.prototype.moveOnToNextState = function(){
   {
   case self.states.CATEGORY_PARSING:
     self.currentState = self.states.SERVICE_PARSING;
-    collectionToUse = self.results;
     break;
   case self.states.SERVICE_PARSING:
     self.currentState = self.states.IFRAME_PARSING;
-    collectionToUse = self.results.filter(function(x){ return x.isActiveLinkanIframe()});
     break;    
   case self.states.IFRAME_PARSING:
     self.currentState = self.states.STREAM_ID_AND_REMOTE_JS_PARSING;
-    collectionToUse = self.results;
     break;
   case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
     self.currentState = self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;
-    collectionToUse = self.results;
     break;
   case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
     self.currentState = self.states.FINAL_STREAM_EXTRACTION;
-    collectionToUse = self.results;
     break;
   case self.states.FINAL_STREAM_EXTRACTION:
-    return;
+    if (self.horizontallyLinked.length > 0){
+      self.fanOutHorizontalLinkedObjects();
+      self.currentState = self.states.IFRAME_PARSING;
+    }
+    else{
+      logger.info('done');
+      return;
+    }
     break;
-  case self.states.EMBEDDED_LINK_PARSING:
-    return;
-    break;  
   }
 
   logger.info("Moving on to %s state", self.currentState)
-  self.iterateRequests(collectionToUse);
+  self.iterateRequests(self.results);
 }
 
+FancyStreems.prototype.fanOutHorizontalLinkedObjects = function(service, successfull)
+{
+  var self = this;
+  var new_results = [];
+  self.horizontallyLinked.forEach(function(ser){
+    ser.embeddedALinks.forEach(function(link){
+      var service_clone = Object.clone(ser);
+      service_clone.links = [];
+      service_clone.embeddedALinks = [];
+      service_clone.links.push({desc: 'starting point', uri: link});
+      service_clone.activeLink = service_clone.links[0];
+      logger.info("created " + JSON.stringify(service_clone));
+      new_results.push(service_clone);
+    });
+  });
+  self.results = new_results;
+  self.horizontallyLinked = [];
+}
 
 FancyStreems.prototype.serviceCompleted = function(service, successfull){
   var self = this;
