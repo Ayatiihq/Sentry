@@ -51,8 +51,8 @@ FancyStreems.prototype.init = function() {
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
 
-  //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
-  self.categories = ['entertainment']; 
+  //self.categories = ['news', 'sports', 'movies', 'entertainment'];
+  self.categories = ['entertainment', 'movies']; 
   self.currentState = self.states.CATEGORY_PARSING;
   logger.info('FancyStreems Spider up and running');  
   
@@ -105,6 +105,13 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
+      if(item instanceof Service){
+        var n = self.results.indexOf(item);
+        if(n < 0){
+          logger.error("@ iterate We have a service which isn't in results - ", service.name);
+          return;
+        }
+      }
       request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
     })
     .seq(function(){
@@ -145,7 +152,7 @@ FancyStreems.prototype.constructRequestURI = function(item){
     uri = {uri: item.activeLink.uri, timeout: 5000};
     break;
   case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
-    uri = {uri: item.activeLink.uri, timeout: 5000};
+    uri = {uri: item.stream_params.remote_js, timeout: 5000};
     break;
   case self.states.FINAL_STREAM_EXTRACTION:
     uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
@@ -237,7 +244,7 @@ FancyStreems.prototype.moveOnToNextState = function(){
 FancyStreems.prototype.serviceCompleted = function(service, successfull){
   var self = this;
 
-  var n = this.results.indexOf(service);
+  var n = self.results.indexOf(service);
   if(n < 0){
     logger.error("We have a service which isn't in results - ", service.name);
     return;

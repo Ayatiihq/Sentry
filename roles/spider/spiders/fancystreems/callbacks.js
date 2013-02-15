@@ -28,28 +28,27 @@ var scrapeCategory = function(category, done, err, resp, html){
     if(category_index(elem).hasClass('video_title')){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
-      var topLink = self.root + 'tvcat/' + category + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
 
-      //logger.info('from category ' +  cat + ' \n name :' + name + ' with link : ' + topLink);
-      
-      var service = new Service(name, category, topLink);
+      if(name.match(/^zee/g) !== null){
 
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
-      service.moveToNextLink();
+        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var service = new Service(name, category, topLink);
 
+        self.results.push(service);
+        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+        service.moveToNextLink();
+      }    
     }
   });
-  done();
-  /*var next = category_index('a#pagenext').attr('href');
+  var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     //logger.info('paginate the category at random intervals : ' + cat);
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }*/
+  }
 }  
 
 module.exports.scrapeCategory = scrapeCategory;
@@ -144,7 +143,8 @@ var scrapeService = function(service, done, err, resp, html)
       }   
     }       
   });
-  service.moveToNextLink();
+  if(service.moveToNextLink() === false)
+    self.serviceCompleted(service, false);
   done();
 }
 module.exports.scrapeService = scrapeService;
@@ -216,7 +216,7 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
     // Best way to identify the actual iframe which have the actual links to the streams
     // is to look for imgs in <a>s  which match /Link[0-9].png/g -
     var iframe_parsed = cheerio.load(html);
-    var embedded_results = []
+    var embedded_results = [];
 
     iframe_parsed('a').each(function(img_index, img_element){
       var relevant_a_link = false;
@@ -234,23 +234,26 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
 
     // no links at the top ?
     // => try for shallows iframe
-    if(embedded_results.length === 0){
-      target = scrapeShallowIframe(iframe_parsed);
+    var canGoOn = false;
 
-      if(target !== null){
-        self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
-        service.moveToNextLink();
-        embedded_results.push(target);
-      }
-    }
-    else{
+    // firstly if we found alinks separate these services out from the main pack.
+    if(embedded_results.length > 0){
       // we need to handle those with alinks differently => split them out.
       self.serviceHasEmbeddedLinks(service);
       service.embeddedALinksCount = embedded_results.length;
     }
+    else{
+      target = scrapeShallowIframe(iframe_parsed);
+
+      if(target !== null){
+        self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
+        canGoOn = service.moveToNextLink();
+        embedded_results.push(target);
+      }
+    }
 
     // still nothing ? => give up.
-    if(embedded_results.length === 0){
+    if(embedded_results.length === 0 && canGoOn === false){
       self.serviceCompleted(service, false);
     }
   }
@@ -282,7 +285,8 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   });
   if(src !== null){
     self.emit('link', service.constructLink('iframe src from within iframe from with iframe (ripped from an alink)', src));
-    service.moveToNextLink();
+    if(service.moveToNextLink() === false)
+      self.serviceCompleted(service, false);
   }
   done();
 }
@@ -318,8 +322,10 @@ var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
     else if(stream_within(js).attr('src') !== undefined){
       if(order === 0){
         service.stream_params.remote_js = stream_within(js).attr('src');
-        service.links.push({desc: 'remote js that iframe injects', uri: service.stream_params.remote_js});
-        service.moveToNextLink();
+        // Don't store the js uri as a link
+        //service.links.push({desc: 'remote js that iframe injects', uri: service.stream_params.remote_js});
+        //if(service.moveToNextLink() === false)
+        //  self.serviceCompleted(service, false);
         logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
         order = 1;
       }
@@ -371,9 +377,8 @@ var scrapeFinalStreamLocation = function(service, done, err, resp, html){
       found = true;
     }
   });
-  if (found === false){
-    self.serviceCompleted(service, false);
-  }
+  // keep track of success and failures.
+  self.serviceCompleted(service, found);
   done();
 }
 module.exports.scrapeFinalStreamLocation = scrapeFinalStreamLocation;
