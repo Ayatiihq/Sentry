@@ -37,16 +37,19 @@ var scrapeCategory = function(category, done, err, resp, html){
 
       self.results.push(service);
       self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+      service.moveToNextLink();
+
     }
   });
-  var next = category_index('a#pagenext').attr('href');
+  done();
+  /*var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     //logger.info('paginate the category at random intervals : ' + cat);
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }
+  }*/
 }  
 
 module.exports.scrapeCategory = scrapeCategory;
@@ -58,9 +61,7 @@ and then handle all the different ways to embed the stream. They are :
 - iframe
 - direct embed of a flash object using embed
 - a Silverlight direct embed
-- a href to a flash object (needs more work)
-- a js script which directly embeds the flash obj somehow into the dom (TODO).
-- TODO handle the links the different streams at the top of the embed !
+- a js script which directly embeds the flash obj somehow into the dom (in progress).
 - TODO refactor this - horrible.        
 */
 var scrapeService = function(service, done, err, resp, html)
@@ -144,7 +145,77 @@ var scrapeService = function(service, done, err, resp, html)
       }   
     }       
   });
+  service.moveToNextLink();
   done();
 }
 module.exports.scrapeService = scrapeService;
 
+var auto_complete_uri = function(path){
+  if (path.startsWith("http")) {
+    return path;
+  }
+  else{
+    return "http://www.fancystreems.com/" + path;
+  }
+}
+
+var parse_meta_url = function(meta_markup){
+  var parts;
+  var inner_parts;
+
+  parts = meta_markup.toString().split('url=');
+
+  if (parts.length === 2){
+    inner_parts = parts[1].split(".php");
+    if(inner_parts.length == 2){
+      console.log('found inner_parts - ' + inner_parts[0] + '.php');
+      return inner_parts[0] + '.php'
+    }
+  }
+  logger.err("HMMM Failed to extract URL value from meta refreshed page => scraping failure")
+  return null;
+}
+
+
+var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
+  var self = this;
+  if (err || res.statusCode !== 200){
+    logger.warn("Couldn't fetch iframe for service %s @ %s", service.name, service.activeLink);
+    service.endOfTheRoad();
+    done();
+    return;      
+  }
+  // firstly ensure its not a meta refresh
+  if(html.toString().has('<meta http-equiv="REFRESH"') === true){
+    var redirect_to = parse_meta_url(html);
+    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink, redirect_to);
+    request(redirect_to, self.scrapeIndividualaLinksOnWindow.bind(self, service, done))
+    return;
+  }
+  else{    
+    // Best way to identify the actual iframe which have the actual links to the streams is to look for imgs in <a>s
+    // which match /Link[0-9].png/g -
+    var iframe_parsed = cheerio.load(html);
+    var embedded_results = []
+
+    iframe_parsed('a').each(function(img_index, img_element){
+      var relevant_a_link = false;
+      iframe_parsed(this).find('img').each(function(y, n){
+        if(iframe_parsed(this).attr('src').match(/Link[0-9].png/g) !== null){
+          relevant_a_link = true;
+        }
+      });
+      if(relevant_a_link === true){
+        self.emit('link', service.constructLink("alink around png button on the screen",
+                                                auto_complete_uri(iframe_parsed(this).attr('href'))));                
+
+        // todo emit this !
+        //console.log("emit this baby : " + self.auto_complete_uri(iframe_parsed(this).attr('href')));
+        //embedded_results.push(auto_complete_uri(iframe_parsed(this).attr('href')));
+      }
+    });
+    //service.links.push({type: 'a-linked-with-imgs-on-embed', links : embedded_results});
+    done();
+  }
+}
+module.exports.scrapeIndividualaLinksOnWindow = scrapeIndividualaLinksOnWindow;

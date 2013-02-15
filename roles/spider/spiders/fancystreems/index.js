@@ -5,6 +5,9 @@
  *
  * Spider for the infamous Fancystreems
  * This is just a state-machine.
+
+TODO : investigate the service pages where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
+
  */
 
 var acquire = require('acquire')
@@ -44,6 +47,7 @@ FancyStreems.prototype.init = function() {
   
   FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
   FancyStreems.prototype.scrapeService = callbacks.scrapeService;
+  FancyStreems.prototype.scrapeIndividualaLinksOnWindow = callbacks.scrapeIndividualaLinksOnWindow;
 }
 
 //
@@ -114,7 +118,11 @@ FancyStreems.prototype.constructRequestURI = function(item){
   case self.states.SERVICE_PARSING:
     uri =  item.activeLink;
     break;    
+  case self.states.IFRAME_PARSING:
+    uri = item.activeLink;
+    break;
   }
+
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
   return uri;
@@ -132,6 +140,9 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   case self.states.SERVICE_PARSING:
     cb =  self.scrapeService.bind(self, item, done);
     break;    
+  case self.states.IFRAME_PARSING:
+    cb =  self.scrapeIndividualaLinksOnWindow.bind(self, item, done);
+    break;    
   }
 
   if(cb === null)
@@ -141,20 +152,22 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
 
 FancyStreems.prototype.moveOnToNextState = function(){ 
   var self = this;
-  var fun = null;
+  var collectionToUse;
 
   switch(this.currentState)
   {
   case self.states.CATEGORY_PARSING:
     self.currentState = self.states.SERVICE_PARSING;
+    collectionToUse = self.results;
     break;
   case self.states.SERVICE_PARSING:
     self.currentState = self.states.IFRAME_PARSING;
+    collectionToUse = self.results.filter(function(x){ return x.isActiveLinkanIframe()});
     break;
+  case self.states.IFRAME_PARSING:
+    return;
+    break;  
   }
-  // tmp
-  if(self.currentState.is(self.states.IFRAME_PARSING) === false){
-    logger.info("Moving on to %s state", self.currentState)
-    self.iterateRequests(self.results);
-  }
+  logger.info("Moving on to %s state", self.currentState)
+  self.iterateRequests(collectionToUse);
 }

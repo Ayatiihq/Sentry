@@ -28,7 +28,7 @@ Service.prototype.init = function(name, genre, topLink) {
   // link that is in the process of being requested / parsed
   // so that when we successfully find the next link we know 
   // that the activeLink is its parent.  
-  self.activeLink = topLink; 
+  self.activeLink = {uri :topLink, desc: "service link"}; 
   // links will be used to hold all the links  we have 
   // found against this service, the key should be used to 
   // describe where the link was scraped.
@@ -45,13 +45,12 @@ Service.prototype.endOfTheRoad = function(){
 
 Service.prototype.isActiveLinkanIframe = function(){
   var self = this;
-  self.links.each(function(i, link){
-    if(link.desc.matches(/^iframe/g)){
-      console.log("an iframe match for %s with link %s", link.desc, link.uri);
-      return true
-    }
-  });
-  return false;
+  return self.activeLink.desc.match(/^iframe/g) !== null;
+}
+
+Service.prototype.moveToNextLink = function(){
+  var self = this;
+  self.activeLink = self.links[self.links.length-1];
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
@@ -62,12 +61,10 @@ Service.prototype.constructLink = function(childLinkSource, childLink){
                     type: self.type,
                     source: self.source,
                     uri: childLink,
-                    parent: self.activeLink,
+                    parent: self.activeLink.uri,
                     metadata: {linkSource: childLinkSource}};
 
   self.links.push({desc : childLinkSource, uri : childLink});
-
-  self.activeLink = childLink;
 
   return linkToEmit;
 }
