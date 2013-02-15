@@ -239,16 +239,20 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
 
       if(target !== null){
         self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
+        service.moveToNextLink();
         embedded_results.push(target);
       }
     }
+    else{
+      // we need to handle those with alinks differently => split them out.
+      self.serviceHasEmbeddedLinks(service);
+      service.embeddedALinksCount = embedded_results.length;
+    }
+
     // still nothing ? => give up.
     if(embedded_results.length === 0){
       self.serviceCompleted(service, false);
     }
-    else{
-      service.moveToNextLink();
-    }  
   }
   done();
 }
@@ -283,3 +287,93 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   done();
 }
 module.exports.scrapeRemoteStreamingIframe = scrapeRemoteStreamingIframe;
+
+
+var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
+  
+  var self = this;
+  
+  if(err || resp.statusCode !== 200){
+    self.serviceCompleted(service, false);
+    done();
+    return;
+  }
+  var stream_within = cheerio.load(html);
+  //The safest way (I think) to decipher the correct remote js to fetch not by name but where it appears in the DOM
+  //Once we see the inline js, set the order to 0 => the next js should be the one that uses the inline vars set in the preceding one 
+  var order = -1; 
+  stream_within('script').each(function(i, js){
+    if(stream_within(js).text().has('fid=')){
+      order = 0;
+      var js_inline = stream_within(js).text();
+      var stream_args = js_inline.split(';')
+      stream_args.forEach(function(stream_arg){
+        var parts = stream_arg.split('=');
+        if(parts.length === 2){
+          logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
+          service.stream_params[parts[0].trim()] = parts[1].replace(/'/g, '');
+        }
+      });
+    }
+    else if(stream_within(js).attr('src') !== undefined){
+      if(order === 0){
+        service.stream_params.remote_js = stream_within(js).attr('src');
+        service.links.push({desc: 'remote js that iframe injects', uri: service.stream_params.remote_js});
+        service.moveToNextLink();
+        logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
+        order = 1;
+      }
+    }
+  });
+  done();
+}
+module.exports.scrapeStreamIDAndRemoteJsURI = scrapeStreamIDAndRemoteJsURI;
+
+var formatRemoteStreamURI = function(service, done, err, resp, html){
+  var self = this;
+
+  if(err || resp.statusCode !== 200){
+    self.serviceCompleted(service, false);
+    done();
+    return;
+  }
+  var parts = html.split('src=');
+  if(parts.length === 2){
+    var segments = parts[1].split("'");
+    service.final_stream_location = segments[0].replace(/"/g, '') + service.stream_params.fid;
+    self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
+  }
+  else{
+    logger.warn("Not able to parse remote remote js to figure out path");
+    self.serviceCompleted(service, false);
+  }
+  done();  
+}
+module.exports.formatRemoteStreamURI = formatRemoteStreamURI;
+
+var scrapeFinalStreamLocation = function(service, done, err, resp, html){
+  var self = this;
+
+  if(err || resp.statusCode !== 200){
+    self.serviceCompleted(service, false);
+    done();
+    return;
+  }
+  var endOfTheRoad = cheerio.load(html);
+  var found = false;
+
+  endOfTheRoad('script').each(function(i, theOne){
+    if(endOfTheRoad(theOne).text().trim().has('rtmp://') === true){
+      var rtmpAddress = endOfTheRoad(theOne).text().split('streamer')[1].split(')')[0].replace(/,|'|\s/g, '');
+      var fileName = endOfTheRoad(theOne).text().split("'file',")[1].split(')')[0].replace(/,|'|\s/g, '');
+      var theEnd = rtmpAddress + '?file=' + fileName;
+      self.emit('link', service.constructLink('The End of the road', theEnd));
+      found = true;
+    }
+  });
+  if (found === false){
+    self.serviceCompleted(service, false);
+  }
+  done();
+}
+module.exports.scrapeFinalStreamLocation = scrapeFinalStreamLocation;

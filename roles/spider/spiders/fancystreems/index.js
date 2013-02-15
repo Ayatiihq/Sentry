@@ -6,8 +6,9 @@
  * Spider for the infamous Fancystreems
  * This is just a state-machine.
 
-TODO : investigate the service pages where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
-
+TODO  
+ - investigate the service pages (@SERVICE_PARSING) where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
+ - At the point where you are pulling out remote js urls it will  also need to handle inline javascripts which are injecting iframe links into the dom.
  */
 
 var acquire = require('acquire')
@@ -32,14 +33,20 @@ var FancyStreems = module.exports = function() {
 
 util.inherits(FancyStreems, Spider);
 
-
 FancyStreems.prototype.init = function() {
   var self = this;
   self.results = []; // initial big dump of 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
+  self.horizontallyLinked = [] // used to store services that have multiple links at a certain level (i.e. those with link 1-5 at the top of the screen)
 
-  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING', 'IFRAME_PARSING', 'EMBEDDED_LINK_PARSING']);
+  self.states = new Enum(['CATEGORY_PARSING',
+                          'SERVICE_PARSING',
+                          'IFRAME_PARSING',
+                          'STREAM_ID_AND_REMOTE_JS_PARSING',
+                          'FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST',
+                          'FINAL_STREAM_EXTRACTION',
+                          'EMBEDDED_LINK_PARSING']);
   
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
@@ -53,6 +60,9 @@ FancyStreems.prototype.init = function() {
   FancyStreems.prototype.scrapeService = callbacks.scrapeService;
   FancyStreems.prototype.scrapeIndividualaLinksOnWindow = callbacks.scrapeIndividualaLinksOnWindow;
   FancyStreems.prototype.scrapeRemoteStreamingIframe = callbacks.scrapeRemoteStreamingIframe;
+  FancyStreems.prototype.scrapeStreamIDAndRemoteJsURI = callbacks.scrapeStreamIDAndRemoteJsURI;
+  FancyStreems.prototype.formatRemoteStreamURI = callbacks.formatRemoteStreamURI;
+  FancyStreems.prototype.scrapeFinalStreamLocation = callbacks.scrapeFinalStreamLocation;
 }
 
 //
@@ -102,6 +112,7 @@ FancyStreems.prototype.iterateRequests = function(collection){
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
+      logger.info("Those with multiple horizontal Links: " + self.horizontallyLinked.length);
 
       self.moveOnToNextState();
     })    
@@ -122,22 +133,31 @@ FancyStreems.prototype.constructRequestURI = function(item){
   switch(this.currentState)
   {
   case self.states.CATEGORY_PARSING:
-    uri = self.root + 'tvcat/' + item + 'tv.php';
+    uri = {uri: self.root + 'tvcat/' + item + 'tv.php', timeout: 5000};
     break;
   case self.states.SERVICE_PARSING:
-    uri =  item.activeLink;
+    uri = {uri: item.activeLink.uri, timeout: 5000};
     break;    
   case self.states.IFRAME_PARSING:
-    uri = item.activeLink;
+    uri = {uri: item.activeLink.uri, timeout: 5000};
     break;
-  case self.states.EMBEDDED_LINK_PARSING:
-    uri = item.activeLink;
+  case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
+    uri = {uri: item.activeLink.uri, timeout: 5000};
+    break;
+  case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
+    uri = {uri: item.activeLink.uri, timeout: 5000};
+    break;
+  case self.states.FINAL_STREAM_EXTRACTION:
+    uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
+    break;
+  case self.states.EMBEDDED_LINK_PARSING: // TODO
+    return;
     break;
   }
 
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
-  logger.info('about to request - ' + JSON.stringify(uri));
+  //logger.info('about to request - ' + JSON.stringify(uri));
   return uri;
 }
 
@@ -155,9 +175,18 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
     break;    
   case self.states.IFRAME_PARSING:
     cb =  self.scrapeIndividualaLinksOnWindow.bind(self, item, done);
-    break;    
+    break;
+  case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
+    cb = self.scrapeStreamIDAndRemoteJsURI.bind(self, item, done);
+    break;        
   case self.states.EMBEDDED_LINK_PARSING:
     cb = self.scrapeRemoteStreamingIframe.bind(self, item, done);
+    break;
+  case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
+    cb = self.formatRemoteStreamURI.bind(self, item, done);
+    break;
+  case self.states.FINAL_STREAM_EXTRACTION:
+    cb = self.scrapeFinalStreamLocation.bind(self, item, done);
     break;
   }
 
@@ -179,10 +208,22 @@ FancyStreems.prototype.moveOnToNextState = function(){
   case self.states.SERVICE_PARSING:
     self.currentState = self.states.IFRAME_PARSING;
     collectionToUse = self.results.filter(function(x){ return x.isActiveLinkanIframe()});
-    break;
+    break;    
   case self.states.IFRAME_PARSING:
-    self.currentState = self.states.EMBEDDED_LINK_PARSING;
+    self.currentState = self.states.STREAM_ID_AND_REMOTE_JS_PARSING;
     collectionToUse = self.results;
+    break;
+  case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
+    self.currentState = self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;
+    collectionToUse = self.results;
+    break;
+  case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
+    self.currentState = self.states.FINAL_STREAM_EXTRACTION;
+    collectionToUse = self.results;
+    break;
+  case self.states.FINAL_STREAM_EXTRACTION:
+    return;
+    break;
   case self.states.EMBEDDED_LINK_PARSING:
     return;
     break;  
@@ -198,7 +239,7 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
 
   var n = this.results.indexOf(service);
   if(n < 0){
-    logger.err("We have a service which isn't in results - ", service.name);
+    logger.error("We have a service which isn't in results - ", service.name);
     return;
   }
 
@@ -209,5 +250,18 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
   } 
   else{
     self.incomplete.push(service);      
+    logger.info("This service did not complete - " + JSON.stringify(service));
   }
+}
+
+FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
+  var self = this;
+
+  var n = self.results.indexOf(service);
+  if(n < 0){
+    logger.err("We have a service which isn't in results - ", service.name);
+    return;
+  }
+  self.results.splice(n,1);
+  self.horizontallyLinked.push(service);  
 }

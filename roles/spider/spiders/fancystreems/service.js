@@ -26,7 +26,7 @@ Service.prototype.init = function(name, genre, topLink) {
   // This property is to hold the count links on the screen (via the buttons at the top)
   // kinda ugly but inorder to be effecient we should store these as we find them
   // best place is on the service object itself.
-  self.embeddedALinksCount;
+  self.embeddedALinksCount = 0;
   // links will be used to hold all the links  we have 
   // found against this service, the key should be used to 
   // describe where the link was scraped.
@@ -37,6 +37,10 @@ Service.prototype.init = function(name, genre, topLink) {
   // so that when we successfully find the next link we know 
   // that the activeLink is its parent.  
   self.activeLink = self.links[0];
+  // An optional holding place to store the args passed to remote js's.
+  // usually these are ripped from inline js preceding the inclusion of the remote js.
+  self.stream_params= {};
+  self.final_stream_location = ''
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
