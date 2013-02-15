@@ -197,6 +197,7 @@ var scrapeShallowIframe = function(cheerioSource){
   return target;
 }
 
+// refactor into separate methods.
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
   if (err || res.statusCode !== 200){
@@ -262,7 +263,9 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
 
 module.exports.scrapeIndividualaLinksOnWindow = scrapeIndividualaLinksOnWindow;
 
-
+// TODO this is not being used. 
+// TODO basically the same logic is spread across three different methods here doing roughly the same thing
+// TODO sort out. 
 var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   var self = this;
 

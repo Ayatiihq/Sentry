@@ -157,15 +157,10 @@ FancyStreems.prototype.constructRequestURI = function(item){
   case self.states.FINAL_STREAM_EXTRACTION:
     uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
     break;
-    //case self.states.EMBEDDED_LINK_PARSING: 
-    //item.moveOnToNextLink();
-    //uri = {uri: item.activeLink.uri, timeout: 5000};
-    //break;
   }
 
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
-  //logger.info('about to request - ' + JSON.stringify(uri));
   return uri;
 }
 
@@ -187,9 +182,6 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
     cb = self.scrapeStreamIDAndRemoteJsURI.bind(self, item, done);
     break;        
-  //case self.states.EMBEDDED_LINK_PARSING:
-  //  cb = self.scrapeRemoteStreamingIframe.bind(self, item, done);
-  //  break;
   case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
     cb = self.formatRemoteStreamURI.bind(self, item, done);
     break;
@@ -225,6 +217,7 @@ FancyStreems.prototype.moveOnToNextState = function(){
     self.currentState = self.states.FINAL_STREAM_EXTRACTION;
     break;
   case self.states.FINAL_STREAM_EXTRACTION:
+    // roll over the embedded links into their own objects and repeat the process.
     if (self.horizontallyLinked.length > 0){
       self.fanOutHorizontalLinkedObjects();
       self.currentState = self.states.IFRAME_PARSING;
@@ -239,7 +232,10 @@ FancyStreems.prototype.moveOnToNextState = function(){
   logger.info("Moving on to %s state", self.currentState)
   self.iterateRequests(self.results);
 }
-
+/*
+  The easiest thing todo is to clone the service object in to however many embedded links we pulled 
+  out, reset a few fields and go again. 
+*/
 FancyStreems.prototype.fanOutHorizontalLinkedObjects = function(service, successfull)
 {
   var self = this;
