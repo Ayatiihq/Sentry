@@ -39,11 +39,12 @@ FancyStreems.prototype.init = function() {
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
 
-  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING', 'IFRAME_PARSING']);
-  //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
+  self.states = new Enum(['CATEGORY_PARSING', 'SERVICE_PARSING', 'IFRAME_PARSING', 'EMBEDDED_LINK_PARSING']);
   
   self.root = "http://fancystreems.com/";
+  self.embeddedIndex = 0
 
+  //self.categories = ['news', 'sports', 'music', 'movies', 'entertainment', 'religious', 'kids', 'wildlife'];
   self.categories = ['entertainment']; 
   self.currentState = self.states.CATEGORY_PARSING;
   logger.info('FancyStreems Spider up and running');  
@@ -51,6 +52,7 @@ FancyStreems.prototype.init = function() {
   FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
   FancyStreems.prototype.scrapeService = callbacks.scrapeService;
   FancyStreems.prototype.scrapeIndividualaLinksOnWindow = callbacks.scrapeIndividualaLinksOnWindow;
+  FancyStreems.prototype.scrapeRemoteStreamingIframe = callbacks.scrapeRemoteStreamingIframe;
 }
 
 //
@@ -100,7 +102,7 @@ FancyStreems.prototype.iterateRequests = function(collection){
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
-      
+
       self.moveOnToNextState();
     })    
   ;    
@@ -128,10 +130,14 @@ FancyStreems.prototype.constructRequestURI = function(item){
   case self.states.IFRAME_PARSING:
     uri = item.activeLink;
     break;
+  case self.states.EMBEDDED_LINK_PARSING:
+    uri = item.activeLink;
+    break;
   }
 
   if(uri === null)
     self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
+  logger.info('about to request - ' + JSON.stringify(uri));
   return uri;
 }
 
@@ -150,6 +156,9 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   case self.states.IFRAME_PARSING:
     cb =  self.scrapeIndividualaLinksOnWindow.bind(self, item, done);
     break;    
+  case self.states.EMBEDDED_LINK_PARSING:
+    cb = self.scrapeRemoteStreamingIframe.bind(self, item, done);
+    break;
   }
 
   if(cb === null)
@@ -172,6 +181,9 @@ FancyStreems.prototype.moveOnToNextState = function(){
     collectionToUse = self.results.filter(function(x){ return x.isActiveLinkanIframe()});
     break;
   case self.states.IFRAME_PARSING:
+    self.currentState = self.states.EMBEDDED_LINK_PARSING;
+    collectionToUse = self.results;
+  case self.states.EMBEDDED_LINK_PARSING:
     return;
     break;  
   }
@@ -186,9 +198,10 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
 
   var n = this.results.indexOf(service);
   if(n < 0){
-    logger.err("We have a service which isn't in results - %s", service.name);
+    logger.err("We have a service which isn't in results - ", service.name);
     return;
   }
+
   self.results.splice(n,1);
   
   if(successfull === true){

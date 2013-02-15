@@ -23,20 +23,20 @@ Service.prototype.init = function(name, genre, topLink) {
 
   self.name = name;
   self.genre = genre;
-  // This property is to hold the links on the screen (via the buttons at the top)
+  // This property is to hold the count links on the screen (via the buttons at the top)
   // kinda ugly but inorder to be effecient we should store these as we find them
   // best place is on the service object itself.
-  self.embeddedALinks;
-  // The activeLink member is used to hold the
-  // link that is in the process of being requested / parsed
-  // so that when we successfully find the next link we know 
-  // that the activeLink is its parent.  
-  self.activeLink = {uri :topLink, desc: "service link"}; 
+  self.embeddedALinksCount;
   // links will be used to hold all the links  we have 
   // found against this service, the key should be used to 
   // describe where the link was scraped.
   // TODO : make links a linked list of link objects defined in constructLink
-  self.links = [{categoryPage : topLink}];
+  self.links = [{uri :topLink, desc: "service link"}];
+  // The activeLink member is used to hold the
+  // link that is in the process of being requested / parsed
+  // so that when we successfully find the next link we know 
+  // that the activeLink is its parent.  
+  self.activeLink = self.links[0];
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
@@ -46,7 +46,16 @@ Service.prototype.isActiveLinkanIframe = function(){
 
 Service.prototype.moveToNextLink = function(){
   var self = this;
-  self.activeLink = self.links[self.links.length-1];
+  var n = self.links.indexOf(self.activeLink);
+  if(n < 0){
+    logger.err('activeLink is not part of links for some reason + ', JSON.stringify(self.activeLink));
+    return false;
+  }
+  if((n+1) > (self.links.length-1)){
+    logger.info("At the end of the links for " + self.name);
+    return false;
+  }
+  self.activeLink = self.links[n+1];
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){

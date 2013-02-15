@@ -175,6 +175,27 @@ var parse_meta_url = function(meta_markup){
   return null;
 }
 
+var scrapeShallowIframe = function(cheerioSource){
+  var target = null;
+  cheerioSource('iframe').each(function(i, innerFrame){
+    var embeddedTarget = null;
+    if(target === null){
+      if(cheerioSource(innerFrame).attr('src') !== undefined){
+        embeddedTarget = cheerioSource(innerFrame).attr('src');
+      }
+      else if(cheerioSource(innerFrame).attr('SRC') !== undefined){
+        embeddedTarget = cheerioSource(innerFrame).attr('SRC');          
+      }
+      if(embeddedTarget !== undefined && embeddedTarget.startsWith('http')){
+        target = embeddedTarget;
+      }
+      else if(embeddedTarget !== undefined){
+        target = "http://www.fancystreems.com/" +  embeddedTarget;
+      }
+    }
+  }); 
+  return target;
+}
 
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
@@ -210,9 +231,55 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
         embedded_results.push(completed_uri);
       }
     }); 
-    service.embeddedALinks = embedded_results;   
+
+    // no links at the top ?
+    // => try for shallows iframe
+    if(embedded_results.length === 0){
+      target = scrapeShallowIframe(iframe_parsed);
+
+      if(target !== null){
+        self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
+        embedded_results.push(target);
+      }
+    }
+    // still nothing ? => give up.
+    if(embedded_results.length === 0){
+      self.serviceCompleted(service, false);
+    }
+    else{
+      service.moveToNextLink();
+    }  
   }
   done();
 }
 
 module.exports.scrapeIndividualaLinksOnWindow = scrapeIndividualaLinksOnWindow;
+
+
+var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
+  var self = this;
+
+  if (err || resp.statusCode !== 200){
+    self.serviceCompleted(service, false);
+    done();
+    return;
+  }
+
+  var embed = cheerio.load(html);
+  var src = null;
+
+  embed('iframe').each(function(p, ifr){
+    if(embed(ifr).attr('src') !== undefined){
+      src =  embed(ifr).attr('src');
+    }
+    else if(embed(ifr).attr('SRC') !== undefined){
+      src =  embed(ifr).attr('SRC');
+    }
+  });
+  if(src !== null){
+    self.emit('link', service.constructLink('iframe src from within iframe from with iframe (ripped from an alink)', src));
+    service.moveToNextLink();
+  }
+  done();
+}
+module.exports.scrapeRemoteStreamingIframe = scrapeRemoteStreamingIframe;
