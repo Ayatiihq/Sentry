@@ -279,7 +279,7 @@ FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
 
   var n = self.results.indexOf(service);
   if(n < 0){
-    logger.err("We have a service which isn't in results - ", service.name);
+    logger.err("We have a service which isn't in results (embedded links) - ", service.name);
     return;
   }
   self.results.splice(n,1);
