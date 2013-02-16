@@ -98,7 +98,7 @@ Queue.prototype.pop = function(locktime, callback) {
   if (typeof locktime === 'function' || !callback) {
     callback = locktime;
   } else {
-    options.visibilityTimeout = locktime;
+    options.visibilitytimeout = locktime;
   }
   callback = callback ? callback : defaultCallback;
 
