@@ -153,7 +153,7 @@ Scraper.prototype.getJobDetails = function(job, callback) {
         var state = parseInt(job.details.state)
           , s = states.jobs.state;
         if (state != s.QUEUED && state != s.PAUSED)
-          err = new Error('Job does not have a ready state');
+          err = new Error('Job does not have a ready state: ' + job.body.jobId);
       } else {
         err = new Error('Unable to get job details: ' + job.body.jobId);
       }
@@ -338,18 +338,26 @@ Scraper.prototype.cleanup = function(scraper, job) {
 Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metadata) {
   var self = this;
 
-  // FIXME: Check blacklists and spiders before adding infringement
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
-    } else {
-      //FIXME: SEND TO GOVERNOR TO DO SOMETHING USEFUL WITH
     }
   });
 }
 
 Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
   var self = this;
+
+  // We create a normal infringement too
+  // FIXME: Check blacklists and spiders before adding infringement
+  // FIXME: These are created in the wrong state, should be NEEDS_SCRAPE
+  self.infringements_.add(campaign, uri, campaign.type, 'X-Needs-Scrape', metadata, function(err) {
+    if (err) {
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+    } else {
+      //FIXME: SEND TO GOVERNOR TO DO SOMETHING USEFUL WITH
+    }
+  });
 
   self.infringements_.addMeta(campaign, uri, scraper.getName(), metadata, function(err, id) {
     if (err) {

@@ -21,8 +21,8 @@ var Lock = acquire('lock')
   , Roles = acquire('roles')
   , Swarm = acquire('swarm');
 
-var MIN_CHECK_INTERVAL_SECONDS = 30;
-var MAX_CHECK_INTERVAL_SECONDS = 35;
+var MIN_CHECK_INTERVAL_SECONDS = 60;
+var MAX_CHECK_INTERVAL_SECONDS = 65;
 var SINGLETON_ACQUIRE_TIMEOUT_SECONDS = 180;
 
 var Scheduler = module.exports = function() {
