@@ -131,7 +131,7 @@ Miner.prototype.mineCampaign = function(campaign, links, done) {
 Miner.prototype.linkMatchesCampaign = function(link, campaign) {
   var self = this;
   if (campaign.type === link.type){
-    var patt=/\sLive|[^\w]/g;
+    var patt=/\sLive|[^\w]/;
     var shortenedCampaignName = campaign.name.replace(patt, "").toLowerCase();
     var shortenedLinkName = link.channel.replace(patt, "").toLowerCase();
     if(shortenedCampaignName === shortenedLinkName){
