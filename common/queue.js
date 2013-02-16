@@ -134,6 +134,9 @@ Queue.prototype.delete = function(message, callback) {
       message.popreceipt = res.popreceipt;
       message.timenextvisible = res.timenextvisible;
     }
+    else {
+      logger.warn('Unable to delete message %s: %s', message.messageid, err);
+    }
     callback(err, message);
   });
 }
@@ -177,7 +180,16 @@ Queue.prototype.touch = function(message, locktime, callback) {
                                    message.messageid,
                                    message.popreceipt,
                                    locktime,
-                                   callback);
+                                   function(err, res) {
+    if (!err) {
+      message.popreceipt = res.popreceipt;
+      message.timenextvisible = res.timenextvisible;
+    }
+    else {
+      logger.warn('Unable to touch message %s: %s', message.messageid, err);
+    }
+    callback(err, message);       
+  });
 }
 
 /**

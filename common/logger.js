@@ -14,10 +14,10 @@ var cluster = require('cluster')
   , winston = require('winston');
 
 var Logger = function(filename) {
-  var id = os.hostname();
+  var id =  process.pid + '::' + os.hostname();
 
   if (!cluster.isMaster) {
-    id += ':' + cluster.worker.id;
+    id += '::' + cluster.worker.id;
   }
 
   this.prefix_ = id + ':' + filename + ': ';
