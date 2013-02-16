@@ -8,6 +8,7 @@
  */
 
 var crypto = require('crypto')
+  , logger = acquire('logger').forFile('utilities.js')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
