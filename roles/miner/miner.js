@@ -130,11 +130,14 @@ Miner.prototype.mineCampaign = function(campaign, links, done) {
 
 Miner.prototype.linkMatchesCampaign = function(link, campaign) {
   var self = this;
-  // For now I'm removing the word 'Live' from the campaign name
   if (campaign.type === link.type){
-    var patt=/\sLive/g;
-    var shortenedCampaignName = campaign.name.replace(patt, "";).trim();
-    if(shortenedCampaignName.name.match)
+    var patt=/\sLive|[^\w]/g;
+    var shortenedCampaignName = campaign.name.replace(patt, "").toLowerCase();
+    var shortenedLinkName = link.channel.replace(patt, "").toLowerCase();
+    if(shortenedCampaignName === shortenedLinkName){
+      logger.info('we have match with campaign and link : ' + shortenedCampaignName + ' and ' + shortenedLinkName);
+      return true;
+    }
   }
   // Use the info in link and campaign to see if the link matches the campaign
   console.log(link, campaign);
