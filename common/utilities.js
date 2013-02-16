@@ -17,50 +17,60 @@ var Utilities = module.exports;
 
 Utilities.normalizeURI = function(uri) {
   var self = this
-    , uri = URI(uri)
+    , original = uri
     ;
 
-  // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
-  uri.normalize();
+  try {
+    uri = URI(uri)
 
-  // Remove www
-  if (uri.subdomain() === 'www')
-    uri.subdomain('');
+    // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
+    uri.normalize();
 
-  // Alphabetize the querystring
-  var querystring = uri.query();
-  if (querystring && querystring.length > 0) {
-    // First remove the existing string
-    uri.search('');
+    // Remove www
+    if (uri.subdomain() === 'www')
+      uri.subdomain('');
 
-    // Get the queries into something we can sort
-    var map = URI.parseQuery(querystring);
-    var list = [];
-    Object.keys(map, function(key) {
-      list.push({ key: key, value : map[key]});
-    });
+    // Alphabetize the querystring
+    var querystring = uri.query();
+    if (querystring && querystring.length > 0) {
+      // First remove the existing string
+      uri.search('');
 
-    // Sort the queries alphabetically
-    list = list.sortBy(function(n) {
-      // Even sort the values if it's an array
-      var val = n.value;
-      if (Object.isArray(val)) {
-        n.value = val.sortBy(function(v) {
-          return v;
-        });
-      }
-      return n.key;
-    });
+      // Get the queries into something we can sort
+      var map = URI.parseQuery(querystring);
+      var list = [];
+      Object.keys(map, function(key) {
+        list.push({ key: key, value : map[key]});
+      });
 
-    // Now add back the params, but this time alphabetically
-    list.forEach(function(n) {
-      var query = {};
-      query[n.key] = n.value;
-      uri.addSearch(query);
-    });
+      // Sort the queries alphabetically
+      list = list.sortBy(function(n) {
+        // Even sort the values if it's an array
+        var val = n.value;
+        if (Object.isArray(val)) {
+          n.value = val.sortBy(function(v) {
+            return v;
+          });
+        }
+        return n.key;
+      });
+
+      // Now add back the params, but this time alphabetically
+      list.forEach(function(n) {
+        var query = {};
+        query[n.key] = n.value;
+        uri.addSearch(query);
+      });
+    }
+
+    uri = uri.toString();
+
+  } catch (err) {
+    logger.warn('Malformed URI %s', orignal);
+    uri = orignal;
   }
 
-  return uri.toString();
+  return uri;
 }
 
 /**
