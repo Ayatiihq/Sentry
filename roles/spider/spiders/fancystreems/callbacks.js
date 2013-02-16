@@ -29,16 +29,13 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      if(name.match(/^zee/g) !== null){
+      //if(name.match(/^zee/g) !== null){
+      var topLink = self.root + 'tvcat/' + category + 'tv.php';
+      var categoryLink = category_index(elem).children().first().attr('href');
+      var service = new Service(name, category, topLink);
 
-        var topLink = self.root + 'tvcat/' + category + 'tv.php';
-        var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category, topLink);
-
-        self.results.push(service);
-        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
-        service.moveToNextLink();
-      }    
+      self.results.push(service);
+      self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
     }
   });
   var next = category_index('a#pagenext').attr('href');
@@ -143,8 +140,6 @@ var scrapeService = function(service, done, err, resp, html)
       }   
     }       
   });
-  if(service.moveToNextLink() === false)
-    self.serviceCompleted(service, false);
   done();
 }
 module.exports.scrapeService = scrapeService;
@@ -233,10 +228,6 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
       }
     }); 
 
-    // no links at the top ?
-    // => try for shallows iframe
-    var canGoOn = false;
-
     // firstly if we found alinks separate these services out from the main pack.
     if(embedded_results.length > 0){
       // we need to handle those with alinks differently => split them out.
@@ -244,17 +235,18 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
       service.embeddedALinks = embedded_results
     }
     else{
+      // no links at the top ?
+      // => try for shallows iframe
       target = scrapeShallowIframe(iframe_parsed);
 
       if(target !== null){
         self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
-        canGoOn = service.moveToNextLink();
         embedded_results.push(target);
       }
     }
 
     // still nothing ? => give up.
-    if(embedded_results.length === 0 && canGoOn === false){
+    if(embedded_results.length === 0){
       self.serviceCompleted(service, false);
     }
   }
@@ -288,8 +280,6 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   });
   if(src !== null){
     self.emit('link', service.constructLink('iframe src from within iframe from with iframe (ripped from an alink)', src));
-    if(service.moveToNextLink() === false)
-      self.serviceCompleted(service, false);
   }
   done();
 }

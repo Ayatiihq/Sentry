@@ -52,7 +52,7 @@ FancyStreems.prototype.init = function() {
   self.embeddedIndex = 0
 
   //self.categories = ['news', 'sports', 'movies', 'entertainment'];
-  self.categories = ['entertainment', 'movies']; 
+  self.categories = ['entertainment', 'movies', 'sports']; 
   self.currentState = self.states.CATEGORY_PARSING;
   logger.info('FancyStreems Spider up and running');  
   
@@ -105,12 +105,10 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      if(item instanceof Service){
-        var n = self.results.indexOf(item);
-        if(n < 0){
-          logger.error("@ iterate We have a service which isn't in results - ", service.name);
-          return;
-        }
+      // double check 
+      if(item instanceof Service && item.retired === true){
+        done();
+        return;
       }
       request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
     })
@@ -270,6 +268,7 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
     self.complete.push(service);
   } 
   else{
+    service.retired = true;
     self.incomplete.push(service);      
     logger.info("This service did not complete - " + JSON.stringify(service));
   }

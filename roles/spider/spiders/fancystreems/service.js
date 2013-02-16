@@ -43,6 +43,8 @@ Service.prototype.init = function(name, genre, topLink) {
   // usually these are ripped from inline js preceding the inclusion of the remote js.
   self.stream_params= {};
   self.final_stream_location = ''
+  // a flag to indicate we can't go any further here.
+  self.retired = false;
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
@@ -55,14 +57,13 @@ Service.prototype.moveToNextLink = function(){
   var n = self.links.indexOf(self.activeLink);
   if(n < 0){
     logger.err('activeLink is not part of links for some reason + ', JSON.stringify(self.activeLink));
-    return false;
+    self.retired = true;
   }
   if((n+1) > (self.links.length-1)){
     logger.info("At the end of the list of links for " + self.name);
-    return false;
+    self.retired = true;
   }
   self.activeLink = self.links[n+1];
-  return true;
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
@@ -77,6 +78,6 @@ Service.prototype.constructLink = function(childLinkSource, childLink){
                     metadata: {linkSource: childLinkSource}};
 
   self.links.push({desc : childLinkSource, uri : childLink});
-
+  self.moveToNextLink();
   return linkToEmit;
 }
