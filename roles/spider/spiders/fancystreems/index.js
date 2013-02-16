@@ -255,6 +255,7 @@ FancyStreems.prototype.fanOutHorizontalLinkedObjects = function(service, success
 
 FancyStreems.prototype.serviceCompleted = function(service, successfull){
   var self = this;
+  service.retired = true;  
 
   var n = self.results.indexOf(service);
   if(n < 0){
@@ -268,7 +269,6 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
     self.complete.push(service);
   } 
   else{
-    service.retired = true;
     self.incomplete.push(service);      
     logger.info("This service did not complete - " + JSON.stringify(service));
   }

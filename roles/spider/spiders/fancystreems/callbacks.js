@@ -63,9 +63,9 @@ and then handle all the different ways to embed the stream. They are :
 var scrapeService = function(service, done, err, resp, html)
 {
   var self = this;
-  // TODO  we need to error here !
   if(err){
-    console.log("Couldn't fetch " + service.activeLink);
+    logger.error("@service page level Couldn't fetch " + service.activeLink.uri);
+    self.serviceCompleted(service, false);
     done();
   }
 
@@ -105,20 +105,22 @@ var scrapeService = function(service, done, err, resp, html)
         });
       }
 
-      parsedHTML(elem).find('object').each(function(i, innerObj){
-        found_src = true;
-        if(parsedHTML(innerObj).attr('type') === "application/x-silverlight-2"){
-          var source_within = parsedHTML(innerObj).html().split('mediasource=');
-          if(source_within.length === 2){
-            var source = source_within[1].split('"');
-            if(source.length === 2){
-              source_uri = source[0];
-              self.serviceCompleted(service, true)
-              self.emit('link', service.constructLink("silverlight at service page", source_uri));
+      if(found_src === false){
+        parsedHTML(elem).find('object').each(function(i, innerObj){
+          if(parsedHTML(innerObj).attr('type') === "application/x-silverlight-2"){
+            var source_within = parsedHTML(innerObj).html().split('mediasource=');
+            if(source_within.length === 2){
+              var source = source_within[1].split('"');
+              if(source.length === 2){
+                found_src = true;
+                source_uri = source[0];
+                self.serviceCompleted(service, true)
+                self.emit('link', service.constructLink("silverlight at service page", source_uri));
+              }
             }
           }
-        }
-      });
+        });
+      }
       if(found_src === false){ // last gasp attempt => look for an rtmp link in there
         parsedHTML(elem).find('script').each(function(i, innerScript){
           if(parsedHTML(innerScript).text().match(/rtmp:\/\//g) !== null){
@@ -196,7 +198,7 @@ var scrapeShallowIframe = function(cheerioSource){
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
   if (err || res.statusCode !== 200){
-    logger.warn("Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
+    logger.error("Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
     self.serviceCompleted(service, false);
     done();
     return;      
@@ -291,6 +293,7 @@ var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
   var self = this;
   
   if(err || resp.statusCode !== 200){
+    logger.error("@streamid and remote js uri stage -  level Couldn't fetch " + service.activeLink.uri);    
     self.serviceCompleted(service, false);
     done();
     return;
@@ -320,6 +323,9 @@ var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
       }
     }
   });
+  if(order !== 1)
+    self.serviceCompleted(service, false);
+  
   done();
 }
 module.exports.scrapeStreamIDAndRemoteJsURI = scrapeStreamIDAndRemoteJsURI;
@@ -328,6 +334,7 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
   var self = this;
 
   if(err || resp.statusCode !== 200){
+    logger.error("@ fetch remotejs level Couldn't fetch " + service.stream_params.remote_js);    
     self.serviceCompleted(service, false);
     done();
     return;
@@ -350,6 +357,7 @@ var scrapeFinalStreamLocation = function(service, done, err, resp, html){
   var self = this;
 
   if(err || resp.statusCode !== 200){
+    logger.error("@end of the road level couldn't fetch " + service.activeLink.uri);    
     self.serviceCompleted(service, false);
     done();
     return;

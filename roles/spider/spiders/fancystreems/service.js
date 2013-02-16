@@ -56,12 +56,14 @@ Service.prototype.moveToNextLink = function(){
   var self = this;
   var n = self.links.indexOf(self.activeLink);
   if(n < 0){
-    logger.err('activeLink is not part of links for some reason + ', JSON.stringify(self.activeLink));
+    logger.error('activeLink is not part of links for some reason for ' + self.name + " : " + JSON.stringify(self.activeLink));
     self.retired = true;
+    return;
   }
   if((n+1) > (self.links.length-1)){
-    logger.info("At the end of the list of links for " + self.name);
+    logger.error("At the end of the list of links for " + self.name);
     self.retired = true;
+    return;
   }
   self.activeLink = self.links[n+1];
 }
