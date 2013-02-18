@@ -61,6 +61,7 @@ GoogleScraper.prototype.beginSearch = function () {
 
     // just submit the query for now
     this.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
+    logger.info('searching google with search query: ' + self.searchTerm);
 
     // waits for a #search selector
     this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
@@ -101,6 +102,7 @@ GoogleScraper.prototype.handleResults = function () {
         }, randomTime * 1000);
       }
       else {
+        logger.info('finished scraping succesfully');
         self.cleanup();
       }
     }
@@ -109,6 +111,7 @@ GoogleScraper.prototype.handleResults = function () {
 
 GoogleScraper.prototype.emitLinks = function (linkList) {
   var self = this;
+  logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
     self.emit('found-link', link);
   });
