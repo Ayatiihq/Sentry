@@ -29,13 +29,14 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      //if(name.match(/^zee/g) !== null){
-      var topLink = self.root + 'tvcat/' + category + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
-      var service = new Service(name, category, topLink);
+      if(name.match(/^star/g) !== null){
+        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var service = new Service(name, category, topLink);
 
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+        self.results.push(service);
+        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+      }
     }
   });
   var next = category_index('a#pagenext').attr('href');
@@ -311,7 +312,7 @@ var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
         var parts = stream_arg.split('=');
         if(parts.length === 2){
           logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
-          service.stream_params[parts[0].trim()] = parts[1].replace(/'/g, '');
+          service.stream_params[parts[0].trim()] = parts[1].replace(/'|"/g, '');
         }
       });
     }
