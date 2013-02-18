@@ -56,6 +56,8 @@ BingScraper.prototype.beginSearch = function () {
     // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
     this.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
 
+    logger.info('searching Bing with search query: ' + self.searchTerm);
+
     // waits for a #search selector
     this.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
       if (element) {
@@ -103,6 +105,7 @@ BingScraper.prototype.handleResults = function () {
 
 BingScraper.prototype.emitLinks = function (linkList) {
   var self = this;
+  logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
     self.emit('found-link', link);
   });
