@@ -9,6 +9,7 @@
 TODO  
  - investigate the service pages (@SERVICE_PARSING) where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
  - At the point where you are pulling out remote js urls it will  also need to handle inline javascripts which are injecting iframe links into the dom.
+ - Match a method for each state - put them in a hash, remove the need for the switch.
  */
 
 var acquire = require('acquire')
@@ -52,7 +53,7 @@ FancyStreems.prototype.init = function() {
   self.embeddedIndex = 0
 
   //self.categories = ['news', 'sports', 'movies', 'entertainment'];
-  self.categories = ['entertainment', 'movies', 'sports']; 
+  self.categories = ['entertainment']; 
   self.currentState = self.states.CATEGORY_PARSING;
   logger.info('FancyStreems Spider up and running');  
   
@@ -60,7 +61,7 @@ FancyStreems.prototype.init = function() {
   FancyStreems.prototype.scrapeService = callbacks.scrapeService;
   FancyStreems.prototype.scrapeIndividualaLinksOnWindow = callbacks.scrapeIndividualaLinksOnWindow;
   FancyStreems.prototype.scrapeRemoteStreamingIframe = callbacks.scrapeRemoteStreamingIframe;
-  FancyStreems.prototype.scrapeStreamIDAndRemoteJsURI = callbacks.scrapeStreamIDAndRemoteJsURI;
+  FancyStreems.prototype.streamIDandRemoteJsParsingStage = callbacks.streamIDandRemoteJsParsingStage;
   FancyStreems.prototype.formatRemoteStreamURI = callbacks.formatRemoteStreamURI;
   FancyStreems.prototype.scrapeFinalStreamLocation = callbacks.scrapeFinalStreamLocation;
 }
@@ -178,7 +179,7 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
     cb =  self.scrapeIndividualaLinksOnWindow.bind(self, item, done);
     break;
   case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
-    cb = self.scrapeStreamIDAndRemoteJsURI.bind(self, item, done);
+    cb = self.streamIDandRemoteJsParsingStage.bind(self, item, done);
     break;        
   case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
     cb = self.formatRemoteStreamURI.bind(self, item, done);
@@ -270,7 +271,7 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
   } 
   else{
     self.incomplete.push(service);      
-    logger.info("This service did not complete - " + JSON.stringify(service));
+    logger.info("\n\n\nThis service did not complete - " + JSON.stringify(service));
   }
 }
 

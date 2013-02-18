@@ -39,6 +39,8 @@ var scrapeCategory = function(category, done, err, resp, html){
       }
     }
   });
+  done();
+  /*
   var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
@@ -46,10 +48,73 @@ var scrapeCategory = function(category, done, err, resp, html){
   else{
     //logger.info('paginate the category at random intervals : ' + cat);
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }
+  }*/
 }  
 
 module.exports.scrapeCategory = scrapeCategory;
+
+// Detect iframe
+var scrapeShallowIframe = function(cheerioSource, position){
+  var target = null;
+  var collection; 
+  if(position === null || position === undefined){
+    logger.info("SECOND USE CASE");
+    collection = cheerioSource('iframe');
+  }
+  else{
+    collection = cheerioSource(position).find('iframe');  
+  }
+  collection.each(function(i, innerFrame){
+    var embeddedTarget = null;
+    if(target === null){
+      if(cheerioSource(innerFrame).attr('src') !== undefined){
+        embeddedTarget = cheerioSource(innerFrame).attr('src');
+      }
+      else if(cheerioSource(innerFrame).attr('SRC') !== undefined){
+        embeddedTarget = cheerioSource(innerFrame).attr('SRC');          
+      }
+      if(embeddedTarget !== undefined && embeddedTarget.startsWith('http')){
+        target = embeddedTarget;
+      }
+      else if(embeddedTarget !== undefined){
+        target = "http://www.fancystreems.com/" +  embeddedTarget;
+      }
+    }
+  }); 
+  return target;
+}
+
+var scrapeStreamIDAndRemoteJsURI = function(stream_within, service){
+  //The safest way (I think) to decipher the correct remote js to fetch not by name but where it appears in the DOM
+  //Once we see the inline js, set the order to 0 => the next js should be the one that uses the inline vars set in the preceding one 
+  var order = -1; 
+  var success = false;
+  stream_within('script').each(function(i, js){
+    if(stream_within(js).text().has('fid=')){
+      order = 0;
+      var js_inline = stream_within(js).text();
+      var stream_args = js_inline.split(';')
+      stream_args.forEach(function(stream_arg){
+        var parts = stream_arg.split('=');
+        if(parts.length === 2){
+          logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
+          service.stream_params[parts[0].trim()] = parts[1].replace(/'|"/g, '');
+        }
+      });
+    }
+    else if(stream_within(js).attr('src') !== undefined){
+      if(order === 0){
+        service.stream_params.remote_js = stream_within(js).attr('src');
+        logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
+        order = 1;
+      }
+    }
+  });
+  if(order === 1){
+    success = true
+  }
+  return success;
+}
 
 /*
 Scrape the individual service pages on FanceStreems. 
@@ -75,29 +140,7 @@ var scrapeService = function(service, done, err, resp, html)
 
   parsedHTML('div .inlineFix').each(function(i, elem){
     if(parsedHTML(elem).children().length === 1){ // We know the embed stream is siblingless !
-
-      parsedHTML(elem).find('iframe').each(function(i, innerFrame){
-        
-        var target = null;
-        var embeddedTarget = null;
-        if(parsedHTML(innerFrame).attr('src') !== undefined){
-          embeddedTarget = parsedHTML(innerFrame).attr('src');
-        }
-        else if(parsedHTML(innerFrame).attr('SRC') !== undefined){
-          embeddedTarget = parsedHTML(innerFrame).attr('SRC');          
-        }
-        if(embeddedTarget !== undefined && embeddedTarget.startsWith('http')){
-          target = embeddedTarget;
-        }
-        else if(embeddedTarget !== undefined){
-          target = "http://www.fancystreems.com/" +  embeddedTarget;
-        }
-        
-        if(target !== null){
-          found_src = true;
-          self.emit('link', service.constructLink("iframe scraped from service page", target));
-        }
-      });
+      // Try for the embed first
       if(found_src === false){
         parsedHTML(elem).find('embed').each(function(i, innerEmbed){
           found_src = true;            
@@ -105,7 +148,7 @@ var scrapeService = function(service, done, err, resp, html)
           self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
         });
       }
-
+      // Silverlight embed ?
       if(found_src === false){
         parsedHTML(elem).find('object').each(function(i, innerObj){
           if(parsedHTML(innerObj).attr('type') === "application/x-silverlight-2"){
@@ -122,7 +165,8 @@ var scrapeService = function(service, done, err, resp, html)
           }
         });
       }
-      if(found_src === false){ // last gasp attempt => look for an rtmp link in there
+      // last gasp attempt => look for an rtmp link in there
+      if(found_src === false){ 
         parsedHTML(elem).find('script').each(function(i, innerScript){
           if(parsedHTML(innerScript).text().match(/rtmp:\/\//g) !== null){
             var makeAStab = parsedHTML(innerScript).text().split('rtmp://');
@@ -137,9 +181,17 @@ var scrapeService = function(service, done, err, resp, html)
           }
         });
       }
+      // Finally try for the embedded iframe
       if (found_src === false){
+        var res = scrapeShallowIframe(parsedHTML, elem);
+        if (res !== null){
+          found_src = true;
+          self.emit('link', service.constructLink("iframe scraped from service page", res));
+        }
+      }      
+      if (found_src === false){
+        logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink);
         self.serviceCompleted(service, false)
-        logger.warn("Unable to find where to go next from %s service page @ ", service.name, service.activeLink);
       }   
     }       
   });
@@ -173,28 +225,6 @@ var parse_meta_url = function(meta_markup){
   return null;
 }
 
-var scrapeShallowIframe = function(cheerioSource){
-  var target = null;
-  cheerioSource('iframe').each(function(i, innerFrame){
-    var embeddedTarget = null;
-    if(target === null){
-      if(cheerioSource(innerFrame).attr('src') !== undefined){
-        embeddedTarget = cheerioSource(innerFrame).attr('src');
-      }
-      else if(cheerioSource(innerFrame).attr('SRC') !== undefined){
-        embeddedTarget = cheerioSource(innerFrame).attr('SRC');          
-      }
-      if(embeddedTarget !== undefined && embeddedTarget.startsWith('http')){
-        target = embeddedTarget;
-      }
-      else if(embeddedTarget !== undefined){
-        target = "http://www.fancystreems.com/" +  embeddedTarget;
-      }
-    }
-  }); 
-  return target;
-}
-
 // refactor into separate methods.
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
@@ -216,7 +246,6 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
     // is to look for imgs in <a>s  which match /Link[0-9].png/g -
     var iframe_parsed = cheerio.load(html);
     var embedded_results = [];
-
     iframe_parsed('a').each(function(img_index, img_element){
       var relevant_a_link = false;
       iframe_parsed(this).find('img').each(function(y, n){
@@ -289,47 +318,22 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
 module.exports.scrapeRemoteStreamingIframe = scrapeRemoteStreamingIframe;
 
 
-var scrapeStreamIDAndRemoteJsURI = function(service, done, err, resp, html){
-  
-  var self = this;
-  
+var streamIDandRemoteJsParsingStage = function(service, done, err, resp, html){
+  var self = this;  
   if(err || resp.statusCode !== 200){
     logger.error("@streamid and remote js uri stage -  level Couldn't fetch " + service.activeLink.uri);    
     self.serviceCompleted(service, false);
     done();
     return;
   }
-  var stream_within = cheerio.load(html);
-  //The safest way (I think) to decipher the correct remote js to fetch not by name but where it appears in the DOM
-  //Once we see the inline js, set the order to 0 => the next js should be the one that uses the inline vars set in the preceding one 
-  var order = -1; 
-  stream_within('script').each(function(i, js){
-    if(stream_within(js).text().has('fid=')){
-      order = 0;
-      var js_inline = stream_within(js).text();
-      var stream_args = js_inline.split(';')
-      stream_args.forEach(function(stream_arg){
-        var parts = stream_arg.split('=');
-        if(parts.length === 2){
-          logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
-          service.stream_params[parts[0].trim()] = parts[1].replace(/'|"/g, '');
-        }
-      });
-    }
-    else if(stream_within(js).attr('src') !== undefined){
-      if(order === 0){
-        service.stream_params.remote_js = stream_within(js).attr('src');
-        logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
-        order = 1;
-      }
-    }
-  });
-  if(order !== 1)
+  var streamWithin = cheerio.load(html);
+  var success = scrapeStreamIDAndRemoteJsURI(streamWithin, service);
+  if(success === false){
     self.serviceCompleted(service, false);
-  
+  }
   done();
 }
-module.exports.scrapeStreamIDAndRemoteJsURI = scrapeStreamIDAndRemoteJsURI;
+module.exports.streamIDandRemoteJsParsingStage = streamIDandRemoteJsParsingStage;
 
 var formatRemoteStreamURI = function(service, done, err, resp, html){
   var self = this;
