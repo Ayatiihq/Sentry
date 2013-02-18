@@ -4,7 +4,8 @@
  * (C) 2013 Ayatii Limited
  *
  * Spider for the infamous Fancystreems
- * This is just a state-machine.
+ * This is just a state-machine per service
+ * depending on the state of the service certain parsing techniques will be used.
 
 TODO  
  - investigate the service pages (@SERVICE_PARSING) where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
@@ -36,10 +37,11 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
-  self.results = []; // initial big dump of 
+  self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
-  self.horizontallyLinked = [] // used to store services that have multiple links at a certain level (i.e. those with link 1-5 at the top of the screen)
+  // used to store services that have multiple links at a certain level (i.e. those with link 1-5 at the top of the screen)  
+  self.horizontallyLinked = [] 
 
   self.states = new Enum(['CATEGORY_PARSING',
                           'SERVICE_PARSING',
@@ -47,14 +49,15 @@ FancyStreems.prototype.init = function() {
                           'STREAM_ID_AND_REMOTE_JS_PARSING',
                           'FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST',
                           'FINAL_STREAM_EXTRACTION',
-                          'EMBEDDED_LINK_PARSING']);
+                          'EMBEDDED_LINK_PARSING',
+                          'END_OF_THE_ROAD']);
   
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
 
   //self.categories = ['news', 'sports', 'movies', 'entertainment'];
-  self.categories = ['entertainment']; 
-  self.currentState = self.states.CATEGORY_PARSING;
+  self.categories = [{cat: 'entertainment', currentState: self.states.CATEGORY_PARSING}]; 
+
   logger.info('FancyStreems Spider up and running');  
   
   FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
@@ -114,13 +117,20 @@ FancyStreems.prototype.iterateRequests = function(collection){
       request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
     })
     .seq(function(){
-      logger.info('Finished state - ' + self.currentState);
+      logger.info('Finished a cycle');
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
       logger.info("Those with multiple horizontal Links: " + self.horizontallyLinked.length);
+      if (self.horizontallyLinked.length > 0)
+        self.fanOutHorizontalLinkedObjects();
 
-      self.moveOnToNextState();
+      if(self.results.length > 0){
+        self.iterateRequests(self.results);
+      }
+      else{
+        logger.info("We are finished !");
+      }
     })    
   ;    
 }
@@ -136,10 +146,10 @@ FancyStreems.prototype.constructRequestURI = function(item){
   var self = this;
   var uri = null;
 
-  switch(this.currentState)
+  switch(item.currentState)
   {
   case self.states.CATEGORY_PARSING:
-    uri = {uri: self.root + 'tvcat/' + item + 'tv.php', timeout: 5000};
+    uri = {uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000};
     break;
   case self.states.SERVICE_PARSING:
     uri = {uri: item.activeLink.uri, timeout: 5000};
@@ -167,7 +177,7 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   var self = this;
   var cb = null;
 
-  switch(this.currentState)
+  switch(item.currentState)
   {
   case self.states.CATEGORY_PARSING:
     cb =  self.scrapeCategory.bind(self, item, done);
@@ -194,64 +204,31 @@ FancyStreems.prototype.fetchAppropriateCallback = function(item, done){
   return cb;
 }
 
-FancyStreems.prototype.moveOnToNextState = function(){ 
-  var self = this;
-  var collectionToUse;
-
-  switch(this.currentState)
-  {
-  case self.states.CATEGORY_PARSING:
-    self.currentState = self.states.SERVICE_PARSING;
-    break;
-  case self.states.SERVICE_PARSING:
-    self.currentState = self.states.IFRAME_PARSING;
-    break;    
-  case self.states.IFRAME_PARSING:
-    self.currentState = self.states.STREAM_ID_AND_REMOTE_JS_PARSING;
-    break;
-  case self.states.STREAM_ID_AND_REMOTE_JS_PARSING:
-    self.currentState = self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;
-    break;
-  case self.states.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
-    self.currentState = self.states.FINAL_STREAM_EXTRACTION;
-    break;
-  case self.states.FINAL_STREAM_EXTRACTION:
-    // roll over the embedded links into their own objects and repeat the process.
-    if (self.horizontallyLinked.length > 0){
-      self.fanOutHorizontalLinkedObjects();
-      self.currentState = self.states.IFRAME_PARSING;
-    }
-    else{
-      logger.info('done');
-      return;
-    }
-    break;
-  }
-
-  logger.info("Moving on to %s state", self.currentState)
-  self.iterateRequests(self.results);
-}
 /*
   The easiest thing todo is to clone the service object in to however many embedded links we pulled 
   out, reset a few fields and go again. 
 */
-FancyStreems.prototype.fanOutHorizontalLinkedObjects = function(service, successfull)
+FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, successfull)
 {
   var self = this;
-  var new_results = [];
+  var newResults = [];
+  logger.info("flattenHorizontalLinkedObjects initial hl length : " + self.horizontallyLinked.length);
+  logger.info("initial results size = " + self.results.length);
+
   self.horizontallyLinked.forEach(function(ser){
     ser.embeddedALinks.forEach(function(link){
-      var service_clone = Object.clone(ser);
-      service_clone.links = [];
-      service_clone.embeddedALinks = [];
-      service_clone.links.push({desc: 'starting point', uri: link});
-      service_clone.activeLink = service_clone.links[0];
-      logger.info("created " + JSON.stringify(service_clone));
-      new_results.push(service_clone);
+      var serviceClone = Object.clone(ser);
+      serviceClone.links = [];
+      serviceClone.embeddedALinks = [];
+      serviceClone.links.push({desc: 'starting point', uri: link});
+      serviceClone.activeLink = serviceClone.links[0];
+      newResults.push(serviceClone);
     });
+    self.horizontallyLinked.pop(ser);
   });
-  self.results = new_results;
-  self.horizontallyLinked = [];
+  self.results = self.results.concat(newResults);
+  logger.info("flattenHorizontalLinkedObjects new hl length : " + self.horizontallyLinked.length);
+  logger.info("new results size = " + self.results.length);
 }
 
 FancyStreems.prototype.serviceCompleted = function(service, successfull){

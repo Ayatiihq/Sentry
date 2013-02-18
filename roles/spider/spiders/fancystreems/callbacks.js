@@ -30,12 +30,12 @@ var scrapeCategory = function(category, done, err, resp, html){
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
       if(name.match(/^star/g) !== null){
-        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
         var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category, topLink);
+        var service = new Service(name, category.cat, topLink, self.states.SERVICE_PARSING);
 
         self.results.push(service);
-        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+        self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
       }
     }
   });
@@ -58,7 +58,6 @@ var scrapeShallowIframe = function(cheerioSource, position){
   var target = null;
   var collection; 
   if(position === null || position === undefined){
-    logger.info("SECOND USE CASE");
     collection = cheerioSource('iframe');
   }
   else{

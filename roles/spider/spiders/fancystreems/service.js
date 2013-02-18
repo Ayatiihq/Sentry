@@ -11,11 +11,11 @@ var acquire = require('acquire');
 var logger = acquire('logger').forFile('Service.js')
 
 
-var Service = module.exports =  function(name, genre, topLink) { 
-  this.init(name, genre, topLink);
+var Service = module.exports =  function(name, genre, topLink, initialState) { 
+  this.init(name, genre, topLink, initialState);
 }
 
-Service.prototype.init = function(name, genre, topLink) {
+Service.prototype.init = function(name, genre, topLink, initialState) {
   var self = this;
 
   self.type = 'tv.live';
@@ -45,6 +45,9 @@ Service.prototype.init = function(name, genre, topLink) {
   self.final_stream_location = ''
   // a flag to indicate we can't go any further here.
   self.retired = false;
+  self.currentState = initialState;
+  logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
+
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
