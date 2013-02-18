@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , request = require('request')
   , Seq = require('seq')
   , Service = require('./service')
+  , main = require('./index')  
   ;
 
 var scrapeCategory = function(category, done, err, resp, html){
@@ -29,10 +30,10 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      if(name.match(/^star/g) !== null){
+      if(name.match(/^zee/g) !== null){
         var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
         var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category.cat, topLink, self.states.SERVICE_PARSING);
+        var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
         self.results.push(service);
         self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
@@ -138,13 +139,25 @@ var scrapeService = function(service, done, err, resp, html)
   var found_src = false;
 
   parsedHTML('div .inlineFix').each(function(i, elem){
+
     if(parsedHTML(elem).children().length === 1){ // We know the embed stream is siblingless !
-      // Try for the embed first
+      
+      // Try for the embedded iframe (most common scenario)
+      if (found_src === false){
+        var res = null;
+        res = scrapeShallowIframe(parsedHTML, elem);
+        if (res !== null && res !== undefined){
+          found_src = true;
+          self.emit('link', service.constructLink("iframe scraped from service page", res));
+          service.currentState = main.FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
+        }
+      }      
+      // Embed ??
       if(found_src === false){
         parsedHTML(elem).find('embed').each(function(i, innerEmbed){
           found_src = true;            
-          self.serviceCompleted(service, true)
           self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
+          self.serviceCompleted(service, true);
         });
       }
       // Silverlight embed ?
@@ -157,13 +170,14 @@ var scrapeService = function(service, done, err, resp, html)
               if(source.length === 2){
                 found_src = true;
                 source_uri = source[0];
-                self.serviceCompleted(service, true)
                 self.emit('link', service.constructLink("silverlight at service page", source_uri));
+                self.serviceCompleted(service, true);
               }
             }
           }
         });
       }
+
       // last gasp attempt => look for an rtmp link in there
       if(found_src === false){ 
         parsedHTML(elem).find('script').each(function(i, innerScript){
@@ -173,27 +187,21 @@ var scrapeService = function(service, done, err, resp, html)
               var innards = makeAStab[1].split("'");
               if (innards.length > 1){
                 found_src = true;
-                self.serviceCompleted(service, true)
                 self.emit('link', service.constructLink("embedded rtmp linked at service page", 'rtmp://' + innards[0]));                
+                self.serviceCompleted(service, true);
               }
             }
           }
         });
       }
-      // Finally try for the embedded iframe
-      if (found_src === false){
-        var res = scrapeShallowIframe(parsedHTML, elem);
-        if (res !== null){
-          found_src = true;
-          self.emit('link', service.constructLink("iframe scraped from service page", res));
-        }
-      }      
-      if (found_src === false){
-        logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink);
-        self.serviceCompleted(service, false)
-      }   
     }       
   });
+
+  if (found_src === false){
+    logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink.uri);
+    self.serviceCompleted(service, false)
+  }   
+
   done();
 }
 module.exports.scrapeService = scrapeService;
@@ -224,6 +232,19 @@ var parse_meta_url = function(meta_markup){
   return null;
 }
 
+// Don't need this anymore ....
+var detectMetaRefresh = function(html, service){
+  // firstly ensure its not a meta refresh
+  if(html.toString().has('<meta http-equiv="REFRESH"') === true){
+    var redirect_to = parse_meta_url(html);
+    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink.uri, redirect_to);
+    // request recursively
+    return;
+  }  
+
+}
+
+
 // refactor into separate methods.
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
@@ -233,62 +254,40 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
     done();
     return;      
   }
-  // firstly ensure its not a meta refresh
-  if(html.toString().has('<meta http-equiv="REFRESH"') === true){
-    var redirect_to = parse_meta_url(html);
-    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink.uri, redirect_to);
-    request(redirect_to, self.scrapeIndividualaLinksOnWindow.bind(self, service, done))
-    return;
+  // Best way to identify the actual iframe which have the actual links to the streams
+  // is to look for imgs in <a>s  which match /Link[0-9].png/g -
+  var iframe_parsed = cheerio.load(html);
+  var embedded_results = [];
+  iframe_parsed('a').each(function(img_index, img_element){
+    var relevant_a_link = false;
+    iframe_parsed(this).find('img').each(function(y, n){
+      if(iframe_parsed(this).attr('src').match(/Link[0-9].png/g) !== null){
+        relevant_a_link = true;
+      }
+    });
+    if(relevant_a_link === true){
+      var completed_uri = auto_complete_uri(iframe_parsed(this).attr('href'));
+      self.emit('link', service.constructLink("alink around png button on the screen", completed_uri));
+      embedded_results.push(completed_uri);
+    }
+  }); 
+
+  // firstly if we found alinks separate these services out from the main pack.
+  if(embedded_results.length > 0){
+    // we need to handle those with alinks differently => split them out.
+    // push them into another array and flatten them out on the next iteration
+    self.serviceHasEmbeddedLinks(service);
+    service.embeddedALinks = embedded_results
   }
-  else{    
-    // Best way to identify the actual iframe which have the actual links to the streams
-    // is to look for imgs in <a>s  which match /Link[0-9].png/g -
-    var iframe_parsed = cheerio.load(html);
-    var embedded_results = [];
-    iframe_parsed('a').each(function(img_index, img_element){
-      var relevant_a_link = false;
-      iframe_parsed(this).find('img').each(function(y, n){
-        if(iframe_parsed(this).attr('src').match(/Link[0-9].png/g) !== null){
-          relevant_a_link = true;
-        }
-      });
-      if(relevant_a_link === true){
-        var completed_uri = auto_complete_uri(iframe_parsed(this).attr('href'));
-        self.emit('link', service.constructLink("alink around png button on the screen", completed_uri));
-        embedded_results.push(completed_uri);
-      }
-    }); 
-
-    // firstly if we found alinks separate these services out from the main pack.
-    if(embedded_results.length > 0){
-      // we need to handle those with alinks differently => split them out.
-      self.serviceHasEmbeddedLinks(service);
-      service.embeddedALinks = embedded_results
-    }
-    else{
-      // no links at the top ?
-      // => try for shallows iframe
-      target = scrapeShallowIframe(iframe_parsed);
-
-      if(target !== null){
-        self.emit('link', service.constructLink("iframe scraped from where we expected to see alinked iframe", target));
-        embedded_results.push(target);
-      }
-    }
-
-    // still nothing ? => give up.
-    if(embedded_results.length === 0){
-      self.serviceCompleted(service, false);
-    }
+  else{
+    // no links at the top ?
+    // push it on to iframe parsing where we hope it should work.
+    service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
   }
   done();
 }
-
 module.exports.scrapeIndividualaLinksOnWindow = scrapeIndividualaLinksOnWindow;
 
-// TODO this is not being used. 
-// TODO basically the same logic is spread across three different methods here doing roughly the same thing
-// TODO sort out. 
 var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   var self = this;
 
@@ -300,17 +299,15 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
 
   var embed = cheerio.load(html);
   var src = null;
+  src = scrapeShallowIframe(embed);
 
-  embed('iframe').each(function(p, ifr){
-    if(embed(ifr).attr('src') !== undefined){
-      src =  embed(ifr).attr('src');
-    }
-    else if(embed(ifr).attr('SRC') !== undefined){
-      src =  embed(ifr).attr('SRC');
-    }
-  });
-  if(src !== null){
-    self.emit('link', service.constructLink('iframe src from within iframe from with iframe (ripped from an alink)', src));
+  if(src !== null && src !== undefined){
+    self.emit('link', service.constructLink('relevant iframe scraped', src));
+    service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
+  }
+  else{
+    logger.info("failed to figure this out: \n" + html);
+    self.serviceCompleted(service, false);
   }
   done();
 }
@@ -330,6 +327,9 @@ var streamIDandRemoteJsParsingStage = function(service, done, err, resp, html){
   if(success === false){
     self.serviceCompleted(service, false);
   }
+  else{
+    service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
+  }
   done();
 }
 module.exports.streamIDandRemoteJsParsingStage = streamIDandRemoteJsParsingStage;
@@ -348,6 +348,7 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
     var segments = parts[1].split("'");
     service.final_stream_location = segments[0].replace(/"/g, '') + service.stream_params.fid;
     self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
+    service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
   }
   else{
     logger.warn("Not able to parse remote remote js to figure out path");

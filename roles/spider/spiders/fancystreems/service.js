@@ -8,7 +8,9 @@
  */
 var acquire = require('acquire');
 
-var logger = acquire('logger').forFile('Service.js')
+var logger = acquire('logger').forFile('Service.js');
+
+var main = require('./index');
 
 
 var Service = module.exports =  function(name, genre, topLink, initialState) { 
@@ -42,12 +44,12 @@ Service.prototype.init = function(name, genre, topLink, initialState) {
   // An optional holding place to store the args passed to remote js's.
   // usually these are ripped from inline js preceding the inclusion of the remote js.
   self.stream_params= {};
-  self.final_stream_location = ''
-  // a flag to indicate we can't go any further here.
-  self.retired = false;
-  self.currentState = initialState;
-  logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
+  self.final_stream_location = '';
 
+  self.currentState = initialState;
+  self.lastStageReached = initialState;
+
+  //logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
@@ -60,15 +62,21 @@ Service.prototype.moveToNextLink = function(){
   var n = self.links.indexOf(self.activeLink);
   if(n < 0){
     logger.error('activeLink is not part of links for some reason for ' + self.name + " : " + JSON.stringify(self.activeLink));
-    self.retired = true;
+    self.retire();
     return;
   }
   if((n+1) > (self.links.length-1)){
+    self.retire();
     logger.error("At the end of the list of links for " + self.name);
-    self.retired = true;
     return;
   }
   self.activeLink = self.links[n+1];
+}
+
+Service.prototype.retire = function(){
+  var self = this;
+  self.lastStageReached = self.currentState;
+  self.currentState = main.FancyStreemsStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
