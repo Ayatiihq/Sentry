@@ -54,10 +54,13 @@ GoogleScraper.prototype.beginSearch = function () {
     .sendKeys(self.searchTerm); // types out our search term into the input box
 
     // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-    this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
-      var actionSequence = new webdriver.ActionSequence(self.remoteClient);
-      actionSequence.mouseMove(element).mouseDown().mouseUp();
-    });
+    //this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
+    //  var actionSequence = new webdriver.ActionSequence(self.remoteClient);
+    //  actionSequence.mouseMove(element).mouseDown().mouseUp();
+    //});
+
+    // just submit the query for now
+    this.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
 
     // waits for a #search selector
     this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
