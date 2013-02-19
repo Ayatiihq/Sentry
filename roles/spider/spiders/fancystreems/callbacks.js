@@ -156,19 +156,20 @@ var scrapeRemoteALinked = function(source, service, position){
   else{
     collection = source(position).find('a');  
   }  
-  var results = {success: false, link: ''};
+  var results = {success: false, uri: ''};
 
   collection.each(function(a_index, a_element){
     if(a_index === 0){
       if(source(a_element).attr('target') !== undefined && source(a_element).attr('target') === "_blank"){
-        source(this).find('img').each(function(y, n){
-          if(source(this).attr('src').match(/play/g) !== null){
-            results.success = true;
+        if(source(this).children().length === 1){
+          source(this).find('img').each(function(y, n){
+            if(source(this).attr('src').match(/play/g) !== null){
+              results.success = true;
+            }
+          });
+          if(results.success === true){
+            results.uri = source(this).attr('href');
           }
-        });
-        if(results.success){
-          logger.info("FOUND A ALINKED MOFO : " + source(this).attr('href'));
-          results.link = source(this).attr('href');
         }
       }
     }
@@ -177,14 +178,38 @@ var scrapeRemoteALinked = function(source, service, position){
 }
 
 var scrapeObject = function(source, service, position){
+  
   var collection = null;
   if(position === null || position === undefined){
-    collection = stream_within('object');
+    collection = source('object');
   }
   else{
-    collection = stream_within(position).find('object');  
+    collection = source(position).find('object');  
   }    
 
+  result = {success: false, data:{uri: '', type: ''}};
+  
+  var populated = false;
+
+  collection.find('object').each(function(i, innerObj){
+    if(populated === false){
+      if(source(innerObj).attr('type') === "application/x-silverlight-2"){
+        var source_within = source(innerObj).html().split('mediasource=');
+        if(source_within.length === 2){
+          var sourceParts = source_within[1].split('"');
+          if(sourceParts.length === 2){
+            result.success = true;
+            result.data.uri = sourceParts[0];
+            result.data.type = 'silverlight';
+            logger.info("FOUND SILVERLIGHT : " + sourceParts[0]);
+
+            populated = true;
+          }
+        }
+      }
+    }
+  });
+  return result;
 }
 
 /// Callbacks for various stages utilizing helper methods above.
@@ -211,8 +236,8 @@ var scrapeCategory = function(category, done, err, resp, html){
       //}
     }
   });
-  done();
-  /*
+  //done();
+  
   var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
@@ -220,12 +245,10 @@ var scrapeCategory = function(category, done, err, resp, html){
   else{
     //logger.info('paginate the category at random intervals : ' + cat);
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }*/
+  }
 }  
 
 module.exports.scrapeCategory = scrapeCategory;
-
-
 
 /*
 Scrape the individual service pages on FanceStreems. 
@@ -271,7 +294,16 @@ var scrapeService = function(service, done, err, resp, html)
           self.serviceCompleted(service, true);
         });
       }
-      // Silverlight embed ?
+      // Object embed ?
+      /*if(found_src === false){
+        var results = scrapeObject(parsedHTML, service, elem);
+        if(results.success === true){
+          self.emit('link', service.constructLink(results.data.type + " at service page - end of the road", results.data.uri));
+          self.serviceCompleted(service, true);
+          logger.info("AT SERVICE LEVEL DETECTED SILVERLIGHT : " + results.data.uri);
+          found_src = true;
+        }
+      }*/
       if(found_src === false){
         parsedHTML(elem).find('object').each(function(i, innerObj){
           if(parsedHTML(innerObj).attr('type') === "application/x-silverlight-2"){
@@ -283,24 +315,33 @@ var scrapeService = function(service, done, err, resp, html)
                 source_uri = source[0];
                 self.emit('link', service.constructLink("silverlight at service page", source_uri));
                 self.serviceCompleted(service, true);
+                logger.info("AT SERVICE LEVEL DETECTED SILVERLIGHT : " + source_uri);
               }
             }
           }
         });
-      }
+      }    
       // handle js
       if(found_src === false){
         var success = false;
         success = scrapeStreamIDAndRemoteJsURI(parsedHTML, service, elem);
-        if(success === false){
-          self.serviceCompleted(service, false);
-        }
-        else{
+        if(success === true){
+          found_src = true;
           logger.info("AT SERVICE LEVEL WE HAVE MANAGED TO DETECT A JS for - " + service.name + service.stream_params.remote_js + " " + service.stream_params.fid);
           service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
         }
-      }                      
+      } 
       
+      if(found_src === false){
+        var results = scrapeRemoteALinked(parsedHTML, service, elem);
+        if(results.success === true){
+          //logger.info("RIPPED OUT an a link from the service parsing : " + results.uri);
+          self.emit('link', service.constructLink("At service page ripped out <A link", results.uri));
+          self.serviceCompleted(service, true);
+          found_src = true;
+        }
+      }
+
       // last gasp attempt => look for an rtmp link in there
       if(found_src === false){ 
         parsedHTML(elem).find('script').each(function(i, innerScript){
@@ -400,9 +441,9 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
         self.serviceCompleted(service, false);
       }
       else{
-        self.emit('link', service.constructLink('relevant a link scraped', results.uri));
+        self.emit('link', service.constructLink('relevant a link scraped', results.link));
         // TODO need to investigate what happens here.
-        service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
+        service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
       }
     }
   }
