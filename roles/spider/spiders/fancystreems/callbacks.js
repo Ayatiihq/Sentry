@@ -18,41 +18,42 @@ var acquire = require('acquire')
   , main = require('./index')  
   ;
 
-var scrapeCategory = function(category, done, err, resp, html){
-  var self = this;
-  if(err || resp.statusCode !== 200){
-    done();
-    return;
-  }      
-  category_index = cheerio.load(html);
-  category_index('h2').each(function(i, elem){
-    if(category_index(elem).hasClass('video_title')){
-      
-      var name = category_index(this).children().first().text().toLowerCase().trim();
-
-      //if(name.match(/^star/g) !== null){
-      var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
-      var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
-
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
-      //}
-    }
-  });
-  done();
-  /*
-  var next = category_index('a#pagenext').attr('href');
-  if(next === null || next === undefined || next.isBlank()){
-    done();
+var auto_complete_uri = function(path){
+  if (path.startsWith("http")) {
+    return path;
   }
   else{
-    //logger.info('paginate the category at random intervals : ' + cat);
-    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }*/
-}  
+    return "http://www.fancystreems.com/" + path;
+  }
+}
 
-module.exports.scrapeCategory = scrapeCategory;
+var parse_meta_url = function(meta_markup){
+  var parts;
+  var inner_parts;
+
+  parts = meta_markup.toString().split('url=');
+
+  if (parts.length === 2){
+    inner_parts = parts[1].split(".php");
+    if(inner_parts.length == 2){
+      console.log('found inner_parts - ' + inner_parts[0] + '.php');
+      return inner_parts[0] + '.php'
+    }
+  }
+  logger.err("HMMM Failed to extract URL value from meta refreshed page => scraping failure")
+  return null;
+}
+
+// Don't need this anymore ....
+var detectMetaRefresh = function(html, service){
+  // firstly ensure its not a meta refresh
+  if(html.toString().has('<meta http-equiv="REFRESH"') === true){
+    var redirect_to = parse_meta_url(html);
+    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink.uri, redirect_to);
+    // request recursively
+    return;
+  }  
+}
 
 // Detect iframe
 var scrapeShallowIframe = function(cheerioSource, position){
@@ -146,6 +147,35 @@ var scrapeRemoteJS = function(source, service, position){
   return found;
 }
 
+// Sometimes streams are just a linked with target = _blank directed into the iframe
+var scrapeRemoteALinked = function(source, service, position){
+  var collection = null;
+  if(position === null || position === undefined){
+    collection = source('a');
+  }
+  else{
+    collection = source(position).find('a');  
+  }  
+  var results = {success: false, link: ''};
+
+  collection.each(function(a_index, a_element){
+    if(a_index === 0){
+      if(source(a_element).attr('target') !== undefined && source(a_element).attr('target') === "_blank"){
+        source(this).find('img').each(function(y, n){
+          if(source(this).attr('src').match(/play/g) !== null){
+            results.success = true;
+          }
+        });
+        if(results.success){
+          logger.info("FOUND A ALINKED MOFO : " + source(this).attr('href'));
+          results.link = source(this).attr('href');
+        }
+      }
+    }
+  }); 
+  return results;
+}
+
 var scrapeObject = function(source, service, position){
   var collection = null;
   if(position === null || position === undefined){
@@ -156,6 +186,47 @@ var scrapeObject = function(source, service, position){
   }    
 
 }
+
+/// Callbacks for various stages utilizing helper methods above.
+
+var scrapeCategory = function(category, done, err, resp, html){
+  var self = this;
+  if(err || resp.statusCode !== 200){
+    done();
+    return;
+  }      
+  category_index = cheerio.load(html);
+  category_index('h2').each(function(i, elem){
+    if(category_index(elem).hasClass('video_title')){
+      
+      var name = category_index(this).children().first().text().toLowerCase().trim();
+
+      //if(name.match(/^star/g) !== null){
+      var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
+      var categoryLink = category_index(elem).children().first().attr('href');
+      var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
+
+      self.results.push(service);
+      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
+      //}
+    }
+  });
+  done();
+  /*
+  var next = category_index('a#pagenext').attr('href');
+  if(next === null || next === undefined || next.isBlank()){
+    done();
+  }
+  else{
+    //logger.info('paginate the category at random intervals : ' + cat);
+    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
+  }*/
+}  
+
+module.exports.scrapeCategory = scrapeCategory;
+
+
+
 /*
 Scrape the individual service pages on FanceStreems. 
 Search for a div element with a class called 'inlineFix', check to make sure it has only one child
@@ -258,46 +329,7 @@ var scrapeService = function(service, done, err, resp, html)
 }
 module.exports.scrapeService = scrapeService;
 
-var auto_complete_uri = function(path){
-  if (path.startsWith("http")) {
-    return path;
-  }
-  else{
-    return "http://www.fancystreems.com/" + path;
-  }
-}
 
-var parse_meta_url = function(meta_markup){
-  var parts;
-  var inner_parts;
-
-  parts = meta_markup.toString().split('url=');
-
-  if (parts.length === 2){
-    inner_parts = parts[1].split(".php");
-    if(inner_parts.length == 2){
-      console.log('found inner_parts - ' + inner_parts[0] + '.php');
-      return inner_parts[0] + '.php'
-    }
-  }
-  logger.err("HMMM Failed to extract URL value from meta refreshed page => scraping failure")
-  return null;
-}
-
-// Don't need this anymore ....
-var detectMetaRefresh = function(html, service){
-  // firstly ensure its not a meta refresh
-  if(html.toString().has('<meta http-equiv="REFRESH"') === true){
-    var redirect_to = parse_meta_url(html);
-    logger.info("Detected meta refresh for %s @ %s! - go to : %s ", service.name, service.activeLink.uri, redirect_to);
-    // request recursively
-    return;
-  }  
-
-}
-
-
-// refactor into separate methods.
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
   if (err || res.statusCode !== 200){
@@ -359,10 +391,19 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   }
   else{
     var success = false;
+    // try for a remote js
     success = scrapeRemoteJS(embed, service);
     if(success === false){
-      logger.info("STILL failed to figure this out: \n" + html);
-      self.serviceCompleted(service, false);
+      //  try for a remote alink
+      var results = scrapeRemoteALinked(embed, service);
+      if(results.success === false){
+        self.serviceCompleted(service, false);
+      }
+      else{
+        self.emit('link', service.constructLink('relevant a link scraped', results.uri));
+        // TODO need to investigate what happens here.
+        service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
+      }
     }
   }
   done();
