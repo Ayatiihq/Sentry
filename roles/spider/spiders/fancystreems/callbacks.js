@@ -30,14 +30,14 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      if(name.match(/^zee/g) !== null){
-        var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
-        var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
+      //if(name.match(/^star/g) !== null){
+      var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
+      var categoryLink = category_index(elem).children().first().attr('href');
+      var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
-        self.results.push(service);
-        self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
-      }
+      self.results.push(service);
+      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
+      //}
     }
   });
   done();
@@ -84,12 +84,19 @@ var scrapeShallowIframe = function(cheerioSource, position){
   return target;
 }
 
-var scrapeStreamIDAndRemoteJsURI = function(stream_within, service){
+var scrapeStreamIDAndRemoteJsURI = function(stream_within, service, position){
   //The safest way (I think) to decipher the correct remote js to fetch not by name but where it appears in the DOM
   //Once we see the inline js, set the order to 0 => the next js should be the one that uses the inline vars set in the preceding one 
   var order = -1; 
   var success = false;
-  stream_within('script').each(function(i, js){
+  var collection = null;
+  if(position === null || position === undefined){
+    collection = stream_within('script');
+  }
+  else{
+    collection = stream_within(position).find('script');  
+  }
+  collection.each(function(i, js){
     if(stream_within(js).text().has('fid=')){
       order = 0;
       var js_inline = stream_within(js).text();
@@ -116,6 +123,39 @@ var scrapeStreamIDAndRemoteJsURI = function(stream_within, service){
   return success;
 }
 
+var scrapeRemoteJS = function(source, service, position){
+  var collection = null;
+  var found = false;
+  if(position === null || position === undefined){
+    collection = source('script');
+  }
+  else{
+    collection = source(position).find('script');  
+  }  
+
+  collection.each(function(i, js){
+    if(source(js).attr('src') !== undefined){
+      if(found === false){
+        service.stream_params.remote_js = source(js).attr('src');
+        logger.info('we want this : ' + source(js).attr('src') + ' for ' + service.name);
+        found = true;
+        service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
+      }
+    }
+  });
+  return found;
+}
+
+var scrapeObject = function(source, service, position){
+  var collection = null;
+  if(position === null || position === undefined){
+    collection = stream_within('object');
+  }
+  else{
+    collection = stream_within(position).find('object');  
+  }    
+
+}
 /*
 Scrape the individual service pages on FanceStreems. 
 Search for a div element with a class called 'inlineFix', check to make sure it has only one child
@@ -177,7 +217,19 @@ var scrapeService = function(service, done, err, resp, html)
           }
         });
       }
-
+      // handle js
+      if(found_src === false){
+        var success = false;
+        success = scrapeStreamIDAndRemoteJsURI(parsedHTML, service, elem);
+        if(success === false){
+          self.serviceCompleted(service, false);
+        }
+        else{
+          logger.info("AT SERVICE LEVEL WE HAVE MANAGED TO DETECT A JS for - " + service.name + service.stream_params.remote_js + " " + service.stream_params.fid);
+          service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
+        }
+      }                      
+      
       // last gasp attempt => look for an rtmp link in there
       if(found_src === false){ 
         parsedHTML(elem).find('script').each(function(i, innerScript){
@@ -306,8 +358,12 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
     service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
   }
   else{
-    logger.info("failed to figure this out: \n" + html);
-    self.serviceCompleted(service, false);
+    var success = false;
+    success = scrapeRemoteJS(embed, service);
+    if(success === false){
+      logger.info("STILL failed to figure this out: \n" + html);
+      self.serviceCompleted(service, false);
+    }
   }
   done();
 }
@@ -346,7 +402,12 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
   var parts = html.split('src=');
   if(parts.length === 2){
     var segments = parts[1].split("'");
-    service.final_stream_location = segments[0].replace(/"/g, '') + service.stream_params.fid;
+    if(service.stream_params.fid !== undefined){
+      service.final_stream_location = segments[0].replace(/"/g, '') + service.stream_params.fid;
+    }
+    else{
+     service.final_stream_location = segments[0].replace(/"/g, ''); 
+    }
     self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
     service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
   }

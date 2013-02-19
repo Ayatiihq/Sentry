@@ -32,6 +32,7 @@ var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY
                                                                       'DETECT_HORIZONTAL_LINKS',
                                                                       'IFRAME_PARSING',
                                                                       'STREAM_ID_AND_REMOTE_JS_PARSING',
+                                                                      'REMOTE_JS_PARSING',
                                                                       'FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST',
                                                                       'FINAL_STREAM_EXTRACTION',
                                                                       'EMBEDDED_LINK_PARSING',
@@ -57,9 +58,9 @@ FancyStreems.prototype.init = function() {
   self.embeddedIndex = 0
 
   //self.categories = ['news', 'sports', 'movies', 'entertainment'];
-  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}]; 
+  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING}];
+                     /*{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}]; */
 
   logger.info('FancyStreems Spider up and running');  
   
@@ -271,7 +272,7 @@ FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
 
   var n = self.results.indexOf(service);
   if(n < 0){
-    logger.err("We have a service which isn't in results (embedded links) - ", service.name);
+    logger.error("We have a service which isn't in results (embedded links) - ", service.name);
     return;
   }
   self.results.splice(n,1);
