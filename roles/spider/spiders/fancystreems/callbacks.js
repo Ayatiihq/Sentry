@@ -16,7 +16,8 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , main = require('./index')  
-  ;
+  , URI = require('URIjs')
+;
 
 var auto_complete_uri = function(path){
   if (path.startsWith("http")) {
@@ -78,6 +79,7 @@ var scrapeShallowIframe = function(cheerioSource, position){
         target = embeddedTarget;
       }
       else if(embeddedTarget !== undefined){
+        logger.info('shallow iframe found @' + embeddedTarget);
         target = "http://www.fancystreems.com/" +  embeddedTarget;
       }
     }
@@ -147,7 +149,9 @@ var scrapeRemoteJS = function(source, service, position){
   return found;
 }
 
-// Sometimes streams are just a linked with target = _blank directed into the iframe
+// Sometimes streams are just a linked with target = _blank directly in the page
+// Identified by being an the first alink in the container and having an child img
+// with 'play' in the source. 
 var scrapeRemoteALinked = function(source, service, position){
   var collection = null;
   if(position === null || position === undefined){
@@ -177,6 +181,28 @@ var scrapeRemoteALinked = function(source, service, position){
   return results;
 }
 
+var scrapeEmbed =  function(source, service, position){
+  
+  var collection = null;
+  if(position === null || position === undefined){
+    collection = source('embed');
+  }
+  else{
+    collection = source(position).find('embed');  
+  }    
+
+  result = {success: false, data:{uri: '', type: ''}};
+  collection.each(function(i, innerEmbed){
+    found_src = true;         
+    var srcAttr = parsedHTML(innerEmbed).attr('src');
+    //var flashVars = 
+    //if()   
+    self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
+    self.serviceCompleted(service, true);
+  });
+
+
+}
 var scrapeObject = function(source, service, position){
   
   var collection = null;
@@ -226,14 +252,14 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      //if(name.match(/^star/g) !== null){
-      var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
-      var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
+      if(name.match(/^zee/g) !== null){
+        var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
-      //}
+        self.results.push(service);
+        self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
+      }
     }
   });
   //done();
@@ -401,8 +427,8 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   if(embedded_results.length > 0){
     // we need to handle those with alinks differently => split them out.
     // push them into another array and flatten them out on the next iteration
-    self.serviceHasEmbeddedLinks(service);
     service.embeddedALinks = embedded_results
+    self.serviceHasEmbeddedLinks(service);
   }
   else{
     // no links at the top ?
@@ -483,13 +509,19 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
   }
   var parts = html.split('src=');
   if(parts.length === 2){
-    var segments = parts[1].split("'");
+    var urlParsed = null
+    URI.withinString(parts[1], function(url){
+      urlParsed = url;
+      logger.info(" How about %s", url);
+    });
     if(service.stream_params.fid !== undefined){
-      service.final_stream_location = segments[0].replace(/"/g, '') + service.stream_params.fid;
+      //logger.info("formatRemoteStreamURI with a params id : " + segments[0].replace(/"/g, ''));
+      service.final_stream_location = urlParsed.replace(/"|'/g, '') + service.stream_params.fid;
     }
     else{
-     service.final_stream_location = segments[0].replace(/"/g, ''); 
+      service.final_stream_location = urlParsed.replace(/"|'/g, ''); 
     }
+
     self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
     service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
   }

@@ -57,10 +57,9 @@ FancyStreems.prototype.init = function() {
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
 
-  //self.categories = ['news', 'sports', 'movies', 'entertainment'];
-  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING}];
-                     /*{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}]; */
+  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
 
   logger.info('FancyStreems Spider up and running');  
   
