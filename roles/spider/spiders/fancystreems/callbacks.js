@@ -106,7 +106,7 @@ var scrapeStreamIDAndRemoteJsURI = function(stream_within, service, position){
       stream_args.forEach(function(stream_arg){
         var parts = stream_arg.split('=');
         if(parts.length === 2){
-          logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
+          //logger.info('we want this : ' + parts[0] + ' : ' + parts[1] + ' for ' + service.name);
           service.stream_params[parts[0].trim()] = parts[1].replace(/'|"/g, '');
         }
       });
@@ -114,7 +114,7 @@ var scrapeStreamIDAndRemoteJsURI = function(stream_within, service, position){
     else if(stream_within(js).attr('src') !== undefined){
       if(order === 0){
         service.stream_params.remote_js = stream_within(js).attr('src');
-        logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
+        //logger.info('we want this : ' + stream_within(js).attr('src') + ' for ' + service.name);
         order = 1;
       }
     }
@@ -139,7 +139,7 @@ var scrapeRemoteJS = function(source, service, position){
     if(source(js).attr('src') !== undefined){
       if(found === false){
         service.stream_params.remote_js = source(js).attr('src');
-        logger.info('we want this : ' + source(js).attr('src') + ' for ' + service.name);
+        //logger.info('we want this : ' + source(js).attr('src') + ' for ' + service.name);
         found = true;
         service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
       }
@@ -223,7 +223,7 @@ var scrapeObject = function(source, service, position){
             result.success = true;
             result.data.uri = sourceParts[0];
             result.data.type = 'silverlight';
-            logger.info("FOUND SILVERLIGHT : " + sourceParts[0]);
+            //logger.info("FOUND SILVERLIGHT : " + sourceParts[0]);
 
             populated = true;
           }
@@ -249,12 +249,12 @@ var scrapeCategory = function(category, done, err, resp, html){
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
       //if(name.match(/^star/g) !== null){
-        var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
-        var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
+      var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
+      var categoryLink = category_index(elem).children().first().attr('href');
+      var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
-        self.results.push(service);
-        self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
+      self.results.push(service);
+      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
       //}
     }
   });
@@ -286,7 +286,7 @@ var scrapeService = function(service, done, err, resp, html)
 {
   var self = this;
   if(err){
-    logger.error("@service page level Couldn't fetch " + service.activeLink.uri);
+    logger.warn("@service page level Couldn't fetch " + service.activeLink.uri);
     self.serviceCompleted(service, false);
     done();
   }
@@ -337,7 +337,7 @@ var scrapeService = function(service, done, err, resp, html)
                 source_uri = source[0];
                 self.emit('link', service.constructLink("silverlight at service page", source_uri));
                 self.serviceCompleted(service, true);
-                logger.info("AT SERVICE LEVEL DETECTED SILVERLIGHT : " + source_uri);
+                //logger.info("AT SERVICE LEVEL DETECTED SILVERLIGHT : " + source_uri);
               }
             }
           }
@@ -349,7 +349,7 @@ var scrapeService = function(service, done, err, resp, html)
         success = scrapeStreamIDAndRemoteJsURI(parsedHTML, service, elem);
         if(success === true){
           found_src = true;
-          logger.info("AT SERVICE LEVEL WE HAVE MANAGED TO DETECT A JS for - " + service.name + service.stream_params.remote_js + " " + service.stream_params.fid);
+          //logger.info("AT SERVICE LEVEL WE HAVE MANAGED TO DETECT A JS for - " + service.name + service.stream_params.remote_js + " " + service.stream_params.fid);
           service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
         }
       } 
@@ -396,7 +396,7 @@ module.exports.scrapeService = scrapeService;
 var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
   var self = this;
   if (err || res.statusCode !== 200){
-    logger.error("Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
+    logger.warn("scrapeIndividualaLinksOnWindow : Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
     self.serviceCompleted(service, false);
     done();
     return;      
@@ -439,6 +439,7 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   var self = this;
 
   if (err || resp.statusCode !== 200){
+    logger.warn("@scrapeRemoteStreamingIframe :Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);    
     self.serviceCompleted(service, false);
     done();
     return;
@@ -454,19 +455,19 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   }
   else{
     var success = false;
-    // try for a remote js
-    success = scrapeRemoteJS(embed, service);
-    if(success === false){
-      //  try for a remote alink
-      var results = scrapeRemoteALinked(embed, service);
-      if(results.success === false){
-        self.serviceCompleted(service, false);
-      }
-      else{
-        self.emit('link', service.constructLink('relevant a link scraped', results.link));
-        // TODO need to investigate what happens here.
-        service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
-      }
+
+    // TODO try for a remote js
+    // success = scrapeRemoteJS(embed, service);
+
+    //  try for a remote alink
+    var results = scrapeRemoteALinked(embed, service);
+    if(results.success === false){
+      self.serviceCompleted(service, false);
+    }
+    else{
+      self.emit('link', service.constructLink('relevant a link scraped', results.uri));
+      // TODO need to investigate what happens here.
+      service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
     }
   }
   done();
