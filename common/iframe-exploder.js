@@ -17,15 +17,18 @@ var acquire = require('acquire')
   , cheerio = require('cheerio')
 ;
 
+// we should be using chrome or firefox here for sure, just to handle random javascript nonsense
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 
 // iframe object for containing which iframes we have looked at.
 // children should be an array of other iframe objects
-var IFrameObj = function (client, element, urlmap, depth, root) {
+var IFrameObj = module.exports = function (client, element, urlmap, depth, root, parent) {
   var self = this;
   events.EventEmitter.call(this);
+  this.debug = false;
   this.depth = (depth === undefined) ? 0 : depth;
   this.root = (root) ? root : this;
+  this.parent = (parent) ? parent : null;
   
   this.element = (element === undefined) ? null : element;
   this.client = client;
@@ -47,6 +50,18 @@ var IFrameObj = function (client, element, urlmap, depth, root) {
 
 util.inherits(IFrameObj, events.EventEmitter);
 
+IFrameObj.prototype.getParentURIs = function () {
+  var self = this;
+  var parent = self.parent;
+  var parentlist = [];
+  while (parent !== null) {
+    parentlist.push(parent.src);
+    parent = parent.parent;
+  };
+
+  return parentlist;
+};
+
 IFrameObj.prototype.getSource = function(callback) {
   var self = this;
   if (this.source !== null) { if (callback) { callback(self.$, self.source); } }
@@ -61,7 +76,7 @@ IFrameObj.prototype.getSource = function(callback) {
 
 IFrameObj.prototype.emitSource = function () {
   var self = this;
-  self.root.emit('found-source', self.src, self.$, self.source);
+  self.root.emit('found-source', self.src, self.getParentURIs(), self.$, self.source);
 };
 
 IFrameObj.prototype.buildFrameMap = function () {
@@ -69,7 +84,7 @@ IFrameObj.prototype.buildFrameMap = function () {
   var $ = self.$;
 
   $('iframe').each(function () {
-    var newObj = new IFrameObj(self.client, this, self.urlmap, self.depth + 1, self.root);
+    var newObj = new IFrameObj(self.client, this, self.urlmap, self.depth + 1, self.root, self);
     newObj.root = self.root;
     self.children.push(newObj);
   });
@@ -88,7 +103,7 @@ IFrameObj.prototype.selectNextFrame = function () {
   });
   if (frameindex >= 0) {
     var frame = this.children[frameindex];
-    console.log('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src);
+    if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(40, true, 'middle')); }
     this.client.switchTo().frame(frameindex);
     frame.search();
   }
@@ -118,7 +133,7 @@ IFrameObj.prototype.getState = function () {
 
 IFrameObj.prototype.selectDefault = function () {
   var self = this;
-  console.log('<' + '-'.repeat(self.depth + 1) + ' select root frame');
+  if (self.root.debug) { logger.info('<' + '-'.repeat(self.depth + 1) + ' select root frame'); }
   self.client.switchTo().defaultContent(); // goes back to the "default" frame
   self.root.search();
 };
@@ -165,16 +180,25 @@ var iframeTester = function () {
   this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
   this.foundobjs = [];
 
-  this.client.get(this.weburl).then(function () {;
+  this.client.get(this.weburl).then(function () {
     self.iframe = new IFrameObj(self.client);
+    self.iframe.debug = true;
     self.iframe.on('finished', function iframeFinished() {
       console.log('iframe selector finished');
       console.log('found ' + self.foundobjs.length + ' items of interest');
     });
-    self.iframe.on('found-source', function foundSource(uri, $) {
-      $('object').each(function onObj() { self.foundobjs.push(this); });
-      $('embed').each(function onEmd() { self.foundobjs.push(this); });
+
+    self.iframe.on('found-source', function foundSource(uri, parenturls, $) {
+      $('object').each(function onObj() { this.parenturls = parenturls; self.foundobjs.push(this); });
+      $('embed').each(function onEmd() { this.parenturls = parenturls; self.foundobjs.push(this); });
+      $('param').each(function onFlashVars() {
+        if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
+          this.parenturls = parenturls;
+          self.foundobjs.push(this);
+        }
+      });
     });
+
     self.iframe.search();
   });
 
