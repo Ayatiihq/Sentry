@@ -250,7 +250,14 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, succes
 
 FancyStreems.prototype.serviceCompleted = function(service, successfull){
   var self = this;
-  service.retire();
+  service.retire();  
+  if(successfull === true){
+    self.complete.push(service);
+  } 
+  else{
+    self.incomplete.push(service);      
+    logger.warn("\n\n\nThis service did not complete - " + JSON.stringify(service));
+  }
 
   var n = self.results.indexOf(service);
   if(n < 0){
@@ -259,14 +266,7 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
   }
 
   self.results.splice(n,1);
-  
-  if(successfull === true){
-    self.complete.push(service);
-  } 
-  else{
-    self.incomplete.push(service);      
-    logger.warn("\n\n\nThis service did not complete - " + JSON.stringify(service));
-  }
+
 }
 
 FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){

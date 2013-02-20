@@ -79,7 +79,6 @@ var scrapeShallowIframe = function(cheerioSource, position){
         target = embeddedTarget;
       }
       else if(embeddedTarget !== undefined){
-        logger.info('shallow iframe found @' + embeddedTarget);
         target = "http://www.fancystreems.com/" +  embeddedTarget;
       }
     }
@@ -507,9 +506,12 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
   var parts = html.split('src=');
   if(parts.length === 2){
     var urlParsed = null;
+    var first = false;
     URI.withinString(parts[1], function(url){
-      urlParsed = url.replace(/"|'|\+/g, '');
-      logger.info("How about %s", url);
+      if(first === false){
+        urlParsed = url.replace(/"|'|\+/g, '');
+        //logger.info("How about %s", url);
+      }
     });
     // only append the id if we have one and the url looks like it wants one
     // edge cases where 'fid' is being set but the stream url doesn't need => don't append
