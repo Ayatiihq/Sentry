@@ -1,10 +1,9 @@
 ﻿"use strict";
 /*
- * newtvworld.js: a newtvworld spider
+ * iframe-exploder.js - explodes iframes into lots of html source events
  *
  * (C) 2012 Ayatii Limited
  *
- * Spider.
  *
  */
 require('sugar');
@@ -16,9 +15,6 @@ var acquire = require('acquire')
   , URI = require('URIjs')
   , cheerio = require('cheerio')
 ;
-
-// we should be using chrome or firefox here for sure, just to handle random javascript nonsense
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 
 // iframe object for containing which iframes we have looked at.
 // children should be an array of other iframe objects
@@ -170,50 +166,3 @@ IFrameObj.prototype.search = function () {
     selectFrameLogic();
   }
 };
-
-var iframeTester = function () {
-  var self = this;
-  //this.weburl = "http://gordallott.com/test/test.html";
-  this.weburl = "http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html"
-  this.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities(CAPABILITIES).build();
-  this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-  this.foundobjs = [];
-
-  this.client.get(this.weburl).then(function () {
-    self.iframe = new IFrameObj(self.client);
-    self.iframe.debug = true;
-    self.iframe.on('finished', function iframeFinished() {
-      console.log('iframe selector finished');
-      console.log('found ' + self.foundobjs.length + ' items of interest');
-
-      self.foundobjs.each(function (val) {
-        console.log('possible infringement at ' + val.uri);
-        console.log(val.toString());
-        var depth = 1;
-        console.log('parents: ')
-        val.parenturls.each(function (parenturl) {
-          console.log('-'.repeat(depth) + '> ' + parenturl);
-          depth++;
-        });
-      });
-    });
-
-    self.iframe.on('found-source', function foundSource(uri, parenturls, $) {
-      $('object').each(function onObj() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
-      $('embed').each(function onEmd() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
-      $('param').each(function onFlashVars() {
-        if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
-          this.parenturls = parenturls;
-          this.uri = uri; 
-          self.foundobjs.push(this);
-        }
-      });
-    });
-
-    self.iframe.search();
-  });
-
-};
-
-var tester = new iframeTester();
