@@ -48,6 +48,7 @@ Service.prototype.init = function(name, genre, topLink, initialState) {
 
   self.currentState = initialState;
   self.lastStageReached = initialState;
+  self.referralLink = '';
 
   //logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
 }

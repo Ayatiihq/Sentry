@@ -23,6 +23,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , callbacks = require('./callbacks')
+  , URI = require('URIjs')
   ;
 
 require('enum').register();
@@ -174,6 +175,8 @@ FancyStreems.prototype.constructRequestURI = function(item){
     uri = {uri: item.stream_params.remote_js, timeout: 5000};
     break;
   case FancyStreemsStates.FINAL_STREAM_EXTRACTION:
+    var t = new URI(item.stream_params.remote_js);
+    //logger.info("for referral use : " + t.domain());
     uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
     break;
   }

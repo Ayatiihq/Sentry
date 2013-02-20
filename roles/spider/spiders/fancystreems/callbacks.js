@@ -60,7 +60,7 @@ var detectMetaRefresh = function(html, service){
 var scrapeShallowIframe = function(cheerioSource, position){
   var target = null;
   var collection; 
-  if(position === null || position === undefined){
+  if(position === undefined){
     collection = cheerioSource('iframe');
   }
   else{
@@ -93,7 +93,7 @@ var scrapeStreamIDAndRemoteJsURI = function(stream_within, service, position){
   var order = -1; 
   var success = false;
   var collection = null;
-  if(position === null || position === undefined){
+  if(position === undefined){
     collection = stream_within('script');
   }
   else{
@@ -129,7 +129,7 @@ var scrapeStreamIDAndRemoteJsURI = function(stream_within, service, position){
 var scrapeRemoteJS = function(source, service, position){
   var collection = null;
   var found = false;
-  if(position === null || position === undefined){
+  if(position === undefined){
     collection = source('script');
   }
   else{
@@ -154,7 +154,7 @@ var scrapeRemoteJS = function(source, service, position){
 // with 'play' in the source. 
 var scrapeRemoteALinked = function(source, service, position){
   var collection = null;
-  if(position === null || position === undefined){
+  if(position === undefined){
     collection = source('a');
   }
   else{
@@ -184,7 +184,7 @@ var scrapeRemoteALinked = function(source, service, position){
 var scrapeEmbed =  function(source, service, position){
   
   var collection = null;
-  if(position === null || position === undefined){
+  if(position === undefined){
     collection = source('embed');
   }
   else{
@@ -197,10 +197,7 @@ var scrapeEmbed =  function(source, service, position){
     var srcAttr = parsedHTML(innerEmbed).attr('src');
     //var flashVars = 
     //if()   
-    self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
-    self.serviceCompleted(service, true);
   });
-
 
 }
 var scrapeObject = function(source, service, position){
@@ -252,14 +249,14 @@ var scrapeCategory = function(category, done, err, resp, html){
       
       var name = category_index(this).children().first().text().toLowerCase().trim();
 
-      if(name.match(/^zee/g) !== null){
+      //if(name.match(/^star/g) !== null){
         var topLink = self.root + 'tvcat/' + category.cat + 'tv.php';
         var categoryLink = category_index(elem).children().first().attr('href');
         var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
         self.results.push(service);
         self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
-      }
+      //}
     }
   });
   //done();
@@ -270,7 +267,7 @@ var scrapeCategory = function(category, done, err, resp, html){
   }
   else{
     //logger.info('paginate the category at random intervals : ' + cat);
-    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
+    setTimeout(request, 1000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
   }
 }  
 
@@ -305,7 +302,7 @@ var scrapeService = function(service, done, err, resp, html)
       // Try for the embedded iframe (most common scenario)
       if (found_src === false){
         var res = null;
-        res = scrapeShallowIframe(parsedHTML, elem);
+        res = scrapeShallowIframe.apply(self, [parsedHTML, elem]);
         if (res !== null && res !== undefined){
           found_src = true;
           self.emit('link', service.constructLink("iframe scraped from service page", res));
@@ -450,7 +447,7 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
 
   var embed = cheerio.load(html);
   var src = null;
-  src = scrapeShallowIframe(embed);
+  src = scrapeShallowIframe.apply(self,[embed]);
 
   if(src !== null && src !== undefined){
     self.emit('link', service.constructLink('relevant iframe scraped', src));
@@ -509,19 +506,20 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
   }
   var parts = html.split('src=');
   if(parts.length === 2){
-    var urlParsed = null
+    var urlParsed = null;
     URI.withinString(parts[1], function(url){
-      urlParsed = url;
-      logger.info(" How about %s", url);
+      urlParsed = url.replace(/"|'|\+/g, '');
+      logger.info("How about %s", url);
     });
-    if(service.stream_params.fid !== undefined){
-      //logger.info("formatRemoteStreamURI with a params id : " + segments[0].replace(/"/g, ''));
-      service.final_stream_location = urlParsed.replace(/"|'/g, '') + service.stream_params.fid;
+    // only append the id if we have one and the url looks like it wants one
+    // edge cases where 'fid' is being set but the stream url doesn't need => don't append
+    if(service.stream_params.fid !== undefined && urlParsed.endsWith('=') === true){
+      service.final_stream_location = urlParsed + service.stream_params.fid;
     }
     else{
-      service.final_stream_location = urlParsed.replace(/"|'/g, ''); 
+      service.final_stream_location = urlParsed; 
     }
-
+    service.referralLink = service.activeLink; 
     self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
     service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
   }
@@ -544,14 +542,26 @@ var scrapeFinalStreamLocation = function(service, done, err, resp, html){
   }
   var endOfTheRoad = cheerio.load(html);
   var found = false;
-
+  
+  // todo this could be more robust
   endOfTheRoad('script').each(function(i, theOne){
     if(endOfTheRoad(theOne).text().trim().has('rtmp://') === true){
-      var rtmpAddress = endOfTheRoad(theOne).text().split('streamer')[1].split(')')[0].replace(/,|'|\s/g, '');
-      var fileName = endOfTheRoad(theOne).text().split("'file',")[1].split(')')[0].replace(/,|'|\s/g, '');
-      var theEnd = rtmpAddress + '?file=' + fileName;
-      self.emit('link', service.constructLink('The End of the road', theEnd));
-      found = true;
+      var rtmpAddress = null;
+      var fileName = null;
+      var rtmpParts = endOfTheRoad(theOne).text().split('streamer');
+      if(rtmpParts.length > 1 ){
+        rtmpAddress = rtmpParts[1].split(')')[0].replace(/,|'|\s/g, '');
+      }
+      var fileParts = endOfTheRoad(theOne).text().split("'file',");
+      if(fileParts.length > 1){
+        fileName = fileParts[1].split(')')[0].replace(/,|'|\s/g, '');
+      }
+      
+      if(rtmpAddress !== null && fileName !== null){
+        var theEnd = rtmpAddress + '?file=' + fileName;
+        self.emit('link', service.constructLink('The End of the road', theEnd));
+        found = true;
+      }
     }
   });
   // keep track of success and failures.
