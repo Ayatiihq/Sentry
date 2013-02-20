@@ -61,25 +61,8 @@ IFrameObj.prototype.getSource = function(callback) {
 
 IFrameObj.prototype.emitSource = function () {
   var self = this;
-  console.log('emit source');
   self.root.emit('found-source', self.src, self.$, self.source);
-
 };
-
-//IFrameObj.prototype.findSelector = function (selector) {
-//  var self = this;
-//  var foundElement = false;
-//  return self.client.findElements(selector).then(function IFrameObjFindSelectorFindElements(elements) {
-//    if (elements.length > 0) { foundElement = true; }
-//    self.state = 'seen';
-
-//    if (foundElement) { // found elements here, need to emit found-element with source 
-//      self.client.getPageSource().then(function gotPageSource(source) {
-//        self.emit('found-element', source);
-//      });
-//    };
-//  });
-//}
 
 IFrameObj.prototype.buildFrameMap = function () {
   var self = this;
@@ -96,7 +79,6 @@ IFrameObj.prototype.buildFrameMap = function () {
 
 IFrameObj.prototype.selectNextFrame = function () {
   // selects the next frame that hasn't been seen before
-  console.log(this.src + ': selecting new frame');
   var self = this;
   var frameindex = this.children.findIndex(function findNextFrame(frame) {
     if (frame.getState() === 'unseen') {
@@ -176,18 +158,22 @@ IFrameObj.prototype.search = function () {
 
 var iframeTester = function () {
   var self = this;
-  this.weburl = "http://gordallott.com/test/test.html";
+  //this.weburl = "http://gordallott.com/test/test.html";
+  this.weburl = "http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html"
   this.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+  this.foundobjs = [];
+
   this.client.get(this.weburl).then(function () {;
     self.iframe = new IFrameObj(self.client);
     self.iframe.on('finished', function iframeFinished() {
       console.log('iframe selector finished');
+      console.log('found ' + self.foundobjs.length + ' items of interest');
     });
     self.iframe.on('found-source', function foundSource(uri, $) {
-      console.log('found source: ' + uri);
-      $('p').each(function onP() { console.log("<p>" + $(this).text() + "</p>"); });
+      $('object').each(function onObj() { self.foundobjs.push(this); });
+      $('embed').each(function onEmd() { self.foundobjs.push(this); });
     });
     self.iframe.search();
   });
