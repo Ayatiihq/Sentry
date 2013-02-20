@@ -4,6 +4,7 @@
   "clients": "common/clients.js",
   "config": "common/config.js",
   "infringements": "common/infringements.js",
+  "iframe-exploder": "common/iframe-exploder.js",
   "database": "common/database.js",
   "jobs": "common/jobs.js",
   "links": "common/links.js",
