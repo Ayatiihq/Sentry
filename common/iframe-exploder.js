@@ -186,14 +186,26 @@ var iframeTester = function () {
     self.iframe.on('finished', function iframeFinished() {
       console.log('iframe selector finished');
       console.log('found ' + self.foundobjs.length + ' items of interest');
+
+      self.foundobjs.each(function (val) {
+        console.log('possible infringement at ' + val.uri);
+        console.log(val.toString());
+        var depth = 1;
+        console.log('parents: ')
+        val.parenturls.each(function (parenturl) {
+          console.log('-'.repeat(depth) + '> ' + parenturl);
+          depth++;
+        });
+      });
     });
 
     self.iframe.on('found-source', function foundSource(uri, parenturls, $) {
-      $('object').each(function onObj() { this.parenturls = parenturls; self.foundobjs.push(this); });
-      $('embed').each(function onEmd() { this.parenturls = parenturls; self.foundobjs.push(this); });
+      $('object').each(function onObj() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
+      $('embed').each(function onEmd() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
       $('param').each(function onFlashVars() {
         if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
           this.parenturls = parenturls;
+          this.uri = uri; 
           self.foundobjs.push(this);
         }
       });
