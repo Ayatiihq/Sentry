@@ -82,16 +82,24 @@ Service.prototype.retire = function(){
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
   var self = this;
+  
+  var result = {success: false, link: null};
 
-  var linkToEmit = {channel: self.name,
-                    genre: self.genre,
-                    type: self.type,
-                    source: self.source,
-                    uri: childLink,
-                    parent: self.activeLink.uri,
-                    metadata: {linkSource: childLinkSource}};
+  if(childLink === undefined || childLink === null){
+    return result;
+  }
+  
+  result.success = true;
+
+  result.link = {channel: self.name,
+                 genre: self.genre,
+                 type: self.type,
+                 source: self.source,
+                 uri: childLink,
+                 parent: self.activeLink.uri,
+                 metadata: {linkSource: childLinkSource}};
 
   self.links.push({desc : childLinkSource, uri : childLink});
   self.moveToNextLink();
-  return linkToEmit;
+  return result;
 }

@@ -20,7 +20,7 @@ var acquire = require('acquire')
 ;
 
 var auto_complete_uri = function(path){
-  URI(path).absoluteTo('http://fancystreems.com').toString();  
+  return URI(path).absoluteTo('http://fancystreems.com').toString();  
 }
 
 var parse_meta_url = function(meta_markup){
@@ -147,6 +147,7 @@ var scrapeRemoteJS = function(source, service, position){
 // Identified by being an the first alink in the container and having an child img
 // with 'play' in the source. 
 var scrapeRemoteALinked = function(source, service, position){
+  var self = this;
   var collection = null;
   if(position === undefined){
     collection = source('a');
@@ -154,19 +155,20 @@ var scrapeRemoteALinked = function(source, service, position){
   else{
     collection = source(position).find('a');  
   }  
+
   var results = {success: false, uri: ''};
 
   collection.each(function(a_index, a_element){
     if(a_index === 0){
       if(source(a_element).attr('target') !== undefined && source(a_element).attr('target') === "_blank"){
-        if(source(this).children().length === 1){
-          source(this).find('img').each(function(y, n){
-            if(source(this).attr('src').match(/play/g) !== null){
+        if(source(a_element).children().length === 1){
+          source(a_element).find('img').each(function(y, n){
+            if(source(n).attr('src').match(/play/g) !== null){
               results.success = true;
             }
           });
           if(results.success === true){
-            results.uri = source(this).attr('href');
+            results.uri = source(a_element).attr('href');
           }
         }
       }
@@ -228,7 +230,8 @@ var scrapeCategory = function(category, done, err, resp, html){
       var service = new Service(name, category.cat, topLink, main.FancyStreemsStates.SERVICE_PARSING);
 
       self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink));
+
+      self.emit('link', service.constructLink("linked from " + category.cat + " page", categoryLink).link);
       //}
     }
   });
@@ -277,16 +280,21 @@ var scrapeService = function(service, done, err, resp, html)
         res = scrapeShallowIframe.apply(self, [parsedHTML, elem]);
         if (res !== null && res !== undefined){
           found_src = true;
-          self.emit('link', service.constructLink("iframe scraped from service page", res));
           service.currentState = main.FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
+          self.emitLink(service,"iframe scraped from service page", res);
         }
       }      
       // Embed ??
       if(found_src === false){
         parsedHTML(elem).find('embed').each(function(i, innerEmbed){
-          found_src = true;            
-          self.emit('link', service.constructLink("direct embed at service page", parsedHTML(innerEmbed).attr('src')));
-          self.serviceCompleted(service, true);
+          // annoying but yeah its a loop with a pretty naive searching mechanism - likely to throw up 
+          // all sorts of shit -> go with the first.
+          if(found_src === false){
+            found_src = true;  
+            if(self.emitLink(service, "direct embed at service page", parsedHTML(innerEmbed).attr('src')) === true){
+              self.serviceCompleted(service, true);
+            }          
+          }
         });
       }
       // Object embed ?
@@ -308,9 +316,9 @@ var scrapeService = function(service, done, err, resp, html)
               if(source.length === 2){
                 found_src = true;
                 source_uri = source[0];
-                self.emit('link', service.constructLink("silverlight at service page", source_uri));
-                self.serviceCompleted(service, true);
-                //logger.info("AT SERVICE LEVEL DETECTED SILVERLIGHT : " + source_uri);
+                if(self.emitLink(service, "silverlight at service page", source_uri) === true){
+                  self.serviceCompleted(service, true);
+                }                          
               }
             }
           }
@@ -322,17 +330,17 @@ var scrapeService = function(service, done, err, resp, html)
         success = scrapeStreamIDAndRemoteJsURI(parsedHTML, service, elem);
         if(success === true){
           found_src = true;
-          //logger.info("AT SERVICE LEVEL WE HAVE MANAGED TO DETECT A JS for - " + service.name + service.stream_params.remote_js + " " + service.stream_params.fid);
           service.currentState = main.FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST;    
         }
       } 
       
       if(found_src === false){
-        var results = scrapeRemoteALinked(parsedHTML, service, elem);
+        var results = scrapeRemoteALinked.apply(self, [parsedHTML, service, elem]);
         if(results.success === true){
           //logger.info("RIPPED OUT an a link from the service parsing : " + results.uri);
-          self.emit('link', service.constructLink("At service page ripped out <A link", results.uri));
-          self.serviceCompleted(service, true);
+          if(self.emitLink(service, "At service page ripped out <A link", results.uri) === true){
+            self.serviceCompleted(service, true);
+          }                          
           found_src = true;
         }
       }
@@ -346,8 +354,11 @@ var scrapeService = function(service, done, err, resp, html)
               var innards = makeAStab[1].split("'");
               if (innards.length > 1){
                 found_src = true;
-                self.emit('link', service.constructLink("embedded rtmp linked at service page", 'rtmp://' + innards[0]));                
-                self.serviceCompleted(service, true);
+                if(self.emitLink(service,
+                                 "embedded rtmp linked at service page",
+                                 'rtmp://' + innards[0]) === true){
+                  self.serviceCompleted(service, true);
+                }
               }
             }
           }
@@ -387,7 +398,7 @@ var scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
     });
     if(relevant_a_link === true){
       var completed_uri = auto_complete_uri(iframe_parsed(this).attr('href'));
-      self.emit('link', service.constructLink("alink around png button on the screen", completed_uri));
+      self.emitLink(service, "alink around png button on the screen", completed_uri);
       embedded_results.push(completed_uri);
     }
   }); 
@@ -423,8 +434,9 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
   src = scrapeShallowIframe.apply(self,[embed]);
 
   if(src !== null && src !== undefined){
-    self.emit('link', service.constructLink('relevant iframe scraped', src));
-    service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
+    if(self.emitLink(service, "relevant iframe scraped", src) === true){
+      service.currentState = main.FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING;
+    }
   }
   else{
     var success = false;
@@ -438,9 +450,10 @@ var scrapeRemoteStreamingIframe = function(service, done, err, resp, html){
       self.serviceCompleted(service, false);
     }
     else{
-      self.emit('link', service.constructLink('relevant a link scraped', results.uri));
-      // TODO need to investigate what happens here.
-      service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
+      if(self.emitLink(service, "relevant a link scraped", results.uri) === true){      
+        // TODO need to investigate what happens here.
+        service.currentState = main.FancyStreemsStates.IFRAME_PARSING;
+      }
     }
   }
   done();
@@ -496,8 +509,10 @@ var formatRemoteStreamURI = function(service, done, err, resp, html){
       service.final_stream_location = urlParsed; 
     }
     service.referralLink = service.activeLink; 
-    self.emit('link', service.constructLink('final location where the stream can be found', service.final_stream_location));
-    service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
+
+    if(self.emitLink(service, 'final location where the stream can be found', service.final_stream_location) === true){      
+      service.currentState = main.FancyStreemsStates.FINAL_STREAM_EXTRACTION;    
+    }
   }
   else{
     logger.warn("Not able to parse remote remote js to figure out path");
@@ -535,8 +550,7 @@ var scrapeFinalStreamLocation = function(service, done, err, resp, html){
       
       if(rtmpAddress !== null && fileName !== null){
         var theEnd = rtmpAddress + '?file=' + fileName;
-        self.emit('link', service.constructLink('The End of the road', theEnd));
-        found = true;
+        found = self.emitLink(service, 'The End of the road', theEnd);        
       }
     }
   });

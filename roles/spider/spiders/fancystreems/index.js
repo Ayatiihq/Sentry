@@ -280,3 +280,17 @@ FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
   self.results.splice(n,1);
   self.horizontallyLinked.push(service);  
 }
+
+FancyStreems.prototype.emitLink = function(service, desc, link){
+  var self = this;
+
+  var payload = service.constructLink(desc, link);
+  if(payload.success === true){
+    self.emit('link', payload.link);
+  }
+  else{
+    logger.error("Trying to emit a link but the link is empty %s for %s @ %s", desc, service.name, service.currentState);
+    self.serviceCompleted(service, false);
+  }
+  return payload.success;
+}
