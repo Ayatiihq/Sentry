@@ -20,12 +20,7 @@ var acquire = require('acquire')
 ;
 
 var auto_complete_uri = function(path){
-  if (path.startsWith("http")) {
-    return path;
-  }
-  else{
-    return "http://www.fancystreems.com/" + path;
-  }
+  URI(path).absoluteTo('http://fancystreems.com').toString();  
 }
 
 var parse_meta_url = function(meta_markup){
@@ -180,25 +175,6 @@ var scrapeRemoteALinked = function(source, service, position){
   return results;
 }
 
-var scrapeEmbed =  function(source, service, position){
-  
-  var collection = null;
-  if(position === undefined){
-    collection = source('embed');
-  }
-  else{
-    collection = source(position).find('embed');  
-  }    
-
-  result = {success: false, data:{uri: '', type: ''}};
-  collection.each(function(i, innerEmbed){
-    found_src = true;         
-    var srcAttr = parsedHTML(innerEmbed).attr('src');
-    //var flashVars = 
-    //if()   
-  });
-
-}
 var scrapeObject = function(source, service, position){
   
   var collection = null;
@@ -223,8 +199,6 @@ var scrapeObject = function(source, service, position){
             result.success = true;
             result.data.uri = sourceParts[0];
             result.data.type = 'silverlight';
-            //logger.info("FOUND SILVERLIGHT : " + sourceParts[0]);
-
             populated = true;
           }
         }
@@ -265,8 +239,7 @@ var scrapeCategory = function(category, done, err, resp, html){
     done();
   }
   else{
-    //logger.info('paginate the category at random intervals : ' + cat);
-    setTimeout(request, 1000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
+    request.delay(1000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));
   }
 }  
 
