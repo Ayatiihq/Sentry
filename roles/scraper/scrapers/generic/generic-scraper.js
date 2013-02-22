@@ -21,13 +21,12 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp')
 ;
 
-// matches with named groups, will match url encoded urls also
-var urlmatch = XRegExp('(?<protocol>(?:[a-z0-9]+)(?:://|%3A%2F%2F))?(?<subdomain>[a-z0-9-]+\.)*(?<domain>[a-z0-9-]+\.(?:[a-z]+))(?<port>:[0-9]+)?(?<path>(?:(?:/|%2F)[-a-z0-9+&@#/%=~_\(\)|]*(?:\.[-a-z0-9+&@#/%=~_\(\)|]+)?(?<paramaters>(?:\?|%3F)[-a-z0-9+&@#/%=~_\(\)|]*)?)*)?');
+
 var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
-var rtmpregex = new RegExp('rtmp(://|%3A%2F%2F)', 'g') 
-                
+// matches with named groups, will match url encoded urls also
+var urlmatch = XRegExp('(?<protocol>(?:[a-z0-9]+)(?:://|%3A%2F%2F))?(?:(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)|(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)|]*(?<extension>\\.[-a-z0-9]+)?)*(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?');
 
 var Generic = module.exports = function () {
   this.init();
