@@ -106,6 +106,10 @@ Generic.prototype.setupIFrameHandler = function () {
       }
     });
 
+    XRegExp.forEach(source, urlmatch, function (match, i) {
+      self.foundobjs.push(match);
+    });
+
   });
 
   // call to start the whole process
@@ -121,3 +125,4 @@ Generic.prototype.isAlive = function (cb) {
   var self = this;
   cb();
 };
+
