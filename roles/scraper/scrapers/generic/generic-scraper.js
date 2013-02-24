@@ -18,7 +18,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , cheerio = require('cheerio')
   , IFrameExploder = acquire('iframe-exploder')
-  , XRegExp = require('xregexp')
+  , XRegExp = require('xregexp').XRegExp;
 ;
 
 
@@ -26,6 +26,7 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 // matches with named groups, will match url encoded urls also
+
 var urlmatch = XRegExp(
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
   '(?:://|%3A%2F%2F))?                                                                     (?#:// no capture  )' +
@@ -63,7 +64,8 @@ Generic.prototype.start = function (campaign, job) {
   this.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-  this.client.get(campaign).then(this.setupIFrameHandler);
+  this.client.get(campaign).then(this.setupIFrameHandler.bind(this));
+  self.foundobjs = [];
 };
 
 Generic.prototype.setupIFrameHandler = function () {
@@ -78,12 +80,6 @@ Generic.prototype.setupIFrameHandler = function () {
     self.foundobjs.each(function (val) {
       console.log('possible infringement at ' + val.uri);
       console.log(val.toString());
-      var depth = 1;
-      console.log('parents: ')
-      val.parenturls.each(function (parenturl) {
-        console.log('-'.repeat(depth) + '> ' + parenturl);
-        depth++;
-      });
     });
   });
 
@@ -108,7 +104,7 @@ Generic.prototype.setupIFrameHandler = function () {
 
     XRegExp.forEach(source, urlmatch, function (match, i) {
       self.foundobjs.push(match);
-    });
+    }, self);
 
   });
 
@@ -126,3 +122,6 @@ Generic.prototype.isAlive = function (cb) {
   cb();
 };
 
+// no infrastructure support right now, so just make object for testing
+var test = new Generic();
+test.start('http://google.com/', '');
