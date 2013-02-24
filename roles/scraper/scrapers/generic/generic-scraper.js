@@ -29,7 +29,7 @@ var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 
 var urlmatch = XRegExp(
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
-  '(?:://|%3A%2F%2F))?                                                                     (?#:// no capture  )' +
+  '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +
   '(?:                                                                                     (?#captures domain )' +
   '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
   '|' +
