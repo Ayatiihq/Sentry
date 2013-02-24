@@ -26,7 +26,16 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 // matches with named groups, will match url encoded urls also
-var urlmatch = XRegExp('(?<protocol>(?:[a-z0-9]+)(?:://|%3A%2F%2F))?(?:(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)|(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)|]*(?<extension>\\.[-a-z0-9]+)?)*(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?');
+var urlmatch = XRegExp(
+  '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
+  '(?:://|%3A%2F%2F))?                                                                     (?#:// no capture  )' +
+  '(?:                                                                                     (?#captures domain )' +
+  '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
+  '|' +
+  '(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))                               (?#or ip           )' +
+  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)|]*(?<extension>\\.[-a-z0-9]+)?)*               (?#full path       )' +
+  '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )',
+  'gix'); // global, ignore case, free spacing 
 
 var Generic = module.exports = function () {
   this.init();
@@ -96,6 +105,7 @@ Generic.prototype.setupIFrameHandler = function () {
         self.foundobjs.push(this);
       }
     });
+
   });
 
   // call to start the whole process
