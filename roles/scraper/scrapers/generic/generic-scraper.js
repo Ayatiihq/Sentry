@@ -68,6 +68,21 @@ Generic.prototype.start = function (campaign, job) {
   self.foundobjs = [];
 };
 
+Generic.prototype.checkMatch = function(match) {
+  // checks a given xregexp match for potential streams
+  var protocols = ['rtmp', 'rtsp', 'rttp'];
+  var extensions = ['.flv', '.mp4', '.m4v', '.mkv', '.mpeg', '.mov', '.asf', '.avi', '.rm', '.wmv'];
+  var check = false;
+  check |= protocols.any(match.protocol.toLowerCase());
+  if (!!match.extension) {
+    check |= extensions.any(match.extension.toLowerCase());
+  }
+
+  // we probably also want to check domain and ip against known streaming domains/ip's but that is difficult to do here
+  // right now
+  return check;
+}
+
 Generic.prototype.setupIFrameHandler = function () {
   var self = this;
   self.iframe = new IFrameExploder(self.client);
@@ -103,7 +118,10 @@ Generic.prototype.setupIFrameHandler = function () {
     });
 
     XRegExp.forEach(source, urlmatch, function (match, i) {
-      self.foundobjs.push(match);
+      // we can extract lots of information from our regexp
+      if (self.checkMatch(match)) {
+        self.foundobjs.push(match);
+      }
     }, self);
 
   });
@@ -124,4 +142,5 @@ Generic.prototype.isAlive = function (cb) {
 
 // no infrastructure support right now, so just make object for testing
 var test = new Generic();
-test.start('http://google.com/', '');
+//test.start('http://google.com/', '');
+test.start('http://www.newtvworld.com/India-Live-Tv-Channels/bbc-world-news-live-streaming.html', '');
