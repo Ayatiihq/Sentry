@@ -61,17 +61,20 @@ Generic.prototype.start = function (campaign, job) {
   logger.info('started for %s', campaign);
   self.emit('started');
 
-  this.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
-  this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-  this.client.get(campaign).then(this.setupIFrameHandler.bind(this));
+  self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+  self.client.get(campaign).then(self.setupIFrameHandler.bind(this));
   self.foundobjs = [];
 };
 
 Generic.prototype.checkMatch = function(match) {
   // checks a given xregexp match for potential streams
   var protocols = ['rtmp', 'rtsp', 'rttp'];
-  var extensions = ['.flv', '.mp4', '.m4v', '.mkv', '.mpeg', '.mov', '.asf', '.avi', '.rm', '.wmv'];
+  var extensions = ['.flv', '.mp4', '.m4v', '.mkv', '.mpeg', '.mov', '.asf', '.avi', '.rm', '.wmv',
+                    '.mp3', '.m4a', '.ogg', '.ac3', '.wav', '.flac'];
+
+
   var check = false;
   check |= protocols.any(match.protocol.toLowerCase());
   if (!!match.extension) {
@@ -123,7 +126,6 @@ Generic.prototype.setupIFrameHandler = function () {
         self.foundobjs.push(match);
       }
     }, self);
-
   });
 
   // call to start the whole process
