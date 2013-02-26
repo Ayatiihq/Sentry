@@ -74,7 +74,6 @@ Generic.prototype.checkMatch = function(match) {
   var extensions = ['.flv', '.mp4', '.m4v', '.mkv', '.mpeg', '.mov', '.asf', '.avi', '.rm', '.wmv',
                     '.mp3', '.m4a', '.ogg', '.ac3', '.wav', '.flac'];
 
-
   var check = false;
   check |= protocols.any(match.protocol.toLowerCase());
   if (!!match.extension) {
