@@ -101,10 +101,6 @@ IFrameObj.prototype.selectNextFrame = function () {
       return false;
     }
 
-    //if (frame.getState() === 'unseen') {
-    //  return !self.urlmap.some(frame.src); //skip over frame urls that are in our urlmap, we already saw them
-    //}
-    //return false;
   });
   if (frameindex >= 0) {
     var frame = this.children[frameindex];
