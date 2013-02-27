@@ -30,19 +30,20 @@ var urlmatch = XRegExp(
   '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )',
   'gix'); // global, ignore case, free spacing 
 
-module.exports.scraperEmbed = function ($, source) {
+/* - Scraper snippets, these are passed into the wrangler and executed on each html source it finds - */
+module.exports.scraperEmbed = function DomEmbed($, source) {
   var foundItems = [];
   $('embed').each(function onEmd() { foundItems.push(this); });
   return foundItems;
-}; module.exports.scraperEmbed.name = 'dom::embed';
+}; 
 
-module.exports.scraperObject = function ($, source) {
+module.exports.scraperObject = function DomObject($, source) {
   var foundItems = [];
   $('object').each(function onObj() { foundItems.push(this); });
   return foundItems;
-}; module.exports.scraperObject.name = 'dom::embed';
+}; 
 
-module.exports.scraperRegexStreamUri = function ($, source) {
+module.exports.scraperRegexStreamUri = function RegexStreamUri($, source) {
   var foundItems = [];
   var protocols = ['rtmp', 'rtsp', 'rttp'];
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
@@ -52,18 +53,19 @@ module.exports.scraperRegexStreamUri = function ($, source) {
     // we can extract lots of information from our regexp
     var check = false;
     check |= protocols.some(match.protocol.toLowerCase());
-    if (match.extension) { check |= extensions.some(match.extensions.toLowerCase()); }
+    if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
 
     if (check) {
       foundItems.push(match);
     }
-  }, self);
+  });
 
   // FIXME - we should do more here, check for flashvars with XML based uris contained within,
   //         then scrape said XML files for stream uris
   return foundItems;
-}; module.exports.scraperRegexStreamUri.name = 'regex::streamuri';
+}; 
 
+/* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
 module.exports.scrapersLiveTV = [module.exports.scraperEmbed,
                                  module.exports.scraperObject,
                                  module.exports.scraperRegexStreamUri];
@@ -126,14 +128,15 @@ Wrangler.prototype.setupIFrameHandler = function () {
   });
 
   self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
-    self.modules.every(function (scraper) {
+    self.modules.each(function (scraper) {
       var objlist = scraper($, source);
       
-      objlist.every(function (obj) {
+      objlist.each(function (obj) {
         var newitem = {
           'uri': uri,
           'parents': parenturls,
-          'scraper': scraper.name
+          'scraper': scraper.name,
+          'item': obj
         };
         self.foundItems.push(newitem);
         self.emit('found-item', newitem);
