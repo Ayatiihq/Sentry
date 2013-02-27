@@ -3,11 +3,13 @@ var acquire = require('acquire')
   , Wrangler = acquire('endpoint-wrangler').Wrangler;
 
 var testWrangler = function () {
+  var self = this;
   this.wrangler = new Wrangler();
   /* when the wrangler is finished scraping, it emits the finished signal with all the found items
    */
   this.wrangler.on('finished', function onFinished(items) {
     console.log(items);
+    self.wrangler.quit();
   });
 
   /* we add the scrapersLiveTV scraper collection to the wrangler, this is a collection of scrapers, 
@@ -24,7 +26,8 @@ var testWrangler = function () {
    * careful not to make too many objects. once the finished event is emitted you can do another search with the same
    * wrangler client
    */
-  this.wrangler.beginSearch('http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html');
+  //this.wrangler.beginSearch('http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html');
+  this.wrangler.beginSearch('http://www.newtvworld.com/India-Live-Tv-Channels/bbc-world-news-live-streaming.html');
 };
 
 var test = new testWrangler();
