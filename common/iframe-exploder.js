@@ -25,7 +25,8 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
   this.depth = (depth === undefined) ? 0 : depth;
   this.root = (root) ? root : this;
   this.parent = (parent) ? parent : null;
-  
+  this.isExempt = false;
+
   this.element = (element === undefined) ? null : element;
   this.client = client;
   this.children = [];
@@ -37,7 +38,7 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
   this.urlmap = (urlmap === undefined) ? [] : urlmap;
   this.state = 'unseen';
   if (this.element !== null) {
-    self.src = URI(self.element.attr('src')).absoluteTo(this.root.src).toString().trim();
+    self.src = URI(self.element.attr('src')).absoluteTo(this.parent.src).toString().trim();
   }
   else {
     self.client.getCurrentUrl().then(function (url) { self.src = url.trim(); });
@@ -58,11 +59,11 @@ IFrameObj.prototype.getParentURIs = function () {
   return parentlist;
 };
 
-IFrameObj.prototype.getSource = function(callback) {
+IFrameObj.prototype.getSource = function (callback) {
   var self = this;
   if (this.source !== null) { if (callback) { callback(self.$, self.source); } }
   else {
-    self.client.getPageSource().then(function getSource(source) { 
+    self.client.getPageSource().then(function getSource(source) {
       self.source = source;
       self.$ = cheerio.load(source);
       if (callback) { callback(self.$, self.source); };
@@ -85,6 +86,8 @@ IFrameObj.prototype.buildFrameMap = function () {
     self.children.push(newObj);
   });
   self.state = 'seen';
+
+  if (this.urlmap.count(self.src) < 1) { self.isExempt = true; }
   this.urlmap.push(self.src);
 };
 
@@ -92,14 +95,20 @@ IFrameObj.prototype.selectNextFrame = function () {
   // selects the next frame that hasn't been seen before
   var self = this;
   var frameindex = this.children.findIndex(function findNextFrame(frame) {
-    if (frame.getState() === 'unseen') {
-      return !self.urlmap.some(frame.src); //skip over frame urls that are in our urlmap, we already saw them
+    if (self.urlmap.some(frame.src) && frame.isExempt && frame.getState() === 'unseen') { return true; }
+    else if (!self.urlmap.some(frame.src) && frame.getState() === 'unseen') { return true; }
+    else {
+      return false;
     }
-    return false;
+
+    //if (frame.getState() === 'unseen') {
+    //  return !self.urlmap.some(frame.src); //skip over frame urls that are in our urlmap, we already saw them
+    //}
+    //return false;
   });
   if (frameindex >= 0) {
     var frame = this.children[frameindex];
-    if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(40, true, 'middle')); }
+    if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(4000, true, 'middle')); }
     this.client.switchTo().frame(frameindex);
     frame.search();
   }
@@ -115,15 +124,10 @@ IFrameObj.prototype.getState = function () {
   if (this.children.length < 1) { return 'endpoint'; } // we have no children, so we are an endpoint;
 
   var unseen_children = this.children.filter(function (child) {
-    return !self.urlmap.some(child.src);
+    return (!self.urlmap.some(child.src) && child.getState() === 'unseen');
   });
 
-
-  var numseen = unseen_children.count(function (n) {
-    return (n.getState() != 'unseen');
-  });
-
-  if (numseen >= unseen_children.length) { return 'seen'; }
+  if (!unseen_children.length) { return 'seen'; }
   return 'unseen';
 };
 
@@ -137,7 +141,7 @@ IFrameObj.prototype.selectDefault = function () {
 IFrameObj.prototype.search = function () {
   var self = this;
   function selectFrameLogic() {
-    if (self.getState() === 'seen' && self.root === self) {
+    if (self.getState() !== 'unseen' && self.root === self) {
       // we are root and have seen all our children
       self.emit('finished');
     }
@@ -153,7 +157,7 @@ IFrameObj.prototype.search = function () {
   };
 
 
-  if (self.state !== 'seen') {
+  if (self.state !== 'seen' && !self.urlmap.some(self.src)) {
     // we have not seen this yet, so we need to build a framemap and all that 
     // gubbins
     self.getSource(function onPageSource() {
