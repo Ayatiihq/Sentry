@@ -36,13 +36,29 @@ var urlmatch = XRegExp(
 
 /* - Scraper snippets, these are passed into the wrangler and executed on each html source it finds - */
 module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
-  $('embed').each(function onEmd() { foundItems.push(this); });
+  $('embed').each(function onEmd() {
+    var check = false;
+    var sanitized = $(this).toString().toLowerCase();
+    check |= sanitized.has('stream');
+    check |= sanitized.has('streem');
+    check |= sanitized.has('jwplayer');
+
+    if (check) { foundItems.push(this); }
+  });
   return foundItems;
 }; 
 
 module.exports.scraperObject = function DomObject($, source, foundItems) {
   var foundItems = [];
-  $('object').each(function onObj() { foundItems.push(this); });
+  $('object').each(function onObj() {
+    var check = false;
+    var sanitized = $(this).toString().toLowerCase();
+    check |= sanitized.has('stream');
+    check |= sanitized.has('streem');
+    check |= sanitized.has('jwplayer');
+
+    if (check) { foundItems.push(this); }
+  });
   return foundItems;
 }; 
 
@@ -50,7 +66,7 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
    it returns a promise and resolves that promise asyncronously
 */
 module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundItems) {
-  var protocols = ['rtmp://', 'rtsp://', 'rttp://'];
+  var protocols = ['rtmp://', 'rtsp://', 'rttp://', 'rtmpe://'];
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
                     '.f4v', '.mkv'];
 
