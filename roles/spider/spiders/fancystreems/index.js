@@ -33,11 +33,6 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
-
-  //self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          //.withCapabilities(CAPABILITIES).build();
-  //self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-
   self.wrangler = new Wrangler();
 
 
@@ -50,8 +45,8 @@ FancyStreems.prototype.init = function() {
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
 
-  self.categories = [//{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     //{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
+  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
   
   logger.info('FancyStreems Spider up and running');  
@@ -152,14 +147,14 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
       }
     }
   });
-  done()
-  /*var next = category_index('a#pagenext').attr('href');
+  //done()
+  var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }*/
+  }
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
@@ -254,55 +249,6 @@ FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(service, done, 
 }
 
 
-/*FancyStreems.prototype.exploreIframes = function(service, done){
-  var self = this;
-  console.log('in exploreIFrames with %s', service.name);
-  self.client.get(service.activeLink.uri).then(function () {
-    // wait for the request for the specified page to be resolved on the selenium node
-    self.iframe = new IFrameExploder(self.client);
-    self.iframe.debug = true; // don't do this in production, too noisy
-
-    self.iframe.on('finished', function iframeFinished() { // when we are finished it's safe to use self.client again
-      console.log('iframe selector finished');
-      console.log('found ' + service.foundobjs.length + ' items of interest');
-      self.serviceCompleted(service, true);
-      service.foundobjs.each(function (val) {
-        console.log('possible infringement at ' + val.uri);
-        console.log(val.toString());
-        var depth = 1;
-        console.log('parents: ')
-        val.parenturls.each(function (parenturl) {
-          console.log('-'.repeat(depth) + '> ' + parenturl);
-          depth++;
-        });
-        self.emit('link', service.constructLink("found by iframeExploder", val.uri));        
-      });
-      self.serviceCompleted(service, false); // for now retire it -  we need to figure out how
-      done();
-    });
-
-    self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
-      // console.log ("Source of iframe = %s \n\n\n", source);
-      // uri is the uri of the current iframe
-      // parenturls is a list of parents, from closest parent iframe to root iframe
-      // $ is a cheerio object from the source
-      // source is a text representation of how the browser views the current DOM, it may be missing various things
-      // or have additional things added. it is not the same as just wgetting the html file. 
-      // we look for a few generic tag names, we should do more in production, regex over the entire source for example.
-      $('object').each(function onObj() { this.parenturls = parenturls; this.uri = uri; service.foundobjs.push(this); });
-      $('embed').each(function onEmd() { this.parenturls = parenturls; this.uri = uri; service.foundobjs.push(this); });
-      $('param').each(function onFlashVars() {
-        if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
-          this.parenturls = parenturls;
-          this.uri = uri;
-          service.foundobjs.push(this);
-        }
-      });
-    });
-    self.iframe.search();
-  });
-}
-*/
 
 FancyStreems.prototype.sanityCheck = function(){
   var self = this;
