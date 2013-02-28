@@ -141,7 +141,6 @@ module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
 var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
-  if (!!driver) { this.driver = driver; }
   this.driver = (!!driver) ? driver : self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                                                            .withCapabilities(CAPABILITIES)
                                                                            .build();
