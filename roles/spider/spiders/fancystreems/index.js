@@ -33,9 +33,8 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
+
   self.wrangler = new Wrangler();
-
-
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
@@ -43,7 +42,6 @@ FancyStreems.prototype.init = function() {
   self.horizontallyLinked = [] 
   
   self.root = "http://fancystreems.com/";
-  self.embeddedIndex = 0
 
   self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
@@ -92,20 +90,19 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      if(!(item instanceof Service)){
+      // for the initial stage we just want to request the category pages (don't need selenium)
+      if(item.currentState === FancyStreemsStates.CATEGORY_PARSING)
         request ({uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000}, self.scrapeCategory.bind(self, item.cat, done));
       }
-      else if(item.isRetired() === false){
-        if(item.currentState === FancyStreemsStates.SERVICE_PARSING){
-          request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeService.bind(self, item, done));
-        }
-        else if(item.currentState === FancyStreemsStates.DETECT_HORIZONTAL_LINKS){
-          request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
-        }
-        else if(item.currentState === FancyStreemsStates.WRANGLE_IT){
-          self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
-          self.wrangler.beginSearch(item.activeLink.uri);
-        }
+      else if(item.currentState === FancyStreemsStates.SERVICE_PARSING && item.isRetired() === false){
+        request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeService.bind(self, item, done));
+      }
+      else if(item.currentState === FancyStreemsStates.DETECT_HORIZONTAL_LINKS && item.isRetired() === false){
+        request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
+      }
+      else if(item.currentState === FancyStreemsStates.WRANGLE_IT && item.isRetired() === false){
+        self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
+        self.wrangler.beginSearch(item.activeLink.uri);
       }
     })
     .seq(function(){
@@ -113,9 +110,12 @@ FancyStreems.prototype.iterateRequests = function(collection){
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
       logger.info("Those with multiple horizontal Links: " + self.horizontallyLinked.length);
+      
+      // Flatten out any nested links
       if (self.horizontallyLinked.length > 0)
         self.flattenHorizontalLinkedObjects();
 
+      // if we have more go again
       if(self.results.length > 0){
         self.iterateRequests(self.results);
       }
@@ -168,10 +168,7 @@ FancyStreems.prototype.wranglerFinished = function(service, done, items){
 /*
 Scrape the individual service pages on FanceStreems. 
 Search for a div element with a class called 'inlineFix', check to make sure it has only one child
-and then handle all the different ways to embed the stream. They are :
-- iframe
-- direct embed of a flash object using embed
-- a Silverlight direct embed
+and then handle all the different ways to embed the stream.
 */
 FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
 {
@@ -183,24 +180,24 @@ FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
   }
 
   var $ = cheerio.load(html);
+  // try for the iframe (+50% of cases)
   var target = null;
-
   $('div .inlineFix').each(function(){
-
     if($(this).children().length === 1){ // We know the embed stream is siblingless !      
       if($(this).children('iframe').attr('src')){
         target = $(this).children('iframe').attr('src');
       }
     }
   }); 
+  // if there is an iframe we need to check for horizontal links across the top
   if (target){
     service.currentState = FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
     self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://fancystreems.com').toString());
   }
   else{
-    service.currentState = FancyStreemsStates.WRANGLE_IT;
-    //logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink.uri);
-    //self.serviceCompleted(service, false)
+    // otherwise go for gold.
+    // TODO: Needs testing.
+    // service.currentState = FancyStreemsStates.WRANGLE_IT;
   }   
   done();
 }
