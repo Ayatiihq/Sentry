@@ -12,31 +12,14 @@
 
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('google-scraper.js')
+  , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
-  , webdriver = require('selenium-webdriverjs')
   , sugar = require('sugar')
-  , cheerio = require('cheerio')
-  , IFrameExploder = acquire('iframe-exploder')
-  , XRegExp = require('xregexp').XRegExp;
+  , Wrangler = acquire('endpoint-wrangler').Wrangler
+  , Promise = require('node-promise');
 ;
 
-
 var Scraper = acquire('scraper');
-
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
-// matches with named groups, will match url encoded urls also
-
-var urlmatch = XRegExp(
-  '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
-  '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +
-  '(?:                                                                                     (?#captures domain )' +
-  '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
-  '|' +
-  '(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))                               (?#or ip           )' +
-  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)|]*(?<extension>\\.[-a-z0-9]+)?)*               (?#full path       )' +
-  '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )',
-  'gix'); // global, ignore case, free spacing 
 
 var Generic = module.exports = function () {
   this.init();
@@ -46,6 +29,19 @@ util.inherits(Generic, Scraper);
 
 Generic.prototype.init = function () {
   var self = this;
+  self.testurls = [
+                  //'http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php'
+                 'http://1tvlive.in/zee-tv/'
+                , 'http://www.roshantv.com/zee_tv.php'
+                , 'http://nowwatchtvlive.com/2011/07/zee-tv-live-watch-zee-tv-online-watch-zee-tv-free/'
+                , 'http://www.yupptv.com/zee_tv_live.html'
+                , 'http://www.youtube.com/watch?v=c50ekRPmHC0'
+                , 'http://www.dailymotion.com/video/xskk8y_watch-zee-tv-live-online-zee-tv-free-watch-zee-tv-live-streaming-watch-zee-tv-online-free_shortfilms'
+                , 'http://www.bolytv.com/'
+                , 'http://www.webtvonlinelive.com/2007/11/live-zee-tv-channel.html'
+                , 'http://fancystreems.com/default.asp@pageId=42.php'];
+  self.wrangler = new Wrangler();
+  this.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
 };
 
 //
@@ -58,79 +54,37 @@ Generic.prototype.getName = function () {
 Generic.prototype.start = function (campaign, job) {
   var self = this;
 
+  
+
+  var promiseArray = self.testurls.map(function promiseBuilder(uri) {
+    return self.checkURI.bind(self, uri);
+  });
+
+  Promise.seq(promiseArray).then(function onURISChecked() {
+    self.wrangler.quit();
+    self.stop();
+  });
+
   logger.info('started for %s', campaign);
   self.emit('started');
-
-  self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities(CAPABILITIES).build();
-  self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-  self.client.get(campaign).then(self.setupIFrameHandler.bind(this));
-  self.foundobjs = [];
 };
 
-Generic.prototype.checkMatch = function(match) {
-  // checks a given xregexp match for potential streams
-  var protocols = ['rtmp', 'rtsp', 'rttp'];
-  var extensions = ['.flv', '.mp4', '.m4v', '.mkv', '.mpeg', '.mov', '.asf', '.avi', '.rm', '.wmv',
-                    '.mp3', '.m4a', '.ogg', '.ac3', '.wav', '.flac'];
-
-  var check = false;
-  check |= protocols.any(match.protocol.toLowerCase());
-  if (!!match.extension) {
-    check |= extensions.any(match.extension.toLowerCase());
-  }
-
-  // we probably also want to check domain and ip against known streaming domains/ip's but that is difficult to do here
-  // right now
-  return check;
-}
-
-Generic.prototype.setupIFrameHandler = function () {
+Generic.prototype.checkURI = function (uri) {
   var self = this;
-  self.iframe = new IFrameExploder(self.client);
-  self.iframe.debug = true; // don't do this in production, too noisy
+  var promise = new Promise.Promise();
+  logger.info('running check for: ' + uri);
 
-  self.iframe.on('finished', function iframeFinished() { // when we are finished it's safe to use self.client again
-    console.log('iframe selector finished');
-    console.log('found ' + self.foundobjs.length + ' items of interest');
-
-    self.foundobjs.each(function (val) {
-      console.log('possible infringement at ' + val.uri);
-      console.log(val.toString());
-    });
+  self.wrangler.on('finished', function onFinished(items) {
+    logger.info('found ' + items.length + 'items for uri: ' + uri);
+    logger.debug(items);
+    self.wrangler.removeAllListeners();
+    self.wrangler.quit();
+    promise.resolve(items);
   });
 
-  self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
-    // uri is the uri of the current iframe
-    // parenturls is a list of parents, from closest parent iframe to root iframe
-    // $ is a cheerio object from the source
-    // source is a text representation of how the browser views the current DOM, it may be missing various things
-    // or have additional things added. it is not the same as just wgetting the html file. 
-
-
-    // we look for a few generic tag names, we should do more in production, regex over the entire source for example.
-    $('object').each(function onObj() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
-    $('embed').each(function onEmd() { this.parenturls = parenturls; this.uri = uri; self.foundobjs.push(this); });
-    $('param').each(function onFlashVars() {
-      if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
-        this.parenturls = parenturls;
-        this.uri = uri;
-        self.foundobjs.push(this);
-      }
-    });
-
-    XRegExp.forEach(source, urlmatch, function (match, i) {
-      // we can extract lots of information from our regexp
-      if (self.checkMatch(match)) {
-        self.foundobjs.push(match);
-      }
-    }, self);
-  });
-
-  // call to start the whole process
-  self.iframe.search();
+  self.wrangler.beginSearch(uri);
+  return promise;
 };
-
 Generic.prototype.stop = function () {
   var self = this;
   self.emit('finished');
@@ -144,4 +98,4 @@ Generic.prototype.isAlive = function (cb) {
 // no infrastructure support right now, so just make object for testing
 var test = new Generic();
 //test.start('http://google.com/', '');
-test.start('http://www.newtvworld.com/India-Live-Tv-Channels/bbc-world-news-live-streaming.html', '');
+//test.start('', '');
