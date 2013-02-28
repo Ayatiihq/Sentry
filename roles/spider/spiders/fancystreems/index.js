@@ -43,8 +43,8 @@ FancyStreems.prototype.init = function() {
   
   self.root = "http://fancystreems.com/";
 
-  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
+  self.categories = [//{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     //{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
   
   logger.info('FancyStreems Spider up and running');  
@@ -91,7 +91,7 @@ FancyStreems.prototype.iterateRequests = function(collection){
     .seqEach(function(item){
       var done = this;
       // for the initial stage we just want to request the category pages (don't need selenium)
-      if(item.currentState === FancyStreemsStates.CATEGORY_PARSING)
+      if(item.currentState === FancyStreemsStates.CATEGORY_PARSING){
         request ({uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000}, self.scrapeCategory.bind(self, item.cat, done));
       }
       else if(item.currentState === FancyStreemsStates.SERVICE_PARSING && item.isRetired() === false){
@@ -135,8 +135,7 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
   }      
   category_index = cheerio.load(html);
   category_index('h2').each(function(i, elem){
-    if(category_index(elem).hasClass('video_title')){
-      
+    if(category_index(elem).hasClass('video_title')){    
       var name = category_index(this).children().first().text().toLowerCase().trim();
       if(name.match(/^star/g) !== null){
         var topLink = self.root + 'tvcat/' + category + 'tv.php';
@@ -147,14 +146,14 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
       }
     }
   });
-  //done()
-  var next = category_index('a#pagenext').attr('href');
+  done()
+  /*var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }
+  }*/
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
@@ -246,7 +245,6 @@ FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(service, done, 
 }
 
 
-
 FancyStreems.prototype.sanityCheck = function(){
   var self = this;
   self.results.forEach(function(res){
@@ -261,7 +259,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, succes
 {
   var self = this;
   var newResults = [];
-  logger.info("flattenHorizontalLinkedObjects initial hl length : " + self.horizontallyLinked.length);
+  logger.info("flattenHorizontalLinkedObjects initial length : " + self.horizontallyLinked.length);
   logger.info("initial results size = " + self.results.length);
 
   self.horizontallyLinked.forEach(function(ser){
@@ -277,7 +275,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, succes
     self.horizontallyLinked.pop(ser);
   });
   self.results = self.results.concat(newResults);
-  logger.info("flattenHorizontalLinkedObjects new hl length : " + self.horizontallyLinked.length);
+  logger.info("flattenHorizontalLinkedObjects new length : " + self.horizontallyLinked.length);
   logger.info("new results size = " + self.results.length);
 }
 
@@ -292,8 +290,6 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
     logger.warn("\n\n\nThis service did not complete - " + JSON.stringify(service));
   }
 
-  var removed = false;
-
   self.results.each(function(res){
     if(res.activeLink.uri === service.activeLink.uri){
       self.results.splice(self.results.indexOf(res), 1);
@@ -304,12 +300,12 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
 FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
   var self = this;
 
-  if(!self.results.some(service)){
-    logger.error("We have a service which isn't in results (embedded links) - ", service.name);
-    return;
-  }
+  self.results.each(function(res){
+    if(res.activeLink.uri === service.activeLink.uri){
+      self.results.splice(self.results.indexOf(res), 1);
+    }
+  });
   self.horizontallyLinked.push(service);  
-  self.results.splice(self.results.indexOf(service), 1);
 }
 
 FancyStreems.prototype.emitLink = function(service, desc, link){
