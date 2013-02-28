@@ -1,9 +1,7 @@
 /*
  * FancyStreems.js: a FancyStreems spider
- *
  * (C) 2013 Ayatii Limited
  */
-
 var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('FancyStreems.js')
@@ -14,16 +12,16 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , URI = require('URIjs')
-  , IFrameExploder = acquire('iframe-exploder')
-  , webdriver = require('selenium-webdriverjs');
+  , Wrangler = acquire('endpoint-wrangler').Wrangler
+;
 
 require('enum').register();
 
 var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY_PARSING',
-                                                                      'SERVICE_PARSING',
-                                                                      'DETECT_HORIZONTAL_LINKS',
-                                                                      'IFRAME_EXPLODING',
-                                                                      'END_OF_THE_ROAD']);
+                                                                       'SERVICE_PARSING',
+                                                                       'DETECT_HORIZONTAL_LINKS',
+                                                                       'WRANGLE_IT',
+                                                                       'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 
@@ -35,9 +33,13 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
-  self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities(CAPABILITIES).build();
-  self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+
+  //self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          //.withCapabilities(CAPABILITIES).build();
+  //self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+
+  self.wrangler = new Wrangler();
+
 
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
@@ -54,7 +56,6 @@ FancyStreems.prototype.init = function() {
   
   logger.info('FancyStreems Spider up and running');  
 }
-
 //
 // Overrides
 //
@@ -71,7 +72,7 @@ FancyStreems.prototype.start = function(state) {
 FancyStreems.prototype.stop = function() {
   var self = this;
   self.emit('finished');
-  self.client.quit();
+  self.wrangler.quit();  
 }
 
 FancyStreems.prototype.isAlive = function(cb) {
@@ -106,8 +107,9 @@ FancyStreems.prototype.iterateRequests = function(collection){
         else if(item.currentState === FancyStreemsStates.DETECT_HORIZONTAL_LINKS){
           request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
         }
-        else if(item.currentState === FancyStreemsStates.IFRAME_EXPLODING){
-          self.exploreIframes(item, done); // deploy selenium
+        else if(item.currentState === FancyStreemsStates.WRANGLE_IT){
+          self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
+          self.wrangler.beginSearch(item.activeLink.uri);
         }
       }
     })
@@ -160,6 +162,14 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
   }*/
 }  
 
+FancyStreems.prototype.wranglerFinished = function(service, done, items){
+  var self = this;
+  console.log("wranglerFinished for service %s", service.name);  
+  console.log(items);
+  done();
+}
+
+
 /*
 Scrape the individual service pages on FanceStreems. 
 Search for a div element with a class called 'inlineFix', check to make sure it has only one child
@@ -193,8 +203,9 @@ FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
     self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://fancystreems.com').toString());
   }
   else{
-    logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink.uri);
-    self.serviceCompleted(service, false)
+    service.currentState = FancyStreemsStates.WRANGLE_IT;
+    //logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink.uri);
+    //self.serviceCompleted(service, false)
   }   
   done();
 }
@@ -237,13 +248,13 @@ FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(service, done, 
   else{
     // no links at the top ?
     // push it on to iframe parsing where we hope it should work.
-    service.currentState = main.FancyStreemsStates.IFRAME_EXPLODING;
+    service.currentState = FancyStreemsStates.WRANGLE_IT;
   }
   done();
 }
 
 
-FancyStreems.prototype.exploreIframes = function(service, done){
+/*FancyStreems.prototype.exploreIframes = function(service, done){
   var self = this;
   console.log('in exploreIFrames with %s', service.name);
   self.client.get(service.activeLink.uri).then(function () {
@@ -291,6 +302,7 @@ FancyStreems.prototype.exploreIframes = function(service, done){
     self.iframe.search();
   });
 }
+*/
 
 FancyStreems.prototype.sanityCheck = function(){
   var self = this;
@@ -316,7 +328,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, succes
       serviceClone.embeddedALinks = [];
       serviceClone.links.push({desc: 'starting point', uri: link});
       serviceClone.activeLink = serviceClone.links[0];
-      serviceClone.currentState = FancyStreemsStates.IFRAME_EXPLODING;
+      serviceClone.currentState = FancyStreemsStates.WRANGLE_IT;
       newResults.push(serviceClone);
     });
     self.horizontallyLinked.pop(ser);
