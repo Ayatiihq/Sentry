@@ -2,15 +2,6 @@
  * FancyStreems.js: a FancyStreems spider
  *
  * (C) 2013 Ayatii Limited
- *
- * Spider for the infamous Fancystreems
- * This is just a state-machine per service
- * depending on the state of the service certain parsing techniques will be used.
-
-TODO  
- - investigate the service pages (@SERVICE_PARSING) where I don't find anything - more than likely inline js with rtmp addresses passed to remote js - easy.
- - At the point where you are pulling out remote js urls it will  also need to handle inline javascripts which are injecting iframe links into the dom.
- - Match a method for each state - put them in a hash, remove the need for the switch.
  */
 
 var acquire = require('acquire')
@@ -18,28 +9,23 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('FancyStreems.js')
   , util = require('util')
   , cheerio = require('cheerio')
-  , sugar = require('sugar')
   , request = require('request')
+  , sugar = require('sugar')
   , Seq = require('seq')
   , Service = require('./service')
-  , callbacks = require('./callbacks')
   , URI = require('URIjs')
-  ;
+  , IFrameExploder = acquire('iframe-exploder')
+  , webdriver = require('selenium-webdriverjs');
 
 require('enum').register();
 
 var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY_PARSING',
                                                                       'SERVICE_PARSING',
                                                                       'DETECT_HORIZONTAL_LINKS',
-                                                                      'IFRAME_PARSING',
-                                                                      'STREAM_ID_AND_REMOTE_JS_PARSING',
-                                                                      'REMOTE_JS_PARSING',
-                                                                      'FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST',
-                                                                      'FINAL_STREAM_EXTRACTION',
-                                                                      'EMBEDDED_LINK_PARSING',
+                                                                      'IFRAME_EXPLODING',
                                                                       'END_OF_THE_ROAD']);
-
 var Spider = acquire('spider');
+var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 
 var FancyStreems = module.exports = function() {
   this.init();
@@ -49,6 +35,10 @@ util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
   var self = this;
+  self.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities(CAPABILITIES).build();
+  self.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
@@ -58,20 +48,11 @@ FancyStreems.prototype.init = function() {
   self.root = "http://fancystreems.com/";
   self.embeddedIndex = 0
 
-  self.categories = [{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
-                     {cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
+  self.categories = [//{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
+                     //{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
-
-  logger.info('FancyStreems Spider up and running');  
   
-  FancyStreems.prototype.scrapeCategory = callbacks.scrapeCategory;
-  FancyStreems.prototype.scrapeService = callbacks.scrapeService;
-  FancyStreems.prototype.scrapeRemoteStreamingIframe = callbacks.scrapeRemoteStreamingIframe;
-  FancyStreems.prototype.scrapeIndividualaLinksOnWindow = callbacks.scrapeIndividualaLinksOnWindow;
-  FancyStreems.prototype.scrapeRemoteStreamingIframe = callbacks.scrapeRemoteStreamingIframe;
-  FancyStreems.prototype.streamIDandRemoteJsParsingStage = callbacks.streamIDandRemoteJsParsingStage;
-  FancyStreems.prototype.formatRemoteStreamURI = callbacks.formatRemoteStreamURI;
-  FancyStreems.prototype.scrapeFinalStreamLocation = callbacks.scrapeFinalStreamLocation;
+  logger.info('FancyStreems Spider up and running');  
 }
 
 //
@@ -90,6 +71,7 @@ FancyStreems.prototype.start = function(state) {
 FancyStreems.prototype.stop = function() {
   var self = this;
   self.emit('finished');
+  self.client.quit();
 }
 
 FancyStreems.prototype.isAlive = function(cb) {
@@ -114,18 +96,22 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      // double check 
-      if(item.currentState === FancyStreemsStates.END_OF_THE_ROAD){
-        logger.error("\n\n Iterate caught a service that was retired : " + JSON.stringify(item));
-        self.serviceCompleted(item, false);
-        done();
-        return;
+      if(!(item instanceof Service)){
+        request ({uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000}, self.scrapeCategory.bind(self, item.cat, done));
       }
-      //logger.info('request : ' + self.constructRequestURI(item).uri + ' dump : ' + JSON.stringify(item));
-      request (self.constructRequestURI(item), self.fetchAppropriateCallback(item, done));
+      else if(item.isRetired() === false){
+        if(item.currentState === FancyStreemsStates.SERVICE_PARSING){
+          request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeService.bind(self, item, done));
+        }
+        else if(item.currentState === FancyStreemsStates.DETECT_HORIZONTAL_LINKS){
+          request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
+        }
+        else if(item.currentState === FancyStreemsStates.IFRAME_EXPLODING){
+          self.exploreIframes(item, done); // deploy selenium
+        }
+      }
     })
     .seq(function(){
-      logger.info('Finished a cycle');
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
@@ -138,9 +124,172 @@ FancyStreems.prototype.iterateRequests = function(collection){
       }
       else{
         logger.info("We are finished !");
+        self.stop();
       }
     })    
   ;    
+}
+
+FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html){
+  var self = this;
+  if(err || resp.statusCode !== 200){
+    done();
+    return;
+  }      
+  category_index = cheerio.load(html);
+  category_index('h2').each(function(i, elem){
+    if(category_index(elem).hasClass('video_title')){
+      
+      var name = category_index(this).children().first().text().toLowerCase().trim();
+      if(name.match(/^star/g) !== null){
+        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var service = new Service(name, category, topLink, FancyStreemsStates.SERVICE_PARSING);
+        self.results.push(service);
+        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+      }
+    }
+  });
+  done()
+  /*var next = category_index('a#pagenext').attr('href');
+  if(next === null || next === undefined || next.isBlank()){
+    done();
+  }
+  else{
+    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
+  }*/
+}  
+
+/*
+Scrape the individual service pages on FanceStreems. 
+Search for a div element with a class called 'inlineFix', check to make sure it has only one child
+and then handle all the different ways to embed the stream. They are :
+- iframe
+- direct embed of a flash object using embed
+- a Silverlight direct embed
+*/
+FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
+{
+  var self = this;
+  if(err){
+    logger.warn("@service page level Couldn't fetch " + service.activeLink.uri);
+    self.serviceCompleted(service, false);
+    done();
+  }
+
+  var $ = cheerio.load(html);
+  var target = null;
+
+  $('div .inlineFix').each(function(){
+
+    if($(this).children().length === 1){ // We know the embed stream is siblingless !      
+      if($(this).children('iframe').attr('src')){
+        target = $(this).children('iframe').attr('src');
+      }
+    }
+  }); 
+  if (target){
+    service.currentState = FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
+    self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://fancystreems.com').toString());
+  }
+  else{
+    logger.warn("\n\n Unable to find where to go next from %s service page @ ", service.name, service.activeLink.uri);
+    self.serviceCompleted(service, false)
+  }   
+  done();
+}
+
+FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
+  var self = this;
+  
+  if (err || res.statusCode !== 200){
+    logger.warn("scrapeIndividualaLinksOnWindow : Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
+    self.serviceCompleted(service, false);
+    done();
+    return;      
+  }
+
+  // Best way to identify the actual iframe which have the actual links to the streams
+  // is to look for imgs in <a>s  which match /Link[0-9].png/g -
+  var iframe_parsed = cheerio.load(html);
+  var embedded_results = [];
+  iframe_parsed('a').each(function(img_index, img_element){
+    var relevant_a_link = false;
+    iframe_parsed(this).find('img').each(function(y, n){
+      if(iframe_parsed(this).attr('src').match(/Link[0-9].png/g) !== null){
+        relevant_a_link = true;
+      }
+    });
+    if(relevant_a_link === true){
+      var completed_uri = URI(iframe_parsed(this).attr('href')).absoluteTo('http://fancystreems.com').toString();
+      self.emitLink(service, "alink around png button on the screen", completed_uri);
+      embedded_results.push(completed_uri);
+    }
+  }); 
+
+  // firstly if we found alinks separate these services out from the main pack.
+  if(embedded_results.length > 0){
+    // we need to handle those with alinks differently => split them out.
+    // push them into another array and flatten them out on the next iteration
+    service.embeddedALinks = embedded_results
+    self.serviceHasEmbeddedLinks(service);
+  }
+  else{
+    // no links at the top ?
+    // push it on to iframe parsing where we hope it should work.
+    service.currentState = main.FancyStreemsStates.IFRAME_EXPLODING;
+  }
+  done();
+}
+
+
+FancyStreems.prototype.exploreIframes = function(service, done){
+  var self = this;
+  console.log('in exploreIFrames with %s', service.name);
+  self.client.get(service.activeLink.uri).then(function () {
+    // wait for the request for the specified page to be resolved on the selenium node
+    self.iframe = new IFrameExploder(self.client);
+    self.iframe.debug = true; // don't do this in production, too noisy
+
+    self.iframe.on('finished', function iframeFinished() { // when we are finished it's safe to use self.client again
+      console.log('iframe selector finished');
+      console.log('found ' + service.foundobjs.length + ' items of interest');
+      self.serviceCompleted(service, true);
+      service.foundobjs.each(function (val) {
+        console.log('possible infringement at ' + val.uri);
+        console.log(val.toString());
+        var depth = 1;
+        console.log('parents: ')
+        val.parenturls.each(function (parenturl) {
+          console.log('-'.repeat(depth) + '> ' + parenturl);
+          depth++;
+        });
+        self.emit('link', service.constructLink("found by iframeExploder", val.uri));        
+      });
+      self.serviceCompleted(service, false); // for now retire it -  we need to figure out how
+      done();
+    });
+
+    self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
+      // console.log ("Source of iframe = %s \n\n\n", source);
+      // uri is the uri of the current iframe
+      // parenturls is a list of parents, from closest parent iframe to root iframe
+      // $ is a cheerio object from the source
+      // source is a text representation of how the browser views the current DOM, it may be missing various things
+      // or have additional things added. it is not the same as just wgetting the html file. 
+      // we look for a few generic tag names, we should do more in production, regex over the entire source for example.
+      $('object').each(function onObj() { this.parenturls = parenturls; this.uri = uri; service.foundobjs.push(this); });
+      $('embed').each(function onEmd() { this.parenturls = parenturls; this.uri = uri; service.foundobjs.push(this); });
+      $('param').each(function onFlashVars() {
+        if ($(this).attr('name').toLowerCase().trim() === 'flashvars') {
+          this.parenturls = parenturls;
+          this.uri = uri;
+          service.foundobjs.push(this);
+        }
+      });
+    });
+    self.iframe.search();
+  });
 }
 
 FancyStreems.prototype.sanityCheck = function(){
@@ -149,77 +298,6 @@ FancyStreems.prototype.sanityCheck = function(){
     console.log("\n\n " +  JSON.stringify(res));
   });
 }
-
-FancyStreems.prototype.constructRequestURI = function(item){
-  var self = this;
-  var uri = null;
-
-  switch(item.currentState)
-  {
-  case FancyStreemsStates.CATEGORY_PARSING:
-    uri = {uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000};
-    break;
-  case FancyStreemsStates.SERVICE_PARSING:
-    uri = {uri: item.activeLink.uri, timeout: 5000};
-    break;   
-  case FancyStreemsStates.DETECT_HORIZONTAL_LINKS:
-    uri = {uri: item.activeLink.uri, timeout: 5000};
-    break; 
-  case FancyStreemsStates.IFRAME_PARSING:
-    uri = {uri: item.activeLink.uri, timeout: 5000};
-    break;
-  case FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING:
-    uri = {uri: item.activeLink.uri, timeout: 5000};
-    break;
-  case FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
-    uri = {uri: item.stream_params.remote_js, timeout: 5000};
-    break;
-  case FancyStreemsStates.FINAL_STREAM_EXTRACTION:
-    var t = new URI(item.stream_params.remote_js);
-    //logger.info("for referral use : " + t.domain());
-    uri = {uri: item.final_stream_location, timeout: 5000, headers: {referer : item.stream_params.remote_js}};
-    break;
-  }
-
-  if(uri === null)
-    self.emit('error', new Error('constructRequestURI : URI is null wtf ! - ' + JSON.stringify(item)));
-  return uri;
-}
-
-FancyStreems.prototype.fetchAppropriateCallback = function(item, done){ 
-  var self = this;
-  var cb = null;
-
-  switch(item.currentState)
-  {
-  case FancyStreemsStates.CATEGORY_PARSING:
-    cb =  self.scrapeCategory.bind(self, item, done);
-    break;
-  case FancyStreemsStates.SERVICE_PARSING:
-    cb =  self.scrapeService.bind(self, item, done);
-    break;    
-  case FancyStreemsStates.DETECT_HORIZONTAL_LINKS:
-    cb =  self.scrapeIndividualaLinksOnWindow.bind(self, item, done);
-    break;  
-  case FancyStreemsStates.IFRAME_PARSING:
-    cb =  self.scrapeRemoteStreamingIframe.bind(self, item, done);
-    break;
-  case FancyStreemsStates.STREAM_ID_AND_REMOTE_JS_PARSING:
-    cb = self.streamIDandRemoteJsParsingStage.bind(self, item, done);
-    break;        
-  case FancyStreemsStates.FETCH_REMOTE_JS_AND_FORMAT_FINAL_REQUEST:
-    cb = self.formatRemoteStreamURI.bind(self, item, done);
-    break;
-  case FancyStreemsStates.FINAL_STREAM_EXTRACTION:
-    cb = self.scrapeFinalStreamLocation.bind(self, item, done);
-    break;
-  }
-
-  if(cb === null)
-    self.emit('error', new Error('fetchAppropriateCallback : Callback  is null wtf ! - ' + JSON.stringify(item)));
-  return cb;
-}
-
 /*
   The easiest thing todo is to clone the service object in to however many embedded links we pulled 
   out, reset a few fields and go again. 
@@ -238,7 +316,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(service, succes
       serviceClone.embeddedALinks = [];
       serviceClone.links.push({desc: 'starting point', uri: link});
       serviceClone.activeLink = serviceClone.links[0];
-      serviceClone.currentState = FancyStreemsStates.IFRAME_PARSING;
+      serviceClone.currentState = FancyStreemsStates.IFRAME_EXPLODING;
       newResults.push(serviceClone);
     });
     self.horizontallyLinked.pop(ser);
@@ -259,26 +337,24 @@ FancyStreems.prototype.serviceCompleted = function(service, successfull){
     logger.warn("\n\n\nThis service did not complete - " + JSON.stringify(service));
   }
 
-  var n = self.results.indexOf(service);
-  if(n < 0){
-    logger.error("We have a service which isn't in results - ", service.name);
-    return;
-  }
+  var removed = false;
 
-  self.results.splice(n,1);
-
+  self.results.each(function(res){
+    if(res.activeLink.uri === service.activeLink.uri){
+      self.results.splice(self.results.indexOf(res), 1);
+    }
+  });
 }
 
 FancyStreems.prototype.serviceHasEmbeddedLinks = function(service){
   var self = this;
 
-  var n = self.results.indexOf(service);
-  if(n < 0){
+  if(!self.results.some(service)){
     logger.error("We have a service which isn't in results (embedded links) - ", service.name);
     return;
   }
-  self.results.splice(n,1);
   self.horizontallyLinked.push(service);  
+  self.results.splice(self.results.indexOf(service), 1);
 }
 
 FancyStreems.prototype.emitLink = function(service, desc, link){
