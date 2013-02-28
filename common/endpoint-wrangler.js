@@ -1,4 +1,5 @@
 ﻿"use strict";
+/*jslint white: true */
 /*
  * endpoint-wrangler.js - for a given web page can scrape out potential endpoints for given plugins
  *
@@ -21,7 +22,7 @@ var acquire = require('acquire')
 ;
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
-var urlmatch = XRegExp(
+var urlmatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' + 
   '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +
@@ -49,7 +50,6 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
 }; 
 
 module.exports.scraperObject = function DomObject($, source, foundItems) {
-  var foundItems = [];
   $('object').each(function onObj() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
@@ -90,7 +90,7 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
     var matches = [];
 
     request(uri, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
+      if (!error && response.statusCode === 200) {
         XRegExp.forEach(body, urlmatch, function (match, i) {
           var check = false;
           check |= protocols.some(match.protocol.toLowerCase());
@@ -103,7 +103,7 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
       xmlPromise.resolve(matches);
     });
     return xmlPromise;
-  };
+  }
 
   var xmlscrapes = [];
   $('param').each(function onFlashVars() {
@@ -133,9 +133,9 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
 }; 
 
 /* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
-module.exports.scrapersLiveTV = [module.exports.scraperEmbed
-                                ,module.exports.scraperObject
-                                ,module.exports.scraperRegexStreamUri];
+module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
+                                , module.exports.scraperObject
+                                , module.exports.scraperRegexStreamUri];
 
 
 var Wrangler = module.exports.Wrangler = function (driver) {
@@ -149,7 +149,8 @@ var Wrangler = module.exports.Wrangler = function (driver) {
 
   this.modules = [];
   this.isRunning = false;
-}; util.inherits(Wrangler, events.EventEmitter);
+};
+util.inherits(Wrangler, events.EventEmitter);
 
 
 Wrangler.prototype.addScraper = function (scraper) {
@@ -158,7 +159,7 @@ Wrangler.prototype.addScraper = function (scraper) {
     self.modules = self.modules.union(scraper);
   }
   else {
-    if (!self.modules.some(function (stored_module) { return (module === stored_module); })) {
+    if (!self.modules.some(function (storedModule) { return (module === storedModule); })) {
       self.modules.push(module);
     }
     else {
@@ -197,7 +198,7 @@ Wrangler.prototype.setupIFrameHandler = function () {
     if (self.processing < 1) {
       // we only emit this signal if we are done processing all items.
       self.emit('finished', self.foundItems);
-    };
+    }
   });
 
   self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
@@ -239,7 +240,7 @@ Wrangler.prototype.constructItemsObject = function (items, uri, parenturls) {
 
   if (self.processing < 1 && !self.isRunning) {
     self.emit('finished', self.foundItems);
-  };
+  }
 };
 
 Wrangler.prototype.quit = function () {
