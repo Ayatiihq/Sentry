@@ -24,7 +24,6 @@ var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY
                                                                        'WRANGLE_IT',
                                                                        'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
-
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
 var FancyStreems = module.exports = function() {
@@ -172,7 +171,7 @@ FancyStreems.prototype.wranglerFinished = function(service, done, items){
   console.log("wranglerFinished for service %s", service.name);  
   console.log(items);
   self.serviceCompleted(service, false);
-  self.wrangler.removeListener('finished', self.wranglerFinished.bind(self, service, done));
+  self.wrangler.removeAllListeners();
   done();
 }
 
