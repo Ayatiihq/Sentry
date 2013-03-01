@@ -41,13 +41,6 @@ FancyStreems.prototype.init = function() {
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(10000);
   
-  /*self.driver.get('chrome://settings/advanced');
-  self.driver.switchTo().frame(1);
-  self.driver.findElement(webdriver.By.css('button#advanced-settings-expander')).click();
-  self.driver.findElement(webdriver.By.css('#privacyContentSettingsButton')).click();
-  self.driver.findElement(webdriver.By.css('input#popups-block')).click().then(function postChromeUnFuck() {
-  });
-*/
 
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
@@ -179,6 +172,7 @@ FancyStreems.prototype.wranglerFinished = function(service, done, items){
   console.log("wranglerFinished for service %s", service.name);  
   console.log(items);
   self.serviceCompleted(service, false);
+  self.wrangler.removeListener('finished', self.wranglerFinished.bind(self, service, done));
   done();
 }
 
