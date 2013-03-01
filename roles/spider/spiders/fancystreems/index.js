@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , URI = require('URIjs')
+  , webdriver = require('selenium-webdriverjs')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
 ;
 
@@ -23,7 +24,8 @@ var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY
                                                                        'WRANGLE_IT',
                                                                        'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
+
+var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
 var FancyStreems = module.exports = function() {
   this.init();
@@ -34,7 +36,19 @@ util.inherits(FancyStreems, Spider);
 FancyStreems.prototype.init = function() {
   var self = this;
 
-  self.wrangler = new Wrangler();
+  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                                       .withCapabilities(CAPABILITIES)
+                                       .build();
+  self.driver.manage().timeouts().implicitlyWait(10000);
+  
+  /*self.driver.get('chrome://settings/advanced');
+  self.driver.switchTo().frame(1);
+  self.driver.findElement(webdriver.By.css('button#advanced-settings-expander')).click();
+  self.driver.findElement(webdriver.By.css('#privacyContentSettingsButton')).click();
+  self.driver.findElement(webdriver.By.css('input#popups-block')).click().then(function postChromeUnFuck() {
+  });
+*/
+
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
@@ -48,6 +62,10 @@ FancyStreems.prototype.init = function() {
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
   
   logger.info('FancyStreems Spider up and running');  
+
+  self.wrangler = new Wrangler(self.driver);
+  self.iterateRequests(self.categories);
+
 }
 //
 // Overrides
@@ -59,13 +77,12 @@ FancyStreems.prototype.getName = function() {
 FancyStreems.prototype.start = function(state) {
   var self = this;
   self.emit('started');
-  self.iterateRequests(self.categories);
 }
 
 FancyStreems.prototype.stop = function() {
   var self = this;
   self.emit('finished');
-  self.wrangler.quit();  
+  self.wrangler.quit();
 }
 
 FancyStreems.prototype.isAlive = function(cb) {
@@ -101,6 +118,7 @@ FancyStreems.prototype.iterateRequests = function(collection){
         request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
       }
       else if(item.currentState === FancyStreemsStates.WRANGLE_IT && item.isRetired() === false){
+        console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
         self.wrangler.beginSearch(item.activeLink.uri);
       }
@@ -160,9 +178,9 @@ FancyStreems.prototype.wranglerFinished = function(service, done, items){
   var self = this;
   console.log("wranglerFinished for service %s", service.name);  
   console.log(items);
+  self.serviceCompleted(service, false);
   done();
 }
-
 
 /*
 Scrape the individual service pages on FanceStreems. 
