@@ -14,7 +14,23 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriverjs')
   , URI = require('URIjs')
   , cheerio = require('cheerio')
+  , XRegExp = require('xregexp').XRegExp
 ;
+
+
+function shouldIgnoreUri(uri) {
+  var ignoreUris = [
+    XRegExp('facebook')   // like button
+   ,XRegExp('google')     // +1
+   ,XRegExp('twitter')    // tweet
+   ,XRegExp('://ad\.')    // common ad subdomain
+  ];
+
+  return ignoreUris.some(function ignoreTest(testregex) {
+    return testregex.test(uri);
+  });
+
+};
 
 // iframe object for containing which iframes we have looked at.
 // children should be an array of other iframe objects
@@ -96,7 +112,9 @@ IFrameObj.prototype.selectNextFrame = function () {
   var self = this;
   var frameindex = this.children.findIndex(function findNextFrame(frame) {
     if (self.urlmap.some(frame.src) && frame.isExempt && frame.getState() === 'unseen') { return true; }
-    else if (!self.urlmap.some(frame.src) && frame.getState() === 'unseen') { return true; }
+    else if (!self.urlmap.some(frame.src)
+              && frame.getState() === 'unseen'
+              && !shouldIgnoreUri(frame.src)) { return true; }
     else {
       return false;
     }
@@ -104,7 +122,7 @@ IFrameObj.prototype.selectNextFrame = function () {
   });
   if (frameindex >= 0) {
     var frame = this.children[frameindex];
-    if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(4000, true, 'middle')); }
+    if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(40, true, 'middle')); }
     this.client.switchTo().frame(frameindex);
     frame.search();
   }
@@ -120,7 +138,9 @@ IFrameObj.prototype.getState = function () {
   if (this.children.length < 1) { return 'endpoint'; } // we have no children, so we are an endpoint;
 
   var unseen_children = this.children.filter(function (child) {
-    return (!self.urlmap.some(child.src) && child.getState() === 'unseen');
+    return (!self.urlmap.some(child.src)
+            && child.getState() === 'unseen'
+            && !shouldIgnoreUri(child.src));
   });
 
   if (!unseen_children.length) { return 'seen'; }
