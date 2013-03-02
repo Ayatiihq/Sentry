@@ -24,6 +24,7 @@ function shouldIgnoreUri(uri) {
    ,XRegExp('google')     // +1
    ,XRegExp('twitter')    // tweet
    ,XRegExp('://ad\.')    // common ad subdomain
+   ,XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {
@@ -57,7 +58,7 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
     self.src = URI(self.element.attr('src')).absoluteTo(this.parent.src).toString().trim();
   }
   else {
-    self.client.getCurrentUrl().then(function (url) { self.src = url.trim(); });
+    self.client.getCurrentUrl().then(function (url) { console.dir(url); self.src = url.trim(); });
   }
 };
 
@@ -81,6 +82,8 @@ IFrameObj.prototype.getSource = function (callback) {
   else {
     self.client.getPageSource().then(function getSource(source) {
       self.source = source;
+      console.log(self.source.length);
+      console.log(self.source);
       self.$ = cheerio.load(source);
       if (callback) { callback(self.$, self.source); };
     });
