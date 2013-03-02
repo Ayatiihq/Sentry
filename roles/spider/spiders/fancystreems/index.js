@@ -33,13 +33,7 @@ var FancyStreems = module.exports = function() {
 util.inherits(FancyStreems, Spider);
 
 FancyStreems.prototype.init = function() {
-  var self = this;
-
-  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                                       .withCapabilities(CAPABILITIES)
-                                       .build();
-  self.driver.manage().timeouts().implicitlyWait(10000);
-  
+  var self = this;  
 
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
@@ -52,13 +46,26 @@ FancyStreems.prototype.init = function() {
   self.categories = [//{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      //{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
-  
-  logger.info('FancyStreems Spider up and running');  
-
-  self.wrangler = new Wrangler(self.driver);
+  //logger.info('FancyStreems Spider up and running');  
+  //self.wrangler = new Wrangler(self.driver);
+  self.newWrangler();
   self.iterateRequests(self.categories);
-
 }
+
+FancyStreems.prototype.newWrangler = function(){
+  var self = this;
+
+  if(self.driver){
+    self.driver.quit();
+    self.driver = null;
+  }
+  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                                       .withCapabilities(CAPABILITIES)
+                                       .build();
+  self.driver.manage().timeouts().implicitlyWait(10000);
+  self.wrangler = new Wrangler(self.driver);
+}
+
 //
 // Overrides
 //
@@ -111,6 +118,7 @@ FancyStreems.prototype.iterateRequests = function(collection){
       }
       else if(item.currentState === FancyStreemsStates.WRANGLE_IT && item.isRetired() === false){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
+        //self.newWrangler();
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
         self.wrangler.beginSearch(item.activeLink.uri);
       }
@@ -156,14 +164,15 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
       }
     }
   });
-  done()
-  /*var next = category_index('a#pagenext').attr('href');
+  //done()
+  var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
-    setTimeout(request, 10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));    
-  }*/
+    request.delay(10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));
+    //delay(10000 * Math.random(), request, next, self.scrapeCategory.bind(self, category, done));    
+  }
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
