@@ -43,6 +43,7 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
     check |= sanitized.has('stream');
     check |= sanitized.has('streem');
     check |= sanitized.has('jwplayer');
+    check |= sanitized.has('Live');
 
     if (check) { foundItems.push(this); }
   });
@@ -56,6 +57,7 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
     check |= sanitized.has('stream');
     check |= sanitized.has('streem');
     check |= sanitized.has('jwplayer');
+    check |= sanitized.has('Live');
 
     if (check) { foundItems.push(this); }
   });
