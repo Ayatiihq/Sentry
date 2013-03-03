@@ -20,11 +20,13 @@ var acquire = require('acquire')
 
 function shouldIgnoreUri(uri) {
   var ignoreUris = [
-    XRegExp('facebook')   // like button
-   ,XRegExp('google')     // +1
-   ,XRegExp('twitter')    // tweet
-   ,XRegExp('://ad\.')    // common ad subdomain
-   ,XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
+     XRegExp('facebook')          // like button
+   , XRegExp('google')            // +1
+   , XRegExp('twitter')           // tweet
+   , XRegExp('://ad\.')           // common ad subdomain
+   , XRegExp('/ads[0-9]*(\.|/)')  // foo.com/ads1.php or foo.com/ads/whateverelse
+   , XRegExp('sharethis')         // sharethis is a weird share service, i dunno why people use it. 
+   , XRegExp('://tag\.')          // tag.foo.bar tagging no one cares. 
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {

@@ -30,8 +30,8 @@ util.inherits(Generic, Scraper);
 Generic.prototype.init = function () {
   var self = this;
   self.testurls = [
-                  //'http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php'
-                 'http://1tvlive.in/zee-tv/'
+                 'http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php'
+                , 'http://1tvlive.in/zee-tv/'
                 , 'http://www.roshantv.com/zee_tv.php'
                 , 'http://nowwatchtvlive.com/2011/07/zee-tv-live-watch-zee-tv-online-watch-zee-tv-free/'
                 , 'http://www.yupptv.com/zee_tv_live.html'
@@ -78,7 +78,7 @@ Generic.prototype.checkURI = function (uri) {
     logger.info('found ' + items.length + 'items for uri: ' + uri);
     logger.debug(items);
     self.wrangler.removeAllListeners();
-    self.wrangler.quit();
+    //self.wrangler.quit();
     promise.resolve(items);
   });
 
