@@ -112,6 +112,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, metad
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri)
+    , metadata = metadata ? metdata : {}
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -161,6 +162,7 @@ Infringements.prototype.addMeta = function(campaign, uri, source, state, metadat
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri, source)
+    , metadata = metadata ? metdata : {}
     ;
 
   callback = callback ? callback : defaultCallback;

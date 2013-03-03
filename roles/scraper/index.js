@@ -349,7 +349,7 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metad
 
 Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
   var self = this
-    , scrapeState = states.infringements.state.NEED_SCRAPE
+    , scrapeState = states.infringements.state.NEEDS_SCRAPE
     , unverifiedState= states.infringements.state.UNVERIFIED
     ;
 
