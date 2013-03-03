@@ -31,7 +31,10 @@ function main() {
   var action = argv[2];
 
   if (action === 'get') {
-    links.getLinks(argv[3], Date.utc.create(argv[4]), console.log);
+    links.getLinks(argv[3], Date.utc.create(argv[4]), function(err, entities) {
+      console.log(entities);
+      console.log(entities.length);
+    });
   }
 
   if (action === 'add') {

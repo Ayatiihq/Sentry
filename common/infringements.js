@@ -134,7 +134,6 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, metad
   entity.metadata = metadata;
 
   entity = self.pack(entity);
-  console.log(entity);
 
   self.tableService_.insertEntity(TABLE, entity, function(err) {
     if (!err)
