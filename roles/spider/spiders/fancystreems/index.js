@@ -62,7 +62,7 @@ FancyStreems.prototype.newWrangler = function(){
   self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
-  self.driver.manage().timeouts().implicitlyWait(10000);
+  self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
 }
 
@@ -164,15 +164,15 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
       }
     }
   });
-  //done()
-  var next = category_index('a#pagenext').attr('href');
+  done()
+  /*var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     request.delay(10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));
     //delay(10000 * Math.random(), request, next, self.scrapeCategory.bind(self, category, done));    
-  }
+  }*/
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
