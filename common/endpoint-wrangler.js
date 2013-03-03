@@ -21,7 +21,7 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
+var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 var urlmatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' + 
