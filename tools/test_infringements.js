@@ -8,6 +8,7 @@
 var acquire = require('acquire')
   , config = acquire('config')
   , logger = acquire('logger')
+  , states = acquire('states')
   , sugar = require('sugar')
   ;
 
@@ -42,11 +43,11 @@ function main() {
 
     if (action === 'add') {
       var uri = argv[3];
-      infringements.add(campaign, uri, 'web', 'test', {});
+      infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {});
     }
 
     if (action === 'addMeta') {
-      infringements.addMeta(campaign, argv[3], argv[4], {});
+      infringements.addMeta(campaign, argv[3], argv[4], states.infringements.state.UNVERIFIED, {});
     }
 
     if (action === 'addRelation') {

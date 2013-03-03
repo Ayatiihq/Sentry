@@ -108,7 +108,7 @@ Infringements.prototype.pack = function(entity) {
  * @param  {function(err,uid)} callback    A callback to receive the uid of the uri, or an error.
  * @return {undefined}
  */
-Infringements.prototype.add = function(campaign, uri, type, source, metadata, callback) {
+Infringements.prototype.add = function(campaign, uri, type, source, state, metadata, callback) {
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri)
@@ -129,11 +129,12 @@ Infringements.prototype.add = function(campaign, uri, type, source, metadata, ca
   entity.uri = uri;
   entity.type = type;
   entity.source = source;
-  entity.state = states.infringements.state.UNVERIFIED;
+  entity.state = state;
   entity.created = Date.utc.create().getTime();
   entity.metadata = metadata;
 
   entity = self.pack(entity);
+  console.log(entity);
 
   self.tableService_.insertEntity(TABLE, entity, function(err) {
     if (!err)
@@ -157,7 +158,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, metadata, ca
  * @param {function(err,uid)} callback    Callback to receive the uid of the infringement, or an error.
  * @return {undefined}
  */
-Infringements.prototype.addMeta = function(campaign, uri, source, metadata, callback) {
+Infringements.prototype.addMeta = function(campaign, uri, source, state, metadata, callback) {
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri, source)
@@ -178,7 +179,7 @@ Infringements.prototype.addMeta = function(campaign, uri, source, metadata, call
   entity.uri = uri;
   entity.type = 'meta';
   entity.source = source;
-  entity.state = states.infringements.state.UNVERIFIED;
+  entity.state = state;
   entity.created = Date.utc.create().getTime();
   entity.metadata = metadata;
 

@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('miner.js')
   , Seq = require('seq')
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -115,11 +116,13 @@ Miner.prototype.updateTimestamp = function(key, campaign, links) {
 }
 
 Miner.prototype.mineCampaign = function(campaign, links, done) {
-  var self = this;
+  var self = this
+    , state = states.infringements.state.UNVERIFIED
+    ;
 
   links.forEach(function(link) {
     if (self.linkMatchesCampaign(link, campaign)) {
-      self.infringements_.add(campaign, link.uri, link.type, link.source, link.metadata);
+      self.infringements_.add(campaign, link.uri, link.type, link.source, state, link.metadata);
       if (link.parent.length > 0)
         self.infringements_.addRelation(campaign, link.parent, link.uri);
     }

@@ -336,9 +336,11 @@ Scraper.prototype.cleanup = function(scraper, job) {
 }
 
 Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metadata) {
-  var self = this;
+  var self = this
+    , state = states.infringements.state.UNVERIFIED
+    ;
 
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
     }
@@ -346,20 +348,20 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metad
 }
 
 Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
-  var self = this;
+  var self = this
+    , scrapeState = states.infringements.state.NEED_SCRAPE
+    , unverifiedState= states.infringements.state.UNVERIFIED
+    ;
 
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
-  // FIXME: These are created in the wrong state, should be NEEDS_SCRAPE
-  self.infringements_.add(campaign, uri, campaign.type, 'X-Needs-Scrape', metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
-    } else {
-      //FIXME: SEND TO GOVERNOR TO DO SOMETHING USEFUL WITH
     }
   });
 
-  self.infringements_.addMeta(campaign, uri, scraper.getName(), metadata, function(err, id) {
+  self.infringements_.addMeta(campaign, uri, scraper.getName(), unverifiedState, metadata, function(err, id) {
     if (err) {
       logger.warn('Unable to add an meta infringement: %s %s %s %s', campaign, uri, metadata, err);
     }
