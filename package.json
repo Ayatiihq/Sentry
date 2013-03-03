@@ -4,6 +4,7 @@
   "description": "Sentry piracy dectection and protection system.",
   
   "dependencies": {
+    "acquire": "git://github.com/njpatel/acquire.git",
     "azure": "git://github.com/njpatel/azure-sdk-for-node.git",
     "parseq": "0.2.x",
     "URIjs":"1.8.x",
