@@ -155,15 +155,17 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
     src = source;
     $('div .movies').each(function(){
       $(this).find('a').each(function(){
-        if($(this).attr('title'))
-
-          var service = new Service($(this).text(),
+        if($(this).attr('title')){
+          var service = new Service('tv.live',
+                                    'TvChannelsOnline',
+                                    $(this).text(),
                                     category,
-                                    self.root + '/' + item.cat + '-channels',
+                                    self.root + '/' + category + '-channels',
                                     TvChannelsOnlineStates.SERVICE_PARSING);
+          console.log('just created %s', service.name);
           self.results.push(service);
-          self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));*/
-          //console.log('inner here : %s linked to %s', $(this).text(), $(this).attr('href'));
+          self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
+        }
       });
     });    
     done();    
@@ -215,7 +217,7 @@ TvChannelsOnline.prototype.scrapeService = function(service, done, err, resp, ht
   }); 
   // if there is an iframe, first step is to check for horizontal links across the top
   if (target){
-    service.currentState = TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS;
+    //service.currentState = TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS;
     self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://TvChannelsOnline.com').toString());
   }
   else{

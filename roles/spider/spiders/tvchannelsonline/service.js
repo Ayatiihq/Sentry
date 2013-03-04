@@ -10,15 +10,15 @@ var acquire = require('acquire');
 var logger = acquire('logger').forFile('Service.js');
 var main = require('./index');
 
-var Service = module.exports =  function(channelType, name, genre, topLink, initialState) { 
-  this.init(name, genre, topLink, initialState);
+var Service = module.exports =  function(channelType, spiderName, name, genre, topLink, initialState) { 
+  this.init(channelType, spiderName, name, genre, topLink, initialState);
 }
 
-Service.prototype.init = function(channelType, name, genre, topLink, initialState) {
+Service.prototype.init = function(channelType, spiderName, name, genre, topLink, initialState) {
   var self = this;
 
   self.type = channelType;
-  self.source = '';
+  self.source = spiderName;
 
   self.name = name;
   self.genre = genre;  
@@ -53,12 +53,12 @@ Service.prototype.moveToNextLink = function(){
 Service.prototype.retire = function(){
   var self = this;
   self.lastStageReached = self.currentState;
-  self.currentState = main.FancyStreemsStates.END_OF_THE_ROAD;
+  self.currentState = main.TvChannelsOnlineStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.isRetired = function(){
   var self= this;
-  return self.currentState === main.FancyStreemsStates.END_OF_THE_ROAD;
+  return self.currentState === main.TvChannelsOnlineStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
