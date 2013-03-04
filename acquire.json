@@ -4,6 +4,7 @@
   "clients": "common/clients.js",
   "config": "common/config.js",
   "database": "common/database.js",
+  "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
   "iframe-exploder": "common/iframe-exploder.js",
   "infringements": "common/infringements.js",

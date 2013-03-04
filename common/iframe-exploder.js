@@ -20,13 +20,11 @@ var acquire = require('acquire')
 
 function shouldIgnoreUri(uri) {
   var ignoreUris = [
-     XRegExp('facebook')          // like button
-   , XRegExp('google')            // +1
-   , XRegExp('twitter')           // tweet
-   , XRegExp('://ad\.')           // common ad subdomain
-   , XRegExp('/ads[0-9]*(\.|/)')  // foo.com/ads1.php or foo.com/ads/whateverelse
-   , XRegExp('sharethis')         // sharethis is a weird share service, i dunno why people use it. 
-   , XRegExp('://tag\.')          // tag.foo.bar tagging no one cares. 
+    XRegExp('facebook')   // like button
+   ,XRegExp('google')     // +1
+   ,XRegExp('twitter')    // tweet
+   ,XRegExp('://ad\.')    // common ad subdomain
+   ,XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {
@@ -65,6 +63,21 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
 };
 
 util.inherits(IFrameObj, events.EventEmitter);
+
+module.exports.shouldIgnoreUri = function (uri) {
+  var ignoreUris = [
+    XRegExp('facebook')   // like button
+   , XRegExp('google')     // +1
+   , XRegExp('twitter')    // tweet
+   , XRegExp('://ad\.')    // common ad subdomain
+   , XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
+  ];
+
+  return ignoreUris.some(function ignoreTest(testregex) {
+    return testregex.test(uri);
+  });
+
+};
 
 IFrameObj.prototype.getParentURIs = function () {
   var self = this;
