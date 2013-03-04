@@ -4,60 +4,34 @@
  * (C) 2013 Ayatii Limited
  *
  * Representing a network/station/channel or in BBC speak a 'service'
- *
+ * TODO - move to common, rename to Channel
  */
 var acquire = require('acquire');
-
 var logger = acquire('logger').forFile('Service.js');
-
 var main = require('./index');
 
-
-var Service = module.exports =  function(name, genre, topLink, initialState) { 
+var Service = module.exports =  function(channelType, name, genre, topLink, initialState) { 
   this.init(name, genre, topLink, initialState);
 }
 
-Service.prototype.init = function(name, genre, topLink, initialState) {
+Service.prototype.init = function(channelType, name, genre, topLink, initialState) {
   var self = this;
 
-  self.type = 'tv.live';
-  self.source = 'FancyStreems';
+  self.type = channelType;
+  self.source = '';
 
   self.name = name;
-  self.genre = genre;
-  self.foundobjs = [];
-  
-  // This property is to hold the links on the screen (via the buttons at the top)
-  // kinda ugly but inorder to be effecient we should store these as we find them
-  // best place is on the service object itself.
-  // When ready these links should be used to create new service objects which we can 
-  // then repeat the pattern which went previously.
-  self.embeddedALinks = 0;
-  // links will be used to hold all the links  we have 
-  // found against this service, the key should be used to 
-  // describe where the link was scraped.
-  // TODO : make links a linked list of link objects defined in constructLink
+  self.genre = genre;  
+
   self.links = [{uri :topLink, desc: "service link"}];
   // The activeLink member is used to hold the
   // link that is in the process of being requested / parsed
   // so that when we successfully find the next link we know 
   // that the activeLink is its parent.  
   self.activeLink = self.links[0];
-  // An optional holding place to store the args passed to remote js's.
-  // usually these are ripped from inline js preceding the inclusion of the remote js.
-  self.stream_params= {};
-  self.final_stream_location = '';
 
   self.currentState = initialState;
   self.lastStageReached = initialState;
-  self.referralLink = '';
-
-  //logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
-}
-
-Service.prototype.isActiveLinkanIframe = function(){
-  var self = this;
-  return self.activeLink.desc.match(/^iframe/g) !== null;
 }
 
 Service.prototype.moveToNextLink = function(){
