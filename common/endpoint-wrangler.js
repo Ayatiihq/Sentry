@@ -139,7 +139,7 @@ module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
                                 , module.exports.scraperRegexStreamUri];
 
-
+/* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
