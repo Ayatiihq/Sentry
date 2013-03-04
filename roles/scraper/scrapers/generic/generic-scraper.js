@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
   , sugar = require('sugar')
+  , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Wrangler = acquire('endpoint-wrangler').Wrangler
   , Promise = require('node-promise');
 ;
@@ -29,6 +30,8 @@ util.inherits(Generic, Scraper);
 
 Generic.prototype.init = function () {
   var self = this;
+
+  // hey Neil, replace testurls with whatever and it'll run through that on start() 
   self.testurls = [
                  'http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php'
                 , 'http://1tvlive.in/zee-tv/'
@@ -40,8 +43,27 @@ Generic.prototype.init = function () {
                 , 'http://www.bolytv.com/'
                 , 'http://www.webtvonlinelive.com/2007/11/live-zee-tv-channel.html'
                 , 'http://fancystreems.com/default.asp@pageId=42.php'];
+
+  self.backupUrls = [];
   self.wrangler = new Wrangler();
-  this.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+  self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+};
+
+
+Generic.prototype.emitURI = function (uri, parents, extradata) {
+  var self = this;
+  // go through our list of parents for the given uri, make an infringement of them all
+  // make relations between them
+  for (var i = 0; i < parents.length; i++) {
+    self.emit('infringement', parents[i]);
+    if (i > 0) {
+      self.emit('relation', parents[i - 1], parents[i]);
+    }
+  };
+
+  // emit infringement on the last uri and if we have parents, make relations
+  self.emit('infringement', uri, extradata);
+  if (parents.length) { self.emit('relation', parents.last()); }
 };
 
 //
@@ -54,19 +76,39 @@ Generic.prototype.getName = function () {
 Generic.prototype.start = function (campaign, job) {
   var self = this;
 
-  
-
   var promiseArray = self.testurls.map(function promiseBuilder(uri) {
     return self.checkURI.bind(self, uri);
   });
 
   Promise.seq(promiseArray).then(function onURISChecked() {
-    self.wrangler.quit();
-    self.stop();
+    if (!!self.wrangler) { self.wrangler.quit(); }
+    
+    if (self.backupUrls.length) {
+      var backupPromiseArray = self.backupUrls.map(function backupPromiseBuilder(uri) {
+        return self.backupCheckURI.bind(self, uri);
+      });
+
+      Promise.seq(backupPromiseArray).then(function onBackupURISChecked() {
+        self.stop();
+      });
+    }
+    else {
+      self.stop();
+    }
   });
 
   logger.info('started for %s', campaign);
   self.emit('started');
+};
+
+Generic.prototype.onWranglerFinished = function (wrangler, promise, isBackup, items) {
+  logger.info('found ' + items.length + 'items for uri: ' + uri);
+  var metadata = items;
+  if (isBackup) { metadataisBackup = true; }
+  self.emitURI(items.uri, items.parents, metadata);
+
+  wrangler.removeAllListeners();
+  promise.resolve(items);
 };
 
 Generic.prototype.checkURI = function (uri) {
@@ -74,17 +116,31 @@ Generic.prototype.checkURI = function (uri) {
   var promise = new Promise.Promise();
   logger.info('running check for: ' + uri);
 
-  self.wrangler.on('finished', function onFinished(items) {
-    logger.info('found ' + items.length + 'items for uri: ' + uri);
-    logger.debug(items);
-    self.wrangler.removeAllListeners();
-    //self.wrangler.quit();
-    promise.resolve(items);
+  if (!!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }
+
+  self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, promise, false));
+
+  self.wrangler.on('error', function onWranglerError(error) {
+    // wrangler died for some reason, we need to go for the backup solution
+    self.wrangler = null;
+    self.backupUrls.push(url);
+    self.wrangler.resolve();
   });
 
   self.wrangler.beginSearch(uri);
   return promise;
 };
+
+Generic.prototype.backupCheckURI = function (uri) {
+  var self = this;
+  var promise = new Promise.Promise();
+  var wrangler = new BasicWrangler();
+  wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+  wrangler.on('finished', onWranglerFinished.bind(self, wrangler, promise, false));
+
+  return promise;
+};
+
 Generic.prototype.stop = function () {
   var self = this;
   self.emit('finished');
