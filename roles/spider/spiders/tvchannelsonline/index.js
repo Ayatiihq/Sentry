@@ -18,8 +18,6 @@ var acquire = require('acquire')
 
 require('enum').register();
 var TvChannelsOnlineStates = module.exports.TvChannelsOnlineStates = new Enum(['CATEGORY_PARSING',
-                                                                               'SERVICE_PARSING',
-                                                                               'DETECT_HORIZONTAL_LINKS',
                                                                                'WRANGLE_IT',
                                                                                'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
@@ -112,12 +110,6 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
       else if(item.currentState === TvChannelsOnlineStates.CATEGORY_PARSING){
         self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
       }
-      else if(item.currentState === TvChannelsOnlineStates.SERVICE_PARSING){
-        //self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done)));
-      }
-      else if(item.currentState === TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS){
-        request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
-      }
       else if(item.currentState === TvChannelsOnlineStates.WRANGLE_IT){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
@@ -195,115 +187,6 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
   done();
 }
 
-/*
-*/
-TvChannelsOnline.prototype.scrapeService = function(service, done, err, resp, html)
-{
-  var self = this;
-  if(err){
-    logger.warn("@service page level Couldn't fetch " + service.activeLink.uri);
-    self.serviceCompleted(service, false);
-    done();
-  }
-
-  var $ = cheerio.load(html);
-  // try for the iframe (+50% of cases)
-  var target = null;
-  /*$('div .inlineFix').each(function(){
-    if($(this).children().length === 1){ // We know the embed stream is siblingless !      
-      if($(this).children('iframe').attr('src')){
-        target = $(this).children('iframe').attr('src');
-      }
-    }
-  });*/ 
-  // if there is an iframe, first step is to check for horizontal links across the top
-  if (target){
-    //service.currentState = TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS;
-    self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://tvchannelsonline.com').toString());
-  }
-  else{
-    service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
-  }   
-  done();
-}
-
-TvChannelsOnline.prototype.scrapeIndividualaLinksOnWindow = function(service, done, err, res, html){
-  var self = this;
-  
-  if (err || res.statusCode !== 200){
-    logger.warn("scrapeIndividualaLinksOnWindow : Couldn't fetch iframe for service " + service.name + " @ " + service.activeLink.uri);
-    self.serviceCompleted(service, false);
-    done();
-    return;      
-  }
-
-  // Best way to identify the actual iframe which have the actual links to the streams
-  // is to look for imgs in <a>s  which match /Link[0-9].png/g -
-  var iframe_parsed = cheerio.load(html);
-  var embedded_results = [];
-  iframe_parsed('a').each(function(img_index, img_element){
-    var relevant_a_link = false;
-    iframe_parsed(this).find('img').each(function(y, n){
-      if(iframe_parsed(this).attr('src').match(/Link[0-9].png/g) !== null){
-        relevant_a_link = true;
-      }
-    });
-    if(relevant_a_link === true){
-      var completed_uri = URI(iframe_parsed(this).attr('href')).absoluteTo('http://TvChannelsOnline.com').toString();
-      self.emitLink(service, "alink around png button on the screen", completed_uri);
-      embedded_results.push(completed_uri);
-    }
-  }); 
-
-  // firstly if we found alinks separate these services out from the main pack.
-  if(embedded_results.length > 0){
-    // we need to handle those with alinks differently => split them out.
-    // push them into another array and flatten them out on the next iteration
-    service.embeddedALinks = embedded_results
-    self.serviceHasEmbeddedLinks(service);
-  }
-  else{
-    // no links at the top ?
-    // push it on to iframe parsing where we hope it should work.
-    service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
-  }
-  done();
-}
-
-
-TvChannelsOnline.prototype.sanityCheck = function(){
-  var self = this;
-  self.results.forEach(function(res){
-    console.log("\n\n " +  JSON.stringify(res));
-  });
-}
-/*
-  The easiest thing todo is to clone the service object in to however many embedded links we pulled 
-  out, reset a few fields and go again. 
-*/
-TvChannelsOnline.prototype.flattenHorizontalLinkedObjects = function(service, successfull)
-{
-  var self = this;
-  var newResults = [];
-  logger.info("flattenHorizontalLinkedObjects initial length : " + self.horizontallyLinked.length);
-  logger.info("initial results size = " + self.results.length);
-
-  self.horizontallyLinked.forEach(function(ser){
-    ser.embeddedALinks.forEach(function(link){
-      var serviceClone = Object.clone(ser);
-      serviceClone.links = [];
-      serviceClone.embeddedALinks = [];
-      serviceClone.links.push({desc: 'starting point', uri: link});
-      serviceClone.activeLink = serviceClone.links[0];
-      serviceClone.currentState = TvChannelsOnlineStates.WRANGLE_IT;
-      newResults.push(serviceClone);
-    });
-    self.horizontallyLinked.pop(ser);
-  });
-  self.results = self.results.concat(newResults);
-  logger.info("flattenHorizontalLinkedObjects new length : " + self.horizontallyLinked.length);
-  logger.info("new results size = " + self.results.length);
-}
 
 TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
   var self = this;
@@ -321,17 +204,6 @@ TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
       self.results.splice(self.results.indexOf(res), 1);
     }
   });
-}
-
-TvChannelsOnline.prototype.serviceHasEmbeddedLinks = function(service){
-  var self = this;
-
-  self.results.each(function(res){
-    if(res.activeLink.uri === service.activeLink.uri){
-      self.results.splice(self.results.indexOf(res), 1);
-    }
-  });
-  self.horizontallyLinked.push(service);  
 }
 
 TvChannelsOnline.prototype.emitLink = function(service, desc, link){
