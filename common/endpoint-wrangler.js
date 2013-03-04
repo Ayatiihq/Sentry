@@ -209,6 +209,7 @@ Wrangler.prototype.setupIFrameHandler = function () {
 };
 
 Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
+  var self = this;
   self.processing++;
 
   var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });

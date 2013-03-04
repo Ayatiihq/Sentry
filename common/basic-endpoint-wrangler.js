@@ -3,25 +3,28 @@
 /*
  * basic-endpoint-wrangler.js - for a given web page can scrape out potential endpoints for given plugins
  *  - alternate version that does not run through selenium
- * (C) 2012 Ayatii Limited
+ *  - the caveat being that although it is much quicker and 'safer', it will not find anything hidden behind javascript
+ * (C) 2013 Ayatii Limited
  *
  *
  */
 require('sugar');
 var acquire = require('acquire')
-  , all = require('node-promise').all
   , cheerio = require('cheerio')
   , EndpointWrangler = acquire('endpoint-wrangler')
   , events = require('events')
   , logger = acquire('logger').forFile('basic-endpoint-wrangler.js')
   , Promise = require('node-promise').Promise
   , request = require('request')
+  , seq = require('node-promise').seq
+  , shouldIgnoreUri = acquire('iframe-exploder').shouldIgnoreUri
+  , URI = require('URIjs')
   , util = require('util')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
 
-var Wrangler = function () {
+var Wrangler = module.exports.Wrangler = function () {
   var self = this;
   events.EventEmitter.call(self);
   self.foundItems = [];
@@ -46,12 +49,19 @@ Wrangler.prototype.beginSearch = function (uri) {
   });
 };
 
-Wrangler.prototype.findIframes = function ($) {
+Wrangler.prototype.findIFrames = function ($) {
   return $('iframe').map(function () { return $(this).attr('src'); });
 };
 
 Wrangler.prototype.processUri = function (uri, parents) {
   var promise = new Promise();
+  var self = this;
+
+  if (shouldIgnoreUri(uri)) {
+    // ignore this uri
+    return null;
+  }
+
 
   request({
     'uri': uri,
@@ -64,15 +74,17 @@ Wrangler.prototype.processUri = function (uri, parents) {
       var newParents = parents.clone();
       newParents.push(uri);
 
-      var newIFrames = findIFrames($).map(function (iframeSrc) {
-        return processUri.bind(iframeSrc, newParents);
+      var newIFrames = self.findIFrames($).map(function (iframeSrc) {
+        var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
+        return self.processUri.bind(self, composedURI, newParents);
       });
 
-      all(newIFrames).then(function () {
+      seq(newIFrames).then(function () {
         promise.resolve();
       });
     }
     else {
+      logger.info(error);
       promise.resolve();
     }
   });
