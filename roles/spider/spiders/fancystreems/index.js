@@ -157,13 +157,13 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
   category_index('h2').each(function(i, elem){
     if(category_index(elem).hasClass('video_title')){    
       var name = category_index(this).children().first().text().toLowerCase().trim();
-      //if(name.match(/^star/g) !== null){
-      var topLink = self.root + 'tvcat/' + category + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
-      var service = new Service(name, category, topLink, FancyStreemsStates.SERVICE_PARSING);
-      self.results.push(service);
-      self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
-      //}
+      if(name.match(/^star/g) !== null){
+        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var service = new Service(name, category, topLink, FancyStreemsStates.SERVICE_PARSING);
+        self.results.push(service);
+        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+      }
     }
   });
   done()
@@ -222,14 +222,12 @@ FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
   // if there is an iframe, first step is to check for horizontal links across the top
   if (target){
     service.currentState = FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
-    // TODO: remove
+    // TODO: just for testing, skip the flattening.
     //service.currentState = FancyStreemsStates.WRANGLE_IT;
     self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://fancystreems.com').toString());
   }
   else{
-    // otherwise go for gold.
-    // TODO: Needs testing.
-    // service.currentState = FancyStreemsStates.WRANGLE_IT;
+    service.currentState = FancyStreemsStates.WRANGLE_IT;
   }   
   done();
 }
