@@ -182,7 +182,7 @@ Wrangler.prototype.beginSearch = function(uri) {
   self.uri = uri;
   this.driver.get(uri).then(function() {
     self.setupIFrameHandler();
-  });
+  }, self.emit.bind(self, 'error'));
 };
 
 Wrangler.prototype.setupIFrameHandler = function () {
@@ -190,6 +190,8 @@ Wrangler.prototype.setupIFrameHandler = function () {
   self.iframe = new IFrameExploder(self.driver);
   self.iframe.debug = true; // don't do this in production, too noisy
   self.processing = 0; // a counter that counts the number of processing items
+
+  self.iframe.on('error', self.emit.bind(self, 'error'));
 
   self.iframe.on('finished', function iframeFinished() { // when we are finished it's safe to use self.client again
     self.iframe = null;
