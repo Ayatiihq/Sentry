@@ -21,14 +21,14 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
-var BasicWrangler = function () {
+var Wrangler = function () {
   var self = this;
   events.EventEmitter.call(self);
   self.foundItems = [];
   self.modules = [];
   self.isRunning = false;
 };
-util.inherits(BasicWrangler, EndpointWrangler.Wrangler);
+util.inherits(Wrangler, EndpointWrangler.Wrangler);
 
 Wrangler.prototype.beginSearch = function (uri) {
   var self = this;
