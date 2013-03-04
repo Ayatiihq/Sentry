@@ -17,7 +17,6 @@ var acquire = require('acquire')
 ;
 
 require('enum').register();
-
 var FancyStreemsStates = module.exports.FancyStreemsStates = new Enum(['CATEGORY_PARSING',
                                                                        'SERVICE_PARSING',
                                                                        'DETECT_HORIZONTAL_LINKS',
@@ -64,6 +63,8 @@ FancyStreems.prototype.newWrangler = function(){
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
+
+  self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
 }
 
 //
@@ -118,9 +119,11 @@ FancyStreems.prototype.iterateRequests = function(collection){
       }
       else if(item.currentState === FancyStreemsStates.WRANGLE_IT && item.isRetired() === false){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
-        //self.newWrangler();
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
         self.wrangler.beginSearch(item.activeLink.uri);
+      }
+      else{
+        console.log('Shouldnt get to here : %s', JSON.stringify(service));
       }
     })
     .seq(function(){
@@ -171,15 +174,26 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
   }
   else{
     request.delay(10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));
-    //delay(10000 * Math.random(), request, next, self.scrapeCategory.bind(self, category, done));    
   }*/
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
   var self = this;
-  console.log("wranglerFinished for service %s", service.name);  
-  console.log(items);
-  self.serviceCompleted(service, false);
+  //console.log("wranglerFinished for service %s", service.name);  
+  //console.log(JSON.stringify(items));
+  items.each(function traverseResults(x){
+    if(x.parents.length > 0){
+      x.parents.reverse();
+      x.parents.each(function emitForParent(parent){
+        self.emit('link', service.constructLink("unwrangled this as a parent", parent));
+      });
+    }
+    self.emit('link', service.constructLink("stream parent uri", x.uri));
+    x.items.each(function rawBroadcaster(item){
+      self.emit('link', service.constructLink("raw broadcaster ip", item.toString()));  
+    });
+  });
+  self.serviceCompleted(service, items.length > 0);
   self.wrangler.removeAllListeners();
   done();
 }
@@ -208,9 +222,11 @@ FancyStreems.prototype.scrapeService = function(service, done, err, resp, html)
       }
     }
   }); 
-  // if there is an iframe we need to check for horizontal links across the top
+  // if there is an iframe, first step is to check for horizontal links across the top
   if (target){
     service.currentState = FancyStreemsStates.DETECT_HORIZONTAL_LINKS;
+    // TODO: remove
+    //service.currentState = FancyStreemsStates.WRANGLE_IT;
     self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://fancystreems.com').toString());
   }
   else{
