@@ -156,15 +156,18 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
     $('div .movies').each(function(){
       $(this).find('a').each(function(){
         if($(this).attr('title')){
-          var service = new Service('tv.live',
-                                    'TvChannelsOnline',
-                                    $(this).text(),
-                                    category,
-                                    self.root + '/' + category + '-channels',
-                                    TvChannelsOnlineStates.SERVICE_PARSING);
-          console.log('just created %s', service.name);
-          self.results.push(service);
-          self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
+          var name = $(this).text();
+          if(name.match(/^star/)){
+            var service = new Service('tv.live',
+                                      'TvChannelsOnline',
+                                      $(this).text(),
+                                      category,
+                                      self.root + '/' + category + '-channels',
+                                      TvChannelsOnlineStates.SERVICE_PARSING);
+            console.log('just created %s', service.name);
+            self.results.push(service);
+            self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
+          }
         }
       });
     });    
@@ -208,17 +211,17 @@ TvChannelsOnline.prototype.scrapeService = function(service, done, err, resp, ht
   var $ = cheerio.load(html);
   // try for the iframe (+50% of cases)
   var target = null;
-  $('div .inlineFix').each(function(){
+  /*$('div .inlineFix').each(function(){
     if($(this).children().length === 1){ // We know the embed stream is siblingless !      
       if($(this).children('iframe').attr('src')){
         target = $(this).children('iframe').attr('src');
       }
     }
-  }); 
+  });*/ 
   // if there is an iframe, first step is to check for horizontal links across the top
   if (target){
     //service.currentState = TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS;
-    self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://TvChannelsOnline.com').toString());
+    self.emitLink(service,"iframe scraped from service page", URI(target).absoluteTo('http://tvchannelsonline.com').toString());
   }
   else{
     service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
