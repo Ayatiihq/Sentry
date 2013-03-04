@@ -143,7 +143,7 @@ module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
 var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
-  this.driver = (!!driver) ? driver : self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  this.driver = (!!driver) ? driver : new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                                                            .withCapabilities(CAPABILITIES)
                                                                            .build();
   this.foundItems = [];
