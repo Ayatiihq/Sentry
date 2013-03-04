@@ -45,8 +45,6 @@ FancyStreems.prototype.init = function() {
   self.categories = [//{cat: 'entertainment', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      //{cat: 'movies', currentState: FancyStreemsStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: FancyStreemsStates.CATEGORY_PARSING}];
-  //logger.info('FancyStreems Spider up and running');  
-  //self.wrangler = new Wrangler(self.driver);
   self.newWrangler();
   self.iterateRequests(self.categories);
 }
@@ -123,7 +121,8 @@ FancyStreems.prototype.iterateRequests = function(collection){
         self.wrangler.beginSearch(item.activeLink.uri);
       }
       else{
-        console.log('Shouldnt get to here : %s', JSON.stringify(service));
+        console.warn('\n\n Shouldnt get to here : %s', JSON.stringify(service));
+        self.serviceCompleted(service, false);
       }
     })
     .seq(function(){
@@ -158,29 +157,27 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
   category_index('h2').each(function(i, elem){
     if(category_index(elem).hasClass('video_title')){    
       var name = category_index(this).children().first().text().toLowerCase().trim();
-      if(name.match(/^star/g) !== null){
-        var topLink = self.root + 'tvcat/' + category + 'tv.php';
-        var categoryLink = category_index(elem).children().first().attr('href');
-        var service = new Service(name, category, topLink, FancyStreemsStates.SERVICE_PARSING);
-        self.results.push(service);
-        self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
-      }
+      //if(name.match(/^star/g) !== null){
+      var topLink = self.root + 'tvcat/' + category + 'tv.php';
+      var categoryLink = category_index(elem).children().first().attr('href');
+      var service = new Service(name, category, topLink, FancyStreemsStates.SERVICE_PARSING);
+      self.results.push(service);
+      self.emit('link', service.constructLink("linked from " + category + " page", categoryLink));
+      //}
     }
   });
   done()
-  /*var next = category_index('a#pagenext').attr('href');
+  var next = category_index('a#pagenext').attr('href');
   if(next === null || next === undefined || next.isBlank()){
     done();
   }
   else{
     request.delay(10000 * Math.random(), next, self.scrapeCategory.bind(self, category, done));
-  }*/
+  }
 }  
 
 FancyStreems.prototype.wranglerFinished = function(service, done, items){
   var self = this;
-  //console.log("wranglerFinished for service %s", service.name);  
-  //console.log(JSON.stringify(items));
   items.each(function traverseResults(x){
     if(x.parents.length > 0){
       x.parents.reverse();
