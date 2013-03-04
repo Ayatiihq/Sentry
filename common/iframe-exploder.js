@@ -84,7 +84,7 @@ IFrameObj.prototype.getSource = function (callback) {
       self.source = source;
       self.$ = cheerio.load(source);
       if (callback) { callback(self.$, self.source); };
-    });
+    }, self.root.emit.bind(self.root, 'error'));
   }
 };
 
@@ -124,7 +124,7 @@ IFrameObj.prototype.selectNextFrame = function () {
   if (frameindex >= 0) {
     var frame = this.children[frameindex];
     if (self.root.debug) { logger.info('-'.repeat(self.depth + 1) + '> select iframe: ' + frame.src.truncate(40, true, 'middle')); }
-    this.client.switchTo().frame(frameindex);
+    this.client.switchTo().frame(frameindex).then(function () { }, self.root.emit.bind(self.root, 'error'));
     frame.search();
   }
   else {
@@ -151,7 +151,7 @@ IFrameObj.prototype.getState = function () {
 IFrameObj.prototype.selectDefault = function () {
   var self = this;
   if (self.root.debug) { logger.info('<' + '-'.repeat(self.depth + 1) + ' select root frame'); }
-  self.client.switchTo().defaultContent(); // goes back to the "default" frame
+  self.client.switchTo().defaultContent().then(function () { }, self.root.emit.bind(self.root, 'error')); // goes back to the "default" frame
   self.root.search();
 };
 
