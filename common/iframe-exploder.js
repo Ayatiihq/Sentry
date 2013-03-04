@@ -17,22 +17,6 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
-
-function shouldIgnoreUri(uri) {
-  var ignoreUris = [
-    XRegExp('facebook')   // like button
-   ,XRegExp('google')     // +1
-   ,XRegExp('twitter')    // tweet
-   ,XRegExp('://ad\.')    // common ad subdomain
-   ,XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
-  ];
-
-  return ignoreUris.some(function ignoreTest(testregex) {
-    return testregex.test(uri);
-  });
-
-};
-
 // iframe object for containing which iframes we have looked at.
 // children should be an array of other iframe objects
 var IFrameObj = module.exports = function (client, element, urlmap, depth, root, parent) {
@@ -55,10 +39,15 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
   this.urlmap = (urlmap === undefined) ? [] : urlmap;
   this.state = 'unseen';
   if (this.element !== null) {
-    self.src = URI(self.element.attr('src')).absoluteTo(this.parent.src).toString().trim();
+    try {
+      self.src = URI(self.element.attr('src')).absoluteTo(this.parent.src).toString().trim();
+    } catch (err) {
+      self.src = 'IAMERROR';
+    }
   }
   else {
-    self.client.getCurrentUrl().then(function (url) { self.src = url.trim(); });
+    self.client.getCurrentUrl().then(function (url) { self.src = url.trim(); },
+                                     self.root.emit.bind(self.root, 'error'));
   }
 };
 
@@ -66,11 +55,16 @@ util.inherits(IFrameObj, events.EventEmitter);
 
 module.exports.shouldIgnoreUri = function (uri) {
   var ignoreUris = [
-    XRegExp('facebook')   // like button
+    XRegExp('^IAMERROR$') // allows us to ignore uris that fail URI(), basically javascript; nonsense
+   , XRegExp('facebook')   // like button
    , XRegExp('google')     // +1
    , XRegExp('twitter')    // tweet
    , XRegExp('://ad\.')    // common ad subdomain
    , XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
+   , XRegExp('banner')
+   , XRegExp('adjuggler')
+   , XRegExp('yllix') // yllix.com - ads
+   , XRegExp('(cineblizz|newzexpress|goindialive|webaddalive|awadhtimes|listenfilmyradio)') // generic add landing pages
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {
@@ -130,7 +124,7 @@ IFrameObj.prototype.selectNextFrame = function () {
     if (self.urlmap.some(frame.src) && frame.isExempt && frame.getState() === 'unseen') { return true; }
     else if (!self.urlmap.some(frame.src)
               && frame.getState() === 'unseen'
-              && !shouldIgnoreUri(frame.src)) { return true; }
+              && !module.exports.shouldIgnoreUri(frame.src)) { return true; }
     else {
       return false;
     }
@@ -156,7 +150,7 @@ IFrameObj.prototype.getState = function () {
   var unseen_children = this.children.filter(function (child) {
     return (!self.urlmap.some(child.src)
             && child.getState() === 'unseen'
-            && !shouldIgnoreUri(child.src));
+            && !module.exports.shouldIgnoreUri(child.src));
   });
 
   if (!unseen_children.length) { return 'seen'; }

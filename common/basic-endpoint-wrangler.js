@@ -24,24 +24,30 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
+var MAX_DEPTH = 7; // don't go more than 7 iframes deep, that is reta.. bad. 
+
 var Wrangler = module.exports.Wrangler = function () {
   var self = this;
   events.EventEmitter.call(self);
   self.foundItems = [];
   self.modules = [];
   self.isRunning = false;
+  
 };
 util.inherits(Wrangler, EndpointWrangler.Wrangler);
 
 Wrangler.prototype.beginSearch = function (uri) {
   var self = this;
+  
   if (self.isRunning) { throw new Error('tried to begin new search whilst still processing a previous search'); }
   self.isRunning = true;
   self.processing = 0; // a counter that counts the number of processing items
+  self.foundURIs = [];
 
   self.uri = uri;
   self.processUri(uri, []).then(function onFinishedProcessing() {
     self.isRunning = false;
+    logger.info('basic-wrangler finished');
     if (self.processing < 1) {
       // we only emit this signal if we are done processing all items.
       self.emit('finished', self.foundItems);
@@ -56,16 +62,14 @@ Wrangler.prototype.findIFrames = function ($) {
 Wrangler.prototype.processUri = function (uri, parents) {
   var promise = new Promise();
   var self = this;
+  self.foundURIs.push(uri);
 
-  if (shouldIgnoreUri(uri)) {
-    // ignore this uri
-    return null;
-  }
-
+  logger.info('(' + parents.length + ') requesting: ' + uri);
 
   request({
     'uri': uri,
-    'referer': parents.last()
+    'referer': parents.last(),
+    'referrer': parents.last()
   },
   function (error, response, body) {
     if (!error && response.statusCode === 200) {
@@ -73,18 +77,32 @@ Wrangler.prototype.processUri = function (uri, parents) {
       self.processSource(uri, parents, $, body);
       var newParents = parents.clone();
       newParents.push(uri);
+      
+      if (newParents.length < MAX_DEPTH) {
+        var newIFrames = self.findIFrames($).map(function (iframeSrc) {
+          try {
+            var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
+          } catch (error) {
+            return null; //probably 'javascript;'
+          };
 
-      var newIFrames = self.findIFrames($).map(function (iframeSrc) {
-        var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
-        return self.processUri.bind(self, composedURI, newParents);
-      });
+          if (shouldIgnoreUri(composedURI)) { return null; }
+          if (self.foundURIs.some(composedURI)) { return null; }
 
-      seq(newIFrames).then(function () {
+          return self.processUri.bind(self, composedURI, newParents);
+        }).compact();
+
+        seq(newIFrames).then(function () {
+          promise.resolve();
+        });
+      }
+      else {
+        logger.info('MAXFRAMES reached');
         promise.resolve();
-      });
+      }
     }
     else {
-      logger.info(error);
+      logger.info('Error(' + uri + '): ' + error);
       promise.resolve();
     }
   });
