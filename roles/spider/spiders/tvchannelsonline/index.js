@@ -79,8 +79,8 @@ TvChannelsOnline.prototype.start = function(state) {
 
 TvChannelsOnline.prototype.stop = function() {
   var self = this;
-  self.emit('finished');
   self.wrangler.quit();
+  self.emit('finished');
 }
 
 TvChannelsOnline.prototype.isAlive = function(cb) {
@@ -104,23 +104,24 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      if(item.currentState === TvChannelsOnlineStates.CATEGORY_PARSING){
+
+      if(item instanceof Service && item.isRetired()){
+        logger.warn('retired item in live loop %s', item.name);
+        done();
+      }
+      else if(item.currentState === TvChannelsOnlineStates.CATEGORY_PARSING){
         self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
       }
-      else if(item.currentState === TvChannelsOnlineStates.SERVICE_PARSING && item.isRetired() === false){
-        request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeService.bind(self, item, done));
+      else if(item.currentState === TvChannelsOnlineStates.SERVICE_PARSING){
+        //self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done)));
       }
-      else if(item.currentState === TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS && item.isRetired() === false){
+      else if(item.currentState === TvChannelsOnlineStates.DETECT_HORIZONTAL_LINKS){
         request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
       }
-      else if(item.currentState === TvChannelsOnlineStates.WRANGLE_IT && item.isRetired() === false){
+      else if(item.currentState === TvChannelsOnlineStates.WRANGLE_IT){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
         self.wrangler.beginSearch(item.activeLink.uri);
-      }
-      else{
-        console.warn('\n\n Shouldnt get to here : %s', JSON.stringify(service));
-        self.serviceCompleted(service, false);
       }
     })
     .seq(function(){
@@ -156,14 +157,14 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
     $('div .movies').each(function(){
       $(this).find('a').each(function(){
         if($(this).attr('title')){
-          var name = $(this).text();
-          if(name.match(/^star/)){
+          var name = $(this).text().toLowerCase();
+          if(name.match(/^star/) !== null){
             var service = new Service('tv.live',
                                       'TvChannelsOnline',
-                                      $(this).text(),
+                                      name,
                                       category,
                                       self.root + '/' + category + '-channels',
-                                      TvChannelsOnlineStates.SERVICE_PARSING);
+                                      TvChannelsOnlineStates.WRANGLE_IT);
             console.log('just created %s', service.name);
             self.results.push(service);
             self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
@@ -181,12 +182,12 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
     if(x.parents.length > 0){
       x.parents.reverse();
       x.parents.each(function emitForParent(parent){
-        self.emit('link', service.constructLink("unwrangled this as a parent", parent));
+        self.emitLink(service, "unwrangled this as a parent", parent);
       });
     }
     self.emit('link', service.constructLink("stream parent uri", x.uri));
     x.items.each(function rawBroadcaster(item){
-      self.emit('link', service.constructLink("raw broadcaster ip", item.toString()));  
+      self.emitLink(service, "raw broadcaster ip", item.toString());  
     });
   });
   self.serviceCompleted(service, items.length > 0);
@@ -195,9 +196,6 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
 }
 
 /*
-Scrape the individual service pages on FanceStreems. 
-Search for a div element with a class called 'inlineFix', check to make sure it has only one child
-and then handle all the different ways to embed the stream.
 */
 TvChannelsOnline.prototype.scrapeService = function(service, done, err, resp, html)
 {
