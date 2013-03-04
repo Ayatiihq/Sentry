@@ -122,10 +122,6 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
       logger.info("InCompleted length : " + self.incomplete.length);
       logger.info("Those with multiple horizontal Links: " + self.horizontallyLinked.length);
       
-      // Flatten out any nested links
-      if (self.horizontallyLinked.length > 0)
-        self.flattenHorizontalLinkedObjects();
-
       // if we have more go again
       if(self.results.length > 0){
         self.iterateRequests(self.results);
