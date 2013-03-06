@@ -18,6 +18,7 @@ var acquire = require('acquire')
 
 require('enum').register();
 var TvChannelsOnlineStates = module.exports.TvChannelsOnlineStates = new Enum(['CATEGORY_PARSING',
+                                                                               'SERVICE_PARSING',
                                                                                'WRANGLE_IT',
                                                                                'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
@@ -35,8 +36,6 @@ TvChannelsOnline.prototype.init = function() {
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
-  // used to store services that have multiple links at a certain level (i.e. those with link 1-5 at the top of the screen)  
-  self.horizontallyLinked = [] 
   
   self.root = "http://www.tvchannelsliveonline.com";
 
@@ -57,7 +56,7 @@ TvChannelsOnline.prototype.newWrangler = function(){
   self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
-  self.driver.manage().timeouts().implicitlyWait(50000);
+  self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
 
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
@@ -110,6 +109,9 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
       else if(item.currentState === TvChannelsOnlineStates.CATEGORY_PARSING){
         self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
       }
+      else if(item.currentState === TvChannelsOnlineStates.SERVICE_PARSING){
+        self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done));
+      }
       else if(item.currentState === TvChannelsOnlineStates.WRANGLE_IT){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
@@ -120,7 +122,6 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
-      logger.info("Those with multiple horizontal Links: " + self.horizontallyLinked.length);
       
       // if we have more go again
       if(self.results.length > 0){
@@ -152,7 +153,7 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
                                       name,
                                       category,
                                       self.root + '/' + category + '-channels',
-                                      TvChannelsOnlineStates.WRANGLE_IT);
+                                      TvChannelsOnlineStates.SERVICE_PARSING);
             console.log('just created %s', service.name);
             self.results.push(service);
             self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
@@ -183,10 +184,30 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
   done();
 }
 
+TvChannelsOnline.prototype.scrapeService = function(service, done){
+  var self = this;
+  var src = null;
+  var $ = null;
+
+  var searchP = self.driver.findElements(webdriver.By.tagName('iframe'));
+  searchP.then(function traverseIframes(frames){
+    for(var i= 0; i < frames.length; i ++){
+      frames[i].getAttribute('src').then(function(value){
+        //console.log('iframe src = ' + value);
+        if(value.has('streamer247')){
+          self.emit('link', service.constructLink("embedded", value));
+          service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
+        }
+      });
+    }
+    done();    
+  });
+}
 
 TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
   var self = this;
   service.retire();  
+
   if(successfull === true){
     self.complete.push(service);
   } 
