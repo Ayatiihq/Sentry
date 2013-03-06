@@ -68,8 +68,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
 
   request({
     'uri': uri,
-    'referer': parents.last(),
-    'referrer': parents.last()
+    'Referer': parents.last()
   },
   function (error, response, body) {
     if (!error && response.statusCode === 200) {
