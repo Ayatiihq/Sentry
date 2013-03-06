@@ -12,7 +12,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , URI = require('URIjs')
-  , webdriver = require('selenium-webdriverjs')
+  , webdriver = require('selenium-webdriver')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
 ;
 
