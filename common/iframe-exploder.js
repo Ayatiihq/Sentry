@@ -17,22 +17,6 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
-
-function shouldIgnoreUri(uri) {
-  var ignoreUris = [
-    XRegExp('facebook')   // like button
-   ,XRegExp('google')     // +1
-   ,XRegExp('twitter')    // tweet
-   ,XRegExp('://ad\.')    // common ad subdomain
-   ,XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
-  ];
-
-  return ignoreUris.some(function ignoreTest(testregex) {
-    return testregex.test(uri);
-  });
-
-};
-
 // iframe object for containing which iframes we have looked at.
 // children should be an array of other iframe objects
 var IFrameObj = module.exports = function (client, element, urlmap, depth, root, parent) {
@@ -63,6 +47,21 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
 };
 
 util.inherits(IFrameObj, events.EventEmitter);
+
+module.exports.shouldIgnoreUri = function (uri) {
+  var ignoreUris = [
+    XRegExp('facebook')   // like button
+   , XRegExp('google')     // +1
+   , XRegExp('twitter')    // tweet
+   , XRegExp('://ad\.')    // common ad subdomain
+   , XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
+  ];
+
+  return ignoreUris.some(function ignoreTest(testregex) {
+    return testregex.test(uri);
+  });
+
+};
 
 IFrameObj.prototype.getParentURIs = function () {
   var self = this;

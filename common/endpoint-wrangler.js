@@ -21,7 +21,7 @@ var acquire = require('acquire')
   , XRegExp = require('xregexp').XRegExp
 ;
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
+var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 var urlmatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' + 
@@ -43,6 +43,7 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
     check |= sanitized.has('stream');
     check |= sanitized.has('streem');
     check |= sanitized.has('jwplayer');
+    check |= sanitized.has('Live');
 
     if (check) { foundItems.push(this); }
   });
@@ -56,6 +57,7 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
     check |= sanitized.has('stream');
     check |= sanitized.has('streem');
     check |= sanitized.has('jwplayer');
+    check |= sanitized.has('Live');
 
     if (check) { foundItems.push(this); }
   });
@@ -137,11 +139,11 @@ module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
                                 , module.exports.scraperRegexStreamUri];
 
-
+/* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
-  this.driver = (!!driver) ? driver : self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  this.driver = (!!driver) ? driver : new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                                                            .withCapabilities(CAPABILITIES)
                                                                            .build();
   this.foundItems = [];
@@ -200,30 +202,33 @@ Wrangler.prototype.setupIFrameHandler = function () {
     }
   });
 
-  self.iframe.on('found-source', function foundSource(uri, parenturls, $, source) {
-    self.processing++;
-
-    var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
-    var previousReturn = [];
-    pagemods.each(function (scraper) {
-      previousReturn = when(previousReturn, scraper);
-    });
-
-    if (Object.isArray(previousReturn)) {
-      // no promises were returned by our scrapers so we can act right now
-      self.constructItemsObject(previousReturn, uri, parenturls);
-    }
-    else {
-      // we got a promise somewhere along the way, converting all subsequent calls to when
-      // into returning promises so we need to wait for the promise chain to resolve.
-      previousReturn.then(function onPromiseResolve(items) {
-        self.constructItemsObject(items, uri, parenturls);
-      });
-    }
-  });
+  self.iframe.on('found-source', self.processSource);
 
   // call to start the whole process
   self.iframe.search();
+};
+
+Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
+  var self = this;
+  self.processing++;
+
+  var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
+  var previousReturn = [];
+  pagemods.each(function (scraper) {
+    previousReturn = when(previousReturn, scraper);
+  });
+
+  if (Object.isArray(previousReturn)) {
+    // no promises were returned by our scrapers so we can act right now
+    self.constructItemsObject(previousReturn, uri, parenturls);
+  }
+  else {
+    // we got a promise somewhere along the way, converting all subsequent calls to when
+    // into returning promises so we need to wait for the promise chain to resolve.
+    previousReturn.then(function onPromiseResolve(items) {
+      self.constructItemsObject(items, uri, parenturls);
+    });
+  }
 };
 
 Wrangler.prototype.constructItemsObject = function (items, uri, parenturls) {
