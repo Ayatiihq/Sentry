@@ -20,7 +20,8 @@ var acquire = require('acquire')
 var TABLE = 'links'
   , PACK_LIST = ['metadata']
   , SCHEMAS = {
-    "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata']
+    "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata'],
+    "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata']
     }
   ;
 

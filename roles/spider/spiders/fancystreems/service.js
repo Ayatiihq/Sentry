@@ -8,14 +8,16 @@
  */
 var acquire = require('acquire');
 
-var logger = acquire('logger').forFile('Service.js')
+var logger = acquire('logger').forFile('Service.js');
+
+var main = require('./index');
 
 
-var Service = module.exports =  function(name, genre, topLink) { 
-  this.init(name, genre, topLink);
+var Service = module.exports =  function(name, genre, topLink, initialState) { 
+  this.init(name, genre, topLink, initialState);
 }
 
-Service.prototype.init = function(name, genre, topLink) {
+Service.prototype.init = function(name, genre, topLink, initialState) {
   var self = this;
 
   self.type = 'tv.live';
@@ -42,9 +44,13 @@ Service.prototype.init = function(name, genre, topLink) {
   // An optional holding place to store the args passed to remote js's.
   // usually these are ripped from inline js preceding the inclusion of the remote js.
   self.stream_params= {};
-  self.final_stream_location = ''
-  // a flag to indicate we can't go any further here.
-  self.retired = false;
+  self.final_stream_location = '';
+
+  self.currentState = initialState;
+  self.lastStageReached = initialState;
+  self.referralLink = '';
+
+  //logger.info('Just created a service for ' + self.name + " with initialState : " + self.currentState);
 }
 
 Service.prototype.isActiveLinkanIframe = function(){
@@ -57,29 +63,43 @@ Service.prototype.moveToNextLink = function(){
   var n = self.links.indexOf(self.activeLink);
   if(n < 0){
     logger.error('activeLink is not part of links for some reason for ' + self.name + " : " + JSON.stringify(self.activeLink));
-    self.retired = true;
+    self.retire();
     return;
   }
   if((n+1) > (self.links.length-1)){
+    self.retire();
     logger.error("At the end of the list of links for " + self.name);
-    self.retired = true;
     return;
   }
   self.activeLink = self.links[n+1];
 }
 
+Service.prototype.retire = function(){
+  var self = this;
+  self.lastStageReached = self.currentState;
+  self.currentState = main.FancyStreemsStates.END_OF_THE_ROAD;
+}
+
 Service.prototype.constructLink = function(childLinkSource, childLink){
   var self = this;
+  
+  var result = {success: false, link: null};
 
-  var linkToEmit = {channel: self.name,
-                    genre: self.genre,
-                    type: self.type,
-                    source: self.source,
-                    uri: childLink,
-                    parent: self.activeLink.uri,
-                    metadata: {linkSource: childLinkSource}};
+  if(childLink === undefined || childLink === null){
+    return result;
+  }
+  
+  result.success = true;
+
+  result.link = {channel: self.name,
+                 genre: self.genre,
+                 type: self.type,
+                 source: self.source,
+                 uri: childLink,
+                 parent: self.activeLink.uri,
+                 metadata: {linkSource: childLinkSource}};
 
   self.links.push({desc : childLinkSource, uri : childLink});
   self.moveToNextLink();
-  return linkToEmit;
+  return result;
 }
