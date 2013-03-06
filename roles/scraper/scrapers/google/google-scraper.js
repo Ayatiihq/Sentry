@@ -14,7 +14,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('google-scraper.js')
   , util = require('util')
-  , webdriver = require('selenium-webdriverjs')
+  , webdriver = require('selenium-webdriver')
   , sugar = require('sugar')
   , cheerio = require('cheerio')
   ;
