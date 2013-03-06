@@ -82,12 +82,6 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
   return foundItems;
 }; 
 
-
-module.exports.scraperJsInjection = function DomObject($, source, foundItems) {
-  var injectionDetection = XRegExp('^\\p{L}+$');    
-}; 
-
-
 /* A more complicated scraper, this one needs to be async so instead of returning an array
    it returns a promise and resolves that promise asyncronously
 */
