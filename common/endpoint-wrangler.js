@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , Promise = require('node-promise').Promise
   , request = require('request')
   , util = require('util')
-  , webdriver = require('selenium-webdriverjs')
+  , webdriver = require('selenium-webdriver')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
