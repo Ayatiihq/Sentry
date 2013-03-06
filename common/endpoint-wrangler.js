@@ -35,6 +35,16 @@ var urlmatch = XRegExp( //ignore jslint
   ')',
   'gix'); // global, ignore case, free spacing 
 
+
+var Endpoint = function(data) {
+  this.data = data;
+  this.isEndpoint = false;
+};
+
+Endpoint.prototype.toString = function () {
+  return this.data.toString();
+};
+
 /* - Scraper snippets, these are passed into the wrangler and executed on each html source it finds - */
 module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
   $('embed').each(function onEmd() {
@@ -45,7 +55,11 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
     check |= sanitized.has('jwplayer');
     check |= sanitized.has('Live');
 
-    if (check) { foundItems.push(this); }
+    if (check) {
+      var newitem = new Endpoint(this.toString());
+      newitem.isEndpoint = false; // not an endpoint, just html
+      foundItems.push(newitem);
+    }
   });
   return foundItems;
 }; 
@@ -59,7 +73,11 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
     check |= sanitized.has('jwplayer');
     check |= sanitized.has('Live');
 
-    if (check) { foundItems.push(this); }
+    if (check) {
+      var newitem = new Endpoint(this.toString());
+      newitem.isEndpoint = false; // not an endpoint, just html
+      foundItems.push(newitem);
+    }
   });
   return foundItems;
 }; 
@@ -78,7 +96,9 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
     check |= protocols.some(match.protocol.toLowerCase());
     if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
     if (check) {
-      foundItems.push(match.fulluri);
+      var newitem = new Endpoint(match.fulluri.toString());
+      newitem.isEndpoint = true;
+      foundItems.push(newitem);
     }
     
   });
@@ -98,7 +118,9 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
           check |= protocols.some(match.protocol.toLowerCase());
           if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
           if (check) {
-            matches.push(match.fulluri);
+            var newitem = new Endpoint(match.fulluri.toString());
+            newitem.isEndpoint = true;
+            matches.push(newitem);
           }
         });
       }
@@ -143,9 +165,17 @@ module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
 var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
-  this.driver = (!!driver) ? driver : new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                                                                           .withCapabilities(CAPABILITIES)
-                                                                           .build();
+  if (!driver) {
+    self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                              .withCapabilities(CAPABILITIES)
+                              .build();
+    logger.info('building new webdriver');
+  }
+  else {
+    this.driver = driver;
+  }
+
+
   this.foundItems = [];
 
   this.modules = [];
@@ -182,7 +212,7 @@ Wrangler.prototype.beginSearch = function(uri) {
   self.uri = uri;
   this.driver.get(uri).then(function() {
     self.setupIFrameHandler();
-  });
+  }, self.emit.bind(self, 'error'));
 };
 
 Wrangler.prototype.setupIFrameHandler = function () {
@@ -190,6 +220,8 @@ Wrangler.prototype.setupIFrameHandler = function () {
   self.iframe = new IFrameExploder(self.driver);
   self.iframe.debug = true; // don't do this in production, too noisy
   self.processing = 0; // a counter that counts the number of processing items
+
+  self.iframe.on('error', self.emit.bind(self, 'error'));
 
   self.iframe.on('finished', function iframeFinished() { // when we are finished it's safe to use self.client again
     self.iframe = null;
@@ -202,7 +234,7 @@ Wrangler.prototype.setupIFrameHandler = function () {
     }
   });
 
-  self.iframe.on('found-source', self.processSource);
+  self.iframe.on('found-source', self.processSource.bind(self));
 
   // call to start the whole process
   self.iframe.search();
@@ -212,6 +244,8 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   var self = this;
   self.processing++;
 
+  logger.info('processing uri: ' + uri);
+ 
   var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
   var previousReturn = [];
   pagemods.each(function (scraper) {

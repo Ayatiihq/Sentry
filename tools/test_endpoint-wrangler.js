@@ -12,6 +12,11 @@ var testWrangler = function () {
     self.wrangler.quit();
   });
 
+  this.wrangler.on('error', function onWranglerError(error) {
+    console.log('got wrangler error');
+    console.log(error);
+  });
+
   /* we add the scrapersLiveTV scraper collection to the wrangler, this is a collection of scrapers, 
    * as of right now it is defined as:
    
@@ -28,6 +33,7 @@ var testWrangler = function () {
    */
   //this.wrangler.beginSearch('http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html');
   this.wrangler.beginSearch('http://www.newtvworld.com/India-Live-Tv-Channels/bbc-world-news-live-streaming.html');
+  //this.wrangler.beginSearch('http://nowwatchtvlive.com/2011/07/zee-tv-live-watch-zee-tv-online-watch-zee-tv-free/');
 };
 
 var test = new testWrangler();
