@@ -64,6 +64,21 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
   return foundItems;
 }; 
 
+module.exports.scraperSwfObject = function SwfObject($, source, foundItems) {
+
+  $('script').each(function onScript() {
+    var check = false;
+    var sanitized = $(this).toString().toLowerCase();
+    check |= sanitized.has('new swfobject') && sanitized.has('player');
+    if (check) {
+      var newitem = new Endpoint(this.toString());
+      newitem.isEndpoint = false; // not an endpoint, just html
+      foundItems.push(newitem);
+    }
+  });
+  return foundItems;
+}
+
 module.exports.scraperObject = function DomObject($, source, foundItems) {
   $('object').each(function onObj() {
     var check = false;
@@ -159,7 +174,8 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
 /* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
 module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
-                                , module.exports.scraperRegexStreamUri];
+                                , module.exports.scraperRegexStreamUri
+                                , module.exports.scraperSwfObject];
 
 /* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {

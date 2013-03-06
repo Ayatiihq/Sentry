@@ -176,7 +176,12 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
     }
     self.emit('link', service.constructLink("stream parent uri", x.uri));
     x.items.each(function rawBroadcaster(item){
-      self.emitLink(service, "raw broadcaster ip", item.toString());  
+      if(item.isEndpoint){
+        self.emitLink(service, "raw broadcaster ip", item.toString());  
+      }
+      else{
+        logger.warn('unable to determine end point for %s', service.name);
+      }
     });
   });
   self.serviceCompleted(service, items.length > 0);
