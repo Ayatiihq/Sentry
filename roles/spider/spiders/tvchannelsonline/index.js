@@ -57,7 +57,7 @@ TvChannelsOnline.prototype.newWrangler = function(){
   self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
-  self.driver.manage().timeouts().implicitlyWait(30000);
+  self.driver.manage().timeouts().implicitlyWait(50000);
   self.wrangler = new Wrangler(self.driver);
 
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
