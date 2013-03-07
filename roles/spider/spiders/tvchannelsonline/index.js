@@ -39,8 +39,8 @@ TvChannelsOnline.prototype.init = function() {
   
   self.root = "http://www.tvchannelsliveonline.com";
 
-  self.categories = [//{cat: 'entertainment', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
-                     //{cat: 'movies', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
+  self.categories = [{cat: 'entertainment', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
+                     {cat: 'movies', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
                      {cat: 'sports', currentState: TvChannelsOnlineStates.CATEGORY_PARSING}];
   self.newWrangler();
   self.iterateRequests(self.categories);
@@ -56,7 +56,7 @@ TvChannelsOnline.prototype.newWrangler = function(){
   self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
-  self.driver.manage().timeouts().implicitlyWait(30000);
+  self.driver.manage().timeouts().implicitlyWait(60000);
   self.wrangler = new Wrangler(self.driver);
 
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
@@ -112,7 +112,7 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
         self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done));
       }
       else if(item.currentState === TvChannelsOnlineStates.WRANGLE_IT){
-        console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
+        //console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', self.wranglerFinished.bind(self, item, done));
         self.wrangler.beginSearch(item.activeLink.uri);
       }
@@ -146,17 +146,17 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
       $(this).find('a').each(function(){
         if($(this).attr('title')){
           var name = $(this).text().toLowerCase();
-          //if(name.match(/^star/) !== null){
+          if(name.match(/^star/) !== null){
             var service = new Service('tv.live',
                                       'TvChannelsOnline',
                                       name,
                                       category,
                                       self.root + '/' + category + '-channels',
                                       TvChannelsOnlineStates.SERVICE_PARSING);
-            console.log('just created %s', service.name);
+            //console.log('just created %s', service.name);
             self.results.push(service);
             self.emit('link', service.constructLink({link_source: category + " page"}, $(this).attr('href')));
-          //}
+          }
         }
       });
     });    
@@ -171,32 +171,35 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
       x.parents.reverse();
       x.parents.each(function emitForParent(parent){
         self.emit('link',
-                  service.constructLink({link_source : "unwrangled this as a parent"}, parent));
+                  service.constructLink({link_source : "An unwrangled parent"}, parent));
       });
     }    
 
-    var found = false;
-    x.items.each(function iterateItems(item){
-      if(item.isEndpoint){
-        found = true;
+    var endpointDeterminded = false;
+    for(var t = 0; t < items.length; t++){
+      if(items[t].isEndpoint){
+        endpointDeterminded = true;
+        break;
       }
-      else{
-        logger.warn('unable to determine end point for %s', service.name);
-      }
-    });
+    }
 
-    if (!found){
+    if (!endpointDeterminded){
+      // gather all items into one string and put in the metadata under 'hiddenEndpoint'
       var flattened = x.items.map(function flatten(n){ return n.toString();});
-      console.log('flattened : ' + flattened);
       self.emit('link',
-                service.constructLink({link_source: "stream parent uri",
+                service.constructLink({link_source: "final stream parent uri",
                 hiddenEndpoint: flattened.join(',')}, x.uri));
     }
     else{
-      self.emit('link', service.constructLink({link_source: "stream parent uri"}, x.uri));
+      // first emit the uri of the frame as the parent of the stream
+      self.emit('link', service.constructLink({link_source: "final stream parent uri"}, x.uri));
       x.items.each(function rawBroadcaster(item){
-        if(item.isEndpoint)
-          self.emit('link', service.constructLink({link_source: "raw broadcaster ip"}, item.toString()));  
+        if(item.isEndpoint){
+          self.emit('link', service.constructLink({link_source: "End of the road"}, item.toString()));  
+        }
+        else{
+          self.emit('link', service.constructLink({link_source: "Not an endpoint so what am I ?"}, item.toString()));            
+        }
       });
     }
   });
@@ -216,17 +219,17 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
       var width = $(this).attr('width');
       var height = $(this).attr('height');
       var src = $(this).attr('src');
-      
+
       if(width && height){
         var ratio = parseFloat(width)/ parseFloat(height);
-        console.log('ratio = ' + ratio + ' for ' +  src);
+        //console.log('ratio = ' + ratio + ' for ' +  src);
         if(ratio > 1 && ratio < 1.5){
           self.emit('link', service.constructLink({remoteStreamer: "embedded @ service page"}, src));
           service.currentState = TvChannelsOnlineStates.WRANGLE_IT;          
         } 
       }
     });
-    // retire those that we didn't manage to move to the right iframe
+    // retire those that didn't manage to move to the right iframe
     if(service.currentState === TvChannelsOnlineStates.SERVICE_PARSING)
       self.serviceCompleted(service, false);
     done();

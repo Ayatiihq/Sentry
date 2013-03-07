@@ -64,8 +64,10 @@ Service.prototype.isRetired = function(){
 Service.prototype.constructLink = function(extraMetadata, childLink){
   var self = this;
   var link;
+  
   if(!childLink)
-    console.log('FOOL link is null!');
+    console.error('%s - constructLink got passed a null link %s', self.name, extraMetadata);
+
   link = {channel: self.name,
           genre: self.genre,
           type: self.type,
