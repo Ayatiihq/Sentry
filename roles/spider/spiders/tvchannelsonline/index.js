@@ -207,31 +207,28 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
 
 TvChannelsOnline.prototype.scrapeService = function(service, done){
   var self = this;
-  var src = null;
   var $ = null;
+  var progress = false;
 
-  var searchP = self.driver.findElements(webdriver.By.tagName('iframe'));
-  searchP.then(function traverseIframes(frames){
-    for(var i= 0; i < frames.length; i ++){
-      var width = frames[i].getAttribute('width');
-      var height = frames[i].getAttribute('height');
-      var src = frames[i].getAttribute('src');
-      width.then(function(w_value){
-        height.then(function(h_value){
-          src.then(function(src_value){
-            console.log('width ' + w_value + ' height ' + h_value);//+ ' src ' + src_value);
-            var ratio = parseFloat(w_value) / parseFloat(h_value);
-            if(ratio){
-              console.log("Aspect ratio : " + ratio + ' for : ' + src_value);            
-            }
-          });            
-        });
-      });
-        /*if(value.has('streamer247')){
-          self.emit('link', service.constructLink({remoteStreamer: "embedded"}, value));
-          service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
-        }*/
-    }
+  self.driver.getPageSource().then(function scrapeIframes(source){
+    $ = cheerio.load(source);
+    $('iframe').each(function(i, elem){
+      var width = $(this).attr('width');
+      var height = $(this).attr('height');
+      var src = $(this).attr('src');
+
+      if(width && height){
+        var ratio = parseFloat(width)/ parseFloat(height);
+        console.log('ratio = ' + ratio + ' for ' +  src);
+        if(ratio > 1 && ratio < 1.5){
+          self.emit('link', service.constructLink({remoteStreamer: "embedded @ service page"}, src));
+          service.currentState = TvChannelsOnlineStates.WRANGLE_IT;          
+        } 
+      }
+    });
+    // retire those that we didn't manage to move to the right iframe
+    if(service.currentState === TvChannelsOnlineStates.SERVICE_PARSING)
+      self.serviceCompleted(service, false);
     done();
   });
 }
