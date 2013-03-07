@@ -61,7 +61,6 @@ TvChannelsOnline.prototype.newWrangler = function(){
 
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
 }
-
 //
 // Overrides
 //
@@ -156,7 +155,7 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
                                       TvChannelsOnlineStates.SERVICE_PARSING);
             console.log('just created %s', service.name);
             self.results.push(service);
-            self.emit('link', service.constructLink("linked from " + category + " page", $(this).attr('href')));
+            self.emit('link', service.constructLink({link_source: category + " page"}, $(this).attr('href')));
           }
         }
       });
@@ -171,18 +170,34 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
     if(x.parents.length > 0){
       x.parents.reverse();
       x.parents.each(function emitForParent(parent){
-        self.emitLink(service, "unwrangled this as a parent", parent);
+        self.emit('link',
+                  service.constructLink({link_source : "unwrangled this as a parent"}, parent));
       });
-    }
-    self.emit('link', service.constructLink("stream parent uri", x.uri));
-    x.items.each(function rawBroadcaster(item){
+    }    
+
+    var found = false;
+    x.items.each(function iterateItems(item){
       if(item.isEndpoint){
-        self.emitLink(service, "raw broadcaster ip", item.toString());  
+        found = true;
       }
       else{
         logger.warn('unable to determine end point for %s', service.name);
       }
     });
+
+    if (!found){
+      var flattened = x.items.map(function flatten(n){ n.toString();});
+      self.emit('link',
+                service.constructLink({link_source: "stream parent uri",
+                hiddenEndpoint: flattened.join(',')}, x.uri));
+    }
+    else{
+      self.emit('link', service.constructLink({link_source: "stream parent uri"}, x.uri));
+      x.items.each(function rawBroadcaster(item){
+        if(item.isEndpoint)
+          self.emit('link', service.constructLink({link_source: "raw broadcaster ip"}, item.toString()));  
+      });
+    }
   });
   self.serviceCompleted(service, items.length > 0);
   self.wrangler.removeAllListeners();
@@ -198,14 +213,13 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
   searchP.then(function traverseIframes(frames){
     for(var i= 0; i < frames.length; i ++){
       frames[i].getAttribute('src').then(function(value){
-        //console.log('iframe src = ' + value);
         if(value.has('streamer247')){
-          self.emit('link', service.constructLink("embedded", value));
+          self.emit('link', service.constructLink({remoteStreamer: "embedded"}, value));
           service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
         }
       });
     }
-    done();    
+    done();
   });
 }
 
@@ -226,18 +240,4 @@ TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
       self.results.splice(self.results.indexOf(res), 1);
     }
   });
-}
-
-TvChannelsOnline.prototype.emitLink = function(service, desc, link){
-  var self = this;
-
-  var payload = service.constructLink(desc, link);
-  if(payload.success === true){
-    self.emit('link', payload.link);
-  }
-  else{
-    logger.error("Trying to emit a link but the link is empty %s for %s @ %s", desc, service.name, service.currentState);
-    self.serviceCompleted(service, false);
-  }
-  return payload.success;
 }

@@ -61,7 +61,7 @@ Service.prototype.isRetired = function(){
   return self.currentState === main.TvChannelsOnlineStates.END_OF_THE_ROAD;
 }
 
-Service.prototype.constructLink = function(childLinkSource, childLink){
+Service.prototype.constructLink = function(extra_metadata, childLink){
   var self = this;
   
   var result = {success: false, link: null};
@@ -78,7 +78,7 @@ Service.prototype.constructLink = function(childLinkSource, childLink){
                  source: self.source,
                  uri: childLink,
                  parent: self.activeLink.uri,
-                 metadata: {linkSource: childLinkSource}};
+                 metadata: extra_metadata};
 
   self.links.push({desc : childLinkSource, uri : childLink});
   self.moveToNextLink();
