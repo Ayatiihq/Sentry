@@ -216,7 +216,7 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
       var width = $(this).attr('width');
       var height = $(this).attr('height');
       var src = $(this).attr('src');
-
+      
       if(width && height){
         var ratio = parseFloat(width)/ parseFloat(height);
         console.log('ratio = ' + ratio + ' for ' +  src);
