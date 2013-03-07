@@ -146,7 +146,7 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
       $(this).find('a').each(function(){
         if($(this).attr('title')){
           var name = $(this).text().toLowerCase();
-          if(name.match(/^star/) !== null){
+          //if(name.match(/^star/) !== null){
             var service = new Service('tv.live',
                                       'TvChannelsOnline',
                                       name,
@@ -156,7 +156,7 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
             console.log('just created %s', service.name);
             self.results.push(service);
             self.emit('link', service.constructLink({link_source: category + " page"}, $(this).attr('href')));
-          }
+          //}
         }
       });
     });    
@@ -213,12 +213,24 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
   var searchP = self.driver.findElements(webdriver.By.tagName('iframe'));
   searchP.then(function traverseIframes(frames){
     for(var i= 0; i < frames.length; i ++){
-      frames[i].getAttribute('src').then(function(value){
-        if(value.has('streamer247')){
+      var width = frames[i].getAttribute('width');
+      var height = frames[i].getAttribute('height');
+      var src = frames[i].getAttribute('src');
+      width.then(function(w_value){
+        height.then(function(h_value){
+          src.then(function(src_value){
+            console.log('width ' + w_value + ' height ' + h_value);//+ ' src ' + src_value);
+            var ratio = parseFloat(w_value) / parseFloat(h_value);
+            if(ratio){
+              console.log("Aspect ratio : " + ratio + ' for : ' + src_value);            
+            }
+          });            
+        });
+      });
+        /*if(value.has('streamer247')){
           self.emit('link', service.constructLink({remoteStreamer: "embedded"}, value));
           service.currentState = TvChannelsOnlineStates.WRANGLE_IT;
-        }
-      });
+        }*/
     }
     done();
   });
