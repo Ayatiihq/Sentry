@@ -70,7 +70,7 @@ Service.prototype.constructLink = function(extraMetadata, childLink){
           source: self.source,
           uri: childLink,
           parent: self.activeLink.uri,
-          metadata: extra_metadata};
+          metadata: extraMetadata};
   
   extraMetadata.uri = childLink;
   self.links.push(extraMetadata);

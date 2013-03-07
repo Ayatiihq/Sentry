@@ -186,7 +186,8 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
     });
 
     if (!found){
-      var flattened = x.items.map(function flatten(n){ n.toString();});
+      var flattened = x.items.map(function flatten(n){ return n.toString();});
+      console.log('flattened : ' + flattened);
       self.emit('link',
                 service.constructLink({link_source: "stream parent uri",
                 hiddenEndpoint: flattened.join(',')}, x.uri));
