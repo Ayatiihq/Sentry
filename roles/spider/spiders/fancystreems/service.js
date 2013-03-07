@@ -25,6 +25,8 @@ Service.prototype.init = function(name, genre, topLink, initialState) {
 
   self.name = name;
   self.genre = genre;
+  self.foundobjs = [];
+  
   // This property is to hold the links on the screen (via the buttons at the top)
   // kinda ugly but inorder to be effecient we should store these as we find them
   // best place is on the service object itself.
@@ -78,6 +80,11 @@ Service.prototype.retire = function(){
   var self = this;
   self.lastStageReached = self.currentState;
   self.currentState = main.FancyStreemsStates.END_OF_THE_ROAD;
+}
+
+Service.prototype.isRetired = function(){
+  var self= this;
+  return self.currentState === main.FancyStreemsStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.constructLink = function(childLinkSource, childLink){
