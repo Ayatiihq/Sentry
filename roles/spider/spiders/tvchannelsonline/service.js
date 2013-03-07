@@ -63,24 +63,16 @@ Service.prototype.isRetired = function(){
 
 Service.prototype.constructLink = function(extra_metadata, childLink){
   var self = this;
-  
-  var result = {success: false, link: null};
+  var link;
+  link = {channel: self.name,
+          genre: self.genre,
+          type: self.type,
+          source: self.source,
+          uri: childLink,
+          parent: self.activeLink.uri,
+          metadata: extra_metadata};
 
-  if(childLink === undefined || childLink === null){
-    return result;
-  }
-  
-  result.success = true;
-
-  result.link = {channel: self.name,
-                 genre: self.genre,
-                 type: self.type,
-                 source: self.source,
-                 uri: childLink,
-                 parent: self.activeLink.uri,
-                 metadata: extra_metadata};
-
-  self.links.push({desc : childLinkSource, uri : childLink});
+  self.links.push({extra_metadata, uri : childLink});
   self.moveToNextLink();
-  return result;
+  return link;
 }
