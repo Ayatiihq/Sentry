@@ -118,6 +118,7 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
       }
     })
     .seq(function(){
+
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.complete.length);
       logger.info("InCompleted length : " + self.incomplete.length);
@@ -136,17 +137,16 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
 
 TvChannelsOnline.prototype.scrapeCategory = function(category, done){
   var self = this;
-  var src = null;
   var $ = null;
 
-  self.driver.getPageSource().then(function(source){
-    $ = cheerio.load(source);
-    src = source;
-    $('div .movies').each(function(){
-      $(this).find('a').each(function(){
-        if($(this).attr('title')){
-          var name = $(this).text().toLowerCase();
-          if(name.match(/^star/) !== null){
+  function delayedScrape(category, done){
+      self.driver.getPageSource().then(function(source){
+      $ = cheerio.load(source);
+      $('div .movies').each(function(){
+        $(this).find('a').each(function(){
+          if($(this).attr('title')){
+            var name = $(this).text().toLowerCase().trim();
+            //if(name.match(/^star/) !== null){
             var service = new Service('tv.live',
                                       'TvChannelsOnline',
                                       name,
@@ -156,12 +156,14 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
             //console.log('just created %s', service.name);
             self.results.push(service);
             self.emit('link', service.constructLink({link_source: category + " page"}, $(this).attr('href')));
+            //}
           }
-        }
-      });
-    });    
-    done();    
-  });
+        });
+      });    
+      done();    
+    });
+  }
+  delayedScrape.delay(10000 * Math.random(), category, done);
 }  
 
 TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
@@ -211,29 +213,31 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
 TvChannelsOnline.prototype.scrapeService = function(service, done){
   var self = this;
   var $ = null;
-  var progress = false;
 
-  self.driver.getPageSource().then(function scrapeIframes(source){
-    $ = cheerio.load(source);
-    $('iframe').each(function(i, elem){
-      var width = $(this).attr('width');
-      var height = $(this).attr('height');
-      var src = $(this).attr('src');
+  function delayedScrape(){
+    self.driver.getPageSource().then(function scrapeIframes(source){
+      $ = cheerio.load(source);
+      $('iframe').each(function(i, elem){
+        var width = $(this).attr('width');
+        var height = $(this).attr('height');
+        var src = $(this).attr('src');
 
-      if(width && height){
-        var ratio = parseFloat(width)/ parseFloat(height);
-        //console.log('ratio = ' + ratio + ' for ' +  src);
-        if(ratio > 1 && ratio < 1.5){
-          self.emit('link', service.constructLink({remoteStreamer: "embedded @ service page"}, src));
-          service.currentState = TvChannelsOnlineStates.WRANGLE_IT;          
-        } 
-      }
+        if(width && height){
+          var ratio = parseFloat(width) / parseFloat(height);
+          //console.log('ratio = ' + ratio + ' for ' +  src);
+          if(ratio > 1 && ratio < 1.5){
+            self.emit('link', service.constructLink({remoteStreamer: "embedded @ service page"}, src));
+            service.currentState = TvChannelsOnlineStates.WRANGLE_IT;          
+          } 
+        }
+      });
+      // retire those that didn't manage to move to the right iframe
+      if(service.currentState === TvChannelsOnlineStates.SERVICE_PARSING)
+        self.serviceCompleted(service, false);
+      done();
     });
-    // retire those that didn't manage to move to the right iframe
-    if(service.currentState === TvChannelsOnlineStates.SERVICE_PARSING)
-      self.serviceCompleted(service, false);
-    done();
-  });
+  }
+  delayedScrape.delay(10000 * Math.random());
 }
 
 TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
