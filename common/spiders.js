@@ -17,7 +17,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var SPIDERS_DIR = __dirname + '/../roles/spider/spiders';
+var SPIDERS_DIR = __dirname + '/spiders';
 
 var Spiders = module.exports = function() {
   this.ready_ = false;

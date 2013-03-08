@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var ROLES_DIR = __dirname + '/../roles/';
+var ROLES_DIR = __dirname + '/roles/';
 
 var Roles = module.exports = function() {
   this.ready_ = false;
