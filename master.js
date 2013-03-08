@@ -88,9 +88,17 @@ Master.prototype.onWorkerExit = function(worker, code, signal) {
   self.tryFillWorkerSlots();
 }
 
+Master.prototype.getPossibleWorkers = function() {
+  var possible = os.totalmem() - 104857600; // 100 MB for os
+  possible /= possible / 104857600 // 100 MB per worker max
+  possible = Math.round(possible);
+
+  return Math.min(possible, config.MAX_WORKERS);
+}
+
 Master.prototype.tryFillWorkerSlots = function() {
   var self = this;
-  var nPossibleWorkers = Math.min(os.cpus().length, config.MAX_WORKERS);
+  var nPossibleWorkers = self.getPossibleWorkers();
   var nActiveWorkers = Object.size(cluster.workers);
   var nNewWorkers = nPossibleWorkers - nActiveWorkers;
 

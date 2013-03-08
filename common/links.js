@@ -120,12 +120,27 @@ Links.prototype.isValid = function(link, schema, callback) {
 
 Links.prototype.get = function(partition, from, callback) {
   var self = this;
+  var allEntities = [];
   
   var query = azure.TableQuery.select()
                               .from(TABLE)
                               .where('PartitionKey eq ?', partition)
                               .and('created gt ?', from);
-  self.tableService_.queryEntities(query, self.unpack.bind(self, callback));
+
+  function reply(err, entities, res) {
+    allEntities.add(entities);
+
+    if (err)
+      logger.warn(err);
+
+    if (res.hasNextPage()) {
+      res.getNextPage(reply);
+    } else {
+      self.unpack(callback, null, allEntities);
+    }
+  }
+
+  self.tableService_.queryEntities(query, reply);
 }
 
 //
