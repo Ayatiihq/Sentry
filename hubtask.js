@@ -32,7 +32,7 @@ HubTask.prototype.init = function() {
 
   self.loadTasks();
 
-  self.hub_ = io.connect(config.HUB_ADDRESS, { port: config.HUB_PORT, secure: true });
+  self.hub_ = io.connect(config.HUB_ADDRESS + '/client', { port: config.HUB_PORT, secure: true });
   self.hub_.on('connect', self.onConnection.bind(self));
   self.hub_.on('error', self.done_);
 }
@@ -41,6 +41,9 @@ HubTask.prototype.loadTasks = function() {
   var self = this;
 
   self.tasksMap_ = {
+    getInfo: self.getInfo,
+    getState: self.getState,
+    getVersion: self.getVersion,
     ping: self.ping
   };
 }
@@ -58,4 +61,36 @@ HubTask.prototype.onConnection = function() {
 
 HubTask.prototype.ping = function(argv) {
   var self = this;
+
+  self.hub_.emit('ping', argv[0], function(reply) {
+    console.log(reply);
+    self.done_();
+  });
+}
+
+HubTask.prototype.getInfo = function(argv) {
+  var self = this;
+
+  self.hub_.emit('getInfo', '', function(reply) {
+    console.log(reply);
+    self.done_();
+  })
+}
+
+HubTask.prototype.getState = function(argv) {
+  var self = this;
+
+  self.hub_.emit('getState', '', function(reply) {
+    console.log(reply);
+    self.done_();
+  })
+}
+
+HubTask.prototype.getVersion = function(argv) {
+  var self = this;
+
+  self.hub_.emit('getVersion', '', function(reply) {
+    console.log(reply);
+    self.done_();
+  })
 }

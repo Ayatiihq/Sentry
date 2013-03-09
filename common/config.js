@@ -51,6 +51,8 @@ config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'frontier.cloudapp.n
 
 config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 
+config.HUB_SECRET = getEnv(process.env.SENTRY_HUB_SECRET, 'W0b|7B3N1@-7[N]');
+
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 
