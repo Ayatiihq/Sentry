@@ -1,5 +1,5 @@
 /*
- * sentry.js: the sentry main loop
+ * node.js: lol
  *
  * (C) 2012 Ayatii Limited
  *
@@ -13,27 +13,17 @@ var acquire = require('acquire')
   ;
 
 var Master = require('./master')
-  , Worker = require('./worker');
+  , Worker = require('./worker')
+  ;
 
-function setupSignals() {
-  process.on('SIGINT', function() {
-    process.exit(1);
-  });
+var Node = module.exports = function() {
+  this.task_ = null;
+
+  this.init();
 }
 
-function main() {
-  var task = null;
+Node.prototype.init = function() {
+  var self = this;
 
-  logger.init();
-  logger = logger.forFile('main.js');
-
-  setupSignals();
-
-  if (cluster.isMaster) {
-    task = new Master();
-  } else {
-    task = new Worker();
-  }
+  self.task_ = cluster.isMaster ? new Master() : new Worker();
 }
-
-main(); 

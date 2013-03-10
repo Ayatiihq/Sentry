@@ -34,4 +34,6 @@ QuarterMaster.prototype.init = function() {
 
   self.scraperDispatcher_ = new ScraperDispatcher();
   self.spiderDispatcher_ = new SpiderDispatcher();
+
+  // FIXME: Create miner tasks
 }

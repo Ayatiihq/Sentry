@@ -23,6 +23,8 @@ var Socket = module.exports = function(server) {
   this.socketServer_ = null;
   this.state_ = states.hub.state.RUNNING;
 
+  this.version_ = null;
+
   this.init();
 }
 
@@ -35,6 +37,9 @@ Socket.prototype.init = function() {
 
   var clientServer = self.socketServer_.of('/client');
   clientServer.on('connection', self.onClientConnection.bind(self));
+
+  var nodeServer = self.socketServer_.of('/node');
+  nodeServer.on('connection', self.onNodeConnection.bind(self));
 }
 
 Socket.prototype.onClientConnection = function(socket) {
@@ -89,6 +94,12 @@ Socket.prototype.getVersion = function(socket, message, reply) {
     ;
 
   Seq()
+    .seq('cached', function() {
+      if (self.version_)
+        reply(self.version_);
+      else
+        this();
+    })
     .seq('log', function() {
       var that = this;
       exec('git log -n1', function(err, stdout, stderr) {
@@ -111,6 +122,7 @@ Socket.prototype.getVersion = function(socket, message, reply) {
       });
     })
     .seq('reply', function() {
+      self.version_ = data;
       reply(data);
     });
 }
@@ -126,6 +138,45 @@ Socket.prototype.setState = function(socket, message, reply) {
 
   self.state_ = message.state;
   self.emit('stateChanged', self.state_);
+  io.of('/node').emit('stateChanged', self.state_);
 
   reply();
+}
+
+Socket.prototype.onNodeConnection = function(socket) {
+  var self = this;
+
+  logger.info('Node connected');
+
+  socket.on('handshake', self.handshake.bind(self, socket));
+  
+  socket.on('disconnect', self.onClientDisconnect.bind(self, socket));
+}
+
+Socket.prototype.onNodeDisconnect = function(socket) {
+  var self = this;
+
+  logger.info('Node disconnected');
+}
+
+Socket.prototype.handshake = function(socket, message, reply) {
+  var self = this
+    , data = {}
+    ;
+
+  Seq()
+    .seq('getVersion', function() {
+      var that = this;
+      self.getVersion(socket, '', function(version) {
+        data.version = version;
+        that();
+      });
+    })
+    .seq('getName', function() {
+      data.name = 'John Snow';
+      this();
+    })
+    .seq('reply', function() {
+      reply(data);
+    });
 }
