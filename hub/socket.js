@@ -66,7 +66,7 @@ Socket.prototype.onClientDisconnect = function(socket) {
   logger.info('Client disconnected');
 }
 
-Socket.prototype.messageIsSigned = function(message) {
+Socket.prototype.messageIsValid = function(message) {
   return message.secret === config.HUB_SECRET;
 }
 
@@ -124,6 +124,7 @@ Socket.prototype.onNodeConnection = function(socket) {
   logger.info('Node connected');
 
   socket.on('handshake', self.handshake.bind(self, socket));
+  socket.on('announce', self.announce.bind(self, socket));
   
   socket.on('disconnect', self.onClientDisconnect.bind(self, socket));
 }
@@ -132,6 +133,8 @@ Socket.prototype.onNodeDisconnect = function(socket) {
   var self = this;
 
   logger.info('Node disconnected');
+  utilities.notify(util.format('Node (<b>%s:%s</b>) disconnected', 
+                     address.address, address.port, message.version.shortRevision));
 }
 
 Socket.prototype.handshake = function(socket, message, reply) {
@@ -142,7 +145,7 @@ Socket.prototype.handshake = function(socket, message, reply) {
       }
     ;
 
-  if (!self.messageIsSigned(message))
+  if (!self.messageIsValid(message))
     return reply({ err: 'unauthorized' });
 
   Seq()
@@ -153,4 +156,19 @@ Socket.prototype.handshake = function(socket, message, reply) {
     .seq('reply', function() {
       reply(data);
     });
+}
+
+Socket.prototype.announce = function(socket, message, reply) {
+  var self = this;
+
+  if (!self.messageIsValid(message))
+    return reply({ err: 'unauthorized' });
+
+  socket.announce_ = message;
+  if (!socket.notified_) {
+    var address = socket.handshake.address;
+    utilities.notify(util.format('Node (<b>%s:%s</b>) connected running commit <b>%s</b>', 
+                     address.address, address.port, message.version.shortRevision));
+    socket.notified_ = true;
+  }
 }

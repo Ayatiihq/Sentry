@@ -26,6 +26,8 @@ var Master = module.exports = function() {
   this.version_ = null;
   this.hub_ = null;
 
+  this.nPossibleWorkers_ = 0;
+
   this.init();
 }
 
@@ -34,10 +36,20 @@ util.inherits(Master, events.EventEmitter);
 Master.prototype.init = function() {
   var self = this;
 
+  self.nPossibleWorkers_ = self.getPossibleWorkers();
+
   utilities.getVersion(function(version) {
     self.version_ = version;
     self.initHubConnection();
   });
+}
+
+Master.prototype.getPossibleWorkers = function() {
+  var possible = os.totalmem() - 104857600; // 100 MB for os
+  possible /= possible / 104857600 // 100 MB per worker max
+  possible = Math.round(possible);
+
+  return Math.min(possible, config.MAX_WORKERS);
 }
 
 Master.prototype.initHubConnection = function() {
@@ -91,7 +103,22 @@ Master.prototype.onError = function(err) {
 Master.prototype.onHubStateChanged = function(state) {
   var self = this;
 
+  logger.info('Hub state changed to', state);
   self.hubState_ = state;
 
-  logger.info('Hub state changed to', state);
+
+  self.announce();
+}
+
+Master.prototype.announce = function() {
+  var self = this
+    , msg = self.newMessage()
+    ;
+
+  msg.state = self.nodeState_;
+  msg.version = self.version_;
+  msg.nPossibleWorkers = self.nPossibleWorkers_;
+  msg.nActiveWorkers = Object.size(cluster.workers);
+
+  self.hub_.emit('announce', msg);
 }

@@ -35,6 +35,8 @@ config.EXCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SPIDERS, []);
 
 config.INCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_INCLUDE_SPIDERS, []);
 
+config.NO_NOTIFY = getEnv(process.env.SENTRY_NO_NOTIFY, 0);
+
 // External Services
 config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleus');
 

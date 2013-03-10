@@ -29,3 +29,5 @@ uris.forEach(function(uri) {
 
 console.log('\nVersion:');
 utilities.getVersion(console.log);
+
+utilities.notify('hello');

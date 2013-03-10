@@ -8,9 +8,12 @@
  */
 
 var acquire = require('acquire')
+  , config = acquire('config')
   , crypto = require('crypto')
   , exec = require('child_process').exec
+  , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
+  , querystring = require('querystring')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
@@ -156,4 +159,42 @@ Utilities.getVersion = function(callback) {
       Utilities.__version__ = data;
       callback(data);
     });
+}
+
+Utilities.notify = function(message) {
+  var msg = {};
+
+  if (config.NO_NOTIFY)
+    return;
+
+  msg.method = 'post';
+  msg.path = '/v1/rooms/message';
+  msg.data = {
+    room_id: 'Mission Control',
+    from: 'Sentry',
+    message: message,
+    notify: 0,
+    color: 'green',
+    message_format: 'html'
+  };
+
+  msg.host = 'api.hipchat.com';
+  if (msg.query == null) {
+    msg.query = {};
+  }
+  msg.query['auth_token'] = 'a3ab7f9f02809eaca99ecbbfad37cd';
+  msg.query = querystring.stringify(msg.query);
+  msg.path += '?' + msg.query;
+  if (msg.method === 'post' && (msg.data != null)) {
+    msg.data = querystring.stringify(msg.data);
+    if (msg.headers == null) {
+      msg.headers = {};
+    }
+    msg.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    msg.headers['Content-Length'] = msg.data.length;
+  }
+
+  var req = https.request(msg);
+  req.write(msg.data);
+  req.end();
 }
