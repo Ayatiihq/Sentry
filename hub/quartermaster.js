@@ -29,6 +29,9 @@ var QuarterMaster = module.exports = function() {
 QuarterMaster.prototype.init = function() {
   var self = this;
 
+  if (config.HUB_NO_TASKS)
+    return;
+
   self.scraperDispatcher_ = new ScraperDispatcher();
   self.spiderDispatcher_ = new SpiderDispatcher();
 }

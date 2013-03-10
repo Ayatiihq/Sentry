@@ -31,9 +31,8 @@ exports.infringements = {
 exports.hub = {
   state: {
     RUNNING: 0,
-    PAUSING: 1,
-    PAUSED: 2,
-    NEEDS_UPDATE: 3
+    PAUSED: 1,
+    NEEDS_UPDATE: 2
   }
 };
 

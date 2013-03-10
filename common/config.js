@@ -53,6 +53,8 @@ config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 
 config.HUB_SECRET = getEnv(process.env.SENTRY_HUB_SECRET, 'W0b|7B3N1@-7[N]');
 
+config.HUB_NO_TASKS = getEnv(process.env.SENTRY_HUB_NO_TASKS, 0);
+
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
 

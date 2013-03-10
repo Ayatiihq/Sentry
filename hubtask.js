@@ -10,6 +10,7 @@ var acquire = require('acquire')
   , events = require('events')
   , io = require('socket.io-client')
   , logger = acquire('logger').forFile('hubtask.js')
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -44,7 +45,8 @@ HubTask.prototype.loadTasks = function() {
     getInfo: self.getInfo,
     getState: self.getState,
     getVersion: self.getVersion,
-    ping: self.ping
+    ping: self.ping,
+    setState: self.setState
   };
 }
 
@@ -93,4 +95,21 @@ HubTask.prototype.getVersion = function(argv) {
     console.log(reply);
     self.done_();
   })
+}
+
+HubTask.prototype.setState = function(argv) {
+  var self = this
+    , hubStates = states.hub.state
+    , newState = argv[0]
+    , err = null
+    ;
+
+  if (newState >= 0 && newState < Object.size(hubStates)) {
+    self.hub_.emit('setState', { state: newState }, function() {
+      console.log('State successfully set');
+      self.done_();
+    });
+  } else {
+    self.done_('Hub state is not in range');
+  }
 }
