@@ -3,8 +3,8 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Master represents the cluster to the rest of the hive, starts the appropriete
- * number of workers, and uses the scheduler to assign the correct roles to them.
+ * Master talks to the Hub, making sure things are in sync and using the hub
+ * to launch the right roles depending on what the system requires.
  *
  */
 
@@ -12,19 +12,19 @@ var acquire = require('acquire')
   , cluster = require('cluster')
   , config = acquire('config')
   , events = require('events')
+  , io = require('socket.io-client')
   , logger = acquire('logger').forFile('master.js')
-  , util = require('util')
   , os = require('os')
+  , states = acquire('states')
+  , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
-var Announce = acquire('announce')
-  , Scheduler = require('./scheduler');
-
-var WORKER_KILL_WAIT_SECONDS = 60;
-
 var Master = module.exports = function() {
-  this.announce_ = null;
-  this.scheduler_ = null;
+  this.state_ = states.node.state.RUNNING;
+  this.hubState_ = states.hub.state.RUNNING;
+  this.version_ = null;
+  this.hub_ = null;
 
   this.init();
 }
@@ -34,98 +34,40 @@ util.inherits(Master, events.EventEmitter);
 Master.prototype.init = function() {
   var self = this;
 
-  self.announce_ = new Announce();
+  utilities.getVersion(function(version) {
+    self.version_ = version;
+    self.initHubConnection();
+  });
+}
+
+Master.prototype.initHubConnection = function() {
+  var self = this;
+
+  self.hub_ = io.connect(config.HUB_ADDRESS + '/node', { port: config.HUB_PORT, secure: true });
+  self.hub_.on('connect', self.onConnection.bind(self));
+  self.hub_.on('error', self.onError.bind(self));
+  self.hub_.on('stateChanged', self.onHubStateChanged.bind(self));
+}
+
+Master.prototype.onConnection = function() {
+  var self = this;
+
+  console.log('Connected to Hub');
+}
+
+Master.prototype.onError = function(err) {
+  var self = this;
+
+  logger.warn(err);
   
-  self.scheduler_ = new Scheduler();
-  self.scheduler_.on('changeWorkerRole', self.changeWorkerRole.bind(self));
-
-  cluster.on('exit', self.onWorkerExit.bind(self));
-
-  self.tryFillWorkerSlots();
+  logger.info('Trying a reconnect in 60 seconds');
+  setTimeout(self.initHubConnection.bind(self), 1000 * 60);
 }
 
-Master.prototype.changeWorkerRole = function(worker, rolename, callback) {
+Master.prototype.onHubStateChanged = function(state) {
   var self = this;
 
-  if (callback === undefined)
-    callback = function() {};
+  self.hubState_ = state;
 
-  if (worker.role !== "idle") {
-    // Try ending the current worker in this slot nicely
-    worker.send({ type: "end" });
-    worker.killId = setTimeout(self.forceKillWorker.bind(self, worker),
-                               WORKER_KILL_WAIT_SECONDS * 1000);
-
-    // Create a new worker
-    worker = self.createWorker();
-  }
-
-  self.setWorkerRole(worker, rolename, callback);
-}
-
-Master.prototype.setWorkerRole = function(worker, rolename, callback) {
-  worker.role = rolename;
-  worker.send({ type: "roleChange", newRole: rolename });
-
-  callback(worker);
-}
-
-Master.prototype.forceKillWorker = function(worker) {
-  worker.destroy();
-}
-
-Master.prototype.onWorkerExit = function(worker, code, signal) {
-  var self = this;
-
-  if (worker.suicide === true) {
-    logger.info('Worker ' + worker.id + " died as expected.");
-    if (worker.killId !== 0)
-      clearTimeout(worker.killId);
-  } else {
-    logger.warn('Worker ' + worker.id + ' died: Code=' + code + ', Signal=' + signal);
-  }
-
-  self.tryFillWorkerSlots();
-}
-
-Master.prototype.getPossibleWorkers = function() {
-  var possible = os.totalmem() - 104857600; // 100 MB for os
-  possible /= possible / 104857600 // 100 MB per worker max
-  possible = Math.round(possible);
-
-  return Math.min(possible, config.MAX_WORKERS);
-}
-
-Master.prototype.tryFillWorkerSlots = function() {
-  var self = this;
-  var nPossibleWorkers = self.getPossibleWorkers();
-  var nActiveWorkers = Object.size(cluster.workers);
-  var nNewWorkers = nPossibleWorkers - nActiveWorkers;
-
-  if (nNewWorkers < 1)
-    return;
- 
-  for (var i = 0; i < nNewWorkers; i++) {
-    var worker = self.createWorker();
-    self.scheduler_.findRoleForWorker(worker);
-  }
-}
-
-Master.prototype.createWorker = function() {
-  var self = this;
-
-  var worker = cluster.fork();
-  worker.role = "idle";
-  worker.on('message', self.onWorkerMessage.bind(this, worker));
-  worker.killId = 0;
-
-  logger.info('Created worker ' + worker.id);
-
-  return worker;
-}
-
-Master.prototype.onWorkerMessage = function(worker, message) {
-  var self = this;
-
-  logger.warn('Unknown worker message: ' + util.inspect(message));
+  console.log('Hub state changed to', state);
 }

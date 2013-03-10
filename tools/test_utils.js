@@ -26,3 +26,6 @@ console.log('');
 uris.forEach(function(uri) {
   console.log(utilities.genURIKey(uri, 'google'));
 });
+
+console.log('\nVersion:');
+utilities.getVersion(console.log);

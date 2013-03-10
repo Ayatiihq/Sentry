@@ -9,11 +9,14 @@
 
 var acquire = require('acquire')
   , crypto = require('crypto')
+  , exec = require('child_process').exec
   , logger = acquire('logger').forFile('utilities.js')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
   ;
+
+var Seq = require('seq');
 
 var Utilities = module.exports;
 
@@ -110,4 +113,47 @@ Utilities.genLinkKey = function() {
   var shasum = crypto.createHash('sha1');
   shasum.update(string);
   return shasum.digest('hex');
+}
+
+/**
+ * Gets the version information for this checkout.
+ *
+ * @return {object} version   The version object for this checkout.
+ */
+Utilities.getVersion = function(callback) {
+  var data = {};
+  callback = callback ? callback : function() {};
+
+  Seq()
+    .seq('cached', function() {
+      if (Utilities.__version__)
+        callback(Utilities.__version__);
+      else
+        this();
+    })
+    .seq('log', function() {
+      var that = this;
+      exec('git log -n1', function(err, stdout, stderr) {
+        data.log = stdout;
+        that();
+      });
+    })
+    .seq('rev', function() {
+      var that = this;
+      exec('git rev-parse HEAD', function(err, stdout, stderr) {
+        data.revision = stdout.compact();
+        that();
+      });
+    })
+    .seq('shortrev', function() {
+      var that = this;
+      exec('git rev-parse --short HEAD', function(err, stdout, stderr) {
+        data.shortRevision = stdout.compact();
+        that();
+      });
+    })
+    .seq('done', function() {
+      Utilities.__version__ = data;
+      callback(data);
+    });
 }
