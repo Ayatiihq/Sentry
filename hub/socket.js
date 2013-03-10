@@ -66,6 +66,10 @@ Socket.prototype.onClientDisconnect = function(socket) {
   logger.info('Client disconnected');
 }
 
+Socket.prototype.messageIsSigned = function(message) {
+  return message.secret === config.HUB_SECRET;
+}
+
 Socket.prototype.ping = function(socket, message, reply) {
   var self = this;
   reply({ pong: message });
@@ -132,8 +136,14 @@ Socket.prototype.onNodeDisconnect = function(socket) {
 
 Socket.prototype.handshake = function(socket, message, reply) {
   var self = this
-    , data = { version: self.version_ }
+    , data = {
+        version: self.version_,
+        state: self.state_
+      }
     ;
+
+  if (!self.messageIsSigned(message))
+    return reply({ err: 'unauthorized' });
 
   Seq()
     .seq('getName', function() {
