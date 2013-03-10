@@ -27,3 +27,21 @@ exports.infringements = {
     DEFERRED: 6
   }
 };
+
+exports.hub = {
+  state: {
+    RUNNING: 0,
+    PAUSING: 1,
+    PAUSED: 2,
+    NEEDS_UPDATE: 3
+  }
+};
+
+exports.node = {
+  state: {
+    RUNNING: 0,
+    PAUSING: 1,
+    PAUSED: 2,
+    NEEDS_UPDATE: 3
+  }
+};

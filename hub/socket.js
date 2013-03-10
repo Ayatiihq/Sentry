@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , io = require('socket.io')
   , logger = acquire('logger').forFile('worker.js')
   , os = require('os')
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -20,6 +21,7 @@ var Seq = require('seq');
 var Socket = module.exports = function(server) {
   this.server_ = server;
   this.socketServer_ = null;
+  this.state_ = states.hub.state.RUNNING;
 
   this.init();
 }
@@ -44,6 +46,7 @@ Socket.prototype.onClientConnection = function(socket) {
   socket.on('getInfo', self.getInfo.bind(self, socket));
   socket.on('getVersion', self.getVersion.bind(self, socket));
   socket.on('getState', self.getState.bind(self, socket));
+  socket.on('setState', self.setState.bind(self, socket));
   
   socket.on('disconnect', self.onClientDisconnect.bind(self, socket));
 }
@@ -115,5 +118,14 @@ Socket.prototype.getVersion = function(socket, message, reply) {
 Socket.prototype.getState = function(socket, message, reply) {
   var self = this;
 
-  reply({ state: 'unknown' });
+  reply({ state: self.state_ });
+}
+
+Socket.prototype.setState = function(socket, message, reply) {
+  var self = this;
+
+  self.state_ = message.state;
+  self.emit('stateChanged', self.state_);
+
+  reply();
 }
