@@ -1,10 +1,10 @@
 /*
- * TvChannelsOnline.js: a TvChannelsOnline spider (http://www.tvchannelsliveonline.com/)
+ * A ZonyTv spider (http://www.tvchannelsliveonline.com/)
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('TvChannelsOnline.js')
+  , logger = acquire('logger').forFile('ZonyTv.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')
@@ -17,36 +17,31 @@ var acquire = require('acquire')
 ;
 
 require('enum').register();
-var TvChannelsOnlineStates = module.exports.TvChannelsOnlineStates = new Enum(['CATEGORY_PARSING',
+var ZonyTvStates = module.exports.ZonyTvStates = new Enum(['CATEGORY_PARSING',
                                                                                'SERVICE_PARSING',
                                                                                'WRANGLE_IT',
                                                                                'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
-var TvChannelsOnline = module.exports = function() {
+var ZonyTv = module.exports = function() {
   this.init();
 }
 
-util.inherits(TvChannelsOnline, Spider);
+util.inherits(ZonyTv, Spider);
 
-TvChannelsOnline.prototype.init = function() {
+ZonyTv.prototype.init = function() {
   var self = this;  
 
   self.results = []; // the working resultset 
   self.incomplete = [] // used to store those services that for some reason didn't find their way to the end
   self.complete = [] // used to store those services which completed to a satisfactory end. 
   
-  self.root = "http://www.tvchannelsliveonline.com";
-
-  self.categories = [//{cat: 'entertainment', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
-                     //{cat: 'movies', currentState: TvChannelsOnlineStates.CATEGORY_PARSING},
-                     {cat: 'sports', currentState: TvChannelsOnlineStates.CATEGORY_PARSING}];
   self.newWrangler();
-  self.iterateRequests(self.categories);
+  self.driver.get("http://www.zonytvcom.info").then(self.parseIndex.bind(self));
 }
 
-TvChannelsOnline.prototype.newWrangler = function(){
+ZonyTv.prototype.newWrangler = function(){
   var self = this;
 
   if(self.driver){
@@ -61,25 +56,55 @@ TvChannelsOnline.prototype.newWrangler = function(){
 
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
 }
+
+ZonyTv.prototype.parseIndex = function(){
+  var self = this;
+  var pageResults = [];
+  var filterLinks = function(){
+    console.log('Pageresults size = %s', pageResults.length.toString());
+
+    var serviceName;
+
+    pageResults.each(function makeServices(result){
+      if(serviceName === result){
+        console.log('make service for %s', result);      
+      }
+      else{
+        serviceName = result;
+      }
+    });
+  }
+
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+    var $ = cheerio.load(source);
+    console.log('print ')
+    $('a').each(function(i, elem){
+      console.log('here : %s', $(elem).attr('href'));
+      pageResults.push($(elem).attr('href'));
+    });
+    filterLinks();
+  });  
+}
+
 //
 // Overrides
 //
-TvChannelsOnline.prototype.getName = function() {
-  return "TvChannelsOnline";
+ZonyTv.prototype.getName = function() {
+  return "ZonyTv";
 }
 
-TvChannelsOnline.prototype.start = function(state) {
+ZonyTv.prototype.start = function(state) {
   var self = this;
   self.emit('started');
 }
 
-TvChannelsOnline.prototype.stop = function() {
+ZonyTv.prototype.stop = function() {
   var self = this;
   self.wrangler.quit();
   self.emit('finished');
 }
 
-TvChannelsOnline.prototype.isAlive = function(cb) {
+ZonyTv.prototype.isAlive = function(cb) {
   var self = this;
 
   logger.info('Is alive called');
@@ -95,24 +120,17 @@ TvChannelsOnline.prototype.isAlive = function(cb) {
     cb();
 }
 
-TvChannelsOnline.prototype.getService = function(self, service, done){
-  //var self = this;
-}
-
-TvChannelsOnline.prototype.iterateRequests = function(collection){
+ZonyTv.prototype.iterateRequests = function(collection){
   var self= this;
   Seq(collection)
     .seqEach(function(item){
       var done = this;
 
-      if(item instanceof Service && item.isRetired()){
+      if(item.isRetired()){
         logger.warn('retired item in live loop %s', item.name);
         done();
       }
-      else if(item.currentState === TvChannelsOnlineStates.CATEGORY_PARSING){
-        self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
-      }
-      else if(item.currentState === TvChannelsOnlineStates.SERVICE_PARSING){
+      else if(item.currentState === ZonyTvStates.SERVICE_PARSING){
         console.log('service mofo parsing for %s @ %s', item.name, item.activeLink.uri);
         self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done));
       }
@@ -135,38 +153,7 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
   ;    
 }
 
-TvChannelsOnline.prototype.scrapeCategory = function(category, done){
-  var self = this;
-  var $ = null;
-
-  function delayedScrape(category, done){
-      self.driver.getPageSource().then(function(source){
-      $ = cheerio.load(source);
-      $('div .movies').each(function(){
-        $(this).find('a').each(function(){
-          if($(this).attr('title')){
-            var name = $(this).text().toLowerCase().trim();
-            if(name.match(/^espn/) === null){
-              var service = new Service('tv.live',
-                                        'TvChannelsOnline',
-                                        name,
-                                        category,
-                                        self.root + '/' + category + '-channels',
-                                        TvChannelsOnlineStates.SERVICE_PARSING);
-              //console.log('just created %s', service.name);
-              self.results.push(service);
-              self.emit('link', service.constructLink({link_source: category + " page"}, $(this).attr('href')));
-            }
-          }
-        });
-      });    
-      done();    
-    });
-  }
-  delayedScrape.delay(1000 * Math.random(), category, done);
-}  
-
-TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
+ZonyTv.prototype.wranglerFinished = function(service, done, items){
   var self = this;
   items.each(function traverseResults(x){
     if(x.parents.length > 0){
@@ -210,7 +197,7 @@ TvChannelsOnline.prototype.wranglerFinished = function(service, done, items){
   done();
 }
 
-TvChannelsOnline.prototype.scrapeService = function(service, done){
+ZonyTv.prototype.scrapeService = function(service, done){
   var self = this;
   var $ = null;
   
@@ -230,14 +217,14 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
           // Determine the right iframe by aspect ratio
           if(ratio > 1.2 && ratio < 1.5){
             self.emit('link', service.constructLink({remoteStreamer: "embedded @ service page"}, src));            
-            service.currentState = TvChannelsOnlineStates.WRANGLE_IT;          
+            service.currentState = ZonyTvStates.WRANGLE_IT;          
             self.wrangler.on('finished', self.wranglerFinished.bind(self, service, done));
             self.wrangler.beginSearch(service.activeLink.uri);            
           }
         }
       });
       // retire those that didn't manage to move to the right iframe
-      if(service.currentState === TvChannelsOnlineStates.SERVICE_PARSING){
+      if(service.currentState === ZonyTvStates.SERVICE_PARSING){
         self.serviceCompleted(service, false);
         done();
       }
@@ -246,7 +233,7 @@ TvChannelsOnline.prototype.scrapeService = function(service, done){
   delayedScrape.delay(1000 * Math.random());
 }
 
-TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
+ZonyTv.prototype.serviceCompleted = function(service, successfull){
   var self = this;
   service.retire();  
 
