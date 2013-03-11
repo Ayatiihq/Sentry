@@ -20,7 +20,9 @@ var Jobs = acquire('jobs')
   , Role = acquire('role')
   , Spiders = acquire('spiders')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 60;
+var MAX_QUEUE_POLLS = 1
+  , QUEUE_CHECK_INTERVAL = 1000 * 60
+  ;
 
 var Spider = module.exports = function() {
   this.jobs_ = null;
@@ -34,6 +36,8 @@ var Spider = module.exports = function() {
   this.poll = 0;
 
   this.runningSpiders_ = [];
+
+  this.queuePolls_ = 0;
 
   this.init();
 }
@@ -62,6 +66,11 @@ Spider.prototype.findJobs = function() {
 
 Spider.prototype.checkAvailableJob = function() {
   var self = this;
+
+  if (self.queuePolls_ >= MAX_QUEUE_POLLS)
+    return self.emit('finished');
+
+  self.queuePolls_ += 1;
 
   self.poll = 0;
 
