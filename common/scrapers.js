@@ -49,7 +49,7 @@ Scrapers.prototype.onScrapersDirRead = function(err, files) {
   files.forEach(function(file) {
     if (file.endsWith('.js'))
       return;
-    self.loadScraper(path.join(SCRAPERS_DIR, file, '/package.json'));
+    self.loadScraperInfo(path.join(SCRAPERS_DIR, file, '/package.json'));
   });
 
   self.removeScrapers();
@@ -60,7 +60,7 @@ Scrapers.prototype.onScrapersDirRead = function(err, files) {
   self.emit('ready');
 }
 
-Scrapers.prototype.loadScraper = function(infopath) {
+Scrapers.prototype.loadScraperInfo = function(infopath) {
   var self = this;
 
   logger.info('Loading scraper: ' + infopath);
@@ -182,4 +182,10 @@ Scrapers.prototype.hasScraperForType = function(scraperName, types) {
   }
 
   return false;
+}
+
+Scrapers.prototype.loadScraper = function(scrapername) {
+  var modPath = './scrapers/' + scrapername;
+  var Scraper = require(modPath);
+  return new Scraper();
 }

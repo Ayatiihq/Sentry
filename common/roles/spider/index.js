@@ -198,9 +198,7 @@ Spider.prototype.loadSpiderForJob = function(job, callback) {
   var spider = null;
   var err = null;
   try {
-    var modPath = './spiders/' + spiderInfo.name;
-    var Spider = require(modPath);
-    spider = new Spider();
+    spider = self.spiders_.loadSpider(spiderInfo.name);
   } catch(error) {
     err = error;
   }

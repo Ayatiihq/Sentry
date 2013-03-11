@@ -211,9 +211,7 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   var scraper = null;
   var err = null;
   try {
-    var modPath = './scrapers/' + scraperInfo.name;
-    var Scraper = require(modPath);
-    scraper = new Scraper();
+    scraper = self.scrapers_.loadScraper(scraperInfo.name);
   } catch(error) {
     err = error;
   }

@@ -49,7 +49,7 @@ Spiders.prototype.onSpidersDirRead = function(err, files) {
   files.forEach(function(file) {
     if (file.endsWith('.js'))
       return;
-    self.loadSpider(path.join(SPIDERS_DIR, file, '/package.json'));
+    self.loadSpiderInfo(path.join(SPIDERS_DIR, file, '/package.json'));
   });
 
   self.removeSpiders();
@@ -58,7 +58,7 @@ Spiders.prototype.onSpidersDirRead = function(err, files) {
   self.emit('ready');
 }
 
-Spiders.prototype.loadSpider = function(infopath) {
+Spiders.prototype.loadSpiderInfo = function(infopath) {
   var self = this;
 
   logger.info('Loading spider: ' + infopath);
@@ -117,4 +117,10 @@ Spiders.prototype.getSpider = function(spiderName) {
 
 Spiders.prototype.getSpiders = function() {
   return this.spiders_;
+}
+
+Spiders.prototype.loadSpider = function(spidername) {
+  var modPath = './scrapers/' + spidername;
+  var Spider = require(modPath);
+  return new Spider();
 }
