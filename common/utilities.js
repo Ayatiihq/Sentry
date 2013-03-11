@@ -170,7 +170,7 @@ Utilities.notify = function(message) {
   msg.method = 'post';
   msg.path = '/v1/rooms/message';
   msg.data = {
-    room_id: 'Mission Control',
+    room_id: 'Chapek 9',
     from: 'Sentry',
     message: message,
     notify: 0,

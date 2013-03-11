@@ -16,13 +16,16 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var Seq = require('seq');
+var FluxCapacitor = require('./flux-capacitor')
+  , Seq = require('seq')
+  ;
 
 var Socket = module.exports = function(server) {
   this.server_ = server;
   this.socketServer_ = null;
+  this.fluxCapacitor_ = null;
+  
   this.state_ = states.hub.state.RUNNING;
-
   this.version_ = null;
 
   this.init();
@@ -32,6 +35,8 @@ util.inherits(Socket, events.EventEmitter);
 
 Socket.prototype.init = function() {
   var self = this;
+
+  self.fluxCapacitor_ = new FluxCapacitor();
 
   utilities.getVersion(function(version) {
     self.version_ = version;
@@ -177,5 +182,7 @@ Socket.prototype.announce = function(socket, message, reply) {
 Socket.prototype.getWork = function(socket, message, reply) {
   var self = this;
 
-  reply({ rolename: 'scraper' });
+  self.fluxCapacitor_.getWork(function(work) {
+    reply(work);
+  });
 }
