@@ -2,6 +2,7 @@
   "announce": "common/announce.js",
   "campaigns": "common/campaigns.js",
   "clients": "common/clients.js",
+  "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",
   "database": "common/database.js",
   "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
