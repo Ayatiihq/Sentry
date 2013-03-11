@@ -53,12 +53,12 @@ Service.prototype.moveToNextLink = function(){
 Service.prototype.retire = function(){
   var self = this;
   self.lastStageReached = self.currentState;
-  self.currentState = main.TvChannelsOnlineStates.END_OF_THE_ROAD;
+  self.currentState = main.ZonyTvStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.isRetired = function(){
   var self= this;
-  return self.currentState === main.TvChannelsOnlineStates.END_OF_THE_ROAD;
+  return self.currentState === main.ZonyTvStates.END_OF_THE_ROAD;
 }
 
 Service.prototype.constructLink = function(extraMetadata, childLink){

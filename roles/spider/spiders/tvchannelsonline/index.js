@@ -257,7 +257,7 @@ TvChannelsOnline.prototype.serviceCompleted = function(service, successfull){
     self.incomplete.push(service);      
     logger.warn("\n\n\nThis service did not complete - " + JSON.stringify(service));
   }
-
+  // remove it from the results array
   self.results.each(function(res){
     if(res.activeLink.uri === service.activeLink.uri){
       self.results.splice(self.results.indexOf(res), 1);

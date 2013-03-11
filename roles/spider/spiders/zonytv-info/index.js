@@ -18,9 +18,9 @@ var acquire = require('acquire')
 
 require('enum').register();
 var ZonyTvStates = module.exports.ZonyTvStates = new Enum(['CATEGORY_PARSING',
-                                                                               'SERVICE_PARSING',
-                                                                               'WRANGLE_IT',
-                                                                               'END_OF_THE_ROAD']);
+                                                           'SERVICE_PARSING',
+                                                            'WRANGLE_IT',
+                                                            'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
@@ -53,36 +53,50 @@ ZonyTv.prototype.newWrangler = function(){
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
-
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
 }
 
 ZonyTv.prototype.parseIndex = function(){
   var self = this;
   var pageResults = [];
-  var filterLinks = function(){
-    console.log('Pageresults size = %s', pageResults.length.toString());
 
-    var serviceName;
-
-    pageResults.each(function makeServices(result){
-      if(serviceName === result){
-        console.log('make service for %s', result);      
-      }
-      else{
-        serviceName = result;
-      }
-    });
+  var createService = function(name, link){
+    if(name.match(/^espn/) === null){
+      var service = new Service('tv.live',
+                                'ZonyTv',
+                                name,
+                                "",
+                                "http://www.zonytvcom.info/",
+                                ZonyTvStates.WRANGLE_IT);
+      self.results.push(service);
+      self.emit('link', service.constructLink({link_source: "zonytvcom home page"}, link));
+    }
   }
 
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
-    console.log('print ')
+    var tmpLinks = [];
+    var pageServices = [];
+    // first, simply take every second one of each link on the page
     $('a').each(function(i, elem){
-      console.log('here : %s', $(elem).attr('href'));
-      pageResults.push($(elem).attr('href'));
+      var link = $(elem).attr('href');
+      if (tmpLinks.length > 0 && tmpLinks[tmpLinks.length-1] === link){
+        pageServices.push(link);
+      }
+      tmpLinks.push(link);
     });
-    filterLinks();
+    var serviceCount = 0;
+    // and match it with the text from a td
+    // very fragile but good for now (as these things will change)
+    $('td').each(function(i, elem){
+      var name = $(elem).text().trim().toLowerCase();
+      if(pageServices.length > serviceCount)
+        createService(name, pageServices[serviceCount]);
+      serviceCount ++;
+    });
+    console.log('results : ' + self.results.length);
+    console.log('service : ' + pageServices[pageServices.length -1]);
+    self.iterateRequests(self.results);
   });  
 }
 
@@ -100,8 +114,7 @@ ZonyTv.prototype.start = function(state) {
 
 ZonyTv.prototype.stop = function() {
   var self = this;
-  self.wrangler.quit();
-  self.emit('finished');
+  self.wrangler.quit();  self.emit('finished');
 }
 
 ZonyTv.prototype.isAlive = function(cb) {
@@ -123,17 +136,21 @@ ZonyTv.prototype.isAlive = function(cb) {
 ZonyTv.prototype.iterateRequests = function(collection){
   var self= this;
   Seq(collection)
-    .seqEach(function(item){
+    .seqEach(function(service){
       var done = this;
 
-      if(item.isRetired()){
-        logger.warn('retired item in live loop %s', item.name);
+      if(service.isRetired()){
+        logger.warn('retired service in live loop %s', service.name);
         done();
       }
-      else if(item.currentState === ZonyTvStates.SERVICE_PARSING){
-        console.log('service mofo parsing for %s @ %s', item.name, item.activeLink.uri);
-        self.driver.get(item.activeLink.uri).then(self.scrapeService.bind(self, item, done));
+      else if(service.currentState === ZonyTvStates.SERVICE_PARSING){
+        console.log('service mofo parsing for %s @ %s', service.name, service.activeLink.uri);
+        self.driver.get(service.activeLink.uri).then(self.scrapeService.bind(self, service, done));
       }
+      else if(service.currentState === ZonyTvStates.WRANGLE_IT){
+        self.wrangler.on('finished', self.wranglerFinished.bind(self, service, done));
+        self.wrangler.beginSearch(service.activeLink.uri);                    
+      }      
     })
     .seq(function(){
 
