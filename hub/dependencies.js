@@ -46,7 +46,10 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
   Seq()
     .seq('checkCached', function() {
       if (self.seleniumLastCheck_.isAfter('60 seconds ago')) {
-        callback(null, (self.seleniumAvailableNodes_ - self.seleniumBusyNodes_) >= required);
+        var available = (self.seleniumAvailableNodes_ - self.seleniumBusyNodes_) >= required;
+        if (available)
+          self.seleniumBusyNodes_ += 1;
+        callback(null, available);
       } else {
         this();
       }
@@ -62,6 +65,9 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       self.seleniumAvailableNodes_ = nAvailable;
       self.seleniumBusyNodes_ = nBusy;
       self.seleniumLastCheck_ = new Date();
+
+      // Now for the one we're about to do
+      self.seleniumBusyNodes_ += 1;
       callback(null, (self.seleniumAvailableNodes_ - self.seleniumBusyNodes_) >= required);
     })
     .catch(function(err) {
