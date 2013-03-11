@@ -125,6 +125,7 @@ Socket.prototype.onNodeConnection = function(socket) {
 
   socket.on('handshake', self.handshake.bind(self, socket));
   socket.on('announce', self.announce.bind(self, socket));
+  socket.on('getWork', self.getWork.bind(self, socket));
   
   socket.on('disconnect', self.onClientDisconnect.bind(self, socket));
 }
@@ -171,4 +172,10 @@ Socket.prototype.announce = function(socket, message, reply) {
                      address.address, address.port, message.version.shortRevision));
     socket.notified_ = true;
   }
+}
+
+Socket.prototype.getWork = function(socket, message, reply) {
+  var self = this;
+
+  reply({ rolename: 'scraper' });
 }

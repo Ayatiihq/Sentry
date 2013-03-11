@@ -24,9 +24,13 @@ var Master = module.exports = function() {
   this.nodeState_ = states.node.state.RUNNING;
   this.hubState_ = states.hub.state.PAUSED;
   this.version_ = null;
+  
   this.hub_ = null;
+  this.connected_ = false;
 
   this.nPossibleWorkers_ = 0;
+
+  this.mainInterval_ = 0;
 
   this.init();
 }
@@ -42,6 +46,10 @@ Master.prototype.init = function() {
     self.version_ = version;
     self.initHubConnection();
   });
+
+  self.mainInterval_ = setInterval(self.loop.bind(self), 1000 * 60);
+
+  cluster.on('exit', self.onWorkerExit.bind(self));
 }
 
 Master.prototype.getPossibleWorkers = function() {
@@ -74,13 +82,18 @@ Master.prototype.onConnection = function() {
   self.hub_.emit('handshake', self.newMessage(), function(reply) {
     if (reply && reply.version && reply.version.revision === self.version_.revision) {
       logger.info('Handshake successful');
+      self.connected_ = true;
       self.onHubStateChanged(reply.state);
-    
+      self.announce();
+
     } else {
       logger.warn('Handshake unsuccessful, exiting for update');
       logger.warn(reply)
-      process.exit(0);
+      self.nodeState_ = states.node.state.NEEDS_UPDATE;
+      self.announce();
     }
+
+    self.loop();
   });
 }
 
@@ -88,7 +101,7 @@ Master.prototype.onDisconnection = function() {
   var self = this;
 
   logger.warn('Disconnected from Hub');
-  self.onHubStateChanged(states.hub.state.PAUSED);
+  self.connected_ = false;
 }
 
 Master.prototype.onError = function(err) {
@@ -106,8 +119,7 @@ Master.prototype.onHubStateChanged = function(state) {
   logger.info('Hub state changed to', state);
   self.hubState_ = state;
 
-
-  self.announce();
+  self.loop();
 }
 
 Master.prototype.announce = function() {
@@ -121,4 +133,105 @@ Master.prototype.announce = function() {
   msg.nActiveWorkers = Object.size(cluster.workers);
 
   self.hub_.emit('announce', msg);
+}
+
+Master.prototype.loop = function() {
+  var self = this
+    , hubStates = states.hub.state
+    , nodeStates = states.node.state
+    , workerCount = Object.size(cluster.workers)
+    ;
+
+  // If we need an update and no workers are working, let's exit for update
+  if (self.nodeState_ === nodeStates.NEEDS_UPDATE) {
+    if (workerCount < 1) {
+      logger.info('Going down for update');
+      process.exit(0);
+    }
+    return;
+  }
+
+  // Updating pausing/paused
+  if (self.nodeState_ === nodeStates.PAUSING && workerCount < 1) {
+    self.nodeState_ = nodeStates.PAUSED;
+    self.announce();
+    logger.info('All jobs have finished, node is paused.');
+  }
+
+  // If we're not connected, or the hub/node is pausing/paused, don't do anything
+  if (!self.connected_ ||
+      self.hubState_ === hubStates.PAUSING ||
+      self.hubState_ === hubStates.PAUSED ||
+      self.hubState_ === hubStates.NEEDS_UPDATE ||
+      self.nodeState_ === nodeStates.PAUSING ||
+      self.nodeState_ === nodeStates.PAUSED) {
+    logger.info('Hub/Node not ready');
+    return;
+  }
+
+  if (workerCount >= self.nPossibleWorkers_) {
+    logger.info('No available workers');
+    return;
+  }
+
+  // Ran the gauntlet, time to ask the hub to give us some work!
+  for (var i = workerCount; i <= self.nPossibleWorkers_; i++)
+    self.getSomeWork();
+}
+
+Master.prototype.getSomeWork = function() {
+  var self = this
+    , msg = self.newMessage()
+    ;
+
+  // FIXME: Normally msg would contain any limitations of this node
+  // such as which roles it can execute, we don't support that
+  // right now as all nodes are equal.
+  logger.info('Asking Hub for some work to do');
+  self.hub_.emit('getWork', msg, function(work) {
+    if (!work) {
+      logger.info('Hub has no work to do');
+      return;
+    }
+
+    if (Object.size(cluster.workers) >= self.nPossibleWorkers_) {
+      logger.info('No available workers');
+      return;
+    }
+
+    logger.info('Got some work', JSON.stringify(work));
+    self.launchWorker(work);
+  });
+}
+
+Master.prototype.launchWorker = function(work) {
+  var self = this
+    , worker = cluster.fork()
+    ;
+
+  worker.work = work;
+  worker.on('message', self.onWorkerMessage.bind(self, worker));
+  worker.killId = 0;
+
+  worker.send({ type: 'doWork', work: work });
+
+  logger.info('Created worker %s: %s ', worker.id, JSON.stringify(work));
+
+  self.announce();
+}
+
+Master.prototype.onWorkerMessage = function(worker, message) {
+  var self = this;
+
+  logger.warn('Unknown worker message');
+}
+
+Master.prototype.onWorkerExit = function(worker, code, signal) {
+  var self = this;
+
+  if (worker.suicide === true) {
+    logger.info('Worker %s finished doing work', worker.id);
+  } else {
+    logger.info('Worker %s died unexpectedly: code=%s signal=%s', worker.id, code, signal);
+  }
 }
