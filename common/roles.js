@@ -20,8 +20,7 @@ var ROLES_DIR = __dirname + '/roles/';
 
 var Roles = module.exports = function() {
   this.ready_ = false;
-  this.singletonRoles_ = [];
-  this.scalableRoles_ = [];
+  this.roles_ = [];
 
   this.init();
 }
@@ -62,16 +61,13 @@ Roles.prototype.loadRole = function(infopath) {
       logger.info(util.format('Ignoring role %s: It is disabled', info.name));
       return;
     }
-    
-    if (info.type === 'singleton') {
-      self.singletonRoles_.push(info);
-    
-    } else if (info.type === 'scalable') {
-      self.scalableRoles_.push(info);
-    
-    } else {
-      logger.warn('Unable to process role of type: ' + info.type);
-    }
+
+    // Sanitize for usage
+    info.queues = info.queues ? info.queues : [];
+    info.dependencies = info.dependencies ? info.dependencies : {};
+
+    self.roles_.push(info);
+
   } catch (error) {
     logger.warn('Unable to load role: ' + infopath + ': ' + error);
   }
@@ -84,21 +80,13 @@ Roles.prototype.removeRoles = function() {
   // - Do not apply to this platform
 
   config.EXCLUDE_ROLES.forEach(function(rolename) {
-    self.singletonRoles_.remove(function(info) {
-      return info.name === rolename;
-    });
-    
-    self.scalableRoles_.remove(function(info) {
+    self.roles_.remove(function(info) {
       return info.name === rolename;
     });
   });
 
   if (config.INCLUDE_ROLES.length > 0) {
-    self.singletonRoles_.remove(function(info) {
-      return config.INCLUDE_ROLES.findIndex(info.name) === -1;
-    });
-
-    self.scalableRoles_.remove(function(info) {
+    self.roles_.remove(function(info) {
       return config.INCLUDE_ROLES.findIndex(info.name) === -1;
     });
   }
@@ -111,10 +99,6 @@ Roles.prototype.isReady = function() {
   return this.ready_;
 }
 
-Roles.prototype.getSingletonRoles = function() {
-  return this.singletonRoles_;
-}
-
-Roles.prototype.getScalableRoles = function() {
-  return this.scalableRoles_;
+Roles.prototype.getRoles = function() {
+  return this.roles_;
 }

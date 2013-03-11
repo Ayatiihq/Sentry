@@ -134,21 +134,21 @@ Utilities.getVersion = function(callback) {
       else
         this();
     })
-    .seq('log', function() {
+    .par('log', function() {
       var that = this;
       exec('git log -n1', function(err, stdout, stderr) {
         data.log = stdout;
         that();
       });
     })
-    .seq('rev', function() {
+    .par('rev', function() {
       var that = this;
       exec('git rev-parse HEAD', function(err, stdout, stderr) {
         data.revision = stdout.compact();
         that();
       });
     })
-    .seq('shortrev', function() {
+    .par('shortrev', function() {
       var that = this;
       exec('git rev-parse --short HEAD', function(err, stdout, stderr) {
         data.shortRevision = stdout.compact();

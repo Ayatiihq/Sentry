@@ -1,9 +1,11 @@
 {
   "name": "spider",
   "main": "./index.js",
-  "type": "scalable",
-  "queues":  {
-    "priority": "spider:priority",
-    "default": "spider"
+  "queues": [
+    "spider",
+    "spider-priority"
+  ],
+  "dependencies": {
+    "selenium": 1
   }
 }

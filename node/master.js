@@ -80,7 +80,8 @@ Master.prototype.onConnection = function() {
   logger.info('Connected to Hub, handshaking');
 
   self.hub_.emit('handshake', self.newMessage(), function(reply) {
-    if (reply && reply.version && reply.version.revision === self.version_.revision) {
+    console.log(reply.version, self.version_);
+    if (reply && reply.version && reply.version.revision == self.version_.revision) {
       logger.info('Handshake successful');
       self.connected_ = true;
       self.onHubStateChanged(reply.state);
@@ -89,6 +90,7 @@ Master.prototype.onConnection = function() {
     } else {
       logger.warn('Handshake unsuccessful, exiting for update');
       logger.warn(reply)
+      logger.warn(self.version_)
       self.nodeState_ = states.node.state.NEEDS_UPDATE;
       self.announce();
     }
@@ -129,8 +131,8 @@ Master.prototype.announce = function() {
 
   msg.state = self.nodeState_;
   msg.version = self.version_;
-  msg.nPossibleWorkers = self.nPossibleWorkers_;
-  msg.nActiveWorkers = Object.size(cluster.workers);
+  msg.capacity = self.nPossibleWorkers_;
+  msg.usage = Object.size(cluster.workers);
 
   self.hub_.emit('announce', msg);
 }

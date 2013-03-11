@@ -173,8 +173,8 @@ Socket.prototype.announce = function(socket, message, reply) {
   socket.announce_ = message;
   if (!socket.notified_) {
     var address = socket.handshake.address;
-    utilities.notify(util.format('Node (<b>%s:%s</b>) connected running commit <b>%s</b>', 
-                     address.address, address.port, message.version.shortRevision));
+    utilities.notify(util.format('Node (<b>%s:%s</b>) connected running commit <b>%s</b> with capacity <b>%s</b>', 
+                     address.address, address.port, message.version.shortRevision, message.capacity));
     socket.notified_ = true;
   }
 }

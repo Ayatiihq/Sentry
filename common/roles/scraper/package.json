@@ -1,9 +1,11 @@
 {
   "name": "scraper",
   "main": "./index.js",
-  "type": "scalable",
-  "queues":  {
-    "priority": "scraper:priority",
-    "default": "scraper"
+  "queues": [
+    "scraper",
+    "scraper-priority"
+  ],
+  "dependencies": {
+    "selenium": 1
   }
 }

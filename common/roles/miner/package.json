@@ -1,5 +1,8 @@
 {
   "name": "miner",
   "main": "./miner.js",
-  "type": "singleton"
+  "queues": [
+    "miner",
+    "miner-priority"
+  ]
 }

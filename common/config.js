@@ -80,3 +80,7 @@ config.SPIDER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SPIDER_JOB_EXPIRES
 
 // Miner
 config.MINER_CHECK_INTERVAL_MINUTES = getEnv(process.env.MINER_CHECK_INTERVAL_MINUTES, 30);
+
+// Misc
+
+config.SELENIUM_HUB_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');
