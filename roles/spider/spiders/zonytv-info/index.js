@@ -12,7 +12,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , Service = require('./service')
   , URI = require('URIjs')
-  , webdriver = require('selenium-webdriverjs')
+  , webdriver = require('selenium-webdriver')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
 ;
 
@@ -51,6 +51,7 @@ ZonyTv.prototype.newWrangler = function(){
   self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
+
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
