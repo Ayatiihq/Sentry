@@ -19,36 +19,44 @@ var acquire = require('acquire')
   , url = require('url')
   , Promise = require('node-promise')
   , querystring = require('querystring')
+  , XRegExp = require('XRegExp').XRegExp
 ;
 
 var Scraper = acquire('scraper');
 var API_KEY = 'AIzaSyCnkZOQzHxqC8iLwnGfTFi_seFLLNBrcyQ';
 
-var YoutubeAggregator = function (ytVideo) {
+var YoutubeAggregator = function () {
   var self = this;
   self.init();
-  self.ytVideo = ytVideo;
 };
 
-util.inherits(YoutubeAggregator, ConfidenceAggregator);
+util.inherits(YoutubeAggregator, ConfidenceAggregator.ConfidenceAggregator);
 
 /* Aggregator overridables */
 YoutubeAggregator.prototype.getCategory = function (ytVideo) { return ytVideo.snippet.categoryId; };
 YoutubeAggregator.prototype.getDescription = function (ytVideo) { return ytVideo.snippet.description; };
 YoutubeAggregator.prototype.getDuration = function (ytVideo) {
   // youtube likes to be special and use an ISO format for duration rather than just seconds because seconds would be too simple.
-  var res = /PT(\d+)M(\d+)S/.exec(ytVideo.contentDetails.duration);
-  return (parseInt(res[1], 10) * 60) + parseInt(res[2], 10);
+  var res = XRegExp('PT(?:(?<hours>[0-9]+)H)?(?:(?<minutes>[0-9]+)M)?(?:(?<seconds>[0-9]+)S)?').exec(ytVideo.contentDetails.duration);
+  if (res === null) { throw new Error('did not match against: ' + ytVideo.contentDetails.duration); }
+  var time = 0;
+  if (!!(res.hours)) { time += parseInt(res.hours, 10) * 3600; }
+  if (!!(res.minutes)) { time += parseInt(res.minutes, 10) * 60; }
+  if (!!(res.seconds)) { time += parseInt(res.seconds, 10); }
+  return time;
 };
 YoutubeAggregator.prototype.getThumbnails = function (ytVideo) {
   return Object.values(ytVideo.snippet.thumbnails).map(function trasformYtThumbs(v) { return v.url; });
 };
 YoutubeAggregator.prototype.getTitle = function (ytVideo) { return ytVideo.snippet.title; };
-YoutubeAggregator.prototype.publishTime = function (ytVideo) { return ytVideo.snippet.publishedAt; };
+YoutubeAggregator.prototype.getPublishTime = function (ytVideo) { return ytVideo.snippet.publishedAt; };
 
 /* - Scraper module - */
 var Youtube = module.exports = function () {
   this.init();
+  this.aggregator = new YoutubeAggregator();
+  this.aggregator.installAnalyzer(ConfidenceAggregator.debugAnalyzer, ConfidenceAggregator.debugAnalyzer.max);
+  this.aggregator.installWeighter(ConfidenceAggregator.debugWeighter);
 };
 
 util.inherits(Youtube, Scraper);
@@ -115,8 +123,10 @@ Youtube.prototype.getAPI = function (api, query) {
   urlObj.search = querystring.stringify(query);
 
   //logger.info('req: ' + url.format(urlObj));
-
+  var callTime = process.hrtime();
   request(url.format(urlObj), function (err, res, body) {
+    callTime = process.hrtime(callTime);
+    logger.info('api(%s) lag: %d', api, callTime[0] + (callTime[1] / 1e9));
     if (err) { promise.reject(err); }
     else {
       try {
@@ -138,26 +148,25 @@ Youtube.prototype.getVideoInfo = function (videoID, args) {
   var promise = new Promise.Promise();
   var query = {
     part: 'id,snippet,contentDetails,player,statistics,status,topicDetails',
-    id: videoID
+    id: videoID,
+    key: API_KEY
   };
   Object.merge(query, args, true, false);
 
   self.getAPI('videos', query).then(function onVideosFinished(apiResult) {
-
-
-    promise.resolve();
+    promise.resolve(apiResult);
   }, function onVideosError(error) {
     promise.reject(error);
   });
+
+  return promise;
 };
 
 Youtube.prototype.handleVideoResults = function (videoResults) {
   var self = this;
   var promise = new Promise.Promise();
-
-  videoResults.each(function forEachVideoResult(videoResult) {
-    self.results.push(videoResult);
-  });
+  
+  videoResults.items.each(self.aggregator.addDatum.bind(self.aggregator));
   promise.resolve();
   return promise;
 };
@@ -174,13 +183,17 @@ Youtube.prototype.beginSearch = function (searchTerm, args) {
   }; 
   Object.merge(query, args, true, false);
 
-  self.getAPI('search', query).then(self.handleSearchResults.bind(self), function onSearchError(error) {
-    promise.reject(error);
-  }).then(function onSearchResultsHandled(nextPageToken) {
-    if (self.totalPages < 10) {
+  self.getAPI('search', query).then(function onSearchResults(searchResults) {
+    if (self.totalPages < 100) {
+      var handlePromise = self.handleSearchResults(searchResults);
+
       // call next page
-      args.pageToken = nextPageToken;
-      self.beginSearch(searchTerm, args).then(promise.resolve.bind(promise));
+      args.pageToken = searchResults.nextPageToken;
+      var searchPromise = self.beginSearch(searchTerm, args);
+
+      // once both the handle and search promises resolve, then we resolve this one.
+      // ensures that the first beginSearch promise is not resolved until we are truely finished.
+      Promise.all([handlePromise, searchPromise]).then(promise.resolve.bind(promise));
     }
     else {
       promise.resolve();
@@ -197,19 +210,18 @@ Youtube.prototype.handleSearchResults = function (searchResults) {
   var self = this;
   var promise = new Promise.Promise();
 
-  if (!Object.has(searchResults, 'prevPageToken')) {
-    //first page
-    logger.info('total results: %d', searchResults.pageInfo.totalResults);
-  }
-
   if (Object.has(searchResults, 'items')) {
-    var videoResultWorkers = searchResults.items.map(function resultWorkersBuilder(item) {
-      return self.getVideoInfo.call(self, item.id.videoID);
+    var combinedIds = '';
+    searchResults.items.each(function combineIds(item) {
+      combinedIds += item.id.videoId + ',';
     });
+    combinedIds = combinedIds.slice(0, combinedIds.length - 1);
 
-    Promise.all(videoResultWorkers).then(self.handleVideoResults.bind(self)).then(function () {
-      promise.resolve(searchResults.nextPageToken);
-    });
+    self.getVideoInfo.call(self, combinedIds)
+      .then(self.handleVideoResults.bind(self))
+      .then(function onVideoResultsHandled() {
+        promise.resolve(searchResults.nextPageToken);
+      });
   }
   else {
     promise.reject(new Error('no items in results'));
@@ -221,5 +233,6 @@ Youtube.prototype.handleSearchResults = function (searchResults) {
 var test = new Youtube();
 test.beginSearch('India vs England Test Match December 2012', { publishedAfter: Date.past('december 2012').toISOString() }).then(function onFinished() {
   console.log('finished!');
-  console.log(test.results.length + ' items!');
+  console.log(test.aggregator.dataList.length + ' items!');
+  console.log(test.aggregator.dataList.count(function (v) { return (v.confidence); }) + ' confident items');
 });

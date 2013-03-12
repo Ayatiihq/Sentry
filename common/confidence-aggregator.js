@@ -16,7 +16,7 @@ var acquire = require('acquire')
 ;
 
 // figures out the confidence of data from various sources, overridables need to be overriden to be useful.
-var ConfidenceAggregator = module.exports = function () {
+var ConfidenceAggregator = module.exports.ConfidenceAggregator = function () {
   var self = this;
   self.init();
 };
@@ -31,7 +31,7 @@ ConfidenceAggregator.prototype.init = function () {
 
 ConfidenceAggregator.prototype.addDatum = function (datum) {
   var self = this;
-  var data = { 'datum': datum, 'confidence': 0 };
+  var data = { 'datum': datum, 'confidence': 0, 'weightedConfidence': 0 };
   self.analyzeData(data);
   self.dataList.push(data);
 };
@@ -44,6 +44,7 @@ ConfidenceAggregator.prototype.installAnalyzer = function (analyzer, weight) {
 };
 
 ConfidenceAggregator.prototype.sanitizeData = function (data) {
+  var self = this;
   data.confidence = data.confidence / self.totalWeight;
 };
 
@@ -55,8 +56,17 @@ ConfidenceAggregator.prototype.installWeighter = function (weighter) {
 ConfidenceAggregator.prototype.analyzeData = function (data) {
   var self = this;
   self.analyzers.each(function analyze(analyzerContainer) {
-    var analyzer = analyzerContainer[0];
-    data.confidence += analyzer(data.datum);
+    var analyzer = analyzerContainer.analyzer;
+    var datumContainer = {
+      category: self.getCategory(data.datum),
+      description: self.getDescription(data.datum),
+      duration: self.getDuration(data.datum),
+      metadata: self.getMetaData(data.datum),
+      thumbnails: self.getThumbnails(data.datum),
+      title: self.getTitle(data.datum),
+      publishTile: self.getPublishTime(data.datum)
+    };
+    data.confidence += analyzer(datumContainer);
   });
   self.sanitizeData(data);
 };
@@ -73,5 +83,17 @@ ConfidenceAggregator.prototype.getDuration = function (datum) { return 0; };
 ConfidenceAggregator.prototype.getMetaData = function (datum) { return datum; };
 ConfidenceAggregator.prototype.getThumbnails = function (datum) { return []; };
 ConfidenceAggregator.prototype.getTitle = function (datum) { return ""; };
-ConfidenceAggregator.prototype.publishTime = function (datum) { return Date.now(); };
+ConfidenceAggregator.prototype.getPublishTime = function (datum) { return Date.now(); };
 
+/* PreBuilt Analyzers */
+exports.debugAnalyzer = function (datumContainer) {
+  return (Math.random() > 0.5);
+};
+exports.debugAnalyzer.max = 1;
+
+/* PreBuilt Weighters */
+exports.debugWeighter = function (dataList) {
+  dataList.each(function (v) {
+    v.weightedConfidence = v.confidence;
+  });
+};
