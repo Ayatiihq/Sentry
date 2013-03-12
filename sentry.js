@@ -31,6 +31,8 @@ function usage() {
   console.log('');
 
   console.log('\thub ping [data]', '\tPings the hub with [data]');
+  console.log('\thub state [data]', '\tGets the state of Hub, or if [data] exists, sets a new state');
+  console.log('\thub version', '\t\tGets the version of Sentry that Hub is running');
 
   console.log('');
 }

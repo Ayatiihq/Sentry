@@ -42,11 +42,10 @@ HubTask.prototype.loadTasks = function() {
   var self = this;
 
   self.tasksMap_ = {
-    getInfo: self.getInfo,
-    getState: self.getState,
-    getVersion: self.getVersion,
+    info: self.getInfo,
+    state: self.getState,
+    version: self.getVersion,
     ping: self.ping,
-    setState: self.setState
   };
 }
 
@@ -81,6 +80,9 @@ HubTask.prototype.getInfo = function(argv) {
 
 HubTask.prototype.getState = function(argv) {
   var self = this;
+
+  if (argv && argv.length)
+    return self.setState(argv);
 
   self.hub_.emit('getState', '', function(reply) {
     console.log(reply);
