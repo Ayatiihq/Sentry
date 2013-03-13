@@ -67,7 +67,8 @@ ConfidenceAggregator.prototype.analyzeData = function (data) {
       title: self.getTitle(data.datum),
       publishTile: self.getPublishTime(data.datum)
     };
-    data.confidence += analyzer(datumContainer);
+
+    data.confidence += analyzer(datumContainer) * analyzerContainer.weight;
   });
   self.sanitizeData(data);
 };
@@ -88,9 +89,8 @@ ConfidenceAggregator.prototype.getPublishTime = function (datum) { return Date.n
 
 /* PreBuilt Analyzers */
 exports.debugAnalyzer = function (datumContainer) {
-  return (Math.random() > 0.5);
+  return Math.random();
 };
-exports.debugAnalyzer.max = 1;
 
 function findsInTexts(texts, finds) {
   // texts and finds are both arrays, texts should be strings, finds can be strings or arrays, looks for finds in texts
@@ -101,9 +101,24 @@ function findsInTexts(texts, finds) {
   });
 }
 
+exports.analyzerLargeDurations = function (length) {
+  return function (duration, datum) {
+    return (duration > datum.duration) ? 1 : 0;
+  }.bind(null, length);
+};
+
+exports.analyzerKeywords = function (_optionalKeywords, _requiredKeywords) {
+  return function (optionalKeywords, requiredKeywords, datum) {
+    var fullText = (datum.title + ' ' + datum.description).toLowerCase();
+    var hasOptional = optionalKeywords.some(function (keyword) { fullText.has(keyword.toLowerCase()); });
+    var hasRequired = requiredKeywords.all(function (keyword) { fullText.has(keyword.toLowerCase()); });
+    var score = (0.5 + (0.5 * hasOptional)) * hasRequired;
+    return score;
+  }.bind(null, _optionalKeywords, _requiredKeywords);
+};
                                 
-exports.analyzerFindDate = function (searchDate) {
-  function realAnalyzerFindDate(searchDate, datum) {
+exports.analyzerFindDate = function (date) {
+  return function (searchDate, datum) {
     //!!FIXME!! we do this the dumb long way because of https://github.com/andrewplummer/Sugar/issues/281
     // once that issue is fixed, we should get other locals for free too. 
     var day, month, year = '';
@@ -138,15 +153,12 @@ exports.analyzerFindDate = function (searchDate) {
     /*ignore jslint end*/
     var startWhitespace = '( |^|\\.)';
     var endWhitespace = '( |$|\\.)';
-    day = XRegExp(startWhitespace + day + endWhitespace, 'i');
-    month = XRegExp(startWhitespace + month + endWhitespace, 'i');
-    year = XRegExp(startWhitespace + searchDate.getFullyear() + endWhitespace, 'i');
+    day = new XRegExp(startWhitespace + day + endWhitespace, 'i');
+    month = new XRegExp(startWhitespace + month + endWhitespace, 'i');
+    year = new XRegExp(startWhitespace + searchDate.getFullyear() + endWhitespace, 'i');
+    var redateandmonth = new XRegExp('([0-9]{1,2})[-/]([0-9]{1,2})(?:[-/]([0-9]{1,2}))?');
     
-    var redateandmonth = XRegExp.exec('12/12/12', XRegExp('([0-9]{1,2})[-/]([0-9]{1,2})(?:[-/]([0-9]{1,2}))?'));
-
-  }
-
-  return realAnalyzerFindDate.bind(null, searchDate);
+  }.bind(null, date);
 };
 
 /* PreBuilt Weighters */

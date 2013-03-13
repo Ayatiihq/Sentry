@@ -55,7 +55,12 @@ YoutubeAggregator.prototype.getPublishTime = function (ytVideo) { return ytVideo
 var Youtube = module.exports = function () {
   this.init();
   this.aggregator = new YoutubeAggregator();
-  this.aggregator.installAnalyzer(ConfidenceAggregator.debugAnalyzer, ConfidenceAggregator.debugAnalyzer.max);
+  // keywords faked for now
+  var requiredKeywords = ['india', 'england', 'test']
+  var optionalKeywords = ['vs', 'match', 'cricket']
+
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(2 * 3600), 1); // 2 hours
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(optionalKeywords, requiredKeywords), 2);
   this.aggregator.installWeighter(ConfidenceAggregator.debugWeighter);
 };
 
