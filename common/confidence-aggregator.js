@@ -142,24 +142,7 @@ exports.analyzerFindDate = function (searchDate) {
     month = XRegExp(startWhitespace + month + endWhitespace, 'i');
     year = XRegExp(startWhitespace + searchDate.getFullyear() + endWhitespace, 'i');
     
-    var reday = '(?:(?<daynumeric>[0-9]{1,2})|' +
-                '(?<daystring>sun|sunday|mon|monday|tue|tuesday|wed|wednesday|thur|thu|thursday|fri|friday|sat|saturday))';
-    var remonth = '(?:(?<monthnumeric>[0-9]{1,2})|' +
-                  '(?<monthstring>jan|january|feb|febuary|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december))';
-    var reyear = '(?<year>[0-9]{2,4})';
-
-    var redateandmonth = '(?:' + reday + '|' + remonth + ')';// fuck american date formats. seriously.
-
-    // we could do both year/month/day and day/month/year in one regex with backreferences, but they are complicated and slow.
-    var fullDateMatch =
-      '(?:' +
-      redateandmonth + '[-/]' + redateandmonth + '(?:[-/]' + reyear + ')?|' +     //day/month/year - month/day/year
-      reyear + '[-/]' + redateandmonth + '[-/]' + redateandmonth +                //year/day/month - year/month/day
-      ')';
-
-
-
-
+    var redateandmonth = XRegExp.exec('12/12/12', XRegExp('([0-9]{1,2})[-/]([0-9]{1,2})(?:[-/]([0-9]{1,2}))?'));
 
   }
 
