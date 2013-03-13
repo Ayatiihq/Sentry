@@ -82,7 +82,7 @@ Hub.prototype.onRequest = function(req, res) {
 }
 
 Hub.prototype.doUpdate = function(payload) {
-  var message = util.format('Hub going down for update to %s in 5 seconds', payload.after);
+  var message = util.format('<b>Hub going down for update to %s in 5 secondsL</b>', payload.after);
   logger.info(message);
   utilities.notify(message);
   setTimeout(process.exit.bind(null, 0), 1000 * 5);

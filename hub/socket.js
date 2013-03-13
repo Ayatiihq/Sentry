@@ -48,6 +48,9 @@ Socket.prototype.init = function() {
 
     var nodeServer = self.socketServer_.of('/node');
     nodeServer.on('connection', self.onNodeConnection.bind(self));
+
+    utilities.notify(util.format('Hub up-and-running on commit <b>%s</b>', 
+                     version.shortRevision));
   });
 }
 
