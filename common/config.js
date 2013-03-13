@@ -49,7 +49,7 @@ config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQ
 config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
 
 // Hub
-config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'frontier.cloudapp.net');
+config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'watchtower.cloudapp.net');
 
 config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 

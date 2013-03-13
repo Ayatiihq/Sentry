@@ -35,13 +35,38 @@ Hub.prototype.init = function() {
       }
     ;
 
-  self.server_ = https.createServer(options);
+  self.server_ = https.createServer(options, self.onRequest.bind(self));
   self.socket_ = new Socket(self.server_);
   self.socket_.on('stateChanged', self.onStateChanged.bind(self));
 
   self.quartermaster_ = new QuarterMaster();
 
   self.server_.listen(config.HUB_PORT);
+}
+
+Hub.prototype.onRequest = function(req, res) {
+  if (req.method === 'POST') {
+    var body = '';
+    req.on('data', function(data) {
+      body += data;
+      if (body.length > 1e6) {
+        req.connection.destroy();
+      }
+    });
+    req.on('end', function() {
+      var msg = {};
+      try {
+        msg = JSON.parse(body);
+      } catch (err) {
+        logger.warn(err);
+      }
+
+      console.log(msg);
+
+      res.writeHead(200);
+      res.end();
+    });
+  }
 }
 
 Hub.prototype.onStateChanged = function(state) {
