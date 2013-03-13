@@ -37,7 +37,7 @@ YoutubeAggregator.prototype.getCategory = function (ytVideo) { return ytVideo.sn
 YoutubeAggregator.prototype.getDescription = function (ytVideo) { return ytVideo.snippet.description; };
 YoutubeAggregator.prototype.getDuration = function (ytVideo) {
   // youtube likes to be special and use an ISO format for duration rather than just seconds because seconds would be too simple.
-  var res = XRegExp('PT(?:(?<hours>[0-9]+)H)?(?:(?<minutes>[0-9]+)M)?(?:(?<seconds>[0-9]+)S)?').exec(ytVideo.contentDetails.duration);
+  var res = XRegExp('PT(?:(?<hours>[0-9]+)H)?(?:(?<minutes>[0-9]+)M)?(?:(?<seconds>[0-9]+)S)?').exec(ytVideo.contentDetails.duration); //ignore jslint
   if (res === null) { throw new Error('did not match against: ' + ytVideo.contentDetails.duration); }
   var time = 0;
   if (!!(res.hours)) { time += parseInt(res.hours, 10) * 3600; }
