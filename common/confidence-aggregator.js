@@ -101,6 +101,7 @@ function findsInTexts(texts, finds) {
   });
 }
 
+                                
 exports.analyzerFindDate = function (searchDate) {
   function realAnalyzerFindDate(searchDate, datum) {
     //!!FIXME!! we do this the dumb long way because of https://github.com/andrewplummer/Sugar/issues/281
@@ -108,33 +109,58 @@ exports.analyzerFindDate = function (searchDate) {
     var day, month, year = '';
     /*ignore jslint start*/ //jslint complains about tab indentation with switch
     switch (searchDate.getWeekday()) {
-      case 0:day = XRegExp('(sun|sunday)', 'x'); break;
-      case 2:day = XRegExp('(mon|monday)', 'x'); break;
-      case 3:day = XRegExp('(tue|tuesday)', 'x'); break;
-      case 4:day = XRegExp('(wed|wednesday)', 'x'); break;
-      case 5:day = XRegExp('(thur|thurs|thu|thursday)', 'x'); break;
-      case 6:day = XRegExp('(fri|friday)', 'x'); break;
-      case 7:day = XRegExp('(sat|saturday)', 'x');break;
+      case 0:day = '(sun|sunday)'; break;
+      case 2:day = '(mon|monday)'; break;
+      case 3:day = '(tue|tuesday)'; break;
+      case 4:day = '(wed|wednesday)'; break;
+      case 5:day = '(thur|thurs|thu|thursday)'; break;
+      case 6:day = '(fri|friday)'; break;
+      case 7:day = '(sat|saturday)';break;
       default:
         throw new Error('got a strange day, is it Sunursnesday?: ' + searchDate.getWeekday());
     }
     switch (searchDate.getMonth()) {
-      case 0: month = XRegExp('(jan|january)'); break;
-      case 1: month = XRegExp('(feb|febuary)'); break;
-      case 2: month = XRegExp('(mar|march)'); break;
-      case 3: month = XRegExp('(apr|april)'); break;
-      case 4: month = XRegExp('(may|may)'); break;
-      case 5: month = XRegExp('(jun|june)'); break;
-      case 6: month = XRegExp('(jul|july)'); break;
-      case 7: month = XRegExp('(aug|august)'); break;
-      case 8: month = XRegExp('(sep|september)'); break;
-      case 9: month = XRegExp('(oct|october)'); break;
-      case 10: month = XRegExp('(nov|november)'); break;
-      case 11: month = XRegExp('(dec|december)'); break;
+      case 0: month = '(jan|january)'; break;
+      case 1: month = '(feb|febuary)'; break;
+      case 2: month = '(mar|march)'; break;
+      case 3: month = '(apr|april)'; break;
+      case 4: month = '(may|may)'; break;
+      case 5: month = '(jun|june)'; break;
+      case 6: month = '(jul|july)'; break;
+      case 7: month = '(aug|august)'; break;
+      case 8: month = '(sep|september)'; break;
+      case 9: month = '(oct|october)'; break;
+      case 10: month = '(nov|november)'; break;
+      case 11: month = '(dec|december)'; break;
       default:
         throw new Error("it's martober: " + searchDate.getMonth());
     }
     /*ignore jslint end*/
+    var startWhitespace = '( |^|\\.)';
+    var endWhitespace = '( |$|\\.)';
+    day = XRegExp(startWhitespace + day + endWhitespace, 'i');
+    month = XRegExp(startWhitespace + month + endWhitespace, 'i');
+    year = XRegExp(startWhitespace + searchDate.getFullyear() + endWhitespace, 'i');
+    
+    var reday = '(?:(?<daynumeric>[0-9]{1,2})|' +
+                '(?<daystring>sun|sunday|mon|monday|tue|tuesday|wed|wednesday|thur|thu|thursday|fri|friday|sat|saturday))';
+    var remonth = '(?:(?<monthnumeric>[0-9]{1,2})|' +
+                  '(?<monthstring>jan|january|feb|febuary|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|oct|october|nov|november|dec|december))';
+    var reyear = '(?<year>[0-9]{2,4})';
+
+    var redateandmonth = '(?:' + reday + '|' + remonth + ')';// fuck american date formats. seriously.
+
+    // we could do both year/month/day and day/month/year in one regex with backreferences, but they are complicated and slow.
+    var fullDateMatch =
+      '(?:' +
+      redateandmonth + '[-/]' + redateandmonth + '(?:[-/]' + reyear + ')?|' +     //day/month/year - month/day/year
+      reyear + '[-/]' + redateandmonth + '[-/]' + redateandmonth +                //year/day/month - year/month/day
+      ')';
+
+
+
+
+
   }
 
   return realAnalyzerFindDate.bind(null, searchDate);
