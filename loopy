@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "Grabbing latest copy"
+git pull
+
+echo "Updating dependencies"
+npm install
+
+echo "Starting sentry"
+./sentry $@
