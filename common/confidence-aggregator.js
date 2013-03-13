@@ -103,7 +103,7 @@ function findsInTexts(texts, finds) {
 
 exports.analyzerLargeDurations = function (length) {
   return function (duration, datum) {
-    return (duration > datum.duration) ? 1 : 0;
+    return (datum.duration > duration) ? 1 : 0;
   }.bind(null, length);
 };
 
@@ -116,7 +116,7 @@ exports.analyzerKeywords = function (_optionalKeywords, _requiredKeywords) {
     return score;
   }.bind(null, _optionalKeywords, _requiredKeywords);
 };
-                                
+
 exports.analyzerFindDate = function (date) {
   return function (searchDate, datum) {
     //!!FIXME!! we do this the dumb long way because of https://github.com/andrewplummer/Sugar/issues/281

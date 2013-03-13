@@ -37,7 +37,7 @@ YoutubeAggregator.prototype.getCategory = function (ytVideo) { return ytVideo.sn
 YoutubeAggregator.prototype.getDescription = function (ytVideo) { return ytVideo.snippet.description; };
 YoutubeAggregator.prototype.getDuration = function (ytVideo) {
   // youtube likes to be special and use an ISO format for duration rather than just seconds because seconds would be too simple.
-  var res = XRegExp('PT(?:(?<hours>[0-9]+)H)?(?:(?<minutes>[0-9]+)M)?(?:(?<seconds>[0-9]+)S)?').exec(ytVideo.contentDetails.duration); //ignore jslint
+  var res = XRegExp.exec(ytVideo.contentDetails.duration, XRegExp('PT(?:(?<hours>[0-9]+)H)?(?:(?<minutes>[0-9]+)M)?(?:(?<seconds>[0-9]+)S)?')); //ignore jslint
   if (res === null) { throw new Error('did not match against: ' + ytVideo.contentDetails.duration); }
   var time = 0;
   if (!!(res.hours)) { time += parseInt(res.hours, 10) * 3600; }
@@ -189,7 +189,7 @@ Youtube.prototype.beginSearch = function (searchTerm, args) {
   Object.merge(query, args, true, false);
 
   self.getAPI('search', query).then(function onSearchResults(searchResults) {
-    if (self.totalPages < 100) {
+    if (self.totalPages < 10) {
       var handlePromise = self.handleSearchResults(searchResults);
 
       // call next page
@@ -239,5 +239,11 @@ var test = new Youtube();
 test.beginSearch('India vs England Test Match December 2012', { publishedAfter: Date.past('december 2012').toISOString() }).then(function onFinished() {
   console.log('finished!');
   console.log(test.aggregator.dataList.length + ' items!');
-  console.log(test.aggregator.dataList.count(function (v) { return (v.confidence); }) + ' confident items');
+  var average = test.aggregator.dataList.average(function (v) { return v.confidence; });
+  console.log('average confidence: ' + average);
+  var maxconf = test.aggregator.dataList.max(function (v) { return v.confidence; }).confidence;
+  console.log('maximum confidence: ' + maxconf);
+  console.log('total items at max confidence: ' + test.aggregator.dataList.count(function (v) { return (v.confidence >= maxconf); }));
+  
+  console.log(test.aggregator.dataList.count(function (v) { return (v.confidence >= average); }) + ' items above average confidence');
 });
