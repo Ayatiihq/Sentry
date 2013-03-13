@@ -14,6 +14,8 @@ var acquire = require('acquire')
   , os = require('os')
   , qs = require('querystring')
   , sugar = require('sugar')
+  , utilities = acquire('utilities')
+  , util = require('util')
   ;
 
 var QuarterMaster = require('./quartermaster')
@@ -57,8 +59,8 @@ Hub.prototype.onRequest = function(req, res) {
     req.on('end', function() {
       var msg = {};
       try {
-        body = qs.parse(body);
-        msg = JSON.parse(body.payload);
+        b = qs.parse(body);
+        msg = JSON.parse(b.payload);
       } catch (err) {
         logger.warn(err);
       }
@@ -66,9 +68,13 @@ Hub.prototype.onRequest = function(req, res) {
       res.writeHead(200);
       res.end();
 
-      if (msg.ref && msg.ref === 'refs/heads/hubbed') {
-        utilities.notify(util.format('Hub going down for update to %s', msg.after));
-        process.exit(0);
+      if (!msg.ref) {
+        logger.warn('Received random POST request: %s', body);
+      } else if (msg.ref === 'refs/heads/master') {
+        var message = util.format('Hub going down for update to %s in 5 seconds', msg.after);
+        logger.info(message);
+        utilities.notify(message);
+        setTimeout(process.exit.bind(null, 0), 1000 * 5);
       }
     });
   }
