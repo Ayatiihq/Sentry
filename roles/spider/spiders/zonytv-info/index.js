@@ -19,8 +19,8 @@ var acquire = require('acquire')
 require('enum').register();
 var ZonyTvStates = module.exports.ZonyTvStates = new Enum(['CATEGORY_PARSING',
                                                            'SERVICE_PARSING',
-                                                            'WRANGLE_IT',
-                                                            'END_OF_THE_ROAD']);
+                                                           'WRANGLE_IT',
+                                                           'END_OF_THE_ROAD']);
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
@@ -50,13 +50,20 @@ ZonyTv.prototype.newWrangler = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
 
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
   self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+
+  self.wrangler.on('error', function onWranglerError(error) {
+    logger.info('got error when scraping with selenium : ' + error.toString());
+    self.wrangler.removeAllListeners();
+    self.stop();
+  });
+
 }
 
 ZonyTv.prototype.parseIndex = function(){
@@ -64,16 +71,14 @@ ZonyTv.prototype.parseIndex = function(){
   var pageResults = [];
 
   var createService = function(name, link){
-    if(name.match(/^espn/) === null){
-      var service = new Service('tv.live',
-                                'ZonyTv',
-                                name,
-                                "",
-                                "http://www.zonytvcom.info/",
-                                ZonyTvStates.WRANGLE_IT);
-      self.results.push(service);
-      self.emit('link', service.constructLink({link_source: "zonytvcom home page"}, link));
-    }
+    var service = new Service('tv.live',
+                              'ZonyTv',
+                              name,
+                              "",
+                              "http://www.zonytvcom.info/",
+                              ZonyTvStates.WRANGLE_IT);
+    self.results.push(service);
+    self.emit('link', service.constructLink({link_source: "zonytvcom home page"}, link));
   }
 
   self.driver.getPageSource().then(function parseSrcHtml(source){
@@ -82,7 +87,7 @@ ZonyTv.prototype.parseIndex = function(){
     var pageServices = [];
     // first, simply take every second one of each link on the page
     $('a').each(function(i, elem){
-      var link = $(elem).attr('href');
+      var link = URI($(elem).attr('href')).absoluteTo('http://zonytvcom.info').toString();
       if (tmpLinks.length > 0 && tmpLinks[tmpLinks.length-1] === link){
         pageServices.push(link);
       }
@@ -167,7 +172,6 @@ ZonyTv.prototype.iterateRequests = function(collection){
         self.iterateRequests(self.results);
       }
       else{
-        logger.info("We are finished !");
         self.stop();
       }
     })    

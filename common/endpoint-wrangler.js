@@ -65,10 +65,9 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
 }; 
 
 module.exports.scraperSwfObject = function SwfObject($, source, foundItems) {
-
   $('script').each(function onScript() {
     var check = false;
-    var sanitized = $(this).toString().toLowerCase();
+    var sanitized = $(this).html().toLowerCase();
     check |= sanitized.has('new swfobject') && sanitized.has('player');
     if (check) {
       var newitem = new Endpoint(this.toString());
@@ -117,7 +116,6 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
     }
     
   });
-
   
   // function that for a given uri will simply open it and parse it for extensions and protocols. 
   // in addition it works through promises, it will return a promise that will be resolved after 
@@ -174,10 +172,8 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
 /* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
 module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
-                                , module.exports.scraperRegexStreamUri];
-/* - A collection of scrapers which look for likely blocks of interesting markup which may contain infringement details - */
-var scrapersDetectPotentials =  [module.exports.scraperSwfObject];
-
+                                , module.exports.scraperRegexStreamUri
+                                , module.exports.scraperSwfObject];
 
 /* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {
@@ -185,14 +181,13 @@ var Wrangler = module.exports.Wrangler = function (driver) {
   events.EventEmitter.call(this);
   if (!driver) {
     self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                              .withCapabilities(CAPABILITIES)
-                              .build();
+                               .withCapabilities(CAPABILITIES)
+                               .build();
     logger.info('building new webdriver');
   }
   else {
     this.driver = driver;
   }
-
 
   this.foundItems = [];
 
@@ -265,37 +260,21 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   logger.info('processing uri: ' + uri);
     
   var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
-  // try to detect potential infringments. These resuls should only be used if an endpoint is not detected. 
-  var potentialPageMods = scrapersDetectPotentials.map(function (scraper) { return scraper.bind(null, $, source); });
-
-  var potentialInfringments = [];
-  potentialPageMods.each(function (scraper) {
-    potentialInfringments = when(potentialInfringments, scraper);
-  });
 
   var previousReturn = [];
   pagemods.each(function (scraper) {
     previousReturn = when(previousReturn, scraper);
   });
 
-  var maybeMergePotentials = function(results){
-    var endPointDetected = false  
-    var merged = results;
-    results.each(function(item){ endPointDetected |= item.isEndpoint });
-    if(!endPointDetected)
-      merged = results.union(potentialInfringments);
-    return merged;
-  }
-
   if (Object.isArray(previousReturn)) {
     // no promises were returned by our scrapers so we can act right now
-    self.constructItemsObject(maybeMergePotentials(previousReturn), uri, parenturls);
+    self.constructItemsObject(previousReturn, uri, parenturls);
   }
   else {
     // we got a promise somewhere along the way, converting all subsequent calls to when
     // into returning promises so we need to wait for the promise chain to resolve.
     previousReturn.then(function onPromiseResolve(items) {
-      self.constructItemsObject(maybeMergePotentials(items), uri, parenturls);
+      self.constructItemsObject(items, uri, parenturls);
     });
   }
 };
