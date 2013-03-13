@@ -48,6 +48,8 @@ Hub.prototype.init = function() {
 }
 
 Hub.prototype.onRequest = function(req, res) {
+  var self = this;
+
   if (req.method === 'POST') {
     var body = '';
     req.on('data', function(data) {
@@ -57,10 +59,10 @@ Hub.prototype.onRequest = function(req, res) {
       }
     });
     req.on('end', function() {
-      var msg = {};
+      var payload = {};
       try {
         b = qs.parse(body);
-        msg = JSON.parse(b.payload);
+        payload = JSON.parse(b.payload);
       } catch (err) {
         logger.warn(err);
       }
@@ -68,16 +70,22 @@ Hub.prototype.onRequest = function(req, res) {
       res.writeHead(200);
       res.end();
 
-      if (!msg.ref) {
+      if (!payload.ref) {
         logger.warn('Received random POST request: %s', body);
-      } else if (msg.ref === 'refs/heads/master') {
-        var message = util.format('Hub going down for update to %s in 5 seconds', msg.after);
-        logger.info(message);
-        utilities.notify(message);
-        setTimeout(process.exit.bind(null, 0), 1000 * 5);
+      } else if (payload.ref === 'refs/heads/' + config.HUB_GIT_BRANCH) {
+        self.doUpdate(payload);
+      } else {
+        logger.info('Ignored webhook for %s', payload.ref);
       }
     });
   }
+}
+
+Hub.prototype.doUpdate = function(payload) {
+  var message = util.format('Hub going down for update to %s in 5 seconds', payload.after);
+  logger.info(message);
+  utilities.notify(message);
+  setTimeout(process.exit.bind(null, 0), 1000 * 5);
 }
 
 Hub.prototype.onStateChanged = function(state) {
