@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , https = require('https')
   , logger = acquire('logger').forFile('hub.js')
   , os = require('os')
+  , qs = require('querystring')
   , sugar = require('sugar')
   ;
 
@@ -56,11 +57,11 @@ Hub.prototype.onRequest = function(req, res) {
     req.on('end', function() {
       var msg = {};
       try {
-        msg = JSON.parse(body);
+        body = qs.parse(body);
+        msg = JSON.parse(body.payload);
       } catch (err) {
         logger.warn(err);
       }
-
       console.log(msg);
 
       res.writeHead(200);
