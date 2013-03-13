@@ -174,8 +174,8 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
 /* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
 module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
-                                , module.exports.scraperRegexStreamUri
-                                , module.exports.scraperSwfObject];
+                                , module.exports.scraperRegexStreamUri];
+                                //, module.exports.scraperSwfObject];
 
 /* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {

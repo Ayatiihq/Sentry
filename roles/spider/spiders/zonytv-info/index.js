@@ -38,6 +38,8 @@ ZonyTv.prototype.init = function() {
   self.complete = [] // used to store those services which completed to a satisfactory end. 
   
   self.newWrangler();
+  // Not working for some reason. (TODO)
+  //var ready = self.driver.manage().deleteAllCookies();
   self.driver.get("http://www.zonytvcom.info").then(self.parseIndex.bind(self));
 }
 
@@ -115,7 +117,8 @@ ZonyTv.prototype.start = function(state) {
 
 ZonyTv.prototype.stop = function() {
   var self = this;
-  self.wrangler.quit();  self.emit('finished');
+  self.wrangler.quit();
+  self.emit('finished');    
 }
 
 ZonyTv.prototype.isAlive = function(cb) {
@@ -173,6 +176,8 @@ ZonyTv.prototype.iterateRequests = function(collection){
 
 ZonyTv.prototype.wranglerFinished = function(service, done, items){
   var self = this;
+  var endpointDeterminded = false;
+
   items.each(function traverseResults(x){
     if(x.parents.length > 0){
       x.parents.reverse();
@@ -180,18 +185,21 @@ ZonyTv.prototype.wranglerFinished = function(service, done, items){
         self.emit('link',
                   service.constructLink({link_source : "An unwrangled parent"}, parent));
       });
-    }    
-
-    var endpointDeterminded = false;
-    for(var t = 0; t < items.length; t++){
-      if(items[t].isEndpoint){
-        endpointDeterminded = true;
+    }
+    
+    var endPoint = null;
+    for(var t = 0; t < x.items.length; t++){
+      endpointDeterminded |= x.items[t].isEndpoint;
+      //console.log("Is this an Endpoint : " + x.items[t].toString() + ' ' + x.items[t].isEndpoint + ' ' + endpointDeterminded);
+      if(x.items[t].isEndpoint){
+        endPoint = x.items.splice(t, 1)[0];
         break;
       }
     }
 
     if (!endpointDeterminded){
       // gather all items into one string and put in the metadata under 'hiddenEndpoint'
+      // TODO what if there are a number potential hidden Endpoints.
       var flattened = x.items.map(function flatten(n){ return n.toString();});
       self.emit('link',
                 service.constructLink({link_source: "final stream parent uri",
@@ -202,13 +210,16 @@ ZonyTv.prototype.wranglerFinished = function(service, done, items){
       self.emit('link', service.constructLink({link_source: "final stream parent uri"}, x.uri));
       x.items.each(function rawBroadcaster(item){
         if(item.isEndpoint){
-          self.emit('link', service.constructLink({link_source: "End of the road"}, item.toString()));  
+          console.log('WE SHOULD NOT BE HERE');
         }
         else{
           self.emit('link', service.constructLink({link_source: "Not an endpoint so what am I ?"}, item.toString()));            
         }
       });
+      // Finally emit the end point.
+      self.emit('link', service.constructLink({link_source: "End of the road"}, endPoint.toString()));  
     }
+
   });
   self.serviceCompleted(service, items.length > 0);
   self.wrangler.removeAllListeners();
