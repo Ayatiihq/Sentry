@@ -62,10 +62,14 @@ Hub.prototype.onRequest = function(req, res) {
       } catch (err) {
         logger.warn(err);
       }
-      console.log(msg);
 
       res.writeHead(200);
       res.end();
+
+      if (msg.ref && msg.ref === 'refs/heads/hubbed') {
+        utilities.notify(util.format('Hub going down for update to %s', msg.after));
+        process.exit(0);
+      }
     });
   }
 }
