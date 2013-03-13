@@ -50,7 +50,7 @@ ZonyTv.prototype.newWrangler = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
 
@@ -190,36 +190,29 @@ ZonyTv.prototype.wranglerFinished = function(service, done, items){
     var endPoint = null;
     for(var t = 0; t < x.items.length; t++){
       endpointDeterminded |= x.items[t].isEndpoint;
-      //console.log("Is this an Endpoint : " + x.items[t].toString() + ' ' + x.items[t].isEndpoint + ' ' + endpointDeterminded);
       if(x.items[t].isEndpoint){
         endPoint = x.items.splice(t, 1)[0];
         break;
       }
     }
-
     if (!endpointDeterminded){
-      // gather all items into one string and put in the metadata under 'hiddenEndpoint'
+      // Gather all items into one string and put it in the metadata under 'hiddenEndpoint'
       // TODO what if there are a number potential hidden Endpoints.
       var flattened = x.items.map(function flatten(n){ return n.toString();});
       self.emit('link',
                 service.constructLink({link_source: "final stream parent uri",
-                hiddenEndpoint: flattened.join(',')}, x.uri));
+                hiddenEndpoint: flattened.join(' , ')}, x.uri));
     }
     else{
       // first emit the uri of the frame as the parent of the stream
       self.emit('link', service.constructLink({link_source: "final stream parent uri"}, x.uri));
+      // then emit any items that are not endPoints but are in the items (not sure what they can be)
       x.items.each(function rawBroadcaster(item){
-        if(item.isEndpoint){
-          console.log('WE SHOULD NOT BE HERE');
-        }
-        else{
-          self.emit('link', service.constructLink({link_source: "Not an endpoint so what am I ?"}, item.toString()));            
-        }
+        self.emit('link', service.constructLink({link_source: "Not an endpoint so what am I ?"}, item.toString()));            
       });
-      // Finally emit the end point.
+      // Finally emit the end point at the END.
       self.emit('link', service.constructLink({link_source: "End of the road"}, endPoint.toString()));  
     }
-
   });
   self.serviceCompleted(service, items.length > 0);
   self.wrangler.removeAllListeners();

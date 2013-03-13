@@ -175,7 +175,9 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
 module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
                                 , module.exports.scraperObject
                                 , module.exports.scraperRegexStreamUri];
-                                //, module.exports.scraperSwfObject];
+/* - A collection of scrapers which look for likely blocks of interesting markup which may contain infringement details - */
+var scrapersDetectPotentials =  [module.exports.scraperSwfObject];
+
 
 /* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {
@@ -263,20 +265,37 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   logger.info('processing uri: ' + uri);
     
   var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
+  // try to detect potential infringments. These resuls should only be used if an endpoint is not detected. 
+  var potentialPageMods = scrapersDetectPotentials.map(function (scraper) { return scraper.bind(null, $, source); });
+
+  var potentialInfringments = [];
+  potentialPageMods.each(function (scraper) {
+    potentialInfringments = when(potentialInfringments, scraper);
+  });
+
   var previousReturn = [];
   pagemods.each(function (scraper) {
     previousReturn = when(previousReturn, scraper);
   });
 
+  var maybeMergePotentials = function(results){
+    var endPointDetected = false  
+    var merged = results;
+    results.each(function(item){ endPointDetected |= item.isEndpoint });
+    if(!endPointDetected)
+      merged = results.union(potentialInfringments);
+    return merged;
+  }
+
   if (Object.isArray(previousReturn)) {
     // no promises were returned by our scrapers so we can act right now
-    self.constructItemsObject(previousReturn, uri, parenturls);
+    self.constructItemsObject(maybeMergePotentials(previousReturn), uri, parenturls);
   }
   else {
     // we got a promise somewhere along the way, converting all subsequent calls to when
     // into returning promises so we need to wait for the promise chain to resolve.
     previousReturn.then(function onPromiseResolve(items) {
-      self.constructItemsObject(items, uri, parenturls);
+      self.constructItemsObject(maybeMergePotentials(items), uri, parenturls);
     });
   }
 };
