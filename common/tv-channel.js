@@ -10,7 +10,8 @@ var logger = acquire('logger').forFile('TvChannel.js');
 
 require('enum').register();
 
-var TvChannelStates = module.exports.TvChannelStates = new Enum(['SERVICE_PARSING',
+var TvChannelStates = module.exports.TvChannelStates = new Enum(['CATEGORY_PARSING',
+                                                                 'CHANNEL_PARSING',
                                                                  'WRANGLE_IT',
                                                                  'END_OF_THE_ROAD']);
 
