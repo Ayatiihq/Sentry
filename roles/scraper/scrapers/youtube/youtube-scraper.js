@@ -49,18 +49,19 @@ YoutubeAggregator.prototype.getThumbnails = function (ytVideo) {
   return Object.values(ytVideo.snippet.thumbnails).map(function trasformYtThumbs(v) { return v.url; });
 };
 YoutubeAggregator.prototype.getTitle = function (ytVideo) { return ytVideo.snippet.title; };
-YoutubeAggregator.prototype.getPublishTime = function (ytVideo) { return ytVideo.snippet.publishedAt; };
+YoutubeAggregator.prototype.getPublishTime = function (ytVideo) { return new Date(ytVideo.snippet.publishedAt); };
 
 /* - Scraper module - */
 var Youtube = module.exports = function () {
   this.init();
   this.aggregator = new YoutubeAggregator();
   // keywords faked for now
-  var requiredKeywords = ['india', 'england', 'test']
-  var optionalKeywords = ['vs', 'match', 'cricket']
+  var requiredKeywords = ['india', 'england'];
+  var optionalKeywords = ['test', 'match', 'cricket', 'highlights', 'clips'];
 
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(2 * 3600), 1); // 2 hours
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(optionalKeywords, requiredKeywords), 2);
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(6 * 3600), 1  ); // 6 hours
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(optionalKeywords, requiredKeywords), 1);
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerFindDate(new Date.create('December 5th 2012')), 1);
   this.aggregator.installWeighter(ConfidenceAggregator.debugWeighter);
 };
 
@@ -111,14 +112,6 @@ Youtube.prototype.isAlive = function (cb) {
   }
 };
 
-/* Information Parsing */
-Youtube.prototype.grepVideoResult = function (videoResult) {
-  function findMonth(text) {
-    var months = /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|febuary|april|june|july|august|september|october|november|december)/;
-  }
-
-};
-
 /* -- Youtube API Code -- */
 Youtube.prototype.getAPI = function (api, query) {
   var self = this;
@@ -131,7 +124,7 @@ Youtube.prototype.getAPI = function (api, query) {
   var callTime = process.hrtime();
   request(url.format(urlObj), function (err, res, body) {
     callTime = process.hrtime(callTime);
-    logger.info('api(%s) lag: %d', api, callTime[0] + (callTime[1] / 1e9));
+    //logger.info('api(%s) lag: %d', api, callTime[0] + (callTime[1] / 1e9));
     if (err) { promise.reject(err); }
     else {
       try {
@@ -189,11 +182,13 @@ Youtube.prototype.beginSearch = function (searchTerm, args) {
   Object.merge(query, args, true, false);
 
   self.getAPI('search', query).then(function onSearchResults(searchResults) {
-    if (self.totalPages < 10) {
+    if (!!(searchResults.nextPageToken)) {
       var handlePromise = self.handleSearchResults(searchResults);
 
       // call next page
       args.pageToken = searchResults.nextPageToken;
+
+      console.log('get: ' + args.pageToken);
       var searchPromise = self.beginSearch(searchTerm, args);
 
       // once both the handle and search promises resolve, then we resolve this one.
@@ -244,6 +239,16 @@ test.beginSearch('India vs England Test Match December 2012', { publishedAfter: 
   var maxconf = test.aggregator.dataList.max(function (v) { return v.confidence; }).confidence;
   console.log('maximum confidence: ' + maxconf);
   console.log('total items at max confidence: ' + test.aggregator.dataList.count(function (v) { return (v.confidence >= maxconf); }));
-  
+
+
   console.log(test.aggregator.dataList.count(function (v) { return (v.confidence >= average); }) + ' items above average confidence');
+
+  var fs = require('fs');
+  var stream = fs.createWriteStream("/temp/yt-output.csv");
+  stream.once('open', function (fd) {
+    test.aggregator.dataList.each(function (d) { stream.write(d.confidence.toString() + '\n'); });
+    stream.end();
+  });
+
+  
 });

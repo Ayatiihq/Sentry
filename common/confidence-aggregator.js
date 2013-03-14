@@ -13,7 +13,7 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('confidence-aggregator.js')
   , Promise = require('node-promise')
   , util = require('util')
-  , XRegExp = require('XRegExp')
+  , XRegExp = require('XRegExp').XRegExp;
 ;
 
 // figures out the confidence of data from various sources, overridables need to be overriden to be useful.
@@ -65,7 +65,7 @@ ConfidenceAggregator.prototype.analyzeData = function (data) {
       metadata: self.getMetaData(data.datum),
       thumbnails: self.getThumbnails(data.datum),
       title: self.getTitle(data.datum),
-      publishTile: self.getPublishTime(data.datum)
+      publishTime: self.getPublishTime(data.datum)
     };
 
     data.confidence += analyzer(datumContainer) * analyzerContainer.weight;
@@ -110,54 +110,103 @@ exports.analyzerLargeDurations = function (length) {
 exports.analyzerKeywords = function (_optionalKeywords, _requiredKeywords) {
   return function (optionalKeywords, requiredKeywords, datum) {
     var fullText = (datum.title + ' ' + datum.description).toLowerCase();
-    var hasOptional = optionalKeywords.some(function (keyword) { fullText.has(keyword.toLowerCase()); });
-    var hasRequired = requiredKeywords.all(function (keyword) { fullText.has(keyword.toLowerCase()); });
-    var score = (0.5 + (0.5 * hasOptional)) * hasRequired;
+    var score = 0.0;
+
+    var optionalCount = optionalKeywords.count(function (keyword) { return fullText.has(keyword.toLowerCase()); });
+    // we only care about finding around three items from the optional keywords list, we find three then its a success.
+    optionalCount = Math.min(optionalCount, 300) / Math.min(optionalKeywords.length, 300); // normalize
+
+    if (Object.isArray(requiredKeywords)) {
+      var hasRequired = requiredKeywords.all(function (keyword) { return fullText.has(keyword.toLowerCase()); });
+      score = (0.5 + (0.5 * optionalCount)) * hasRequired;
+    }
+    else {
+      // no required keywords so just run off optional keywords
+      score = optionalCount;
+    }
+      
     return score;
   }.bind(null, _optionalKeywords, _requiredKeywords);
 };
 
 exports.analyzerFindDate = function (date) {
   return function (searchDate, datum) {
-    //!!FIXME!! we do this the dumb long way because of https://github.com/andrewplummer/Sugar/issues/281
-    // once that issue is fixed, we should get other locals for free too. 
-    var day, month, year = '';
-    /*ignore jslint start*/ //jslint complains about tab indentation with switch
-    switch (searchDate.getWeekday()) {
-      case 0:day = '(sun|sunday)'; break;
-      case 2:day = '(mon|monday)'; break;
-      case 3:day = '(tue|tuesday)'; break;
-      case 4:day = '(wed|wednesday)'; break;
-      case 5:day = '(thur|thurs|thu|thursday)'; break;
-      case 6:day = '(fri|friday)'; break;
-      case 7:day = '(sat|saturday)';break;
-      default:
-        throw new Error('got a strange day, is it Sunursnesday?: ' + searchDate.getWeekday());
-    }
-    switch (searchDate.getMonth()) {
-      case 0: month = '(jan|january)'; break;
-      case 1: month = '(feb|febuary)'; break;
-      case 2: month = '(mar|march)'; break;
-      case 3: month = '(apr|april)'; break;
-      case 4: month = '(may|may)'; break;
-      case 5: month = '(jun|june)'; break;
-      case 6: month = '(jul|july)'; break;
-      case 7: month = '(aug|august)'; break;
-      case 8: month = '(sep|september)'; break;
-      case 9: month = '(oct|october)'; break;
-      case 10: month = '(nov|november)'; break;
-      case 11: month = '(dec|december)'; break;
-      default:
-        throw new Error("it's martober: " + searchDate.getMonth());
-    }
-    /*ignore jslint end*/
-    var startWhitespace = '( |^|\\.)';
-    var endWhitespace = '( |$|\\.)';
-    day = new XRegExp(startWhitespace + day + endWhitespace, 'i');
-    month = new XRegExp(startWhitespace + month + endWhitespace, 'i');
-    year = new XRegExp(startWhitespace + searchDate.getFullyear() + endWhitespace, 'i');
     var redateandmonth = new XRegExp('([0-9]{1,2})[-/]([0-9]{1,2})(?:[-/]([0-9]{1,2}))?');
-    
+
+    var possibleDates = []; // contains all the possible dates that could be referenced in the video
+    var fullText = datum.title + datum.description;
+
+    var damMatch = XRegExp.exec(fullText, redateandmonth);
+    if (!!damMatch) {
+      function expandYear(s) {
+        if (s.length === 4) return s;
+        else {
+          if (parseInt(s) < 30) { return '20' + s; }
+          else { return '19' + s; }
+        }
+      }
+      
+      possibleDates.push(new Date(datum.publishTime.getFullYear(), damMatch[1], damMatch[2]));      //mm/dd
+      possibleDates.push(new Date(datum.publishTime.getFullYear(), damMatch[2], damMatch[1]));      //dd/mm
+      if (!!damMatch[3]) { // got three components 
+        possibleDates.push(new Date(expandYear(damMatch[1]), damMatch[2], damMatch[3]));            //yy/mm/dd
+        possibleDates.push(new Date(expandYear(damMatch[1]), damMatch[3], damMatch[2]));            //yy/dd/mm
+        possibleDates.push(new Date(expandYear(damMatch[3]), damMatch[1], damMatch[2]));            //mm/dd/yy
+        possibleDates.push(new Date(expandYear(damMatch[3]), damMatch[2], damMatch[1]));            //dd/mm/yy
+      }
+    }
+    var foundDateMatch = possibleDates.some(searchDate.is.bind(searchDate));
+    // found a matching date, full confidence. seems rare. 
+    if (foundDateMatch) {
+      return 1;
+    }
+    else {
+      // no date match, look for date componenets 
+      //!!FIXME!! we do this the dumb long way because of https://github.com/andrewplummer/Sugar/issues/281
+      // once that issue is fixed, we should get other locals for free too. 
+      var day, month, year = '';
+      /*ignore jslint start*/ //jslint complains about tab indentation with switch
+      switch (searchDate.getWeekday()) {
+        case 0:day = '(sun|sunday)'; break;
+        case 2:day = '(mon|monday)'; break;
+        case 3:day = '(tue|tuesday)'; break;
+        case 4:day = '(wed|wednesday)'; break;
+        case 5:day = '(thur|thurs|thu|thursday)'; break;
+        case 6:day = '(fri|friday)'; break;
+        case 7:day = '(sat|saturday)';break;
+        default:
+          throw new Error('got a strange day, is it Sunursnesday?: ' + searchDate.getWeekday());
+      }
+      switch (searchDate.getMonth()) {
+        case 0: month = '(jan|january)'; break;
+        case 1: month = '(feb|febuary)'; break;
+        case 2: month = '(mar|march)'; break;
+        case 3: month = '(apr|april)'; break;
+        case 4: month = '(may|may)'; break;
+        case 5: month = '(jun|june)'; break;
+        case 6: month = '(jul|july)'; break;
+        case 7: month = '(aug|august)'; break;
+        case 8: month = '(sep|september)'; break;
+        case 9: month = '(oct|october)'; break;
+        case 10: month = '(nov|november)'; break;
+        case 11: month = '(dec|december)'; break;
+        default:
+          throw new Error("it's martober: " + searchDate.getMonth());
+      }
+      /*ignore jslint end*/
+      var startWhitespace = '( |^|\\.)';
+      var endWhitespace = '( |$|\\.)';
+      day = new XRegExp(startWhitespace + day + endWhitespace, 'i');
+      month = new XRegExp(startWhitespace + month + endWhitespace, 'i');
+      year = new XRegExp(startWhitespace + searchDate.getFullYear() + endWhitespace, 'i');
+
+      var score = 0.0;
+      score += (XRegExp.test(fullText, day))    ? 0.4 : 0.0;
+      score += (XRegExp.test(fullText, month))  ? 0.4 : 0.0;
+      score += (XRegExp.test(fullText, year)) ? 0.2 : 0.0;
+
+      return score;
+    }
   }.bind(null, date);
 };
 
