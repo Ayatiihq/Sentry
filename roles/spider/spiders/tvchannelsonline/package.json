@@ -1,5 +1,5 @@
 {
-  "name": "fancystreems",
+  "name": "tvchannelsliveonline",
   "main": "./index.js",
   "match": "https?://(%5B%5Cw-%5D+).tvchannelsliveonline.com/?.*"
 }
