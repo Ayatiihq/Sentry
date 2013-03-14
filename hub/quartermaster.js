@@ -15,11 +15,13 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var ScraperDispatcher = require('./scraper-dispatcher')
+var MinerDispatcher = require('./miner-dispatcher')
+  , ScraperDispatcher = require('./scraper-dispatcher')
   , SpiderDispatcher = require('./spider-dispatcher')
   ;
 
 var QuarterMaster = module.exports = function() {
+  this.minerDispatcher_ = null;
   this.scraperDispatcher_ = null;
   this.spiderDispatcher_ = null;
 
@@ -32,8 +34,7 @@ QuarterMaster.prototype.init = function() {
   if (config.HUB_NO_TASKS)
     return;
 
+  self.minerDispatcher_ = new MinerDispatcher();
   self.scraperDispatcher_ = new ScraperDispatcher();
   self.spiderDispatcher_ = new SpiderDispatcher();
-
-  // FIXME: Create miner tasks
 }

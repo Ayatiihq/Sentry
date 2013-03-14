@@ -234,6 +234,6 @@ Master.prototype.onWorkerExit = function(worker, code, signal) {
   if (worker.suicide === true) {
     logger.info('Worker %s finished doing work', worker.id);
   } else {
-    logger.info('Worker %s died unexpectedly: code=%s signal=%s', worker.id, code, signal);
+    logger.warn('Worker %s died unexpectedly: code=%s signal=%s', worker.id, code, signal);
   }
 }
