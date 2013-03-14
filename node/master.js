@@ -54,7 +54,7 @@ Master.prototype.init = function() {
 
 Master.prototype.getPossibleWorkers = function() {
   var possible = os.totalmem() - 104857600; // 100 MB for os
-  possible /= possible / 104857600 // 100 MB per worker max
+  possible /= 104857600 // 100 MB per worker max
   possible = Math.round(possible);
 
   return Math.min(possible, config.MAX_WORKERS);
