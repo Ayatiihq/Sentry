@@ -21,7 +21,9 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   , Scrapers = acquire('scrapers')
 
-var QUEUE_CHECK_INTERVAL = 1000 * 60;
+var MAX_QUEUE_POLLS = 1
+  , QUEUE_CHECK_INTERVAL = 1000 * 10
+  ;
 
 var Scraper = module.exports = function() {
   this.campaigns_ = null;
@@ -34,6 +36,8 @@ var Scraper = module.exports = function() {
   this.started_ = false;
 
   this.poll = 0;
+
+  this.queuePolls_ = 0;
 
   this.runningScrapers_ = [];
 
@@ -65,6 +69,11 @@ Scraper.prototype.findJobs = function() {
 
 Scraper.prototype.checkAvailableJob = function() {
   var self = this;
+
+  if (self.queuePolls_ >= MAX_QUEUE_POLLS)
+    return self.emit('finished');
+
+  self.queuePolls_ += 1;
 
   self.poll = 0;
 
@@ -202,9 +211,7 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   var scraper = null;
   var err = null;
   try {
-    var modPath = './scrapers/' + scraperInfo.name;
-    var Scraper = require(modPath);
-    scraper = new Scraper();
+    scraper = self.scrapers_.loadScraper(scraperInfo.name);
   } catch(error) {
     err = error;
   }

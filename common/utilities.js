@@ -8,12 +8,18 @@
  */
 
 var acquire = require('acquire')
+  , config = acquire('config')
   , crypto = require('crypto')
+  , exec = require('child_process').exec
+  , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
+  , querystring = require('querystring')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
   ;
+
+var Seq = require('seq');
 
 var Utilities = module.exports;
 
@@ -110,4 +116,85 @@ Utilities.genLinkKey = function() {
   var shasum = crypto.createHash('sha1');
   shasum.update(string);
   return shasum.digest('hex');
+}
+
+/**
+ * Gets the version information for this checkout.
+ *
+ * @return {object} version   The version object for this checkout.
+ */
+Utilities.getVersion = function(callback) {
+  var data = {};
+  callback = callback ? callback : function() {};
+
+  Seq()
+    .seq('cached', function() {
+      if (Utilities.__version__)
+        callback(Utilities.__version__);
+      else
+        this();
+    })
+    .par('log', function() {
+      var that = this;
+      exec('git log -n1', function(err, stdout, stderr) {
+        data.log = stdout;
+        that();
+      });
+    })
+    .par('rev', function() {
+      var that = this;
+      exec('git rev-parse HEAD', function(err, stdout, stderr) {
+        data.revision = stdout.compact();
+        that();
+      });
+    })
+    .par('shortrev', function() {
+      var that = this;
+      exec('git rev-parse --short HEAD', function(err, stdout, stderr) {
+        data.shortRevision = stdout.compact();
+        that();
+      });
+    })
+    .seq('done', function() {
+      Utilities.__version__ = data;
+      callback(data);
+    });
+}
+
+Utilities.notify = function(message) {
+  var msg = {};
+
+  if (config.NO_NOTIFY)
+    return;
+
+  msg.method = 'post';
+  msg.path = '/v1/rooms/message';
+  msg.data = {
+    room_id: 'Chapek 9',
+    from: 'Sentry',
+    message: message,
+    notify: 0,
+    color: 'green',
+    message_format: 'html'
+  };
+
+  msg.host = 'api.hipchat.com';
+  if (msg.query == null) {
+    msg.query = {};
+  }
+  msg.query['auth_token'] = 'a3ab7f9f02809eaca99ecbbfad37cd';
+  msg.query = querystring.stringify(msg.query);
+  msg.path += '?' + msg.query;
+  if (msg.method === 'post' && (msg.data != null)) {
+    msg.data = querystring.stringify(msg.data);
+    if (msg.headers == null) {
+      msg.headers = {};
+    }
+    msg.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    msg.headers['Content-Length'] = msg.data.length;
+  }
+
+  var req = https.request(msg);
+  req.write(msg.data);
+  req.end();
 }

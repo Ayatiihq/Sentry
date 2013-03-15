@@ -206,7 +206,7 @@ Queue.prototype.touch = function(message, locktime, callback) {
     if (err) {
       callback(err);
     } else {
-      callback(null, queueInfo.approximatemessagecount);
+      callback(null, Number(queueInfo.approximatemessagecount));
     }
   });
  }

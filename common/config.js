@@ -35,6 +35,8 @@ config.EXCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_EXCLUDE_SPIDERS, []);
 
 config.INCLUDE_SPIDERS = getArrayEnv(process.env.SENTRY_INCLUDE_SPIDERS, []);
 
+config.NO_NOTIFY = getEnv(process.env.SENTRY_NO_NOTIFY, 0);
+
 // External Services
 config.AZURE_NETWORK_ACCOUNT = getEnv(process.env.AZURE_NETWORK_ACCOUNT, 'nucleus');
 
@@ -45,6 +47,17 @@ config.AZURE_CORE_ACCOUNT = getEnv(process.env.AZURE_CORE_ACCOUNT, 'goldrush');
 config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQbTT2sql8YrldYYdO4RhKnT4OTNfK+diveKbuDvqmxz0poyB9m2VpafBQLySvsaXNOA==');
 
 config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
+
+// Hub
+config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'watchtower.cloudapp.net');
+
+config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
+
+config.HUB_SECRET = getEnv(process.env.SENTRY_HUB_SECRET, 'W0b|7B3N1@-7[N]');
+
+config.HUB_NO_TASKS = getEnv(process.env.SENTRY_HUB_NO_TASKS, 0);
+
+config.HUB_GIT_BRANCH = getEnv(process.env.SENTRY_HUB_GIT_BRANCH, 'master')
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(process.env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
@@ -68,4 +81,11 @@ config.SPIDER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_SPIDER_JOB_TIMEOUT
 config.SPIDER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_SPIDER_JOB_EXPIRES_SECONDS, 60 * 60 * 12); // 12 hours
 
 // Miner
-config.MINER_CHECK_INTERVAL_MINUTES = getEnv(process.env.MINER_CHECK_INTERVAL_MINUTES, 30);
+config.MINER_CHECK_INTERVAL_MINUTES = getEnv(process.env.SENTRY_MINER_CHECK_INTERVAL_MINUTES, 30);
+
+config.MINER_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_MINER_JOB_EXPIRES_SECONDS, 60 * 60 * 12);
+
+config.MINER_JOB_TIMEOUT_SECONDS = getEnv(process.env.SENTRY_MINER_JOB_TIMEOUT_SECONDS, 60 * 10);
+
+// Misc
+config.SELENIUM_HUB_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');

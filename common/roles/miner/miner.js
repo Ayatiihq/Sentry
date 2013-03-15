@@ -22,6 +22,11 @@ var Campaigns = acquire('campaigns')
   , Links = acquire('links')
   , Role = acquire('role')
   , Settings = acquire('settings')
+  , Queue = acquire('queue')
+  ;
+
+var MAX_QUEUE_POLLS = 1
+  , QUEUE_CHECK_INTERVAL = 1000 * 10
   ;
 
 var Miner = module.exports = function() {
@@ -29,9 +34,12 @@ var Miner = module.exports = function() {
   this.infringements_ = null;
   this.links_ = null;
   this.settings_ = null;
+  this.queue_ = null;
+  this.priorityQueue_ = null;
 
   this.started_ = false;
   this.poll = 0;
+  this.queuePolls_ = 0;
 
   this.init();
 }
@@ -41,10 +49,66 @@ util.inherits(Miner, Role);
 Miner.prototype.init = function() {
   var self = this;
 
-  this.campaigns_ = new Campaigns();
-  this.infringements_ = new Infringements();
-  this.links_ = new Links();
-  this.settings_ = new Settings('role.miner');
+  self.campaigns_ = new Campaigns();
+  self.infringements_ = new Infringements();
+  self.links_ = new Links();
+  self.settings_ = new Settings('role.miner');
+  self.queue_ = new Queue('miner');
+  self.priorityQueue_ = new Queue('miner-priority');
+}
+
+Miner.prototype.findJobs = function() {
+  var self = this;
+
+  if (self.poll)
+    return;
+
+  self.poll = setTimeout(self.checkAvailableJob.bind(self), QUEUE_CHECK_INTERVAL);
+  logger.info('Job search enqueued');
+}
+
+Miner.prototype.checkAvailableJob = function() {
+  var self = this;
+
+  if (self.queuePolls_ >= MAX_QUEUE_POLLS)
+    return self.emit('finished');
+
+  self.queuePolls_ += 1;
+
+  self.poll = 0;
+
+  logger.info('Checking priority queue');
+  self.priorityQueue_.pop(function(err, message) {
+    if (err || !message) {
+      if (err)
+        logger.warn('Unable to check priority queue: ' + err);
+
+      logger.info('Checking default queue');
+      self.queue_.pop(config.MINER_JOB_TIMEOUT_SECONDS, function(err, message) {
+        if (err) {
+          logger.warn(err);
+          self.findJobs();
+        } else if (!message) {
+          self.findJobs();
+        } else {
+          self.processJobs(self.queue_, [message]);
+        }
+      });
+    } else {
+      self.processJobs(self.priorityQueue_, [message]);
+    }
+  });
+}
+
+Miner.prototype.processJobs = function(queue, jobs) {
+  var self = this;
+
+  jobs.forEach(function(job) {
+    logger.info('Processing ' + JSON.stringify(job));
+    queue.delete(job, console.log);
+  });
+
+  self.mine();
 }
 
 Miner.prototype.mine = function() {
@@ -81,6 +145,7 @@ Miner.prototype.mine = function() {
           if (links) {
             self.mineCampaign(campaign, links, done);
             self.updateTimestamp(key, campaign, links);
+            self.findJobs();
           
           } else {
             self.links_.getLinks(campaign.type, Date.create(from), function(err, links) {
@@ -97,7 +162,11 @@ Miner.prototype.mine = function() {
             });
           }
         });
-      });
+      })
+      .seq(function() {
+        self.findJobs();
+      })
+      ;
   });
 }
 
@@ -143,7 +212,7 @@ Miner.prototype.linkMatchesCampaign = function(link, campaign) {
     }
   }
   // Use the info in link and campaign to see if the link matches the campaign
-  console.log(link, campaign);
+  //console.log(link, campaign);
 
   return false; // for now
 }
@@ -163,10 +232,7 @@ Miner.prototype.start = function() {
   var self = this;
 
   self.started_ = true;
-  
-  self.poll_ = setInterval(self.mine.bind(self),
-                          config.MINER_CHECK_INTERVAL_MINUTES * 60 * 1000);
-  self.mine();
+  self.findJobs();
 
   self.emit('started');
 }
@@ -175,9 +241,9 @@ Miner.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
-  if (self.poll_) {
-    clearInterval(self.poll_);
-    self.poll_ = 0;
+  if (self.poll) {
+    clearInterval(self.poll);
+    self.poll = 0;
   }
 
   self.emit('ended');
