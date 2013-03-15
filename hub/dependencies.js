@@ -71,7 +71,7 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       callback(null, (self.seleniumAvailableNodes_ - self.seleniumBusyNodes_) >= required);
     })
     .catch(function(err) {
-      callback(err);
+      callback(err, false);
     })
     ;
 }

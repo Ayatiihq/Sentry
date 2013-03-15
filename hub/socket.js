@@ -185,6 +185,9 @@ Socket.prototype.announce = function(socket, message, reply) {
 Socket.prototype.getWork = function(socket, message, reply) {
   var self = this;
 
+  if (!self.messageIsValid(message))
+    return reply({ err: 'unauthorized' });
+
   self.fluxCapacitor_.getWork(function(work) {
     reply(work);
   });
