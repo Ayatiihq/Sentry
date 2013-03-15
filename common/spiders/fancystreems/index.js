@@ -53,7 +53,7 @@ FancyStreems.prototype.newWrangler = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(30000);
@@ -128,6 +128,9 @@ FancyStreems.prototype.iterateRequests = function(collection){
         self.wrangler.beginSearch(item.activeLink.uri);
       }
       else{
+        console.warn('\n\n Shouldnt get to here : %s', JSON.stringify(item));
+        self.channelCompleted(item, false);
+        done();                
       }
     })
     .seq(function(){
@@ -163,16 +166,16 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
     if(category_index(elem).hasClass('video_title')){    
       var name = category_index(this).children().first().text().toLowerCase().trim();
       //if(name.match(/^star/g)){
-      var topLink = self.root + 'tvcat/' + category + 'tv.php';
-      var categoryLink = category_index(elem).children().first().attr('href');
-      var channel = new TvChannel('tv.live',
-                                  'FancyStreems',
-                                  name,
-                                  category,
-                                  topLink,
-                                  TvChannelStates.CHANNEL_PARSING);
-      self.emit('link', channel.constructLink({link_source : category + " page"}, categoryLink));
-      self.results.push(channel);
+        var topLink = self.root + 'tvcat/' + category + 'tv.php';
+        var categoryLink = category_index(elem).children().first().attr('href');
+        var channel = new TvChannel('tv.live',
+                                    'FancyStreems',
+                                    name,
+                                    category,
+                                    topLink,
+                                    TvChannelStates.CHANNEL_PARSING);
+        self.emit('link', channel.constructLink({link_source : category + " page"}, categoryLink));
+        self.results.push(channel);
       //}
     }
   });
@@ -219,7 +222,12 @@ FancyStreems.prototype.scrapeChannel = function(channel, done, err, resp, html)
               channel.constructLink({link_source : 'channel page'}, URI(target).absoluteTo('http://fancystreems.com').toString()));
   }
   else{
-    channel.currentState = TvChannelStates.WRANGLE_IT;
+    // Note:
+    // Ideally we should try to unwrangle at this point.
+    // for some reason it craps out because the wrangler is trying to be used by two different channels
+    //channel.currentState = TvChannelStates.WRANGLE_IT;
+    // for now retire the network - TODO - figure out.
+    self.channelCompleted(channel, false);    
   }   
   done();
 }
@@ -296,7 +304,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(channel, succes
       channelClone.currentState = TvChannelStates.WRANGLE_IT;
       newResults.push(channelClone);
     });
-    self.horizontallyLinked.splic(self.horizontallyLinked.indexOf(ser),1);
+    self.horizontallyLinked.splice(self.horizontallyLinked.indexOf(ser),1);
   });
   self.results = self.results.concat(newResults);
   //logger.info("flattenHorizontalLinkedObjects new length : " + self.horizontallyLinked.length);
