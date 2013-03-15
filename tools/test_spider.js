@@ -34,7 +34,7 @@ function main() {
   }
 
   var spidername = process.argv[2];
-  var Spider = require('../roles/spider/spiders/' + spidername);
+  var Spider = require('../common/spiders/' + spidername);
   var instance = new Spider();
   
   SIGNALS.forEach(function(name) {
