@@ -61,6 +61,7 @@ Socket.prototype.onClientConnection = function(socket) {
 
   socket.on('ping', self.ping.bind(self, socket));
   socket.on('getInfo', self.getInfo.bind(self, socket));
+  socket.on('getNodeInfo', self.getNodeInfo.bind(self, socket));
   socket.on('getVersion', self.getVersion.bind(self, socket));
   socket.on('getState', self.getState.bind(self, socket));
   socket.on('setState', self.setState.bind(self, socket));
@@ -104,6 +105,25 @@ Socket.prototype.getInfo = function(socket, message, reply) {
   reply(data);
 }
 
+Socket.prototype.getNodeInfo = function(socket, message, reply) {
+  var self = this
+    , data ={ nodes: [] }
+    ;
+
+  var sockets = self.socketServer_.of('/node').sockets;
+
+  Object.values(sockets).forEach(function(socket) {
+    if (socket.announce_) {
+      var node = socket.announce_;
+      node.address = socket.handshake.address.address;
+
+      data.nodes.push(node);
+    }
+  });
+
+  reply(data);
+}
+
 Socket.prototype.getVersion = function(socket, message, reply) {
   var self = this;
   
@@ -142,6 +162,7 @@ Socket.prototype.onNodeDisconnect = function(socket) {
   var self = this;
 
   logger.info('Node disconnected');
+  var address = socket.handshake.address;
   utilities.notify(util.format('Node (<b>%s:%s</b>) disconnected', 
                      address.address, address.port, message.version.shortRevision));
 }
@@ -187,6 +208,9 @@ Socket.prototype.getWork = function(socket, message, reply) {
 
   if (!self.messageIsValid(message))
     return reply({ err: 'unauthorized' });
+
+  if (self.state_ !== states.hub.state.RUNNING)
+    return reply();
 
   self.fluxCapacitor_.getWork(function(work) {
     reply(work);
