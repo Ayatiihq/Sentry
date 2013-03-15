@@ -57,12 +57,13 @@ var Youtube = module.exports = function () {
   this.aggregator = new YoutubeAggregator();
   // keywords faked for now
   var requiredKeywords = ['india', 'england'];
-  var optionalKeywords = ['test', 'match', 'cricket', 'highlights', 'clips'];
+  var optionalKeywords = ['test', 'match', 'cricket', 'highlights', 'clips', 'part'];
 
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(6 * 3600), 1  ); // 6 hours
+  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(1 * 3600), 1); // 1 hour
   this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(optionalKeywords, requiredKeywords), 1);
   this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerFindDate(new Date.create('December 5th 2012')), 1);
-  this.aggregator.installWeighter(ConfidenceAggregator.debugWeighter);
+
+  this.aggregator.installWeighter(ConfidenceAggregator.gaussianWeighter);
 };
 
 util.inherits(Youtube, Scraper);
@@ -188,7 +189,6 @@ Youtube.prototype.beginSearch = function (searchTerm, args) {
       // call next page
       args.pageToken = searchResults.nextPageToken;
 
-      console.log('get: ' + args.pageToken);
       var searchPromise = self.beginSearch(searchTerm, args);
 
       // once both the handle and search promises resolve, then we resolve this one.
@@ -231,7 +231,7 @@ Youtube.prototype.handleSearchResults = function (searchResults) {
 };
 
 var test = new Youtube();
-test.beginSearch('India vs England Test Match December 2012', { publishedAfter: Date.past('december 2012').toISOString() }).then(function onFinished() {
+test.beginSearch('India vs England Test Match December 2012', { publishedAfter: Date.past('december 7th 2012').toISOString() }).then(function onFinished() {
   console.log('finished!');
   console.log(test.aggregator.dataList.length + ' items!');
   var average = test.aggregator.dataList.average(function (v) { return v.confidence; });
@@ -242,11 +242,11 @@ test.beginSearch('India vs England Test Match December 2012', { publishedAfter: 
 
 
   console.log(test.aggregator.dataList.count(function (v) { return (v.confidence >= average); }) + ' items above average confidence');
-
+  test.aggregator.weightDataSet();
   var fs = require('fs');
   var stream = fs.createWriteStream("/temp/yt-output.csv");
   stream.once('open', function (fd) {
-    test.aggregator.dataList.each(function (d) { stream.write(d.confidence.toString() + '\n'); });
+    test.aggregator.dataList.each(function (d) { stream.write(d.weightedConfidence.toString() + ',' + d.confidence.toString() + '\n'); });
     stream.end();
   });
 

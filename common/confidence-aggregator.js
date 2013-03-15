@@ -13,7 +13,7 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('confidence-aggregator.js')
   , Promise = require('node-promise')
   , util = require('util')
-  , XRegExp = require('XRegExp').XRegExp;
+  , XRegExp = require('XRegExp').XRegExp
 ;
 
 // figures out the confidence of data from various sources, overridables need to be overriden to be useful.
@@ -138,13 +138,13 @@ exports.analyzerFindDate = function (date) {
 
     var damMatch = XRegExp.exec(fullText, redateandmonth);
     if (!!damMatch) {
-      function expandYear(s) {
-        if (s.length === 4) return s;
+      var expandYear = function (s) {
+        if (s.length === 4) { return s; }
         else {
-          if (parseInt(s) < 30) { return '20' + s; }
+          if (parseInt(s, 10) < 30) { return '20' + s; }
           else { return '19' + s; }
         }
-      }
+      };
       
       possibleDates.push(new Date(datum.publishTime.getFullYear(), damMatch[1], damMatch[2]));      //mm/dd
       possibleDates.push(new Date(datum.publishTime.getFullYear(), damMatch[2], damMatch[1]));      //dd/mm
@@ -215,4 +215,26 @@ exports.debugWeighter = function (dataList) {
   dataList.each(function (v) {
     v.weightedConfidence = v.confidence;
   });
+};
+
+exports.gaussianWeighter = function (dataList) {
+  // really dumb hard-coded values
+  for (var i = 0; i < dataList.length; i++) {
+    var NK9_0 = 0.17857142857142855;
+    var NK9_1 = 0.1607142857142857;
+    var NK9_2 = 0.14285714285714285;
+    var NK9_3 = 0.071428571428571425;
+    var NK9_4 = 0.035714285714285712;
+    var v1 = dataList[Math.abs((i - 4) % dataList.length)].confidence * NK9_4;
+    var v2 = dataList[Math.abs((i - 3) % dataList.length)].confidence * NK9_3;
+    var v3 = dataList[Math.abs((i - 2) % dataList.length)].confidence * NK9_2;
+    var v4 = dataList[Math.abs((i - 1) % dataList.length)].confidence * NK9_1;
+    var v5 = dataList[Math.abs((i + 0) % dataList.length)].confidence * NK9_0;
+    var v6 = dataList[Math.abs((i + 1) % dataList.length)].confidence * NK9_1;
+    var v7 = dataList[Math.abs((i + 2) % dataList.length)].confidence * NK9_2;
+    var v8 = dataList[Math.abs((i + 3) % dataList.length)].confidence * NK9_3;
+    var v9 = dataList[Math.abs((i + 4) % dataList.length)].confidence * NK9_4;
+
+    dataList[i].weightedConfidence = v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9;
+  }
 };
