@@ -37,6 +37,11 @@ ConfidenceAggregator.prototype.addDatum = function (datum) {
   self.dataList.push(data);
 };
 
+ConfidenceAggregator.prototype.getData = function () {
+  var self = this;
+  return self.dataList();
+};
+
 ConfidenceAggregator.prototype.installAnalyzer = function (analyzer, weight) {
   var self = this;
   self.analyzers.push({ 'analyzer': analyzer, 'weight': weight });
@@ -211,7 +216,7 @@ exports.analyzerFindDate = function (date) {
 };
 
 /* PreBuilt Weighters */
-exports.debugWeighter = function (dataList) {
+exports.nullWeighter = function (dataList) {
   dataList.each(function (v) {
     v.weightedConfidence = v.confidence;
   });

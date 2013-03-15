@@ -4,9 +4,12 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Scraper that can scrape all types of media and always takes 5mins to complete
- * it's job. It can be paused and, if so, it will resume it's five minute
- * timeout.
+ * requires the following metadata:
+ *    campaign.metadata.suspiciousVideoDuration       => integer, seconds
+      campaign.metadata.optionalVideoKeywords         => [strings]
+      campaign.metadata.requiredVideoKeywords         => [strings]
+      campaign.metadata.videoDate                     => ISO date time string, JSON.stringify() will convert Date objects to the correct format.
+      campaign.metadata.youtubeConfidenceThreshold    => float, 0.0 -> 1.0, everything below this value will not be added.
  *
  */
 require('sugar');
@@ -54,24 +57,13 @@ YoutubeAggregator.prototype.getPublishTime = function (ytVideo) { return new Dat
 /* - Scraper module - */
 var Youtube = module.exports = function () {
   this.init();
-  this.aggregator = new YoutubeAggregator();
-  // keywords faked for now
-  var requiredKeywords = ['india', 'england'];
-  var optionalKeywords = ['test', 'match', 'cricket', 'highlights', 'clips', 'part'];
-
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(1 * 3600), 1); // 1 hour
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(optionalKeywords, requiredKeywords), 1);
-  this.aggregator.installAnalyzer(ConfidenceAggregator.analyzerFindDate(new Date.create('December 5th 2012')), 1);
-
-  this.aggregator.installWeighter(ConfidenceAggregator.gaussianWeighter);
 };
 
 util.inherits(Youtube, Scraper);
 
 Youtube.prototype.init = function () {
   var self = this;
-  self.results = [];
-  self.totalPages = 0;
+  this.aggregator = new YoutubeAggregator();
 };
 
 //
@@ -83,34 +75,58 @@ Youtube.prototype.getName = function () {
 
 Youtube.prototype.start = function (campaign, job) {
   var self = this;
+  var success = false;
+  if (!!(campaign.metadata)) {
+    try {
+      self.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(campaign.metadata.suspiciousVideoDuration), 1); // 20 minutes
+      self.aggregator.installAnalyzer(ConfidenceAggregator.analyzerKeywords(campaign.metadata.optionalVideoKeywords, campaign.metadata.requiredVideoKeywords), 1);
+      self.aggregator.installAnalyzer(ConfidenceAggregator.analyzerFindDate(new Date(campaign.metadata.videoDate)), 1);
+      self.confidenceThreshold = campaign.metadata.youtubeConfidenceThreshold;
+      this.aggregator.installWeighter(ConfidenceAggregator.nullWeighter);
+      success = true;
 
-  logger.info('started for %s', campaign.name);
-  self.emit('started');
+    } 
+    catch (error) {
+      logger.error('Metadata missing from campaign: ', error);
+    }
+  }
+  else {
+    logger.error('No metadata exists in the campaign.');
+  }
+
+  if (success) {
+    logger.info('started for %s', campaign.name);
+    self.emit('started');
+    var fullTextSearch = campaign.metadata.optionalVideoKeywords.union(campaign.metadata.requiredVideoKeywords).join(' ');
+    var args = { publishedAfter: campaign.metadata.videoDate };
+    self.beginSearch(fullTextSearch, args).then(self.stop.bind(self));
+  }
 };
 
 Youtube.prototype.stop = function () {
   var self = this;
+  
+  // go through all our collected links, emit a link for each of them.
+  self.aggregator.getData().each(function (datum) {
+    if (datum.weightedConfidence >= self.confidenceThreshold) {
+      var metadata = datum.metadata;
+      metadata.confidence = datum.weightedConfidence;
+      var uri = 'http://www.youtube.com/watch?v=' + datum.metadata.id;
+
+      // we actually emit two links, the youtube site page and a special youtube:// uri,
+      // the second one will be useful when we find youtube id's embedded in web pages and want to relate to the youtube video
+      // not the youtube page.
+      self.emit('infringement', uri, metadata);
+      self.emit('infringement', 'youtube://' + datum.metadata.id, metadata); // youtube:// id, not an actual protocol.
+      self.emit('relation', uri, 'youtube://' + datum.metadata.id);
+    }
+  });
+
   self.emit('finished');
 };
 
 Youtube.prototype.isAlive = function (cb) {
-  var self = this;
-
-  logger.info('Is alive called');
-
-  if (!self.alive) {
-    self.alive = 1;
-  }
-  else {
-    self.alive++;
-  }
-
-  if (self.alive > 4) {
-    cb(new Error('exceeded'));
-  }
-  else {
-    cb();
-  }
+  cb();
 };
 
 /* -- Youtube API Code -- */
