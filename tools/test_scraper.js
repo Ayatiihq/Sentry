@@ -36,8 +36,6 @@ function main() {
   }
 
   var scrapername = process.argv[2];
-  var clientId = JSON.parse(process.argv[3]);
-  var campaignId = process.argv[4];
   var Scraper = require('../common/scrapers/' + scrapername);
   var instance = new Scraper();
   
@@ -54,10 +52,23 @@ function main() {
     });
   });
 
-  // Check if clientId is actuall a campaign
-  if (Object.isObject(clientId) && clientId.name) {
-    instance.start(clientId);
+  var campaign = undefined;
+  try {
+    campaign = require(process.argv[3]);
+  } catch (err) {
+    if (campaign.endsWith('.json'))
+      console.log(err);
+    try {
+      campaign = JSON.parse(process.argv[3]);
+    } catch (err) {
+    }
+  }
+
+  if (Object.isObject(campaign)) {
+    instance.start(campaign);
   } else {
+    var clientId = process.argv[3];
+    var campaignId = process.argv[4];
     var campaigns = new Campaigns();
     campaigns.getDetails(clientId, campaignId, function(err, campaign) {
       if (err)
