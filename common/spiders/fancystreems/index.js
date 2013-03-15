@@ -224,7 +224,8 @@ FancyStreems.prototype.scrapeChannel = function(channel, done, err, resp, html)
   else{
     // Note:
     // Ideally we should try to unwrangle at this point.
-    // for some reason it craps out because the wrangler is trying to be used by two different channels
+    // for some reason it craps out because the wrangler
+    // is trying to be used by two different channels
     //channel.currentState = TvChannelStates.WRANGLE_IT;
     // for now retire the network - TODO - figure out.
     self.channelCompleted(channel, false);    

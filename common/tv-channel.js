@@ -82,9 +82,9 @@ TvChannel.prototype.constructLink = function(extraMetadata, childLink){
           uri: childLink,
           parent: self.activeLink.uri,
           metadata: extraMetadata};
-  
-  extraMetadata.uri = childLink;
-  self.links.push(extraMetadata);
+  var archive = Object.clone(extraMetadata);
+  archive.uri = childLink;
+  self.links.push(archive);
   self.moveToNextLink();
   return link;
 }
