@@ -94,6 +94,23 @@ Infringements.prototype.pack = function(entity) {
   return entity;
 }
 
+Infringements.prototype.unpack = function(callback, err, entities){
+  var self =this;
+
+  if(err){
+    callback(err);
+    return;
+  }
+
+  entities.forEach(function(entity) {
+    PACK_LIST.forEach(function(key) {
+      if (entity[key])
+        entity[key] = JSON.parse(entity[key]);
+    });
+  });
+  callback(err, entities);  
+}
+
 //
 // Public Methods
 //
@@ -286,7 +303,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
 /**
  * Adds points to the target infringement.
  *
- * @param {object}            infringement    The campaign the uris belong to.
+ * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            source          The source of the points -> role.plugin
  * @param {integer}           points          The new points to be added to the points {} on the infringments.
 **/
@@ -298,4 +315,33 @@ Infringements.prototype.addPoints = function(infringement, source, points)
   else{
     infringement.points[source] = points;      
   }
+}
+
+/**
+ * Gets the list of unverified infringements for a given campaign
+ *
+ * @param {object}           campaign         The campaign which we want unverified links for
+**/
+Infringements.prototype.getNeedsScraping(campaign, callback)
+{
+  var self = this;
+  var needScrapingEntities = [];
+  
+  var query = azure.TableQuery.select()
+                              .from(TABLE)
+                              .where('PartitionKey eq ?', campaign.genCampaignKey())
+                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
+
+  function reply(err, entities, res) {
+    needScrapingEntities.add(entities);
+    if (err)
+      logger.warn(err);
+
+    if (res.hasNextPage()) {
+      res.getNextPage(reply);
+    } else {
+      self.unpack(callback, null, needScrapingEntities);
+    }
+  }
+  self.tableService_.queryEntities(query, reply);    
 }

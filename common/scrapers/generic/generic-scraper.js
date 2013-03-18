@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Wrangler = acquire('endpoint-wrangler').Wrangler
+  , Infringements = acquire('infringements').Infringements
   , Promise = require('node-promise')
 ;
 
@@ -90,6 +91,7 @@ Generic.prototype.getName = function () {
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
+
 
   var promiseArray = self.testurls.map(function promiseBuilder(uri) {
     return self.checkURI.bind(self, uri);
