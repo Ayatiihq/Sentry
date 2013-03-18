@@ -23,7 +23,7 @@ TvChannel.prototype.init = function(channelType, spiderName, name, genre, topLin
   var self = this;
 
   self.type = channelType;
-  self.source = spiderName;
+  self.source = "spiders." + spiderName;
 
   self.name = name;
   self.genre = genre;  

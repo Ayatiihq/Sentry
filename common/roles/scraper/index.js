@@ -25,6 +25,8 @@ var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 10
   ;
 
+var MAX_SCRAPER_POINTS = 7;
+
 var Scraper = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
@@ -55,6 +57,7 @@ Scraper.prototype.init = function() {
   self.queue_ = new Queue(config.SCRAPER_QUEUE);
   self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
   self.scrapers_ = new Scrapers();
+  self.resultsCount_ = 0;
 }
 
 Scraper.prototype.findJobs = function() {
@@ -354,7 +357,7 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metad
   });
 }
 
-Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
+Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, points, metadata) {
   var self = this
     , scrapeState = states.infringements.state.NEEDS_SCRAPE
     , unverifiedState= states.infringements.state.UNVERIFIED
@@ -362,7 +365,7 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, m
 
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
     }

@@ -107,7 +107,8 @@ YahooScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
-    self.emit('found-link', link);
+    self.emit('found-link', link, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount_/100));
+    self.resultsCount_ ++;
   });
 };
 
@@ -177,8 +178,8 @@ Yahoo.prototype.start = function (campaign, job) {
     // do nuffink right now, handled elsewhere
   });
 
-  self.scraper.on('found-link', function onFoundLink(link) {
-    self.emit('metaInfringement', link);
+  self.scraper.on('found-link', function onFoundLink(link, points) {
+    self.emit('metaInfringement', link, points);
   });
 
 

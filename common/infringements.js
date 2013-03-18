@@ -104,11 +104,12 @@ Infringements.prototype.pack = function(entity) {
  * @param  {string}            uri         The uri to add.
  * @param  {string}            type        The type of uri.
  * @param  {string}            source      The source of this infringement.
+ * @param  {object}            points      The points (rating) of this infringment (to signify how 'hot' this infringment is)
  * @param  {object}            metadata    Any metadata belonging to this infringement.
  * @param  {function(err,uid)} callback    A callback to receive the uid of the uri, or an error.
  * @return {undefined}
  */
-Infringements.prototype.add = function(campaign, uri, type, source, state, metadata, callback) {
+Infringements.prototype.add = function(campaign, uri, type, source, state, points, metadata, callback) {
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri)
@@ -132,6 +133,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, metad
   entity.source = source;
   entity.state = state;
   entity.created = Date.utc.create().getTime();
+  entity.points = points;
   entity.metadata = metadata;
 
   entity = self.pack(entity);
@@ -279,4 +281,21 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
     else
       callback(err);
   });
+}
+
+/**
+ * Adds points to the target infringement.
+ *
+ * @param {object}            infringement    The campaign the uris belong to.
+ * @param {string}            source          The source of the points -> role.plugin
+ * @param {integer}           points          The new points to be added to the points {} on the infringments.
+**/
+Infringements.prototype.addPoints = function(infringement, source, points)
+{
+  if(infringement.points.hasOwnProperty(source)){
+    infringement.points[source] += points;  
+  }
+  else{
+    infringement.points[source] = points;      
+  }
 }
