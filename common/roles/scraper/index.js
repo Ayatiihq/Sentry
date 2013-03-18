@@ -24,9 +24,7 @@ var Campaigns = acquire('campaigns')
 var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 10
   ;
-
-var MAX_SCRAPER_POINTS = 7;
-
+  
 var Scraper = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
@@ -57,7 +55,6 @@ Scraper.prototype.init = function() {
   self.queue_ = new Queue(config.SCRAPER_QUEUE);
   self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
   self.scrapers_ = new Scrapers();
-  self.resultsCount_ = 0;
 }
 
 Scraper.prototype.findJobs = function() {

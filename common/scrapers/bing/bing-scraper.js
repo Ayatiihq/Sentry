@@ -23,6 +23,7 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
+var MAX_SCRAPER_POINTS = 7;
 
 /* BingScraper - is an event emitter object 
     'finished' - scraper is finished scraping google
@@ -40,6 +41,7 @@ var BingScraper = function (searchTerm) {
 
   this.searchTerm = searchTerm;
   this.idleTime = [5, 10]; // min/max time to click next page
+  this.resultsCount = 0;
 };
 
 util.inherits(BingScraper, events.EventEmitter);
@@ -107,8 +109,8 @@ BingScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
-    self.emit('found-link', link, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount_/100));
-    self.resultsCount_ ++;
+    self.emit('found-link', link, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100));
+    self.resultsCount ++;
   });
 };
 

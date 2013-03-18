@@ -28,6 +28,8 @@ var Generic = module.exports = function () {
 
 util.inherits(Generic, Scraper);
 
+var MAX_SCRAPER_POINTS = 20;
+
 Generic.prototype.init = function () {
   var self = this;
 
@@ -50,7 +52,6 @@ Generic.prototype.init = function () {
   self.backupUrls = [];
   self.wrangler = null;
   // Bump the max points on this scraper because it will try to emit endPoints. 
-  MAX_SCRAPER_POINTS = 10;
 };
 
 
@@ -59,9 +60,7 @@ Generic.prototype.emitURI = function (uri, parents, extradata) {
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
-    var rawOffset = (MAX_SCRAPER_POINTS - 1) * i+1/parents.length; // we want the parents links to be pointed higher the closer they get to the end point
-    var points = rawOffset > 5 ? rawOffset : 5; // ensure we always put out a points value of at least 5
-    self.emit('infringement', parents[i], points);
+    self.emit('infringement', parents[i], MAX_SCRAPER_POINTS/2);
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }
@@ -70,7 +69,7 @@ Generic.prototype.emitURI = function (uri, parents, extradata) {
   var metadata = extradata.filter(function findEndpoints(v) { return !(v.isEndpoint); });
 
   // emit infringement on the last uri and if we have parents, make relations
-  self.emit('infringement', uri, MAX_SCRAPER_POINTS - 1, metadata);
+  self.emit('infringement', uri, MAX_SCRAPER_POINTS/2, metadata);
   if (parents.length) { self.emit('relation', parents.last()); }
 
   // if we have an endpoint uri in the extra data, we should make a link for that and relate it up
