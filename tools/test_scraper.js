@@ -56,7 +56,7 @@ function main() {
   try {
     campaign = require(process.argv[3]);
   } catch (err) {
-    if (campaign.endsWith('.json'))
+    if (process.argv[3].endsWith('.json'))
       console.log(err);
     try {
       campaign = JSON.parse(process.argv[3]);
