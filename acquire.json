@@ -25,5 +25,6 @@
   "states": "common/states.js",
   "swarm": "common/swarm.js",
   "tablebus": "common/tablebus.js",
-  "utilities": "common/utilities.js"
+  "utilities": "common/utilities.js",
+  "tv-channel": "common/tv-channel.js"
 }

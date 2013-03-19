@@ -6,7 +6,7 @@
  */
 
 var acquire = require('acquire')
-  , config = acquire('config');
+  , config = acquire('config')
   , logger = acquire('logger')
   , net = require('net')
   ;

@@ -1,0 +1,5 @@
+{
+  "name": "zonytvcom",
+  "main": "./index.js",
+  "match": "https?://(%5B%5Cw-%5D+).zonytvcom.info/?.*"
+}
