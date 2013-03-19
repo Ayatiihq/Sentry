@@ -17,7 +17,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Wrangler = acquire('endpoint-wrangler').Wrangler
-  , Infringements = acquire('infringements').Infringements
+  , Infringements = acquire('infringements')
   , Promise = require('node-promise')
 ;
 
@@ -52,6 +52,7 @@ Generic.prototype.init = function () {
 
   self.backupUrls = [];
   self.wrangler = null;
+  self.infringements = new Infringements();
   // Bump the max points on this scraper because it will try to emit endPoints. 
 };
 
@@ -91,10 +92,15 @@ Generic.prototype.getName = function () {
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
+  var promiseArray;
 
-
-  var promiseArray = self.testurls.map(function promiseBuilder(uri) {
-    return self.checkURI.bind(self, uri);
+  self.infringements.getNeedsScraping(campaign, function (error, results){
+    if(error){
+      loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
+      self.stop();
+      return;
+    }
+    promiseArray = results.map(function flattenUri(r){return r.uri});
   });
 
   Promise.seq(promiseArray).then(function onURISChecked() {

@@ -322,7 +322,7 @@ Infringements.prototype.addPoints = function(infringement, source, points)
  *
  * @param {object}           campaign         The campaign which we want unverified links for
 **/
-Infringements.prototype.getNeedsScraping(campaign, callback)
+Infringements.prototype.getNeedsScraping = function(campaign, callback)
 {
   var self = this;
   var needScrapingEntities = [];

@@ -58,6 +58,17 @@ function main() {
       infringements.addMetaRelation(campaign, argv[3], argv[4], argv[5]);
     }
 
+    console.log(JSON.stringify(camps));
+    
+    if (action === 'getNeedsScraping') {
+      function checkLinks(links){
+        links.each(function(link){
+          logger.info("link for channel " + link.channel + ' found for ' + campaign.RowKey)
+        });
+      }      
+      logger.info("here");
+      infringements.getNeedsScraping(campaign, checkLinks);
+    }
     setTimeout(function() {
 
     }, 1000 * 3);
