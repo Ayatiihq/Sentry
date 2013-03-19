@@ -162,7 +162,7 @@ Scraper.prototype.getJobDetails = function(job, callback) {
         var state = parseInt(job.details.state)
           , s = states.jobs.state;
         if (state != s.QUEUED && state != s.PAUSED)
-          err = new Error('Job does not have a ready state: ' + job.body.jobId);
+          err = new Error('Job (' + job.body.jobId + ') does not have a ready state: ' + state);
       } else {
         err = new Error('Unable to get job details: ' + job.body.jobId);
       }

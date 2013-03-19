@@ -29,16 +29,14 @@ function main() {
 
   setupSignals();
 
-  if (process.argv.length !== 5)
+  if (process.argv.length < 4)
   {
     logger.warn("Usage: node test_scraper.js <nameOfScraper> <clientId> <campaignId>");
     process.exit(1);
   }
 
   var scrapername = process.argv[2];
-  var clientId = process.argv[3]
-  var campaignId = process.argv[4];
-  var Scraper = require('../roles/scraper/scrapers/' + scrapername);
+  var Scraper = require('../common/scrapers/' + scrapername);
   var instance = new Scraper();
   
   SIGNALS.forEach(function(name) {
@@ -54,13 +52,31 @@ function main() {
     });
   });
 
-  var campaigns = new Campaigns();
-  campaigns.getDetails(clientId, campaignId, function(err, campaign) {
-    if (err)
+  var campaign = undefined;
+  try {
+    campaign = require(process.argv[3]);
+  } catch (err) {
+    if (campaign.endsWith('.json'))
       console.log(err);
-    else
-      instance.start(campaign);
-  });
+    try {
+      campaign = JSON.parse(process.argv[3]);
+    } catch (err) {
+    }
+  }
+
+  if (Object.isObject(campaign)) {
+    instance.start(campaign);
+  } else {
+    var clientId = process.argv[3];
+    var campaignId = process.argv[4];
+    var campaigns = new Campaigns();
+    campaigns.getDetails(clientId, campaignId, function(err, campaign) {
+      if (err)
+        console.log(err);
+      else
+        instance.start(campaign);
+    });
+  }
 }
 
 main(); 
