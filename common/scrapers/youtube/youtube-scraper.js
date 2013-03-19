@@ -84,7 +84,6 @@ Youtube.prototype.start = function (campaign, job) {
       self.confidenceThreshold = campaign.metadata.youtubeConfidenceThreshold;
       this.aggregator.installWeighter(ConfidenceAggregator.nullWeighter);
       success = true;
-
     } 
     catch (error) {
       logger.error('Metadata missing from campaign: ', error);
@@ -95,9 +94,10 @@ Youtube.prototype.start = function (campaign, job) {
   }
 
   if (success) {
-    logger.info('started for %s', campaign.name);
+    var fullTextSearch = campaign.metadata.requiredVideoKeywords.union(campaign.metadata.optionalVideoKeywords).join(' ');
+    logger.info('started for %s (%s)', campaign.name, fullTextSearch);
     self.emit('started');
-    var fullTextSearch = campaign.metadata.optionalVideoKeywords.union(campaign.metadata.requiredVideoKeywords).join(' ');
+
     var args = { publishedAfter: campaign.metadata.videoDate };
     self.beginSearch(fullTextSearch, args).then(self.stop.bind(self));
   }
@@ -105,20 +105,31 @@ Youtube.prototype.start = function (campaign, job) {
 
 Youtube.prototype.stop = function () {
   var self = this;
-  
+
+  self.aggregator.weightDataSet();
+
+  logger.info('Scraper found %d links', self.aggregator.getData().length);
+  var average = self.aggregator.dataList.average(function (v) { return v.confidence; });
+  var maxconf = self.aggregator.dataList.max(function (v) { return v.confidence; }).confidence
+  var totalmax = self.aggregator.dataList.count(function (v) { return (v.confidence >= maxconf); });
+  logger.info('Confidence average:   %d', average);
+  logger.info('confidence maximum:   %d', maxconf);
+  logger.info('total max confidence: %d', totalmax);
+
   // go through all our collected links, emit a link for each of them.
   self.aggregator.getData().each(function (datum) {
+    var metadata = datum.datum;
+
     if (datum.weightedConfidence >= self.confidenceThreshold) {
-      var metadata = datum.metadata;
       metadata.confidence = datum.weightedConfidence;
-      var uri = 'http://www.youtube.com/watch?v=' + datum.metadata.id;
+      var uri = 'http://www.youtube.com/watch?v=' + metadata.id;
 
       // we actually emit two links, the youtube site page and a special youtube:// uri,
       // the second one will be useful when we find youtube id's embedded in web pages and want to relate to the youtube video
       // not the youtube page.
       self.emit('infringement', uri, metadata);
-      self.emit('infringement', 'youtube://' + datum.metadata.id, metadata); // youtube:// id, not an actual protocol.
-      self.emit('relation', uri, 'youtube://' + datum.metadata.id);
+      self.emit('infringement', 'youtube://' + metadata.id, metadata); // youtube:// id, not an actual protocol.
+      self.emit('relation', uri, 'youtube://' + metadata.id);
     }
   });
 
@@ -180,8 +191,10 @@ Youtube.prototype.getVideoInfo = function (videoID, args) {
 Youtube.prototype.handleVideoResults = function (videoResults) {
   var self = this;
   var promise = new Promise.Promise();
-  
-  videoResults.items.each(self.aggregator.addDatum.bind(self.aggregator));
+  if (!!videoResults) {
+    videoResults.items.each(self.aggregator.addDatum.bind(self.aggregator));
+  }
+
   promise.resolve();
   return promise;
 };
@@ -246,7 +259,7 @@ Youtube.prototype.handleSearchResults = function (searchResults) {
   return promise;
 };
 
-var test = new Youtube();
+/*var test = new Youtube();
 test.beginSearch('India vs England Test Match December 2012', { publishedAfter: Date.past('december 7th 2012').toISOString() }).then(function onFinished() {
   console.log('finished!');
   console.log(test.aggregator.dataList.length + ' items!');
@@ -268,3 +281,4 @@ test.beginSearch('India vs England Test Match December 2012', { publishedAfter: 
 
   
 });
+*/

@@ -39,7 +39,7 @@ ConfidenceAggregator.prototype.addDatum = function (datum) {
 
 ConfidenceAggregator.prototype.getData = function () {
   var self = this;
-  return self.dataList();
+  return self.dataList;
 };
 
 ConfidenceAggregator.prototype.installAnalyzer = function (analyzer, weight) {
