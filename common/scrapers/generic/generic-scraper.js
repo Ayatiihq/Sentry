@@ -93,15 +93,19 @@ Generic.prototype.getName = function () {
 Generic.prototype.start = function (campaign, job) {
   var self = this;
   var promiseArray;
-
-  self.infringements.getNeedsScraping(campaign, function (error, results){
+  
+  var buildPromises = function(error, results){
     if(error){
       loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
       self.stop();
       return;
     }
-    promiseArray = results.map(function flattenUri(r){return r.uri});
-  });
+    var promiseArray = results.map(function promiseBuilder(infringement) {
+      return self.checkinfringement.bind(self, infringement);
+    });
+  }
+
+  self.infringements.getNeedsScraping(campaign, buildPromises);
 
   Promise.seq(promiseArray).then(function onURISChecked() {
     // once all the selenium promises resolve, we can start our backup base-endpoint-wrangler run
@@ -143,10 +147,10 @@ Generic.prototype.onWranglerFinished = function (wrangler, promise, isBackup, it
   promise.resolve(items);
 };
 
-Generic.prototype.checkURI = function (uri) {
+Generic.prototype.checkinfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
-  logger.info('running check for: ' + uri);
+  logger.info('running check for: ' + infringement.uri);
 
   if (!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }
 
@@ -154,15 +158,15 @@ Generic.prototype.checkURI = function (uri) {
 
   self.wrangler.on('error', function onWranglerError(error) {
     // wrangler died for some reason, we need to go for the backup solution
-    logger.info('got error when scraping with selenium (' + uri + '): ' + error.toString());
+    logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
     self.wrangler.removeAllListeners();
     self.wrangler.quit();
     self.wrangler = null;
-    self.backupUrls.push(uri);
+    self.backupUrls.push(infringement.uri);
     promise.resolve();
   });
 
-  self.wrangler.beginSearch(uri);
+  self.wrangler.beginSearch(infringement.uri);
   return promise;
 };
 
