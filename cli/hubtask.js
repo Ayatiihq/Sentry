@@ -43,6 +43,7 @@ HubTask.prototype.loadTasks = function() {
 
   self.tasksMap_ = {
     info: self.getInfo,
+    nodeinfo: self.getNodeInfo,
     state: self.getState,
     version: self.getVersion,
     ping: self.ping,
@@ -64,7 +65,7 @@ HubTask.prototype.ping = function(argv) {
   var self = this;
 
   self.hub_.emit('ping', argv[0], function(reply) {
-    console.log(reply);
+    console.log(JSON.stringify(reply));
     self.done_();
   });
 }
@@ -73,7 +74,16 @@ HubTask.prototype.getInfo = function(argv) {
   var self = this;
 
   self.hub_.emit('getInfo', '', function(reply) {
-    console.log(reply);
+    console.log(JSON.stringify(reply));
+    self.done_();
+  })
+}
+
+HubTask.prototype.getNodeInfo = function(argv) {
+  var self = this;
+
+  self.hub_.emit('getNodeInfo', '', function(reply) {
+    console.log(JSON.stringify(reply));
     self.done_();
   })
 }
@@ -85,7 +95,7 @@ HubTask.prototype.getState = function(argv) {
     return self.setState(argv);
 
   self.hub_.emit('getState', '', function(reply) {
-    console.log(reply);
+    console.log(JSON.stringify(reply));
     self.done_();
   })
 }
@@ -94,7 +104,7 @@ HubTask.prototype.getVersion = function(argv) {
   var self = this;
 
   self.hub_.emit('getVersion', '', function(reply) {
-    console.log(reply);
+    console.log(JSON.stringify(reply));
     self.done_();
   })
 }
