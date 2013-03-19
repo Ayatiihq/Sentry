@@ -95,13 +95,13 @@ Infringements.prototype.pack = function(entity) {
 }
 
 Infringements.prototype.unpack = function(callback, err, entities){
-  var self =this;
+  var self = this;
 
   if(err){
     callback(err);
     return;
   }
-
+  
   entities.forEach(function(entity) {
     PACK_LIST.forEach(function(key) {
       if (entity[key])
@@ -327,15 +327,19 @@ Infringements.prototype.getNeedsScraping = function(campaign, callback)
   var self = this;
   var needScrapingEntities = [];
   
+  console.log("getNeedsScraping for " + campaign.RowKey);
+
   var query = azure.TableQuery.select()
                               .from(TABLE)
-                              .where('PartitionKey eq ?', campaign.genCampaignKey())
-                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
+                              .where('PartitionKey eq ?', campaign.RowKey);
+                              
 
   function reply(err, entities, res) {
     needScrapingEntities.add(entities);
-    if (err)
+    if (err){
       logger.warn(err);
+      callback(err);
+    }
 
     if (res.hasNextPage()) {
       res.getNextPage(reply);

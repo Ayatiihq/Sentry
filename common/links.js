@@ -125,7 +125,7 @@ Links.prototype.get = function(partition, from, callback) {
   var query = azure.TableQuery.select()
                               .from(TABLE)
                               .where('PartitionKey eq ?', partition)
-                              .and('created gt ?', from);
+                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
 
   function reply(err, entities, res) {
     allEntities.add(entities);
