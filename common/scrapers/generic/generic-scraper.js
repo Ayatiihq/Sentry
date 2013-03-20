@@ -1,6 +1,6 @@
 ﻿"use strict";
 /*
- * google.js: a google scraper
+ * generic.js: a generic scraper
  *
  * (C) 2012 Ayatii Limited
  *
@@ -100,49 +100,49 @@ Generic.prototype.start = function (campaign, job) {
       self.stop();
       return;
     }
-    var promiseArray = results.map(function promiseBuilder(infringement) {
+    promiseArray = results.map(function promiseBuilder(infringement) {
       return self.checkinfringement.bind(self, infringement);
     });
+    
+    Promise.seq(promiseArray).then(function onInfringementsChecked() {
+      // once all the selenium promises resolve, we can start our backup base-endpoint-wrangler run
+      if (!!self.wrangler) { self.wrangler.quit(); self.wrangler = null }
+      
+      if (self.backupInfringements.length) {
+        var backupPromiseArray = self.backupInfringements.map(function backupPromiseBuilder(infringement) {
+          return self.backupInfringements.bind(self, infringement);
+        });
+
+        logger.info('Starting backup run for ' + backupPromiseArray.length + ' infringements');
+        Promise.seq(backupPromiseArray).then(function onBackupInfringementSChecked() {
+          logger.info('Finished backup run');
+          self.stop();
+        });
+      }
+      else {
+        self.stop();
+      }
+    });    
   }
 
   self.infringements.getNeedsScraping(campaign, buildPromises);
 
-  Promise.seq(promiseArray).then(function onURISChecked() {
-    // once all the selenium promises resolve, we can start our backup base-endpoint-wrangler run
-    if (!!self.wrangler) { self.wrangler.quit(); self.wrangler = null }
-    
-    if (self.backupUrls.length) {
-      var backupPromiseArray = self.backupUrls.map(function backupPromiseBuilder(uri) {
-        return self.backupCheckURI.bind(self, uri);
-      });
-
-      logger.info('Starting backup run for ' + backupPromiseArray.length + ' uris');
-      Promise.seq(backupPromiseArray).then(function onBackupURISChecked() {
-        logger.info('Finished backup run');
-        self.stop();
-      });
-    }
-    else {
-      self.stop();
-    }
-  });
   self.emit('started');
 };
 
-Generic.prototype.onWranglerFinished = function (wrangler, promise, isBackup, items) {
+Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise, isBackup, items) {
   var self = this;
   wrangler.removeAllListeners();
 
   logger.info('found ' + items.length);
   items.each(function onFoundItem(foundItem) {
-    var uri = foundItem.uri;
+    //var uri = foundItem.infringement;
     var parents = foundItem.parents;
     var metadata = foundItem.items;
     metadata.isBackup = isBackup;
 
-    self.emitURI(uri, parents, metadata);
+    self.emitInfringementChange(infringement, parents, metadata);
   });
-
   
   promise.resolve(items);
 };
@@ -154,7 +154,7 @@ Generic.prototype.checkinfringement = function (infringement) {
 
   if (!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }
 
-  self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, promise, false));
+  self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, infringement, promise, false));
 
   self.wrangler.on('error', function onWranglerError(error) {
     // wrangler died for some reason, we need to go for the backup solution
@@ -170,13 +170,13 @@ Generic.prototype.checkinfringement = function (infringement) {
   return promise;
 };
 
-Generic.prototype.backupCheckURI = function (uri) {
+Generic.prototype.backupCheckInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
   wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
-  wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, promise, false));
-  wrangler.beginSearch(uri);
+  wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+  wrangler.beginSearch(infringement.uri);
   return promise;
 };
 

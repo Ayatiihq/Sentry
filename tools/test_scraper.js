@@ -19,7 +19,7 @@ function setupSignals() {
   });
 }
 
-var SIGNALS = ['started', 'finished', 'error', 'infringement', 'metaInfringement', 'relation', 'metaRelation'];
+var SIGNALS = ['started', 'finished', 'error', 'infringement', 'metaInfringement', 'relation', 'metaRelation', 'infringementStateChange'];
 
 function main() {
   var task = null;
@@ -53,16 +53,9 @@ function main() {
   });
 
   var campaign = undefined;
-  try {
-    campaign = require(process.argv[3]);
-  } catch (err) {
-    if (process.argv[3].endsWith('.json'))
-      console.log(err);
-    try {
-      campaign = JSON.parse(process.argv[3]);
-    } catch (err) {
-    }
-  }
+  campaign = process.argv[4];
+  console.log('campaign ' + JSON.stringify(campaign));
+  
 
   if (Object.isObject(campaign)) {
     instance.start(campaign);
