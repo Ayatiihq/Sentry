@@ -400,7 +400,11 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
 Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState)
 {
   var self = this;
-  self.infringements.changeState();
+  self.infringements.changeState(infringement, newState, function(err, id){
+    if(err){
+      logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
+    }
+  });
 }
 
 //

@@ -62,7 +62,7 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
-    // TODO need to check if one of the parents maybe the original infringement.
+    // TODO need to check if one of the parents maybe the original infringement ?
     self.emit('infringement', parents[i], MAX_SCRAPER_POINTS/2);
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
@@ -82,7 +82,9 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
     self.emit('infringement', endpoint.toString(), MAX_SCRAPER_POINTS);
     self.emit('relation', endpoint.toString(), parents.last());
   });
-  self.emit('infringementStateChange', )
+  // Crude for now - if the wrangler finds a parent that would suggest some degree of success.
+  var newState = parents.length > 0 ? states.infringements.state.UNVERIFIED : states.infringements.state.FALSE_POSITIVE;
+  self.emit('infringementStateChange', infringement, newState);
 };
 
 //
@@ -96,6 +98,8 @@ Generic.prototype.start = function (campaign, job) {
   var self = this;
   var promiseArray;
   
+  // TODO refactor this out into separate promises.
+
   var buildPromises = function(error, results){
     if(error){
       loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
@@ -128,7 +132,6 @@ Generic.prototype.start = function (campaign, job) {
   }
 
   self.infringements.getNeedsScraping(campaign, buildPromises);
-
   self.emit('started');
 };
 
@@ -138,7 +141,6 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 
   logger.info('found ' + items.length);
   items.each(function onFoundItem(foundItem) {
-    //var uri = foundItem.infringement;
     var parents = foundItem.parents;
     var metadata = foundItem.items;
     metadata.isBackup = isBackup;
@@ -152,6 +154,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 Generic.prototype.checkinfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
+
   logger.info('running check for: ' + infringement.uri);
 
   if (!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }

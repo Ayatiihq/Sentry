@@ -318,6 +318,19 @@ Infringements.prototype.addPoints = function(infringement, source, points)
 }
 
 /**
+ * Update the state field on the given infringement with the give newState
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          newState         The newState to be to saved on the infringment.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.changeState = function(infringement, newState, callback){
+  callback = callback ? callback : defaultCallback;
+  // update the state on the object
+  infringement.state = newState;  
+  self.tableService_.updateEntity(TABLE, infringement, callback);
+}
+
+/**
  * Gets the list of unverified infringements for a given campaign
  *
  * @param {object}           campaign         The campaign which we want unverified links for
