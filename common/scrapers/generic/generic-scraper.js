@@ -51,9 +51,10 @@ Generic.prototype.init = function () {
     , 'http://fancystreems.com/default.asp@pageId=42.php'
   ].compact();
 
-  self.backupUrls = [];
+  self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
+  events.EventEmitter.call(this)
 };
 
 
@@ -82,6 +83,7 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   });
   // Crude for now - if the wrangler finds a parent that would suggest some degree of success.
   var newState = parents.length > 0 ? states.infringements.state.UNVERIFIED : states.infringements.state.FALSE_POSITIVE;
+  console.log('here 0 - about to emit infringementStateChange with %s and %i', infringement.uri, newState)
   self.emit('infringementStateChange', infringement, newState);
 };
 
@@ -114,7 +116,7 @@ Generic.prototype.start = function (campaign, job) {
       
       if (self.backupInfringements.length) {
         var backupPromiseArray = self.backupInfringements.map(function backupPromiseBuilder(infringement) {
-          return self.backupInfringements.bind(self, infringement);
+          return self.backupCheckInfringement.bind(self, infringement);
         });
 
         logger.info('Starting backup run for ' + backupPromiseArray.length + ' infringements');
@@ -137,12 +139,11 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   var self = this;
   wrangler.removeAllListeners();
 
-  logger.info('found ' + items.length);
+  logger.info('found ' + items.length  + ' via the wrangler');
   items.each(function onFoundItem(foundItem) {
     var parents = foundItem.parents;
     var metadata = foundItem.items;
     metadata.isBackup = isBackup;
-
     self.emitInfringementStateChange(infringement, parents, metadata);
   });
   
@@ -153,7 +154,7 @@ Generic.prototype.checkinfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
 
-  logger.info('running check for: ' + infringement.uri);
+  logger.info('Running check for: ' + infringement.uri);
 
   if (!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }
 
@@ -165,7 +166,7 @@ Generic.prototype.checkinfringement = function (infringement) {
     self.wrangler.removeAllListeners();
     self.wrangler.quit();
     self.wrangler = null;
-    self.backupUrls.push(infringement.uri);
+    self.backupInfringements.push(infringement);
     promise.resolve();
   });
 

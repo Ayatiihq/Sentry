@@ -236,8 +236,7 @@ Scraper.prototype.runScraper = function(scraper, job) {
     scraper.on('metaInfringement', self.onScraperMetaInfringement.bind(self, scraper, campaign));
     scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
     scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
-    scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper, campaign));
-
+    scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
     
@@ -400,6 +399,9 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
 Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState)
 {
   var self = this;
+
+  console.log('here 1 - about to emit infringementStateChange with %s and %i', infringement.uri, newState)
+
   self.infringements.changeState(infringement, newState, function(err, id){
     if(err){
       logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);

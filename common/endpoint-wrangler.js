@@ -180,7 +180,7 @@ var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
   if (!driver) {
-    self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+    self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                .withCapabilities(CAPABILITIES)
                                .build();
     logger.info('building new webdriver');

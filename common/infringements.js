@@ -327,7 +327,14 @@ Infringements.prototype.changeState = function(infringement, newState, callback)
   callback = callback ? callback : defaultCallback;
   // update the state on the object
   infringement.state = newState;  
-  self.tableService_.updateEntity(TABLE, infringement, callback);
+  console.log('here 2 about to change the state on infringement %s to %i', infringement.uri, newState)
+  self.tableService_.updateEntity(TABLE, infringement,
+                                  function(err){
+                                    if(err){
+                                      console.log('err : %s', err);
+                                    }
+                                    callback(err)
+                                  });
 }
 
 /**
