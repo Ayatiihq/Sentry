@@ -59,6 +59,10 @@ Generic.prototype.init = function () {
 
 Generic.prototype.emitInfringementStateChange = function (infringement, parents, extradata) {
   var self = this;
+
+  // make sure to relate the last parent URI to the top level infringement
+  if (parents.length) { self.emit('relation', infringement.uri, parents.last()); }
+  
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
@@ -67,14 +71,8 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }
-  }
-  
+  }  
   var metadata = extradata.filter(function findEndpoints(v) { return !(v.isEndpoint); });
-
-  // emit infringement on the last uri and if we have parents, make relations
-  self.emit('infringement', uri, MAX_SCRAPER_POINTS/2, metadata);
-  if (parents.length) { self.emit('relation', parents.last()); }
-
   // if we have an endpoint uri in the extra data, we should make a link for that and relate it up
   var endpoints = extradata.filter(function findEndpoints(v) { return !!(v.isEndpoint); });
 
