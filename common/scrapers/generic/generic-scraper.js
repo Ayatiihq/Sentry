@@ -57,11 +57,12 @@ Generic.prototype.init = function () {
 };
 
 
-Generic.prototype.emitURI = function (uri, parents, extradata) {
+Generic.prototype.emitInfringementStateChange = function (infringement, parents, extradata) {
   var self = this;
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
+    // TODO need to check if one of the parents maybe the original infringement.
     self.emit('infringement', parents[i], MAX_SCRAPER_POINTS/2);
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
@@ -81,6 +82,7 @@ Generic.prototype.emitURI = function (uri, parents, extradata) {
     self.emit('infringement', endpoint.toString(), MAX_SCRAPER_POINTS);
     self.emit('relation', endpoint.toString(), parents.last());
   });
+  self.emit('infringementStateChange', )
 };
 
 //
@@ -141,7 +143,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
     var metadata = foundItem.items;
     metadata.isBackup = isBackup;
 
-    self.emitInfringementChange(infringement, parents, metadata);
+    self.emitInfringementStateChange(infringement, parents, metadata);
   });
   
   promise.resolve(items);

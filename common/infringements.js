@@ -327,13 +327,11 @@ Infringements.prototype.getNeedsScraping = function(campaign, callback)
   var self = this;
   var needScrapingEntities = [];
   
-  console.log("getNeedsScraping for " + campaign.RowKey);
-
   var query = azure.TableQuery.select()
                               .from(TABLE)
-                              .where('PartitionKey eq ?', campaign.RowKey);
+                              .where('PartitionKey eq ?', campaign.RowKey)
+                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
                               
-
   function reply(err, entities, res) {
     needScrapingEntities.add(entities);
     if (err){

@@ -236,6 +236,7 @@ Scraper.prototype.runScraper = function(scraper, job) {
     scraper.on('metaInfringement', self.onScraperMetaInfringement.bind(self, scraper, campaign));
     scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
     scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
+    scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper, campaign));
 
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
@@ -394,6 +395,12 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
       logger.warn('Unable to add relation: %s %s %s %s', campaign, addMetaRelation, source, err);
     }
   });
+}
+
+Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState)
+{
+  var self = this;
+  self.infringements.changeState();
 }
 
 //
