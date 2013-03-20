@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Wrangler = acquire('endpoint-wrangler').Wrangler
   , Infringements = acquire('infringements')
+  , states = acquire('states')
   , Promise = require('node-promise')
 ;
 
@@ -53,7 +54,6 @@ Generic.prototype.init = function () {
   self.backupUrls = [];
   self.wrangler = null;
   self.infringements = new Infringements();
-  // Bump the max points on this scraper because it will try to emit endPoints. 
 };
 
 
