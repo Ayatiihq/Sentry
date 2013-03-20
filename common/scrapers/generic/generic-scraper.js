@@ -34,23 +34,6 @@ var MAX_SCRAPER_POINTS = 20;
 
 Generic.prototype.init = function () {
   var self = this;
-
-  // hey Neil, replace testurls with whatever and it'll run through that on start() 
-  // this was just like ten urls from google that i grabbed
-  // don't have empty uris
-  self.testurls = [
-     'http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php'
-    , 'http://www.bolytv.com/'
-    , 'http://www.youtube.com/watch?v=c50ekRPmHC0'
-    , 'http://1tvlive.in/zee-tv/'
-    , 'http://www.roshantv.com/zee_tv.php'
-    , 'http://nowwatchtvlive.com/2011/07/zee-tv-live-watch-zee-tv-online-watch-zee-tv-free/'
-    , 'http://www.yupptv.com/zee_tv_live.html'
-    , 'http://www.dailymotion.com/video/xskk8y_watch-zee-tv-live-online-zee-tv-free-watch-zee-tv-live-streaming-watch-zee-tv-online-free_shortfilms'
-    , 'http://www.webtvonlinelive.com/2007/11/live-zee-tv-channel.html'
-    , 'http://fancystreems.com/default.asp@pageId=42.php'
-  ].compact();
-
   self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
@@ -160,16 +143,24 @@ Generic.prototype.checkinfringement = function (infringement) {
 
   self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, infringement, promise, false));
 
-  self.wrangler.on('error', function onWranglerError(error) {
-    // wrangler died for some reason, we need to go for the backup solution
-    logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
+  function moveToBasicWrangler(thePromise){
+    if (thePromise.finished)
+      return // nothing to do here.
+    console.log("here");
     self.wrangler.removeAllListeners();
     self.wrangler.quit();
     self.wrangler = null;
     self.backupInfringements.push(infringement);
-    promise.resolve();
+    thePromise.resolve();    
+  }
+
+  self.wrangler.on('error', function onWranglerError(error) {
+    // wrangler died for some reason, we need to go for the backup solution
+    logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
+    moveToBasicWrangler(promise);
   });
 
+  moveToBasicWrangler.delay(120000, promise);
   self.wrangler.beginSearch(infringement.uri);
   return promise;
 };
