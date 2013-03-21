@@ -221,11 +221,8 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
 
 Scraper.prototype.runScraper = function(scraper, job) {
     var self = this;
-
     logger.info('Running job '  + job.body.jobId);
-
     self.runningScrapers_.push(scraper);
-
     scraper.on('started', self.onScraperStarted.bind(self, scraper, job));
     scraper.on('paused', self.onScraperPaused.bind(self, scraper, job));
     scraper.on('finished', self.onScraperFinished.bind(self, scraper, job));
@@ -346,7 +343,6 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metad
   var self = this
     , state = states.infringements.state.UNVERIFIED
     ;
-
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
@@ -396,11 +392,8 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   });
 }
 
-Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState)
-{
+Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState) {
   var self = this;
-
-  console.log('here 1 - about to emit infringementStateChange with %s and %i', infringement.uri, newState)
 
   self.infringements.changeState(infringement, newState, function(err, id){
     if(err){
@@ -422,10 +415,8 @@ Scraper.prototype.getDisplayName = function() {
 
 Scraper.prototype.start = function() {
   var self = this;
-
   self.started_ = true;
   self.findJobs();
-
   self.emit('started');
 }
 

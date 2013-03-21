@@ -39,7 +39,6 @@ Generic.prototype.init = function () {
   self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
-  //events.EventEmitter.call(this)
 };
 
 
@@ -66,9 +65,14 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
     self.emit('infringement', endpoint.toString(), MAX_SCRAPER_POINTS);
     self.emit('relation', endpoint.toString(), parents.last());
   });
-  // Crude for now - if the wrangler finds a parent that would suggest some degree of success.
-  var newState = parents.length > 0 ? states.infringements.state.UNVERIFIED : states.infringements.state.FALSE_POSITIVE;
-  console.log('here 0 - about to emit infringementStateChange with %s and %i', infringement.uri, newState)
+
+  var newState;
+  if(parents.length > 0 || endpoints.length > 0){
+    newState = states.infringements.state.UNVERIFIED;
+  }
+  else{
+    newState = states.infringements.state.FALSE_POSITIVE;
+  }
   self.emit('infringementStateChange', infringement, newState);
 };
 
@@ -114,7 +118,6 @@ Generic.prototype.start = function (campaign, job) {
       }
     });   
   }
-
   self.infringements.getNeedsScraping(campaign, buildPromises);
   self.emit('started');
 };
@@ -130,7 +133,6 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
     metadata.isBackup = isBackup;
     self.emitInfringementStateChange(infringement, parents, metadata);
   });
-  
   promise.resolve(items);
 };
 
