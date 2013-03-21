@@ -51,7 +51,6 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
-    // TODO need to check if one of the parents maybe the original infringement ?
     self.emit('infringement', parents[i], MAX_SCRAPER_POINTS/2);
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
@@ -87,17 +86,21 @@ Generic.prototype.start = function (campaign, job) {
   var self = this;
   var promiseArray;
   
-  // TODO refactor this out into separate promises.
-  var buildPromises = function(error, results){
+  function buildPromises(error, results){
     if(error){
       loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
       self.stop();
       return;
     }
     promiseArray = results.map(function promiseBuilder(infringement) {
+      //return self.checkInfringementViaSelenium.bind(self, infringement); // To test with Selenium
       return self.checkInfringementViaRequest.bind(self, infringement);
     });
-    
+    Promise.seq(promiseArray)    
+  }
+
+  // Not used at the moment, should you want to test with the selenium scraper this will come in useful   
+  function doubleCheckBackups(){
     Promise.seq(promiseArray).then(function onInfringementsChecked() {
       // once all the selenium promises resolve, we can start our backup base-endpoint-wrangler run
       if (!!self.wrangler) { self.wrangler.quit(); self.wrangler = null }
