@@ -305,7 +305,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
  *
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            source          The source of the points -> role.plugin
- * @param {integer}           points          The new points to be added to the points {} on the infringments.
+ * @param {integer}           points          The new values to be added to the points {} on the infringements.
 **/
 Infringements.prototype.addPoints = function(infringement, source, points)
 {
@@ -320,10 +320,11 @@ Infringements.prototype.addPoints = function(infringement, source, points)
 /**
  * Update the state field on the given infringement with the give newState
  * @param {object}           infringement     The infringement which we want to work on
- * @param {integer}          newState         The newState to be to saved on the infringment.
+ * @param {integer}          newState         The newState to be to saved on the infringement.
  * @param {function(err)}    callback         A callback to handle errors. 
 **/
 Infringements.prototype.changeState = function(infringement, newState, callback){
+  var self = this;
   callback = callback ? callback : defaultCallback;
   // update the state on the object
   infringement.state = newState;  
@@ -366,3 +367,5 @@ Infringements.prototype.getNeedsScraping = function(campaign, callback)
   }
   self.tableService_.queryEntities(query, reply);    
 }
+
+

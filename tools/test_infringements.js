@@ -37,7 +37,6 @@ function main() {
       console.log(err);
       process.exit();
     }
-
     var campaign = camps[1];
     var action = argv[2];
 
@@ -57,31 +56,48 @@ function main() {
     if (action === 'addMetaRelation') {
       infringements.addMetaRelation(campaign, argv[3], argv[4], argv[5]);
     }
+
+    if (action === 'addPoints'){
+      function addPointsToInfrg(error, infrgs){
+        if(error){
+          logger.error("getNeedsScraping error'd" + error);
+          return;
+        }
+        if(infrgs.length === 0)
+          return;
+        console.log('change the points of ' + infrgs[0].points);
+        infringements.addPoints(infrgs[0], 'testScraper.testGeneric', 10);
+      } 
+      infringements.getNeedsScraping(campaign, changeInfrgState);           
+    }
     
+    if (action === 'changeState'){
+      function changeInfrgState(error, infrgs){
+        if(error){
+          logger.error("getNeedsScraping error'd" + error);
+          return;
+        }
+        if(infrgs.length === 0)
+          return;
+        console.log('change the state of ' + infrgs[0].uri);
+        infringements.changeState(infrgs[0], 2);
+      } 
+      infringements.getNeedsScraping(campaign, changeInfrgState);           
+    }
+
     if (action === 'getNeedsScraping') {
       function checkInfrgs(error, infrgs){
         if(error){
           logger.error("getNeedsScraping error'd" + error);
           return;
         }
-        infrgs.each(function(infrg){
-          logger.info("Infringement - " + infrg.uri + ' found for ' + campaign.RowKey)
-        });
+        logger.info("Found " + infrgs.length + " Infringements for " + campaign.RowKey);
       }      
-
-      campaigns.getDetails( campaign.PartitionKey, campaign.RowKey,
-                            function(err, campaignObj) {
-                              if(err){
-                                logger.error("can't fetch campaign ...");
-                                return
-                              }
-                              infringements.getNeedsScraping(campaignObj, checkInfrgs);
-                            } );
+      infringements.getNeedsScraping(campaign, checkInfrgs);
     }
     setTimeout(function() {
 
     }, 1000 * 3);
-
   });
 }
 
