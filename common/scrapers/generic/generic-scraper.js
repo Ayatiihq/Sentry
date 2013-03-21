@@ -20,6 +20,7 @@ var acquire = require('acquire')
   , Infringements = acquire('infringements')
   , states = acquire('states')
   , Promise = require('node-promise')
+  , webdriver = require('selenium-webdriver')
 ;
 
 var Scraper = acquire('scraper');
@@ -31,13 +32,14 @@ var Generic = module.exports = function () {
 util.inherits(Generic, Scraper);
 
 var MAX_SCRAPER_POINTS = 20;
+var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
 Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
-  events.EventEmitter.call(this)
+  //events.EventEmitter.call(this)
 };
 
 
@@ -82,7 +84,6 @@ Generic.prototype.start = function (campaign, job) {
   var promiseArray;
   
   // TODO refactor this out into separate promises.
-
   var buildPromises = function(error, results){
     if(error){
       loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
@@ -111,7 +112,7 @@ Generic.prototype.start = function (campaign, job) {
       else {
         self.stop();
       }
-    });    
+    });   
   }
 
   self.infringements.getNeedsScraping(campaign, buildPromises);
@@ -135,33 +136,41 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 
 Generic.prototype.checkinfringement = function (infringement) {
   var self = this;
+  function moveToBasicWrangler(thePromise, theInfringement){
+    if (thePromise.finished)
+      return; // nothing to do here.
+    console.log("here - force quit that mother");
+    self.wrangler.removeAllListeners();
+    self.wrangler.quit();
+    self.wrangler = null;
+    self.backupInfringements.push(theInfringement);
+    thePromise.resolve();    
+  }
+
   var promise = new Promise.Promise();
 
   logger.info('Running check for: ' + infringement.uri);
 
-  if (!self.wrangler) { self.wrangler = new Wrangler(); self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV); }
+  if (!self.wrangler) {
+    self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                                         .withCapabilities(CAPABILITIES)
+                                         .build();
+    self.driver.manage().timeouts().implicitlyWait(30000);    
+    self.wrangler = new Wrangler(self.driver);
+    self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+  }
 
   self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, infringement, promise, false));
-
-  function moveToBasicWrangler(thePromise){
-    if (thePromise.finished)
-      return // nothing to do here.
-    console.log("here");
-    self.wrangler.removeAllListeners();
-    self.wrangler.quit();
-    self.wrangler = null;
-    self.backupInfringements.push(infringement);
-    thePromise.resolve();    
-  }
 
   self.wrangler.on('error', function onWranglerError(error) {
     // wrangler died for some reason, we need to go for the backup solution
     logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
     moveToBasicWrangler(promise);
   });
-
-  moveToBasicWrangler.delay(120000, promise);
-  self.wrangler.beginSearch(infringement.uri);
+  // Provide a timeout so as if the browser hangs on some nasty page
+  // push it to go for a backup solution
+  moveToBasicWrangler.delay(120000, promise, infringement);
+  self.driver.sleep(2000).then(self.wrangler.beginSearch(infringement.uri));
   return promise;
 };
 
