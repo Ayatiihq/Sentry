@@ -91,7 +91,7 @@ Generic.prototype.start = function (campaign, job) {
       return;
     }
     promiseArray = results.map(function promiseBuilder(infringement) {
-      return self.checkinfringement.bind(self, infringement);
+      return self.checkInfringementViaRequest.bind(self, infringement);
     });
     
     Promise.seq(promiseArray).then(function onInfringementsChecked() {
@@ -100,7 +100,7 @@ Generic.prototype.start = function (campaign, job) {
       
       if (self.backupInfringements.length) {
         var backupPromiseArray = self.backupInfringements.map(function backupPromiseBuilder(infringement) {
-          return self.backupCheckInfringement.bind(self, infringement);
+          return self.checkInfringementViaRequest.bind(self, infringement);
         });
 
         logger.info('Starting backup run for ' + backupPromiseArray.length + ' infringements');
@@ -134,7 +134,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
-Generic.prototype.checkinfringement = function (infringement) {
+Generic.prototype.checkinfringementViaSelenium = function (infringement) {
   var self = this;
   function moveToBasicWrangler(thePromise, theInfringement){
     if (thePromise.finished)
@@ -159,9 +159,7 @@ Generic.prototype.checkinfringement = function (infringement) {
     self.wrangler = new Wrangler(self.driver);
     self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
   }
-
   self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, infringement, promise, false));
-
   self.wrangler.on('error', function onWranglerError(error) {
     // wrangler died for some reason, we need to go for the backup solution
     logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
@@ -169,12 +167,12 @@ Generic.prototype.checkinfringement = function (infringement) {
   });
   // Provide a timeout so as if the browser hangs on some nasty page
   // push it to go for a backup solution
-  moveToBasicWrangler.delay(120000, promise, infringement);
+  setTimeout(moveToBasicWrangler, 120000, promise, infringement);
   self.driver.sleep(2000).then(self.wrangler.beginSearch(infringement.uri));
   return promise;
 };
 
-Generic.prototype.backupCheckInfringement = function (infringement) {
+Generic.prototype.checkInfringementViaRequest = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
