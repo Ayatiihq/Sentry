@@ -16,7 +16,7 @@ require('sugar');
 var acquire = require('acquire')
   , ConfidenceAggregator = acquire('confidence-aggregator')
   , events = require('events')
-  , logger = acquire('logger').forFile('youtube.js')
+  , logger = acquire('logger').forFile('dailymotion-scraper.js')
   , util = require('util')
   , request = require('request')
   , url = require('url')
