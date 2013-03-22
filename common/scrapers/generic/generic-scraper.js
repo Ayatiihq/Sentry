@@ -16,7 +16,6 @@ var acquire = require('acquire')
   , util = require('util')
   , sugar = require('sugar')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
-  , Wrangler = acquire('endpoint-wrangler').Wrangler
   , Infringements = acquire('infringements')
   , states = acquire('states')
   , Promise = require('node-promise')
@@ -31,7 +30,6 @@ var Generic = module.exports = function () {
 util.inherits(Generic, Scraper);
 
 var MAX_SCRAPER_POINTS = 20;
-var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
 Generic.prototype.init = function () {
   var self = this;
@@ -87,34 +85,15 @@ Generic.prototype.start = function (campaign, job) {
       return;
     }
     promiseArray = results.map(function promiseBuilder(infringement) {
-      //return self.checkInfringementViaSelenium.bind(self, infringement); // To test with Selenium
-      return self.checkInfringementViaRequest.bind(self, infringement);
+      return self.checkInfringement.bind(self, infringement);
     });
-    Promise.seq(promiseArray)    
-  }
 
-  // Not used at the moment, should you want to test with the selenium scraper this will come in useful   
-  function doubleCheckBackups(){
     Promise.seq(promiseArray).then(function onInfringementsChecked() {
-      // once all the selenium promises resolve, we can start our backup base-endpoint-wrangler run
       if (!!self.wrangler) { self.wrangler.quit(); self.wrangler = null }
-      
-      if (self.backupInfringements.length) {
-        var backupPromiseArray = self.backupInfringements.map(function backupPromiseBuilder(infringement) {
-          return self.checkInfringementViaRequest.bind(self, infringement);
-        });
-
-        logger.info('Starting backup run for ' + backupPromiseArray.length + ' infringements');
-        Promise.seq(backupPromiseArray).then(function onBackupInfringementSChecked() {
-          logger.info('Finished backup run');
-          self.stop();
-        });
-      }
-      else {
-        self.stop();
-      }
-    });   
+      self.stop();
+    });    
   }
+
   self.infringements.getNeedsScraping(campaign, buildPromises);
   self.emit('started');
 };
@@ -144,45 +123,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
-Generic.prototype.checkinfringementViaSelenium = function (infringement) {
-  var self = this;
-  function moveToBasicWrangler(thePromise, theInfringement){
-    if (thePromise.finished)
-      return; // nothing to do here.
-    console.log("here - force quit that mother");
-    self.wrangler.removeAllListeners();
-    self.wrangler.quit();
-    self.wrangler = null;
-    self.backupInfringements.push(theInfringement);
-    thePromise.resolve();    
-  }
-
-  var promise = new Promise.Promise();
-
-  logger.info('Running check for: ' + infringement.uri);
-
-  if (!self.wrangler) {
-    self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                                         .withCapabilities(CAPABILITIES)
-                                         .build();
-    self.driver.manage().timeouts().implicitlyWait(30000);    
-    self.wrangler = new Wrangler(self.driver);
-    self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
-  }
-  self.wrangler.on('finished', self.onWranglerFinished.bind(self, self.wrangler, infringement, promise, false));
-  self.wrangler.on('error', function onWranglerError(error) {
-    // wrangler died for some reason, we need to go for the backup solution
-    logger.info('got error when scraping with selenium (' + infringement.uri + '): ' + error.toString());
-    moveToBasicWrangler(promise);
-  });
-  // Provide a timeout so as if the browser hangs on some nasty page
-  // push it to go for a backup solution
-  setTimeout(moveToBasicWrangler, 120000, promise, infringement);
-  self.driver.sleep(2000).then(self.wrangler.beginSearch(infringement.uri));
-  return promise;
-};
-
-Generic.prototype.checkInfringementViaRequest = function (infringement) {
+Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
