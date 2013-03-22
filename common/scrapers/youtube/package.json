@@ -1,0 +1,8 @@
+{
+  "name": "youtube",
+  "main": "./youtube-scraper.js",
+  "types": {
+    "tv": ".*",
+    "film": ".*"
+  }
+}

@@ -12,6 +12,7 @@ require('enum').register();
 
 var TvChannelStates = module.exports.TvChannelStates = new Enum(['CATEGORY_PARSING',
                                                                  'CHANNEL_PARSING',
+                                                                 'DETECT_HORIZONTAL_LINKS',
                                                                  'WRANGLE_IT',
                                                                  'END_OF_THE_ROAD']);
 
@@ -71,6 +72,7 @@ TvChannel.prototype.constructLink = function(extraMetadata, childLink){
   
   if(!childLink){
     logger.error('%s - constructLink got passed a null link %s', self.name, extraMetadata);
+    return false;
   }
 
   link = {channel: self.name,
@@ -80,9 +82,9 @@ TvChannel.prototype.constructLink = function(extraMetadata, childLink){
           uri: childLink,
           parent: self.activeLink.uri,
           metadata: extraMetadata};
-  
-  extraMetadata.uri = childLink;
-  self.links.push(extraMetadata);
+  var archive = Object.clone(extraMetadata);
+  archive.uri = childLink;
+  self.links.push(archive);
   self.moveToNextLink();
   return link;
 }
