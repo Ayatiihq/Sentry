@@ -65,10 +65,9 @@ function main() {
         }
         if(infrgs.length === 0)
           return;
-        console.log('change the points of ' + infrgs[0].points);
-        infringements.addPoints(infrgs[0], 'testScraper.testGeneric', 10);
+        infringements.addPoints(infrgs[0], 'testScraper.testGeneric', 10, "test context pointage bump");
       } 
-      infringements.getNeedsScraping(campaign, changeInfrgState);           
+      infringements.getNeedsScraping(campaign, addPointsToInfrg);           
     }
     
     if (action === 'changeState'){
@@ -79,8 +78,7 @@ function main() {
         }
         if(infrgs.length === 0)
           return;
-        console.log('change the state of ' + infrgs[0].uri);
-        infringements.changeState(infrgs[0], 2);
+        infringements.changeState(infrgs[0], states.infringements.state.NEEDS_SCRAPING);
       } 
       infringements.getNeedsScraping(campaign, changeInfrgState);           
     }
@@ -101,4 +99,4 @@ function main() {
   });
 }
 
-main();
+main()

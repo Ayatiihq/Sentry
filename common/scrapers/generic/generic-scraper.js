@@ -51,7 +51,9 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   // go through our list of parents for the given uri, make an infringement of them all
   // make relations between them
   for (var i = 0; i < parents.length; i++) {
-    self.emit('infringement', parents[i], MAX_SCRAPER_POINTS/2);
+    self.emit('infringement',
+              parents[i],
+              {points: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent');
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }
@@ -61,7 +63,9 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   var endpoints = extradata.filter(function findEndpoints(v) { return !!(v.isEndpoint); });
 
   endpoints.each(function emitEndpoints(endpoint) {
-    self.emit('infringement', endpoint.toString(), MAX_SCRAPER_POINTS);
+    self.emit('infringement',
+              endpoint.toString(),
+              {points: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
     self.emit('relation', endpoint.toString(), parents.last());
   });
 

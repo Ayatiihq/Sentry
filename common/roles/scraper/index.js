@@ -234,6 +234,7 @@ Scraper.prototype.runScraper = function(scraper, job) {
     scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
     scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
     scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper));
+    scraper.on('infringementPointsUpdate'), self.onScraperPointsUpdate(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
     
@@ -339,11 +340,11 @@ Scraper.prototype.cleanup = function(scraper, job) {
   self.runningScrapers_.remove(scraper);
 }
 
-Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metadata) {
+Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, points, metadata) {
   var self = this
     , state = states.infringements.state.UNVERIFIED
     ;
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
     }
@@ -392,10 +393,20 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   });
 }
 
+Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points, source, message) {
+  var self = this;
+
+  self.infringements.addPoints(infringement, points, source, message function(err, id){
+    if(err){
+      logger.warn("Unable to update Points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
+    }
+  });
+}
+
 Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState) {
   var self = this;
 
-  self.infringements.changeState(infringement, newState, function(err, id){
+  self.infringements.changeState(infringement, newState, points, function(err, id){
     if(err){
       logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
     }

@@ -19,7 +19,7 @@ var acquire = require('acquire')
 
 var RELATION_TABLE = 'infringementRelations'
   , TABLE = 'infringements'
-  , PACK_LIST = ['metadata']
+  , PACK_LIST = ['metadata', 'points']
   ;
 
 /**
@@ -51,7 +51,7 @@ Infringements.prototype.init = function() {
 
 function defaultCallback(err) {
   if (err && err.code !== 'EntityAlreadyExists')
-    logger.warn('Reply Error: %s', err);
+    logger.warn('Reply Error: %s', err.message);
 }
 
 function ifUndefined(test, falsey) {
@@ -306,15 +306,26 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            source          The source of the points -> role.plugin
  * @param {integer}           points          The new values to be added to the points {} on the infringements.
+ * @param {string}            message         Info about the context.
 **/
-Infringements.prototype.addPoints = function(infringement, source, points)
+Infringements.prototype.addPoints = function(infringement, source, p_values, p_message, callback)
 {
-  if(infringement.points.hasOwnProperty(source)){
-    infringement.points[source] += points;  
-  }
-  else{
-    infringement.points[source] = points;      
-  }
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+  if(!Object.has(infringement, 'points'))
+    infringement.points = {};
+  if(!Object.has(infringement.points, 'source'))
+    infringement.points[source] = [];  
+  infringement.points[source].push({points: p_values, message: p_message, timestamp: Date.now()})
+  
+  var entity = self.pack(infringement);
+
+  self.tableService_.updateEntity (TABLE, entity,
+                                   function(err){
+                                     if(err){
+                                       console.log('err : %s', err.message);
+                                      }
+                                    callback(err)});
 }
 
 /**
@@ -326,12 +337,12 @@ Infringements.prototype.addPoints = function(infringement, source, points)
 Infringements.prototype.changeState = function(infringement, newState, callback){
   var self = this;
   callback = callback ? callback : defaultCallback;
-  // update the state on the object
   infringement.state = newState;  
-  self.tableService_.updateEntity(TABLE, infringement,
+  var entity = self.pack(infringement);
+  self.tableService_.updateEntity(TABLE, entity,
                                   function(err){
                                     if(err){
-                                      console.log('err : %s', err);
+                                      console.log('err : %s', err.message);
                                     }
                                     callback(err)
                                   });
