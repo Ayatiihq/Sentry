@@ -53,7 +53,7 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   for (var i = 0; i < parents.length; i++) {
     self.emit('infringement',
               parents[i],
-              {points: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent');
+              {points: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent'});
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }
