@@ -20,7 +20,6 @@ var acquire = require('acquire')
   , Infringements = acquire('infringements')
   , states = acquire('states')
   , Promise = require('node-promise')
-  , webdriver = require('selenium-webdriver')
 ;
 
 var Scraper = acquire('scraper');
@@ -42,7 +41,7 @@ Generic.prototype.init = function () {
 };
 
 
-Generic.prototype.emitInfringementStateChange = function (infringement, parents, extradata) {
+Generic.prototype.emitInfringementUpdates = function (infringement, parents, extradata) {
   var self = this;
 
   // make sure to relate the last parent URI to the top level infringement
@@ -68,15 +67,6 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
               {score: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
     self.emit('relation', endpoint.toString(), parents.last());
   });
-
-  var newState;
-  if(parents.length > 0 || endpoints.length > 0){
-    newState = states.infringements.state.UNVERIFIED;
-  }
-  else{
-    newState = states.infringements.state.FALSE_POSITIVE;
-  }
-  self.emit('infringementStateChange', infringement, newState);
 };
 
 //
@@ -134,11 +124,22 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   wrangler.removeAllListeners();
 
   logger.info('found ' + items.length  + ' via the wrangler');
+
+  // First figure out what the state update is for this infringement   
+  var newState;
+  if(items.length > 0){
+    newState = states.infringements.state.UNVERIFIED;
+  }
+  else{
+    newState = states.infringements.state.FALSE_POSITIVE;
+  }
+  self.emit('infringementStateChange', infringement, newState);
+
   items.each(function onFoundItem(foundItem) {
     var parents = foundItem.parents;
     var metadata = foundItem.items;
     metadata.isBackup = isBackup;
-    self.emitInfringementStateChange(infringement, parents, metadata);
+    self.emitInfringementUpdates(infringement, parents, metadata);
   });
   promise.resolve(items);
 };
