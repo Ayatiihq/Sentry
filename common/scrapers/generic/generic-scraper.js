@@ -53,7 +53,7 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   for (var i = 0; i < parents.length; i++) {
     self.emit('infringement',
               parents[i],
-              {points: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent'});
+              {score: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent'});
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }
@@ -65,7 +65,7 @@ Generic.prototype.emitInfringementStateChange = function (infringement, parents,
   endpoints.each(function emitEndpoints(endpoint) {
     self.emit('infringement',
               endpoint.toString(),
-              {points: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
+              {score: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
     self.emit('relation', endpoint.toString(), parents.last());
   });
 

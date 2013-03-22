@@ -346,7 +346,7 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, point
     ;
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
     }
   });
 }
@@ -356,12 +356,11 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
     , scrapeState = states.infringements.state.NEEDS_SCRAPE
     , unverifiedState= states.infringements.state.UNVERIFIED
     ;
-
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
     }
   });
 

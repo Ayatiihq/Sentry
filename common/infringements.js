@@ -130,7 +130,6 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri)
-    , metadata = metadata ? metdata : {}
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -142,6 +141,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
     return;
   }
 
+  points.timestamp = Date.now(); 
   var entity = {};
   entity.PartitionKey = campaign;
   entity.RowKey = key;
@@ -150,7 +150,8 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.source = source;
   entity.state = state;
   entity.created = Date.utc.create().getTime();
-  entity.points = points;
+  entity.points = {};
+  entity.points[points.source] = [points]; 
   entity.metadata = metadata;
 
   entity = self.pack(entity);
@@ -305,10 +306,10 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
  *
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            source          The source of the points -> role.plugin
- * @param {integer}           points          The new values to be added to the points {} on the infringements.
+ * @param {integer}           p_score         The new values to be added to the points {} on the infringements.
  * @param {string}            message         Info about the context.
 **/
-Infringements.prototype.addPoints = function(infringement, source, p_values, p_message, callback)
+Infringements.prototype.addPoints = function(infringement, source, p_score, p_message, callback)
 {
   var self = this;
   callback = callback ? callback : defaultCallback;
@@ -316,7 +317,7 @@ Infringements.prototype.addPoints = function(infringement, source, p_values, p_m
     infringement.points = {};
   if(!Object.has(infringement.points, 'source'))
     infringement.points[source] = [];  
-  infringement.points[source].push({points: p_values, message: p_message, timestamp: Date.now()})
+  infringement.points[source].push({score: p_score, message: p_message, timestamp: Date.now()})
   
   var entity = self.pack(infringement);
 

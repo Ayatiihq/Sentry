@@ -42,11 +42,11 @@ function main() {
 
     if (action === 'add') {
       var uri = argv[3];
-      infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {});
+      infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {source: "from test_infringements 'add'", score: 5, message: 'blurb'}, {});
     }
 
     if (action === 'addMeta') {
-      infringements.addMeta(campaign, argv[3], argv[4], states.infringements.state.UNVERIFIED, {});
+      infringements.addMeta(campaign, argv[3], argv[4], states.infringements.state.UNVERIFIED, {source: "from test_infringements 'add'", score: 5, message: 'blurb'}, {});
     }
 
     if (action === 'addRelation') {

@@ -115,7 +115,11 @@ GoogleScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
-    self.emit('found-link', link, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100));
+    self.emit('found-link', link, 
+              {score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100),
+               message: "Google result",
+               source: 'scraper.google'});
+
     self.resultsCount ++;
   });
 };
