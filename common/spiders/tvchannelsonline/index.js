@@ -116,7 +116,6 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
         self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
       }
       else if(item.currentState === TvChannelStates.CHANNEL_PARSING){
-        console.log('channel mofo parsing for %s @ %s', item.name, item.activeLink.uri);
         self.driver.get(item.activeLink.uri).then(self.scrapeChannel.bind(self, item, done));
       }
     })
