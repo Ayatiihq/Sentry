@@ -1,0 +1,8 @@
+{
+  "name": "dailymotion",
+  "main": "./dailymotion-scraper.js",
+  "types": {
+    "tv": ".*",
+    "film": ".*"
+  }
+}
