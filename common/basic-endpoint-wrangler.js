@@ -82,7 +82,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
           try {
             var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
           } catch (error) {
-            return null; //probably 'javascript;'
+            return null; // probably 'javascript;'
           };
 
           if (shouldIgnoreUri(composedURI)) { return null; }
