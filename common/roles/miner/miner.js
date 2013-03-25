@@ -191,12 +191,14 @@ Miner.prototype.mineCampaign = function(campaign, links, done) {
 
   links.forEach(function(link) {
     if (self.linkMatchesCampaign(link, campaign)) {
-      self.infringements_.add(campaign, link.uri, link.type, link.source, state, link.metadata);
+      self.infringements_.add (campaign,
+                               link.uri, link.type, link.source, state,
+                               {score: 10, source: link.source, message: 'mined from the source'},
+                               link.metadata);
       if (link.parent.length > 0)
         self.infringements_.addRelation(campaign, link.parent, link.uri);
     }
   });
-
   done();
 }
 
@@ -211,8 +213,6 @@ Miner.prototype.linkMatchesCampaign = function(link, campaign) {
       return true;
     }
   }
-  // Use the info in link and campaign to see if the link matches the campaign
-  //console.log(link, campaign);
 
   return false; // for now
 }

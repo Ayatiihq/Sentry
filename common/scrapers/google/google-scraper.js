@@ -23,6 +23,7 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
+var MAX_SCRAPER_POINTS = 7;
 
 /* GoogleScraper - is an event emitter object 
     'finished' - scraper is finished scraping google
@@ -40,6 +41,7 @@ var GoogleScraper = function (searchTerm) {
 
   this.searchTerm = searchTerm;
   this.idleTime = [5, 10]; // min/max time to click next page
+  this.resultCount;
 };
 
 util.inherits(GoogleScraper, events.EventEmitter);
@@ -113,7 +115,12 @@ GoogleScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   logger.info('scraping results page...');
   linkList.each(function linkEmitter(link) {
-    self.emit('found-link', link);
+    self.emit('found-link', link, 
+              {score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100),
+               message: "Google result",
+               source: 'scraper.google'});
+
+    self.resultsCount ++;
   });
 };
 
@@ -183,8 +190,8 @@ Google.prototype.start = function (campaign, job) {
     // do nuffink right now, handled elsewhere
   });
 
-  self.scraper.on('found-link', function onFoundLink(link) {
-    self.emit('metaInfringement', link);
+  self.scraper.on('found-link', function onFoundLink(link, points) {
+    self.emit('metaInfringement', link, points);
   });
 
 

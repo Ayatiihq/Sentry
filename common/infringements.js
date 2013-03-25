@@ -19,7 +19,7 @@ var acquire = require('acquire')
 
 var RELATION_TABLE = 'infringementRelations'
   , TABLE = 'infringements'
-  , PACK_LIST = ['metadata']
+  , PACK_LIST = ['metadata', 'points']
   ;
 
 /**
@@ -51,7 +51,7 @@ Infringements.prototype.init = function() {
 
 function defaultCallback(err) {
   if (err && err.code !== 'EntityAlreadyExists')
-    logger.warn('Reply Error: %s', err);
+    logger.warn('Reply Error: %s', err.message);
 }
 
 function ifUndefined(test, falsey) {
@@ -94,6 +94,23 @@ Infringements.prototype.pack = function(entity) {
   return entity;
 }
 
+Infringements.prototype.unpack = function(callback, err, entities){
+  var self = this;
+
+  if(err){
+    callback(err);
+    return;
+  }
+  
+  entities.forEach(function(entity) {
+    PACK_LIST.forEach(function(key) {
+      if (entity[key])
+        entity[key] = JSON.parse(entity[key]);
+    });
+  });
+  callback(err, entities);  
+}
+
 //
 // Public Methods
 //
@@ -104,15 +121,15 @@ Infringements.prototype.pack = function(entity) {
  * @param  {string}            uri         The uri to add.
  * @param  {string}            type        The type of uri.
  * @param  {string}            source      The source of this infringement.
+ * @param  {object}            points      The points (rating) of this infringment (to signify how 'hot' this infringment is)
  * @param  {object}            metadata    Any metadata belonging to this infringement.
  * @param  {function(err,uid)} callback    A callback to receive the uid of the uri, or an error.
  * @return {undefined}
  */
-Infringements.prototype.add = function(campaign, uri, type, source, state, metadata, callback) {
+Infringements.prototype.add = function(campaign, uri, type, source, state, points, metadata, callback) {
   var self = this
     , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
     , key = utilities.genURIKey(uri)
-    , metadata = metadata ? metdata : {}
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -124,6 +141,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, metad
     return;
   }
 
+  points.timestamp = Date.now(); 
   var entity = {};
   entity.PartitionKey = campaign;
   entity.RowKey = key;
@@ -132,6 +150,8 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, metad
   entity.source = source;
   entity.state = state;
   entity.created = Date.utc.create().getTime();
+  entity.points = {};
+  entity.points[points.source] = [points]; 
   entity.metadata = metadata;
 
   entity = self.pack(entity);
@@ -280,3 +300,84 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
       callback(err);
   });
 }
+
+/**
+ * Adds points to the target infringement.
+ *
+ * @param {object}            infringement    The infringement the points belong to.
+ * @param {string}            source          The source of the points -> role.plugin
+ * @param {integer}           p_score         The new values to be added to the points {} on the infringements.
+ * @param {string}            message         Info about the context.
+**/
+Infringements.prototype.addPoints = function(infringement, source, p_score, p_message, callback)
+{
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+  if(!Object.has(infringement, 'points'))
+    infringement.points = {};
+  if(!Object.has(infringement.points, 'source'))
+    infringement.points[source] = [];  
+  infringement.points[source].push({score: p_score, message: p_message, timestamp: Date.now()})
+  
+  var entity = self.pack(infringement);
+
+  self.tableService_.updateEntity (TABLE, entity,
+                                   function(err){
+                                     if(err){
+                                       console.log('err : %s', err.message);
+                                      }
+                                    callback(err)});
+}
+
+/**
+ * Update the state field on the given infringement with the give newState
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          newState         The newState to be to saved on the infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.changeState = function(infringement, newState, callback){
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+  infringement.state = newState;  
+  var entity = self.pack(infringement);
+  self.tableService_.updateEntity(TABLE, entity,
+                                  function(err){
+                                    if(err){
+                                      console.log('err : %s', err.message);
+                                    }
+                                    callback(err)
+                                  });
+}
+
+/**
+ * Gets the list of unverified infringements for a given campaign
+ *
+ * @param {object}           campaign         The campaign which we want unverified links for
+**/
+Infringements.prototype.getNeedsScraping = function(campaign, callback)
+{
+  var self = this;
+  var needScrapingEntities = [];
+  
+  var query = azure.TableQuery.select()
+                              .from(TABLE)
+                              .where('PartitionKey eq ?', campaign.RowKey)
+                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
+                              
+  function reply(err, entities, res) {
+    needScrapingEntities.add(entities);
+    if (err){
+      logger.warn(err);
+      callback(err);
+    }
+
+    if (res.hasNextPage()) {
+      res.getNextPage(reply);
+    } else {
+      self.unpack(callback, null, needScrapingEntities);
+    }
+  }
+  self.tableService_.queryEntities(query, reply);    
+}
+
+
