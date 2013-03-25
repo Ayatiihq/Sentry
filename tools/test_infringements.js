@@ -32,22 +32,21 @@ function main() {
   var campaigns = new Campaigns();
   var infringements = new Infringements();
 
-  campaigns.listActiveCampaigns(function(err, camps) {
+  campaigns.listCampaigns(function(err, camps) {
     if (err) {
       console.log(err);
       process.exit();
     }
-
-    var campaign = camps[0];
+    var campaign = camps[1];
     var action = argv[2];
 
     if (action === 'add') {
       var uri = argv[3];
-      infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {});
+      infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {source: "from test_infringements 'add'", score: 5, message: 'blurb'}, {});
     }
 
     if (action === 'addMeta') {
-      infringements.addMeta(campaign, argv[3], argv[4], states.infringements.state.UNVERIFIED, {});
+      infringements.addMeta(campaign, argv[3], argv[4], states.infringements.state.UNVERIFIED, {source: "from test_infringements 'add'", score: 5, message: 'blurb'}, {});
     }
 
     if (action === 'addRelation') {
@@ -58,11 +57,46 @@ function main() {
       infringements.addMetaRelation(campaign, argv[3], argv[4], argv[5]);
     }
 
+    if (action === 'addPoints'){
+      function addPointsToInfrg(error, infrgs){
+        if(error){
+          logger.error("getNeedsScraping error'd" + error);
+          return;
+        }
+        if(infrgs.length === 0)
+          return;
+        infringements.addPoints(infrgs[0], 'testScraper.testGeneric', 10, "test context pointage bump");
+      } 
+      infringements.getNeedsScraping(campaign, addPointsToInfrg);           
+    }
+    
+    if (action === 'changeState'){
+      function changeInfrgState(error, infrgs){
+        if(error){
+          logger.error("getNeedsScraping error'd" + error);
+          return;
+        }
+        if(infrgs.length === 0)
+          return;
+        infringements.changeState(infrgs[0], states.infringements.state.NEEDS_SCRAPING);
+      } 
+      infringements.getNeedsScraping(campaign, changeInfrgState);           
+    }
+
+    if (action === 'getNeedsScraping') {
+      function checkInfrgs(error, infrgs){
+        if(error){
+          logger.error("getNeedsScraping error'd" + error);
+          return;
+        }
+        logger.info("Found " + infrgs.length + " Infringements for " + campaign.RowKey);
+      }      
+      infringements.getNeedsScraping(campaign, checkInfrgs);
+    }
     setTimeout(function() {
 
     }, 1000 * 3);
-
   });
 }
 
-main();
+main()

@@ -24,7 +24,7 @@ var Campaigns = acquire('campaigns')
 var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 10
   ;
-
+  
 var Scraper = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
@@ -221,11 +221,8 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
 
 Scraper.prototype.runScraper = function(scraper, job) {
     var self = this;
-
     logger.info('Running job '  + job.body.jobId);
-
     self.runningScrapers_.push(scraper);
-
     scraper.on('started', self.onScraperStarted.bind(self, scraper, job));
     scraper.on('paused', self.onScraperPaused.bind(self, scraper, job));
     scraper.on('finished', self.onScraperFinished.bind(self, scraper, job));
@@ -236,7 +233,8 @@ Scraper.prototype.runScraper = function(scraper, job) {
     scraper.on('metaInfringement', self.onScraperMetaInfringement.bind(self, scraper, campaign));
     scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
     scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
-
+    scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper));
+    scraper.on('infringementPointsUpdate'), self.onScraperPointsUpdate(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
     
@@ -342,29 +340,27 @@ Scraper.prototype.cleanup = function(scraper, job) {
   self.runningScrapers_.remove(scraper);
 }
 
-Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, metadata) {
+Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, points, metadata) {
   var self = this
     , state = states.infringements.state.UNVERIFIED
     ;
-
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
     }
   });
 }
 
-Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, metadata) {
+Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, points, metadata) {
   var self = this
     , scrapeState = states.infringements.state.NEEDS_SCRAPE
     , unverifiedState= states.infringements.state.UNVERIFIED
     ;
-
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, metadata, err);
+      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
     }
   });
 
@@ -396,6 +392,26 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   });
 }
 
+Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points, source, message) {
+  var self = this;
+
+  self.infringements.addPoints(infringement, points, source, message function(err, id){
+    if(err){
+      logger.warn("Unable to update Points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
+    }
+  });
+}
+
+Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState) {
+  var self = this;
+
+  self.infringements.changeState(infringement, newState, points, function(err, id){
+    if(err){
+      logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
+    }
+  });
+}
+
 //
 // Overrides
 //
@@ -409,10 +425,8 @@ Scraper.prototype.getDisplayName = function() {
 
 Scraper.prototype.start = function() {
   var self = this;
-
   self.started_ = true;
   self.findJobs();
-
   self.emit('started');
 }
 

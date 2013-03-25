@@ -34,9 +34,6 @@ ZonyTv.prototype.init = function() {
   self.complete = [] // used to store those channels which completed to a satisfactory end. 
   
   self.newWrangler();
-
-  // Not working for some reason. (TODO)
-  // var ready = self.driver.manage().deleteAllCookies();
   
   self.driver.get("http://www.zonytvcom.info").then(self.parseIndex.bind(self));
 }
