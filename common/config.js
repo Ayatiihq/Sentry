@@ -48,6 +48,20 @@ config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQ
 
 config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
 
+// Mongo
+
+config.MONGODB_SERVERS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['hydros.cloudapp.net', 'hydros.cloudapp.net', 'hydros.cloudapp.net']);
+
+config.MONGODB_PORTS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['6001', '6002', '6003']);
+
+config.MONGODB_DATABASE = getEnv(process.env.SENTRY_MONGODB_DATABASE, 'goldrush');
+
+config.MONGODB_USERNAME = getEnv(process.env.SENTRY_MONGODB_USERNAME, 'scout');
+
+config.MONGODB_PASSWORD = getEnv(process.env.SENTRY_MONGODB_PASSWORD, '3HVb62MG2Yy4mWm');
+
+config.MONGODB_REPLICA_NAME = getEnv(process.env.SENTRY_MONGODB_REPLICA_NAME, 'hydros');
+
 // Hub
 config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'watchtower.cloudapp.net');
 
