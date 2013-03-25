@@ -59,7 +59,7 @@ FancyStreems.prototype.newWrangler = function(){
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
 
-  self.wrangler.addScraper(acquire('endpoint-wrangler').scrapersLiveTV);
+  self.wrangler.addRule(acquire('endpoint-wrangler').rulesLiveTV);
   self.wrangler.on('error', function onWranglerError(error) {
     logger.info('got error when scraping with selenium : ' + error.toString());
     self.wrangler.removeAllListeners();

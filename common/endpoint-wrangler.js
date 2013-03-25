@@ -45,8 +45,8 @@ Endpoint.prototype.toString = function () {
   return this.data.toString();
 };
 
-/* - Scraper snippets, these are passed into the wrangler and executed on each html source it finds - */
-module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
+/* - Rule snippets, these are passed into the wrangler and executed on each html source it finds - */
+module.exports.ruleEmbed = function DomEmbed($, source, foundItems) {
   $('embed').each(function onEmd() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
@@ -64,7 +64,7 @@ module.exports.scraperEmbed = function DomEmbed($, source, foundItems) {
   return foundItems;
 }; 
 
-module.exports.scraperSwfObject = function SwfObject($, source, foundItems) {
+module.exports.ruleSwfObject = function SwfObject($, source, foundItems) {
   $('script').each(function onScript() {
     var check = false;
     var sanitized = $(this).html().toLowerCase();
@@ -78,7 +78,7 @@ module.exports.scraperSwfObject = function SwfObject($, source, foundItems) {
   return foundItems;
 }
 
-module.exports.scraperObject = function DomObject($, source, foundItems) {
+module.exports.ruleObject = function DomObject($, source, foundItems) {
   $('object').each(function onObj() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
@@ -96,10 +96,10 @@ module.exports.scraperObject = function DomObject($, source, foundItems) {
   return foundItems;
 }; 
 
-/* A more complicated scraper, this one needs to be async so instead of returning an array
+/* A more complicated rule, this one needs to be async so instead of returning an array
    it returns a promise and resolves that promise asyncronously
 */
-module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundItems) {
+module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItems) {
   var protocols = ['rtmp://', 'rtsp://', 'rttp://', 'rtmpe://'];
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
                     '.f4v', '.mkv'];
@@ -120,7 +120,7 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
   // function that for a given uri will simply open it and parse it for extensions and protocols. 
   // in addition it works through promises, it will return a promise that will be resolved after 
   // the uri is scraped.
-  function xmlScraper(uri) {
+  function xmlRule(uri) {
     var xmlPromise = new Promise();
     var matches = [];
 
@@ -146,7 +146,7 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
   $('param').each(function onFlashVars() {
     XRegExp.forEach($(this).toString(), urlmatch, function (match, i) {
       if (match.fulluri.toLowerCase().has('xml')) {
-        xmlscrapes.push(xmlScraper(match.fulluri));
+        xmlscrapes.push(xmlRule(match.fulluri));
       }
     });
   });
@@ -169,11 +169,11 @@ module.exports.scraperRegexStreamUri = function RegexStreamUri($, source, foundI
   }
 }; 
 
-/* - Collections, we create collections of scrapers here just to make the scraper/spider codebases less verbose - */
-module.exports.scrapersLiveTV = [ module.exports.scraperEmbed
-                                , module.exports.scraperObject
-                                , module.exports.scraperRegexStreamUri
-                                , module.exports.scraperSwfObject];
+/* - Collections, we create collections of rules here just to make the rule/spider codebases less verbose - */
+module.exports.rulesLiveTV = [ module.exports.ruleEmbed
+                             , module.exports.ruleObject
+                             , module.exports.ruleRegexStreamUri
+                             , module.exports.ruleSwfObject];
 
 /* - Actual wrangler code - */
 var Wrangler = module.exports.Wrangler = function (driver) {
@@ -197,10 +197,10 @@ var Wrangler = module.exports.Wrangler = function (driver) {
 util.inherits(Wrangler, events.EventEmitter);
 
 
-Wrangler.prototype.addScraper = function (scraper) {
+Wrangler.prototype.addRule = function (rule) {
   var self = this;
-  if (Object.isArray(scraper)) {
-    self.modules = self.modules.union(scraper);
+  if (Object.isArray(rule)) {
+    self.modules = self.modules.union(rule);
   }
   else {
     if (!self.modules.some(function (storedModule) { return (module === storedModule); })) {
@@ -212,7 +212,7 @@ Wrangler.prototype.addScraper = function (scraper) {
   }
 };
 
-Wrangler.prototype.clearScrapers = function () {
+Wrangler.prototype.clearRules = function () {
   var self = this;
   self.modules = [];
 };
@@ -259,15 +259,15 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
 
   logger.info('processing uri: ' + uri);
     
-  var pagemods = self.modules.map(function (scraper) { return scraper.bind(null, $, source); });
+  var pagemods = self.modules.map(function (rule) { return rule.bind(null, $, source); });
 
   var previousReturn = [];
-  pagemods.each(function (scraper) {
-    previousReturn = when(previousReturn, scraper);
+  pagemods.each(function (rule) {
+    previousReturn = when(previousReturn, rule);
   });
 
   if (Object.isArray(previousReturn)) {
-    // no promises were returned by our scrapers so we can act right now
+    // no promises were returned by our rules so we can act right now
     self.constructItemsObject(previousReturn, uri, parenturls);
   }
   else {
