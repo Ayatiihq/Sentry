@@ -47,7 +47,6 @@ Wrangler.prototype.beginSearch = function (uri) {
   self.uri = uri;
   self.processUri(uri, []).then(function onFinishedProcessing() {
     self.isRunning = false;
-    logger.info('basic-wrangler finished');
     if (self.processing < 1) {
       // we only emit this signal if we are done processing all items.
       self.emit('finished', self.foundItems);
@@ -63,8 +62,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
   var promise = new Promise();
   var self = this;
   self.foundURIs.push(uri);
-
-  logger.info('(' + parents.length + ') requesting: ' + uri);
 
   request({
     'uri': uri,
@@ -96,7 +93,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
         });
       }
       else {
-        logger.info('MAXFRAMES reached');
+        logger.info('MAXFRAMES reached: %s', uri);
         promise.resolve();
       }
     }

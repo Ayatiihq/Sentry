@@ -30,12 +30,18 @@ var Generic = module.exports = function () {
 util.inherits(Generic, Scraper);
 
 var MAX_SCRAPER_POINTS = 20;
+var MAX_INFRINGEMENTS = 20;
 
 Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
+
+  self.activeScrapes = 0;
+  self.maxActive = 10;
+  self.numInfringementsChecked = 0;
+  self.checkURLS = [];
 };
 
 
@@ -76,40 +82,62 @@ Generic.prototype.getName = function () {
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
-  var promiseArray;
-  
-  function buildPromises(error, results){
-    if(error){
-      loggger.error("GenericScraper: Can't fetch links that need scraping : %s", error);
+  self.infringements.getNeedsScraping(campaign, function (error, results) {
+    if (error) {
+      logger.error("Generic Scraper: Can't fetch links that need scraping: %s", error);
       self.stop();
       return;
     }
-    promiseArray = results.map(function promiseBuilder(infringement) {
-      return self.checkInfringement.bind(self, infringement);
-    });
 
-    Promise.seq(promiseArray).then(function onInfringementsChecked() {
-      if (!!self.wrangler) { self.wrangler.quit(); self.wrangler = null }
-      self.stop();
-    });    
+    self.checkURLS = results;
+    self.activeScrapes = 0;
+   
+    self.pump();
+  });
+  self.emit('started');
+};
+
+Generic.prototype.pump = function () {
+  var self = this;
+  
+  if (self.numInfringementsChecked >= MAX_INFRINGEMENTS && self.activeScrapes <= 0) {
+    logger.info('Finishing up, no more urls to check');
+    self.stop();
+    return;
   }
 
-  self.infringements.getNeedsScraping(campaign, buildPromises);
-  self.emit('started');
+  var check = self.activeScrapes < self.maxActive;              // we don't have more than maxActive currently running scrapes
+  check &= self.checkURLS.length > 0;                           // we still have urls to check
+  check &= self.numInfringementsChecked <= MAX_INFRINGEMENTS;   // we have checked less than MAX_INFRINGEMENTS infringements
+
+  if (check) {
+    var infringement = self.checkURLS.pop();
+    logger.info('starting infrigement: %s', infringement.uri);
+    logger.info('%d infringements left to parse', MAX_INFRINGEMENTS - self.numInfringementsChecked );
+
+    self.checkInfringement(infringement).then(function () {
+      self.activeScrapes = self.activeScrapes - 1;
+      self.pump();
+    });
+
+    self.numInfringementsChecked = self.numInfringementsChecked + 1;
+    self.activeScrapes = self.activeScrapes + 1;
+    self.pump(); // pump again
+  }
 };
 
 Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise, isBackup, items) {
   var self = this;
   wrangler.removeAllListeners();
 
-  logger.info('found ' + items.length  + ' via the wrangler');
+ // logger.info('found ' + items.length  + ' via the wrangler');
 
   // First figure out what the state update is for this infringement   
   var newState;
-  if(items.length > 0){
+  if (items.length > 0) {
     newState = states.infringements.state.UNVERIFIED;
   }
-  else{
+  else {
     newState = states.infringements.state.FALSE_POSITIVE;
   }
   self.emit('infringementStateChange', infringement, newState);
@@ -120,6 +148,8 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
     metadata.isBackup = isBackup;
     self.emitInfringementUpdates(infringement, parents, metadata);
   });
+
+  
   promise.resolve(items);
 };
 
