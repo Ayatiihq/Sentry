@@ -7,6 +7,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger')
   , mongodb = require('mongodb')
   ;
@@ -19,25 +20,20 @@ function setupSignals() {
 
 function main() {
   logger.init();
-  logger = logger.forFile('test_swarm.js');
+  logger = logger.forFile('test_mongodb.js');
 
   setupSignals();
 
-  var servers = [];
-  for (var i = 0; i < config.MONGODB_SERVERS.length; i++) {
-    servers.push(new mongodb.Server(config.MONGODB_SERVERS[i], config.MONGODB_PORTS[i], { auto_reconnect: false }));
-  }
+  database.connect(function(err, db) {
+    console.log(err, 'success on url');
 
-  var replicaSet = new mongodb.ReplSetServers(servers, { rs_name: config.MONGODB_REPLICA_NAME });
-
-  db = new mongodb.Db(config.MONGODB_DATABASE, replicaSet, { safe: false });
-  db.open(function(err, db) {
-    if (err)
-      return console.log(err);
-
-    db.authenticate(config.MONGODB_USERNAME, config.MONGODB_PASSWORD, function(err, result) {
-      console.log(err, 'success');
-      db.close();
+    db.createCollection('clients', function(err, items) {
+      db.collectionsInfo(function(err, cursor) {
+        cursor.toArray(function(err, items) {
+          console.log(items);
+          db.close();
+        });
+      });
     });
   });
 }
