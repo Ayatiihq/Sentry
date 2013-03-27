@@ -45,15 +45,37 @@ Wrangler.prototype.beginSearch = function (uri) {
   self.isRunning = true;
   self.processing = 0; // a counter that counts the number of processing items
   self.foundURIs = [];
-
+  
   self.uri = uri;
   self.processUri(uri, []).then(function onFinishedProcessing() {
     self.isRunning = false;
+
     if (self.processing < 1) {
       // we only emit this signal if we are done processing all items.
       self.emit('finished', self.foundItems);
     }
   });
+
+  self.busyCount = 0;
+  self.isSuspended = false;
+  self.busyCheckTimer = self.doBusyCheck.bind(self).delay(5000, self.busyCount);
+  self.on('finished', function () { self.busyCheckTimer.cancel(); });
+};
+
+// does a check every 5 seconds to see if we are actually doing anything.
+// sometimes websites take a long time to respond.
+Wrangler.prototype.doBusyCheck = function (lastCheckCount) {
+  var self = this;
+  if (self.isSuspended && self.busyCount < lastCheckCount) {
+    self.isSuspended = false;
+    self.emit('resumed')
+  }
+  if (!self.isSuspended && self.busyCount === lastCheckCount) {
+    self.isSuspended = true;
+    self.emit('suspended');
+  }
+
+  self.busyCheckTimer = self.doBusyCheck.bind(self).delay(5000, self.busyCount);
 };
 
 Wrangler.prototype.findIFrames = function ($) {
@@ -70,6 +92,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
     request({'uri': uri, 'Referer': parents.last(), 'User-Agent': USER_AGENT }, function (error, response, body) {
+      self.busyCount = self.busyCount + 1;
       if (error) {
         logger.info('Error(' + uri + '): ' + error);
         promise.reject(new Error('(' + uri + ') request failed: ' + error), true);

@@ -112,16 +112,21 @@ Generic.prototype.pump = function () {
 
   if (check) {
     var infringement = self.checkURLS.pop();
-    logger.info('starting infrigement: %s', infringement.uri);
-    logger.info('%d infringements left to parse', MAX_INFRINGEMENTS - self.numInfringementsChecked );
+    self.numInfringementsChecked = self.numInfringementsChecked + 1;
+    self.activeScrapes = self.activeScrapes + 1;
+
+    logger.info('starting infrigement: %s (%d/%d) (%d/%d)', infringement.uri, 
+                                                            MAX_INFRINGEMENTS - self.numInfringementsChecked, 
+                                                            self.numInfringementsChecked,
+                                                            self.activeScrapes,
+                                                            self.maxActive);
 
     self.checkInfringement(infringement).then(function () {
       self.activeScrapes = self.activeScrapes - 1;
       self.pump();
     });
 
-    self.numInfringementsChecked = self.numInfringementsChecked + 1;
-    self.activeScrapes = self.activeScrapes + 1;
+
     self.pump(); // pump again
   }
 };
