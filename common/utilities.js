@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
+  , request = require('request')
   ;
 
 var Seq = require('seq');
@@ -197,4 +198,52 @@ Utilities.notify = function(message) {
   var req = https.request(msg);
   req.write(msg.data);
   req.end();
+}
+
+/**
+ * Follows redirects manually 
+ * @param  {array}  links   A array usually containing one link from which to start the requesting from   
+ * @param  {object} promise A promise instance which resolves at some point returning an array of link(s)
+ * @return {object} the given promise.
+ */
+
+Utilities.followRedirects = function(links, promise) {
+
+  function onHeadResponse(theLinks, thePromise, err, resp, html){
+    if(err){
+      console.log('error onHeadResponse ! : ' + err.message);
+      thePromise.resolve(theLinks);
+      return;      
+    }
+
+    var circularCheck = theLinks.last() === resp.headers.location; 
+
+    if(circularCheck){
+      console.log('clocked a circular reference');
+      thePromise.resolve(theLinks);
+    }
+    else if(resp.headers.location){
+      var redirect = URI(resp.headers.location.replace(/\s/g, ""));
+      if(redirect.is("relative"))
+        redirect = redirect.absoluteTo(links.last())  
+      theLinks.push(redirect.toString())
+      console.log('go again on : ' + redirect.toString());
+      requestHeader(theLinks, thePromise);
+    }
+    else{
+      console.log('End of the road');
+      thePromise.resolve(theLinks);      
+    }
+  }
+  console.log('request : ' + links.last());
+
+  mockHeader = {};
+  if(links.length > 1){
+    mockHeader = {referer: links[links.length -2 ]};
+  }
+
+  request.head(links.last(),
+              {timeout: 30000, followRedirect: false, header: mockHeader},
+              onHeadResponse.bind(null, links, promise));
+  return promise;
 }
