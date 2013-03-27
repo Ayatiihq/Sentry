@@ -120,11 +120,11 @@ Generic.prototype.pump = function () {
     self.numInfringementsChecked = self.numInfringementsChecked + 1;
     self.activeScrapes = self.activeScrapes + 1;
 
-    logger.info('starting infrigement: %s (%d/%d) (%d-%d/%d)', infringement.uri, 
-                                                            MAX_INFRINGEMENTS - self.numInfringementsChecked, 
-                                                            self.numInfringementsChecked,
-                                                            self.activeScrapes, self.suspendedScrapes,
-                                                            self.maxActive);
+    logger.info('starting infrigement: %s (%d/%d) [%d-%d/%d]', infringement.uri, 
+                                                               MAX_INFRINGEMENTS - self.numInfringementsChecked, 
+                                                               self.numInfringementsChecked,
+                                                               self.activeScrapes, self.suspendedScrapes,
+                                                               self.maxActive);
 
     self.checkInfringement(infringement).then(function () {
       self.pump();

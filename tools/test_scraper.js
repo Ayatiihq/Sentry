@@ -43,12 +43,12 @@ function main() {
     instance.on(name, function() {
       console.log('received signal', name);
       
-      Object.values(arguments, function (value) {
-        if (Object.isObject(value) || Object.isArray(value))
-          console.log(JSON.stringify(value));
-        else
-          console.log(value);
-      });
+//     Object.values(arguments, function (value) {
+//       if (Object.isObject(value) || Object.isArray(value))
+//         console.log(JSON.stringify(value));
+//       else
+//         console.log(value);
+//     });
     });
   });
 
