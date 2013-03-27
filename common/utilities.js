@@ -209,41 +209,38 @@ Utilities.notify = function(message) {
 
 Utilities.followRedirects = function(links, promise) {
 
-  function onHeadResponse(theLinks, thePromise, err, resp, html){
+  function onHeadResponse(results, thePromise, err, resp, html){
     if(err){
-      console.log('error onHeadResponse ! : ' + err.message);
-      thePromise.resolve(theLinks);
+      logger.info('error onHeadResponse ! : ' + err.message);
+      thePromise.resolve(results);
       return;      
     }
 
-    var circularCheck = theLinks.last() === resp.headers.location; 
+    var circularCheck = results.last() === resp.headers.location; 
 
     if(circularCheck){
-      console.log('clocked a circular reference');
-      thePromise.resolve(theLinks);
+      logger.info('clocked a circular reference - finish up');
+      thePromise.resolve(results);
     }
     else if(resp.headers.location){
       var redirect = URI(resp.headers.location.replace(/\s/g, ""));
       if(redirect.is("relative"))
-        redirect = redirect.absoluteTo(links.last())  
-      theLinks.push(redirect.toString())
-      console.log('go again on : ' + redirect.toString());
-      requestHeader(theLinks, thePromise);
+        redirect = redirect.absoluteTo(links.last());
+      // push this link into our results  
+      results.push(redirect.toString());
+      logger.info('go request : ' + redirect.toString());
+      requestHeader(results, thePromise);
     }
     else{
       console.log('End of the road');
-      thePromise.resolve(theLinks);      
+      thePromise.resolve(results);      
     }
   }
-  console.log('request : ' + links.last());
-
-  mockHeader = {};
-  if(links.length > 1){
-    mockHeader = {referer: links[links.length -2 ]};
-  }
-
+  // Request just the headers with a long timeout
+  // Don't allow redirects to follow on automatically
   request.head(links.last(),
-              {timeout: 30000, followRedirect: false, header: mockHeader},
+              {timeout: 30000, followRedirect: false},
               onHeadResponse.bind(null, links, promise));
   return promise;
 }
+

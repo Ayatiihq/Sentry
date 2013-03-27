@@ -218,3 +218,4 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
 }
 
 module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers]
+
