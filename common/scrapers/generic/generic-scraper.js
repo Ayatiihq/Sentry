@@ -56,7 +56,7 @@ Generic.prototype.emitInfringementUpdates = function (infringement, parents, ext
   for (var i = 0; i < parents.length; i++) {
     self.emit('infringement',
               parents[i],
-              {score: MAX_SCRAPER_POINTS/2, source: 'scraper.generic', message: 'Parent'});
+              {score: MAX_SCRAPER_POINTS / 2, source: 'scraper.generic', message: 'Parent'});
     if (i > 0) {
       self.emit('relation', parents[i - 1], parents[i]);
     }

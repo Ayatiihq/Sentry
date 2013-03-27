@@ -68,7 +68,7 @@ Wrangler.prototype.doBusyCheck = function (lastCheckCount) {
   var self = this;
   if (self.isSuspended && self.busyCount < lastCheckCount) {
     self.isSuspended = false;
-    self.emit('resumed')
+    self.emit('resumed');
   }
   if (!self.isSuspended && self.busyCount === lastCheckCount) {
     self.isSuspended = true;
