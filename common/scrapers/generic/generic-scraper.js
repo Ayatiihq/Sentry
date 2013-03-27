@@ -122,7 +122,6 @@ Generic.prototype.pump = function () {
                                                             self.maxActive);
 
     self.checkInfringement(infringement).then(function () {
-      self.activeScrapes = self.activeScrapes - 1;
       self.pump();
     });
 
@@ -154,7 +153,10 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
     self.emitInfringementUpdates(infringement, parents, metadata);
   });
 
-  
+  if (!wrangler.isSuspended) {
+    self.activeScrapes = self.activeScrapes - 1;
+  };
+
   promise.resolve(items);
 };
 
@@ -164,6 +166,14 @@ Generic.prototype.checkInfringement = function (infringement) {
   var wrangler = new BasicWrangler();
   wrangler.addRule(acquire('endpoint-wrangler').rulesLiveTV);
   wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+  wrangler.on('suspended', function onWranglerSuspend() {
+    self.activeScrapes = self.activeScrapes - 1;
+    self.pump();
+  });
+  wrangler.on('resumed', function onWranglerResume() {
+    self.activeScrapes = self.activeScrapes + 1;
+    self.pump();
+  });
   wrangler.beginSearch(infringement.uri);
   return promise;
 };
