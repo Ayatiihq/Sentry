@@ -228,11 +228,10 @@ Utilities.followRedirects = function(links, promise) {
         redirect = redirect.absoluteTo(links.last());
       // push this link into our results  
       results.push(redirect.toString());
-      logger.info('go request : ' + redirect.toString());
+      logger.info('request redirect location : ' + redirect.toString());
       requestHeader(results, thePromise);
     }
     else{
-      console.log('End of the road');
       thePromise.resolve(results);      
     }
   }

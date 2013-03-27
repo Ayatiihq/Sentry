@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
   , utilities = acquire('utilities')
+  , cyberlocker = acquire('cyberlocker')
 ;
 
 module.exports.shouldIgnoreUri = function (uri) {
@@ -200,21 +201,31 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   // first Rip out links into an array
   $('a').each(function(){
     var hrefValue = $(this).attr('href'); 
-    if(hrefValue){
-      //var link = URI(hrefValue);
-      //if(!avoidThese.some(link.domain()))
+    if(hrefValue && !shouldIgnoreUri(hrefValue)){
       flattened.push(hrefValue);
     }
   });
-  // Check for redirects and interpolate if possible
-  promiseArray = flattened.unique().map(function buildPromises(ulink){
-      return utilities.followRedirects.bind(null, [ulink], new Promise.Promise());
-  });
-  Promise.seq(promiseArray).then( function(anything){
-    console.log('finished the redirecting ' + JSON.stringify(anything));  
+
+  flattened.unique(function buildPromises(ulink){
+    promiseArray.push(utilities.followRedirects([ulink], new Promise.Promise()));
   });
 
-  return foundItems;
+  var promise = new Promise.Promise();
+
+  all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
+    var compactResults = [];
+    lifted30Xs.each(function (list) { compactResults = compactResults.union(list); });
+    //console.log('At the end ' + JSON.stringify(foundItems) + JSON.stringify(lifted30Xs));
+    compactResults.each(function checkCyberLocker(resolvedLink){
+      var URILink = URI(resolvedLink);
+      if(cyberlocker.knownDomains.some(URILink.domain())){
+        foundItems.push(resolvedLink);
+      }
+    })
+    promise.resolve(foundItems);
+  });
+
+  return promise;
 }
 
 module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers]
