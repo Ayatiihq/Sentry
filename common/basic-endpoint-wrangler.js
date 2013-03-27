@@ -88,7 +88,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
             try {
               composedURI = URI(iframeSrc).absoluteTo(uri).toString();
             } catch (error) {
-              promise.reject(new error('URI is malformed: ' + error), true);
+              promise.reject(new Error('URI is malformed: ' + error), true);
               return null; // probably 'javascript;'
             }
 
