@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('basic-endpoint-wrangler.js')
   , Promise = require('node-promise').Promise
+  , all = require('node-promise').all
   , request = require('request')
   , seq = require('node-promise').seq
   , shouldIgnoreUri = acquire('iframe-exploder').shouldIgnoreUri
@@ -63,44 +64,47 @@ Wrangler.prototype.processUri = function (uri, parents) {
   var self = this;
   self.foundURIs.push(uri);
 
-  request({
-    'uri': uri,
-    'Referer': parents.last()
-  },
-  function (error, response, body) {
-    if (!error && response.statusCode === 200) {
-      var $ = cheerio.load(body)
-      self.processSource(uri, parents, $, body);
-      var newParents = parents.clone();
-      newParents.push(uri);
-      
-      if (newParents.length < MAX_DEPTH) {
-        var newIFrames = self.findIFrames($).map(function (iframeSrc) {
-          try {
-            var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
-          } catch (error) {
-            return null; // probably 'javascript;'
-          };
+  // we do all this in a callback to process.nextTick
+  // so that we return to nodes event loop, just means we should be more efficient
+  // with reguards to distributing resources between cpu and io
+  process.nextTick(function doInNextTick() {
+    request( {'uri': uri, 'Referer': parents.last() }, function (error, response, body) {
+      if (!error && response.statusCode === 200) {
+        var $ = cheerio.load(body)
+        self.processSource(uri, parents, $, body);
+        var newParents = parents.clone();
+        newParents.push(uri);
 
-          if (shouldIgnoreUri(composedURI)) { return null; }
-          if (self.foundURIs.some(composedURI)) { return null; }
+        if (newParents.length < MAX_DEPTH) {
+          var newIFrames = self.findIFrames($).map(function foundIFrame(iframeSrc) {
+            try {
+              var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
+            } catch (error) {
+              return null; // probably 'javascript;'
+            };
 
-          return self.processUri.bind(self, composedURI, newParents);
-        }).compact();
+            if (shouldIgnoreUri(composedURI)) { return null; }
+            if (self.foundURIs.some(composedURI)) { return null; }
 
-        seq(newIFrames).then(function () {
-          promise.resolve();
-        });
+            return self.processUri(composedURI, newParents);
+          }).compact();
+
+          all(newIFrames).then(function () {
+            promise.resolve();
+          },
+          function promiseError(errs) {
+
+          });
+        }
+        else {
+          promise.reject(new Error('iframe MAX_DEPTH (' + MAX_DEPTH + ') reached'), true);
+        }
       }
       else {
-        logger.info('MAXFRAMES reached: %s', uri);
-        promise.resolve();
+        logger.info('Error(' + uri + '): ' + error);
+        promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
       }
-    }
-    else {
-      logger.info('Error(' + uri + '): ' + error);
-      promise.resolve();
-    }
+    });
   });
 
   return promise;
