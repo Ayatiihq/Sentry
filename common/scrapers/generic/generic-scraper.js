@@ -91,6 +91,7 @@ Generic.prototype.start = function (campaign, job) {
 
     self.checkURLS = results;
     self.activeScrapes = 0;
+    self.suspendedScrapes = 0;
    
     self.pump();
   });
@@ -100,7 +101,7 @@ Generic.prototype.start = function (campaign, job) {
 Generic.prototype.pump = function () {
   var self = this;
   
-  if (self.numInfringementsChecked >= MAX_INFRINGEMENTS && self.activeScrapes <= 0) {
+  if (self.numInfringementsChecked >= MAX_INFRINGEMENTS && self.activeScrapes <= 0 && self.suspendedScrapes <= 0) {
     logger.info('Finishing up, no more urls to check');
     self.stop();
     return;
@@ -115,10 +116,10 @@ Generic.prototype.pump = function () {
     self.numInfringementsChecked = self.numInfringementsChecked + 1;
     self.activeScrapes = self.activeScrapes + 1;
 
-    logger.info('starting infrigement: %s (%d/%d) (%d/%d)', infringement.uri, 
+    logger.info('starting infrigement: %s (%d/%d) (%d-%d/%d)', infringement.uri, 
                                                             MAX_INFRINGEMENTS - self.numInfringementsChecked, 
                                                             self.numInfringementsChecked,
-                                                            self.activeScrapes,
+                                                            self.activeScrapes, self.suspendedScrapes,
                                                             self.maxActive);
 
     self.checkInfringement(infringement).then(function () {
@@ -155,7 +156,10 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 
   if (!wrangler.isSuspended) {
     self.activeScrapes = self.activeScrapes - 1;
-  };
+  }
+  else {
+    self.suspendedScrapes = self.suspendedScrapes - 1;
+  }
 
   promise.resolve(items);
 };
@@ -168,10 +172,12 @@ Generic.prototype.checkInfringement = function (infringement) {
   wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
   wrangler.on('suspended', function onWranglerSuspend() {
     self.activeScrapes = self.activeScrapes - 1;
+    self.suspendedScrapes = self.suspendedScrapes + 1;
     self.pump();
   });
   wrangler.on('resumed', function onWranglerResume() {
     self.activeScrapes = self.activeScrapes + 1;
+    self.suspendedScrapes = self.suspendedScrapes - 1;
     self.pump();
   });
   wrangler.beginSearch(infringement.uri);
