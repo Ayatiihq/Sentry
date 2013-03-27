@@ -113,6 +113,10 @@ Generic.prototype.pump = function () {
 
   if (check) {
     var infringement = self.checkURLS.pop();
+    while (infringement.uri[0] === '/') {
+      logger.error('infringement %s is not valid', infringement.uri);
+      infringement = self.checkURLS.pop();
+    }
     self.numInfringementsChecked = self.numInfringementsChecked + 1;
     self.activeScrapes = self.activeScrapes + 1;
 

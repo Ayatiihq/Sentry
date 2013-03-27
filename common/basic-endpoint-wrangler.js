@@ -40,7 +40,7 @@ util.inherits(Wrangler, EndpointWrangler.Wrangler);
 
 Wrangler.prototype.beginSearch = function (uri) {
   var self = this;
-  
+
   if (self.isRunning) { throw new Error('tried to begin new search whilst still processing a previous search'); }
   self.isRunning = true;
   self.processing = 0; // a counter that counts the number of processing items
