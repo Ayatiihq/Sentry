@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , URI = require('URIjs')
   , cheerio = require('cheerio')
   , XRegExp = require('xregexp').XRegExp
+  , wranglerRules = acquire('wrangler-rules')
 ;
 
 // iframe object for containing which iframes we have looked at.
@@ -53,25 +54,6 @@ var IFrameObj = module.exports = function (client, element, urlmap, depth, root,
 
 util.inherits(IFrameObj, events.EventEmitter);
 
-module.exports.shouldIgnoreUri = function (uri) {
-  var ignoreUris = [
-    XRegExp('^IAMERROR$') // allows us to ignore uris that fail URI(), basically javascript; nonsense
-   , XRegExp('facebook')   // like button
-   , XRegExp('google')     // +1
-   , XRegExp('twitter')    // tweet
-   , XRegExp('://ad\.')    // common ad subdomain
-   , XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
-   , XRegExp('banner')
-   , XRegExp('adjuggler')
-   , XRegExp('yllix') // yllix.com - ads
-   , XRegExp('(cineblizz|newzexpress|goindialive|webaddalive|awadhtimes|listenfilmyradio)') // generic add landing pages
-  ];
-
-  return ignoreUris.some(function ignoreTest(testregex) {
-    return testregex.test(uri);
-  });
-
-};
 
 IFrameObj.prototype.getParentURIs = function () {
   var self = this;
@@ -124,7 +106,7 @@ IFrameObj.prototype.selectNextFrame = function () {
     if (self.urlmap.some(frame.src) && frame.isExempt && frame.getState() === 'unseen') { return true; }
     else if (!self.urlmap.some(frame.src)
               && frame.getState() === 'unseen'
-              && !module.exports.shouldIgnoreUri(frame.src)) { return true; }
+              && !wranglerRules.shouldIgnoreUri(frame.src)) { return true; }
     else {
       return false;
     }
@@ -150,7 +132,7 @@ IFrameObj.prototype.getState = function () {
   var unseen_children = this.children.filter(function (child) {
     return (!self.urlmap.some(child.src)
             && child.getState() === 'unseen'
-            && !module.exports.shouldIgnoreUri(child.src));
+            && !wranglerRules.shouldIgnoreUri(child.src));
   });
 
   if (!unseen_children.length) { return 'seen'; }

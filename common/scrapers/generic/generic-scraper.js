@@ -127,7 +127,7 @@ Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
-  wrangler.addRule(acquire('endpoint-wrangler').rulesLiveTV);
+  wrangler.addRule(acquire('wrangler-rules').rulesLiveTV);
   wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
   wrangler.beginSearch(infringement.uri);
   return promise;
