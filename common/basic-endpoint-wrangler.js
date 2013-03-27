@@ -69,8 +69,14 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // so that we return to nodes event loop, just means we should be more efficient
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
-    request( {'uri': uri, 'Referer': parents.last() }, function (error, response, body) {
-      if (!error && response.statusCode === 200) {
+    request({'uri': uri, 'Referer': parents.last(), 'User-Agent': USER_AGENT }, function (error, response, body) {
+      if (error) {
+        logger.info('Error(' + uri + '): ' + error);
+        promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
+        return;
+      }
+
+      if (response.statusCode === 200) {
         var $ = cheerio.load(body);
         self.processSource(uri, parents, $, body);
         var newParents = parents.clone();
@@ -82,6 +88,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
             try {
               composedURI = URI(iframeSrc).absoluteTo(uri).toString();
             } catch (error) {
+              promise.reject(new error('URI is malformed: ' + error), true);
               return null; // probably 'javascript;'
             }
 
@@ -101,10 +108,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
         else {
           promise.reject(new Error('iframe MAX_DEPTH (' + MAX_DEPTH + ') reached'), true);
         }
-      }
-      else {
-        logger.info('Error(' + uri + '): ' + error);
-        promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
       }
     });
   });
