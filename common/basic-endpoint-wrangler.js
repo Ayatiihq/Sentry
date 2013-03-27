@@ -26,6 +26,7 @@ var acquire = require('acquire')
 ;
 
 var MAX_DEPTH = 7; // don't go more than 7 iframes deep, that is reta.. bad. 
+var USER_AGENT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 
 var Wrangler = module.exports.Wrangler = function () {
   var self = this;
@@ -70,18 +71,19 @@ Wrangler.prototype.processUri = function (uri, parents) {
   process.nextTick(function doInNextTick() {
     request( {'uri': uri, 'Referer': parents.last() }, function (error, response, body) {
       if (!error && response.statusCode === 200) {
-        var $ = cheerio.load(body)
+        var $ = cheerio.load(body);
         self.processSource(uri, parents, $, body);
         var newParents = parents.clone();
         newParents.push(uri);
+        var composedURI = '';
 
         if (newParents.length < MAX_DEPTH) {
           var newIFrames = self.findIFrames($).map(function foundIFrame(iframeSrc) {
             try {
-              var composedURI = URI(iframeSrc).absoluteTo(uri).toString();
+              composedURI = URI(iframeSrc).absoluteTo(uri).toString();
             } catch (error) {
               return null; // probably 'javascript;'
-            };
+            }
 
             if (shouldIgnoreUri(composedURI)) { return null; }
             if (self.foundURIs.some(composedURI)) { return null; }
