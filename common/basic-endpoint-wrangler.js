@@ -136,23 +136,35 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // so that we return to nodes event loop, just means we should be more efficient
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
-    var req = request(reqOpts, function (error, response, body) {
+    var reqPromise = new Promise();
+    var reqObj = request(reqOpts, function (error, response, body) { 
       self.busyCount = process.hrtime(); // bump the busy counter
-
-      if (error || (response.statusCode != 200 && (response.statusCode >= 400 && response.statusCode < 300))) {
-        logger.info('Error(' + uri + '): ' + error);
-        promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
-      }
-      else if (response.statusCode === 200) {
-        var $ = cheerio.load(body);
-        self.processSource(uri, parents, $, body);
-
-        var newParents = parents.clone();
-        newParents.push(uri);
-
-        self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); });
-      }
+      if (!!error) { reqPromise.reject(error, response); }
+      else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
     });
+
+    // create a timeout, sometimes request doesn't seem to timeout appropriately. 
+    var timeoutRequest = function() {
+      reqObj.abort();
+      reqPromise.reject(new Error('Timeout reached'));
+    };
+    var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
+
+    reqPromise.then(function (body) {
+      delayedTimeoutRequest.cancel();
+      var $ = cheerio.load(body);
+      self.processSource(uri, parents, $, body);
+
+      var newParents = parents.clone();
+      newParents.push(uri);
+      self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); });
+    }, function onRequestError(error, response) {
+      delayedTimeoutRequest.cancel();
+      var statusCode = (!!response) ? response.statusCode : 0;
+      logger.info('%s - Error(%d): %s', uri, statusCode, error);
+      promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
+    });
+
   });
 
   return promise;
