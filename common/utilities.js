@@ -216,7 +216,7 @@ Utilities.followRedirects = function(links, promise) {
       return;      
     }
 
-    var circularCheck = results.last() === resp.headers.location; 
+    var circularCheck = results.some(resp.headers.location); 
 
     if(circularCheck){
       logger.info('clocked a circular reference - finish up');
