@@ -215,8 +215,8 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
     var compactResults = [];
     lifted30Xs.each(function (list) { compactResults = compactResults.union(list); });
-    //console.log('At the end ' + JSON.stringify(foundItems) + JSON.stringify(lifted30Xs));
     compactResults.each(function checkCyberLocker(resolvedLink){
+      // TODO be careful creating an instance of URI - try/catch
       var URILink = URI(resolvedLink);
       if(cyberlocker.knownDomains.some(URILink.domain())){
         foundItems.push(resolvedLink);
