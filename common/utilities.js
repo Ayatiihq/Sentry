@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
+  , request = require('request')
   ;
 
 var Seq = require('seq');
@@ -198,3 +199,47 @@ Utilities.notify = function(message) {
   req.write(msg.data);
   req.end();
 }
+
+/**
+ * Follows redirects manually 
+ * @param  {array}  links   A array usually containing one link from which to start the requesting from   
+ * @param  {object} promise A promise instance which resolves at some point returning an array of link(s)
+ * @return {object} the given promise.
+ */
+
+Utilities.followRedirects = function(links, promise) {
+
+  function onHeadResponse(results, thePromise, err, resp, html){
+    if(err){
+      logger.info('error onHeadResponse ! : ' + err.message);
+      thePromise.resolve(results);
+      return;      
+    }
+
+    var circularCheck = results.some(resp.headers.location); 
+
+    if(circularCheck){
+      logger.info('clocked a circular reference - finish up');
+      thePromise.resolve(results);
+    }
+    else if(resp.headers.location){
+      var redirect = URI(resp.headers.location.replace(/\s/g, ""));
+      if(redirect.is("relative"))
+        redirect = redirect.absoluteTo(links.last());
+      // push this link into our results  
+      results.push(redirect.toString());
+      logger.info('request redirect location : ' + redirect.toString());
+      requestHeader(results, thePromise);
+    }
+    else{
+      thePromise.resolve(results);      
+    }
+  }
+  // Request just the headers with a long timeout
+  // Don't allow redirects to follow on automatically
+  request.head(links.last(),
+              {timeout: 30000, followRedirect: false},
+              onHeadResponse.bind(null, links, promise));
+  return promise;
+}
+
