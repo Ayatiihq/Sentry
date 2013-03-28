@@ -8,16 +8,12 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
   , database = acquire('database')
   , logger = acquire('logger').forFile('clients.js')
-  , mongodb = require('mongodb')
   , sugar = require('sugar')
   , util = require('util')
   ;
-
-var Swarm = acquire('swarm');
 
 var COLLECTION = 'clients';
 
@@ -55,10 +51,6 @@ Clients.prototype.init = function() {
 function defaultCallback(err) {
   if (err)
     logger.warn('Reply Error: %s', err);
-}
-
-Clients.prototype.genClientKey = function(name) {
-  return name;
 }
 
 //
@@ -108,7 +100,7 @@ Clients.prototype.add = function(client, callback) {
 /**
  * Update a client's details.
  *
- * @param {object}          query      The query selecting the client(s).
+ * @param {object}          query      The query selecting the client.
  * @param {object}          updates    An object containing updates for the client.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}

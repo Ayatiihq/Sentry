@@ -169,7 +169,7 @@ Scraper.prototype.getJobDetails = function(job, callback) {
     }
 
     if (!err) {
-      self.campaigns_.getDetails(job.body.clientId, job.body.campaignId, function(err, campaign) {
+      self.campaigns_.getDetails(job.body.campaignId, function(err, campaign) {
         job.campaign = campaign;
         if (!(job.campaign && job.campaign.type))
           err = new Error('Unable to get campaign details');
