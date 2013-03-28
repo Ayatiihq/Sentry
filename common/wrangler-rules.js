@@ -201,12 +201,12 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   // first Rip out links into an array
   $('a').each(function(){
     var hrefValue = $(this).attr('href'); 
-    if(hrefValue && !shouldIgnoreUri(hrefValue)){
+    if(hrefValue && !shouldIgnoreUri(hrefValue) && !flattened.some(hrefValue)){
       flattened.push(hrefValue);
     }
   });
 
-  flattened.unique(function buildPromises(ulink){
+  flattened.each(function buildPromises(ulink){
     promiseArray.push(utilities.followRedirects([ulink], new Promise.Promise()));
   });
 
