@@ -24,17 +24,15 @@ function main() {
 
   setupSignals();
 
-  database.connect(function(err, db) {
-    console.log(err, 'success on url');
-
-    db.createCollection('clients', function(err, items) {
-      db.collectionsInfo(function(err, cursor) {
-        cursor.toArray(function(err, items) {
-          console.log(items);
-          db.close();
-        });
+  database.connectAndEnsureCollection('test', function(err, db, collection) {
+    console.log('Ensuring clients: ', err ? err : 'success');
+    
+    db.collectionsInfo(function(err, cursor) {
+      cursor.toArray(function(err, items) {
+        console.log(items);
+        db.close();
       });
-    });
+    }); 
   });
 }
 

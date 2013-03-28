@@ -13,7 +13,9 @@ var acquire = require('acquire')
   , mongodb = require('mongodb')
   ;
 
-var database = undefined;
+var Seq = require('seq');
+
+var DATABASE = undefined;
 
 var Database = module.exports;
 
@@ -27,14 +29,47 @@ var Database = module.exports;
  * @return {undefined}
  */
 Database.connect = function(callback) {
-  callback = callback ? callback : defaultCallback;
+  callback = callback ? callback : function() {};
 
-  if (database) {
-    callback(null, database);
+  if (DATABASE) {
+    callback(null, DATABASE);
   } else {
     mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
-      database = db;
-      callback(null, db);
+      DATABASE = db;
+      callback(null, DATABASE);
     });
   }
 }
+
+
+/**
+ * Connect to database and ensure collection exists
+ *
+ * @param {string}  collectionName   The name of the collection.
+ * @param {function(err, database, collection)}   callback  The callback to consume the database and collection
+ * @return {undefined} 
+ */
+ Database.connectAndEnsureCollection = function(collectionName, callback) {
+  if (!collectionName)
+    return logger.warn('Collection name required');
+
+  callback = callback ? callback : function() {};
+
+  Seq()
+    .seq('Get Database', function() {
+      Database.connect(this);
+    })
+    .seq('Ensure collection', function(db) {
+      var that = this;
+      db.createCollection(collectionName, function(err) {
+        that(err, db);
+      });
+    })
+    .seq('done', function(db) {
+      callback(null, db, db.collection(collectionName));
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
+ }

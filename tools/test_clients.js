@@ -40,15 +40,15 @@ function main() {
       else
         console.log(list);
 
-      if (list.length && argv[2] === 'remove')
-        clients.remove(list[0]);
+      if (list.length && argv[2] === 'remove') {
+        var id = JSON.parse(argv[3]);
+        clients.remove(id, console.log);
+      }
 
       if (list.length && argv[2] === 'update') {
-        var updates = [];
-        updates.PartitionKey = list[0].PartitionKey;
-        updates.RowKey = list[0].RowKey;
-        updates.testUpdated = true;
-        clients.update(updates);
+        var id = JSON.parse(argv[3]);
+        var updates = JSON.parse(argv[4]);
+        clients.update(id, updates, console.log);
       }
     });
   }, 1000 * 3);
