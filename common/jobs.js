@@ -14,9 +14,8 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , states = require('./states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
-
-var Swarm = acquire('swarm');
 
 var TABLE = 'jobs'
   , PACK_LIST = ['metadata', 'snapshot']
@@ -238,7 +237,7 @@ Jobs.prototype.start = function(domain, job, callback) {
   entity.RowKey = job;
   entity.started = Date.utc.create().getTime();
   entity.state = states.jobs.state.STARTED;
-  entity.worker = Swarm.getUID();
+  entity.worker = utilities.getWorkerId();
 
   self.tableService_.mergeEntity(TABLE, entity, callback);
 }

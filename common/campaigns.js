@@ -8,7 +8,6 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
   , database = acquire('database')
   , logger = acquire('logger').forFile('campaigns.js')

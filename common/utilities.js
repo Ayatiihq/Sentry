@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , exec = require('child_process').exec
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
+  , os = require('os')
   , querystring = require('querystring')
   , sugar = require('sugar')
   , URI = require('URIjs')
@@ -243,3 +244,11 @@ Utilities.followRedirects = function(links, promise) {
   return promise;
 }
 
+/**
+ * Produces a string id for the machine and worker.
+ *
+ * @return {object} the id of the worker.
+ */
+Utilities.getWorkerId  = function() {
+  return util.format('%s-%s', os.hostname(), process.pid);
+}
