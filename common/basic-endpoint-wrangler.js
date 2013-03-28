@@ -139,8 +139,12 @@ Wrangler.prototype.processUri = function (uri, parents) {
     var reqPromise = new Promise();
     var reqObj = request(reqOpts, function (error, response, body) { 
       self.busyCount = process.hrtime(); // bump the busy counter
+      if (!!response) {
+        if (response.statusCode >= 400 && response.statusCode < 600 && !error) { error = new Error('4xx status code: ' + response.statusCode); }
+      }
       if (!!error) { reqPromise.reject(error, response); }
       else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
+      else { console.log(error); console.dir(response); throw new Error('omg wtfbbq', error, response); }
     });
 
     // create a timeout, sometimes request doesn't seem to timeout appropriately. 
