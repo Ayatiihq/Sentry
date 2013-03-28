@@ -26,11 +26,11 @@ CyberLockers.knownDomains = ['rapidshare.com', 'dropbox.com', 'mega.co.nz', 'dep
                         	 'hostingbulk.com', 'hulkfile.eu', 'hulkshare.com', 'ifile.ws', 'itsuploaded.com', 'jumbofiles.com', 
                         	 'limelinx.com', 'loadpot.net', 'megaload.it', 'midupload.com', 'mixturecloud.com', 'movreel.com', 'mozy.com',
                         	 'muchshare.net', 'novamov.com', 'nowdownload.eu', 'obligao.com', 'oteupload.com', 'peejeshare.com', 'pigsonic.com', 
-                        	 'queenshare.com', 'restfile.ca', 'ryushare.com', 'saarie.com', 'sendmyway.com', 'senduit.com', 'sharebeast.com', 'sharesend.com'
+                        	 'queenshare.com', 'restfile.ca', 'ryushare.com', 'saarie.com', 'sendmyway.com', 'senduit.com', 'sharebeast.com', 'sharesend.com',
                         	 'skydrive.live.com', 'spideroak.com', 'streamcloud.org', 'sugarsync.com', 'syncplicity.com', 'tusfiles.net', 'unlimitedshare.com',
                         	 'upafile.com', 'uploadbaz.com', 'uploadhero.co', 'upload.ee', 'uploadic.com', 'uploading.com', 'uploadingit.com', 'uploadorb.com',
                         	 'ul.to', 'uploaded.net', 'uloz.to', 'usaupload.net', 'verzend.be', 'vreer.com', 'wikisend.com', 'xenubox.com', 'yandex.com',
                         	 'yousendit.com', 'ziddu.com', 'zomgupload.com', 'asuswebstorage.com', 'ubuntuone.com', 'wuala.com', 'syncblaze.com', 
-                        	 'magicvortex.com', 'filechum.com', 'cloudsafe.com', 'syncblazecloud.vembu.com', 'twindocs.com', 'sharefiles.co', 'icloud.com'];
+                        	 'magicvortex.com', 'filechum.com', 'cloudsafe.com', 'syncblazecloud.vembu.com', 'twindocs.com', 'sharefiles.co', 'icloud.com',
+                        	 'firstclass-download.com'];
 
-                        	 

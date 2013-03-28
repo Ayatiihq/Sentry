@@ -197,7 +197,7 @@ module.exports.rulesLiveTV = [ module.exports.ruleEmbed
 module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems){
   var promiseArray;
   var flattened = [];
-
+  var promise;
   // first Rip out links into an array
   $('a').each(function(){
     var hrefValue = $(this).attr('href'); 
@@ -210,21 +210,26 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     promiseArray.push(utilities.followRedirects([ulink], new Promise.Promise()));
   });
 
-  var promise = new Promise.Promise();
+  promise = new Promise.Promise();
 
   all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
-    var compactResults = [];
-    lifted30Xs.each(function (list) { compactResults = compactResults.union(list); });
-    compactResults.each(function checkCyberLocker(resolvedLink){
-      // TODO be careful creating an instance of URI - try/catch
-      var URILink = URI(resolvedLink);
-      if(cyberlocker.knownDomains.some(URILink.domain())){
-        foundItems.push(resolvedLink);
-      }
-    })
+    lifted30Xs.each(function (list) { 
+      // keep the list together inorder to associate redirects with initial scraped link.
+      list.each(function(resolvedLink){ 
+        var URILink;
+        try {
+          URILink = URI(resolvedLink);
+        }
+        catch(error){
+          return; // some dodgy link => move on.
+        }
+        if(cyberLockers.knownDomains.some(URILink.domain())){
+          foundItems.push(list);
+        }
+      });
+    });
     promise.resolve(foundItems);
   });
-
   return promise;
 }
 
