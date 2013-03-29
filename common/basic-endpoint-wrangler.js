@@ -26,7 +26,7 @@ var acquire = require('acquire')
 ;
 
 var MAX_DEPTH = 7; // don't go more than 7 iframes deep, that is reta.. bad. 
-var USER_AGENT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+var USER_AGENT = 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1';
 
 var Wrangler = module.exports.Wrangler = function () {
   var self = this;
@@ -47,13 +47,18 @@ Wrangler.prototype.beginSearch = function (uri) {
   self.foundURIs = [];
   
   self.uri = uri;
-  self.processUri(uri, []).then(function onFinishedProcessing() {
+  var cleanup = function () {
     self.isRunning = false;
 
     if (self.processing < 1) {
       // we only emit this signal if we are done processing all items.
       self.emit('finished', self.foundItems);
     }
+  };
+
+  self.processUri(uri, []).then(cleanup, function onErrorProcessing(error) {
+    logger.error('(%s) Error processing uri: ' + error, self.uri);
+    cleanup();
   });
 
   self.busyCount = process.hrtime();
@@ -79,7 +84,7 @@ Wrangler.prototype.doBusyCheck = function (lastCheckCount) {
   }
 
   if (self.isSuspended && process.hrtime(self.busyCount)[0] > 30) {
-    logger.info('(%s) suspended for %d seconds...', self.uri, process.hrtime(self.busyCount)[0]);
+    logger.error('(%s) suspended for %d seconds...', self.uri, process.hrtime(self.busyCount)[0]);
   }
 
   self.busyCheckTimer = self.doBusyCheck.bind(self).delay(5000, self.busyCount);
@@ -127,8 +132,9 @@ Wrangler.prototype.processUri = function (uri, parents) {
 
   var reqOpts = {
     'uri': uri, 
-    'headers': { 'Referer': parents.last() },
-    'User-Agent': USER_AGENT, 
+    'headers': {
+      'Referer': parents.last(), 'User-Agent': USER_AGENT
+    },
     'timeout':30*1000 
   };
 
@@ -140,11 +146,13 @@ Wrangler.prototype.processUri = function (uri, parents) {
     var reqObj = request(reqOpts, function (error, response, body) { 
       self.busyCount = process.hrtime(); // bump the busy counter
       if (!!response) {
-        if (response.statusCode >= 400 && response.statusCode < 600 && !error) { error = new Error('4xx status code: ' + response.statusCode); }
+        if (response.statusCode >= 400 && response.statusCode < 600 && !error) {
+          error = new Error('4xx status code: ' + response.statusCode);
+        }
       }
       if (!!error) { reqPromise.reject(error, response); }
       else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
-      else { console.log(error); console.dir(response); throw new Error('omg wtfbbq', error, response); }
+      else { throw new Error('omg wtfbbq', error, response); }
     });
 
     // create a timeout, sometimes request doesn't seem to timeout appropriately. 
@@ -161,7 +169,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
 
       var newParents = parents.clone();
       newParents.push(uri);
-      self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); });
+      self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
       delayedTimeoutRequest.cancel();
       var statusCode = (!!response) ? response.statusCode : 0;

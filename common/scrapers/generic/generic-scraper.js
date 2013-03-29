@@ -116,6 +116,7 @@ Generic.prototype.pump = function () {
     while (infringement.uri[0] === '/') {
       logger.error('infringement %s is not valid', infringement.uri);
       infringement = self.checkURLS.pop();
+      if (!infringement) { return; }
     }
     self.numInfringementsChecked = self.numInfringementsChecked + 1;
     self.activeScrapes = self.activeScrapes + 1;
@@ -138,8 +139,6 @@ Generic.prototype.pump = function () {
 Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise, isBackup, items) {
   var self = this;
   wrangler.removeAllListeners();
-
- // logger.info('found ' + items.length  + ' via the wrangler');
 
   // First figure out what the state update is for this infringement   
   var newState;
