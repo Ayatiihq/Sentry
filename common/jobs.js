@@ -160,7 +160,7 @@ Jobs.prototype.add = function(owner, consumer, metadata, callback) {
   job.metadata = ifUndefined(metadata, {});
 
   self.jobs_.insert(job, function(err) {
-    callback(err, err ? null : JSON.stringify(job._id));
+    callback(err, err ? undefined : JSON.stringify(job._id));
   });
 }
 
