@@ -31,7 +31,6 @@ var Wrangler = module.exports.Wrangler = function (driver) {
     self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                .withCapabilities(CAPABILITIES)
                                .build();
-    logger.info('building new webdriver');
   }
   else {
     this.driver = driver;
@@ -105,8 +104,6 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   var self = this;
   self.processing++;
 
-  logger.info('processing uri: ' + uri);
-    
   var pagemods = self.modules.map(function (rule) { return rule.bind(null, $, source); });
 
   var previousReturn = [];

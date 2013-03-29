@@ -19,7 +19,7 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Queue = acquire('queue')
   , Role = acquire('role')
-  , Scrapers = acquire('scrapers')
+  , Scrapers = acquire('scrapers');
 
 var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 10
