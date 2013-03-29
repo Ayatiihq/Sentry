@@ -218,7 +218,7 @@ Miner.prototype.linkMatchesCampaign = function(link, campaign) {
 }
 
 Miner.prototype.getTimestampKey = function(campaign) {
-  return util.format('%s.%s.%s', campaign.type, campaign.name, 'timestamp');
+  return util.format('%s%s%s', campaign.type, campaign.name, 'timestamp');
 }
 
 //

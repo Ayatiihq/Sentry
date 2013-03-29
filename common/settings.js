@@ -8,14 +8,14 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('settings.js')
   , sugar = require('sugar')
   , util = require('util')
   ;
 
-var TABLE = 'settings';
+var COLLECTION = 'settings';
 
 /**
  * Create a new settings object for the domain which should be unique to the consumer and it's
@@ -26,8 +26,10 @@ var TABLE = 'settings';
  * @return {object}
  */
 var Settings = module.exports = function(domain) {
-  this.tableService_ = null;
-  this.partition_ = domain ? domain : 'undefined';
+  this.settings_ = null;
+  this.domain_ = domain ? domain : 'undefined';
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -35,11 +37,17 @@ var Settings = module.exports = function(domain) {
 Settings.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_NETWORK_ACCOUNT,
-                                                config.AZURE_NETWORK_KEY);
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
+      return logger.error('Unable to connect to database %s', err);
+
+    self.db_ = db;
+    self.settings_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
@@ -63,29 +71,16 @@ Settings.prototype.getAll = function(callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select()
-                              .from(TABLE)
-                              .where('PartitionKey eq ?', self.partition_);
-  
-  self.tableService_.queryEntities(query, function(err, entities) {
-    if (err) {
-      callback(err);
-      return;
-    }
+  if (!self.settings_)
+    return self.cachedCalls_.push([self.getAll, Object.values(arguments)]);
 
-    var properties = {};
-    entities.forEach(function(entity) {
-      properties[entity.RowKey.unescapeURL(true)] = JSON.parse(entity.value);
-    });
-
-    callback(null, properties);
-  });  
+  self.settings_.find({ '_id.domain': self.domain_ }).toArray(callback);
 }
 
 /**
  * Get the value of a key.
  *
- * @param {string}                  key         A key. Only numbers, letters and `.` allowed.
+ * @param {string}                  key         A key. Only numbers & letters allowed.
  * @param {function(err, value)}    callback    A callback to receive the value.
  * @return {undefined}
  */
@@ -93,19 +88,11 @@ Settings.prototype.get = function(key, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
-  key = key.escapeURL(true);
 
-  self.tableService_.queryEntity(TABLE, self.partition_, key, function(err, entity) {
-    if (err && err.code == 'ResourceNotFound')
-      callback();
-    else if (err)
-      callback(err);
-    else if (entity && entity.value) {
-      callback(null, JSON.parse(entity.value));
-    } else {
-      callback();
-    }
-  });
+  if (!self.settings_)
+    return self.cachedCalls_.push([self.get, Object.values(arguments)]);
+
+  self.settings_.findOne({ _id: { domain: self.domain_, key: key } }, callback);
 }
 
 /**
@@ -120,40 +107,19 @@ Settings.prototype.set = function(key, value, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
-  key = key.escapeURL(true);
 
-  var entity = {};
-  entity.PartitionKey = self.partition_;
-  entity.RowKey = key;
-  entity.value = JSON.stringify(value);
+ if (!self.settings_)
+    return self.cachedCalls_.push([self.set, Object.values(arguments)]);
 
-  self.tableService_.insertOrReplaceEntity(TABLE, entity, callback);
-}
+  var doc = {
+    _id: {
+      domain: self.domain_,
+      key: key
+    },
+    value: value
+  };
 
-/**
- * Set all properties for the domain.
- *
- * @param {object}           properties  The properties to set.
- * @param {function(err)}    callback    A callback to receive and error.
- * @return {undefined}
- */
-Settings.prototype.setAll = function(properties, callback) {
-  var self = this;
-
-  callback = callback ? callback : defaultCallback;
-
-  self.tableService_.beginBatch();
-
-  Object.keys(properties, function(key) {
-    var entity = {};
-    entity.PartitionKey = self.partition_;
-    entity.RowKey = key.escapeURL(true);
-    entity.value = JSON.stringify(properties[key]);
-
-    self.tableService_.insertOrReplaceEntity(TABLE, entity, callback);
-  });
-
-  self.tableService_.commitBatch(callback);
+  self.settings_.save(doc, callback);
 }
 
 /**
@@ -168,9 +134,8 @@ Settings.prototype.delete = function(key, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.partition_;
-  entity.RowKey = key.escapeURL(true);
+ if (!self.settings_)
+    return self.cachedCalls_.push([self.delete, Object.values(arguments)]);
 
-  self.tableService_.deleteEntity(TABLE, entity, callback);
+  self.settings_.remove({ _id: { domain: self.domain_, key: key } }, callback);
 }
