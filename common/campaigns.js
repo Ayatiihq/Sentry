@@ -111,6 +111,7 @@ Campaigns.prototype.getDetails = function(id, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
+  id = Object.isString(id) ? JSON.parse(id) : id;
 
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
@@ -140,8 +141,10 @@ Campaigns.prototype.add = function(campaign, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
-  campaign._id = campaign.name;
-  campaign.client = campaign.client;
+  campaign._id = {
+    client: campaign.client,
+    campaign: campaign.name
+  };
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');
@@ -162,34 +165,34 @@ Campaigns.prototype.add = function(campaign, callback) {
 /**
  * Update a campaign's details.
  *
- * @param {object}          query      The query selecting the client.
+ * @param {object}          id      The id selecting the client.
  * @param {object}          updates    An object containing updates for the campaign.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.update = function(query, updates, callback) {
+Campaigns.prototype.update = function(id, updates, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.update, Object.values(arguments)]);
 
-  self.campaigns_.update(query, { $set: updates }, callback);
+  self.campaigns_.update({ _id: id }, { $set: updates }, callback);
 }
 
 /**
  * Remove a campaign.
  *
- * @param {object}          query      The query selecting the client(s).
+ * @param {object}          id      The id selecting the client(s).
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.remove = function(query, callback) {
+Campaigns.prototype.remove = function(id, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.remove, Object.values(arguments)]);
 
-  self.campaigns_.remove(query, callback);
+  self.campaigns_.remove({ _id: id }, callback);
 }

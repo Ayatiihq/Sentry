@@ -19,6 +19,8 @@ var Jobs = acquire('jobs')
   , Queue = acquire('queue')
   , Role = acquire('role')
   , Spiders = acquire('spiders')
+  , Seq = require('seq')
+  ;
 
 var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 60
@@ -88,60 +90,54 @@ Spider.prototype.checkAvailableJob = function() {
         } else if (!message) {
           self.findJobs();
         } else {
-          self.processJobs(self.queue_, [message]);
+          self.processJobs(self.queue_, message);
         }
       });
     } else {
-      self.processJobs(self.priorityQueue_, [message]);
+      self.processJobs(self.priorityQueue_, message);
     }
   });
 }
 
-Spider.prototype.processJobs = function(queue, jobs) {
+Spider.prototype.processJobs = function(queue, job) {
   var self = this;
-  var nJobsProcessing = jobs.length;
 
-  function handleFail(err, job) {
-    logger.warn(err);
+  logger.info('Processing ' + JSON.stringify(job));
 
-    nJobsProcessing -= 1;
-    self.jobs_.close(job.body.spider, job.body.jobId, states.jobs.state.CANCELLED, err.toString());
-    job.queue_.delete(job);
+  job.queue_ = queue;
 
-    if (nJobsProcessing < 1) {
+  Seq()
+    .seq('Get job details', function() {
+      self.getJobDetails(job, this);
+    })
+    .seq('Start job', function() {
+      self.startJob(job);
+    })
+    .catch(function(err) {
+      logger.warn(err);
+
+      if (job.details) 
+        self.jobs_.close(job.details, states.jobs.state.CANCELLED, err.toString());
+
+      job.queue_.delete(job);
       self.findJobs();
-    }
-  }
-
-  jobs.forEach(function(job) {
-    logger.info('Processing ' + JSON.stringify(job));
-
-    job.queue_ = queue;
-
-    var j = job;
-    self.getJobDetails(j, function(err) {
-      if (err) {
-        handleFail(err, j);
-        return;
-      }
-
-      self.startJob(j);
-    });
-  });
+    })
+    ;
 }
 
 Spider.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  self.jobs_.getDetails(job.body.spider, job.body.jobId, function(err, details) {
+  self.jobs_.getDetails(job.body.jobId, function(err, details) {
     job.details = details;
-    if (!err && job.details) {
-      var state = parseInt(job.details.state)
-        , s = states.jobs.state;
-      if (state != s.QUEUED && state != s.PAUSED)
+    if (job.details) {
+      var state = job.details.state
+        , jobState = states.jobs.state
+        ;
+      if (state != jobState.QUEUED && state != jobState.PAUSED)
         err = new Error('Job does not have a ready state');
     }
-    callback(err ? err : job.details ? null : new Error('could not get details'));
+    callback(err);
   });
 }
 
@@ -152,7 +148,7 @@ Spider.prototype.startJob = function(job) {
   self.loadSpiderForJob(job, function(err, spider) {
     if (err) {
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      self.jobs_.close(job.body.spider, job.body.jobId, jobState.ERRORED, err);
+      self.jobs_.close(job.details, jobState.ERRORED, err);
       job.queue_.delete(job);
       self.findJobs();
       return;
@@ -249,7 +245,7 @@ Spider.prototype.onSpiderStarted = function(spider, job) {
     spider.watchId = -1;
   }
 
-  self.jobs_.start(job.body.spider, job.body.jobId, function(err) {
+  self.jobs_.start(job.details, function(err) {
     if (err)
       logger.warn('Unable to make job as started ' + job.body.jobId + ': ' + err);
   });
@@ -258,7 +254,7 @@ Spider.prototype.onSpiderStarted = function(spider, job) {
 Spider.prototype.onSpiderPaused = function(spider, job, snapshot) {
   var self = this;
 
-  self.jobs_.pause(job.body.spider, job.body.jobId, state, function(err) {
+  self.jobs_.pause(job.details, state, function(err) {
     if (err)
       logger.warn('Unable to make job as paused ' + job.body.jobId + ': ' + err);
   });
@@ -269,7 +265,7 @@ Spider.prototype.onSpiderPaused = function(spider, job, snapshot) {
 Spider.prototype.onSpiderFinished = function(spider, job) {
   var self = this;
 
-  self.jobs_.complete(job.body.spider, job.body.jobId, function(err) {
+  self.jobs_.complete(job.details, function(err) {
     if (err)
       logger.warn('Unable to make job as complete ' + job.body.jobId + ': ' + err);
   });
@@ -283,7 +279,7 @@ Spider.prototype.onSpiderError = function(spider, job, jerr) {
   jerr = jerr ? jerr : new Error('unknown');
 
   logger.warn('Spider error: ' + jerr);
-  self.jobs_.close(job.body.spider, job.body.jobId, states.jobs.state.ERRORED, jerr.toString(), function(err) {
+  self.jobs_.close(job.details, states.jobs.state.ERRORED, jerr.toString(), function(err) {
     if (err)
       logger.warn('Unable to make job as errored ' + job.body.jobId + ': ' + err);
   });

@@ -15,8 +15,7 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Jobs = acquire('jobs')
-  , Queue = acquire('queue')
+var Queue = acquire('queue')
   , Campaigns = acquire('campaigns');
 
 var MinerDispatcher = module.exports = function() {

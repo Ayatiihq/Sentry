@@ -18,6 +18,7 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Queue = acquire('queue')
+  , Seq = require('seq')
   , Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
@@ -70,7 +71,7 @@ ScraperDispatcher.prototype.iterateCampaigns = function() {
 ScraperDispatcher.prototype.checkCampaign = function(campaign) {
   var self = this;
 
-  self.jobs_.listActiveJobs(campaign, function(err, jobs, mappedJobs) {
+  self.jobs_.listActiveJobs(campaign._id, function(err, jobs, mappedJobs) {
     if (err) {
       logger.warn('Unable to get active jobs for campaign: ' + campaign + ': ' + err);
       return;
@@ -133,7 +134,7 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   logJob(campaign, scraper, 'Inspecting existing job ' + lastJob.id + ' state: ' + lastJob.state);
 
   // It has a job logged, but is it valid?
-  switch (parseInt(lastJob.state)) {
+  switch (lastJob.state) {
     case state.QUEUED:
       var jobValid = !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
       if (!jobValid) {
@@ -183,7 +184,7 @@ ScraperDispatcher.prototype.scraperStartedForTooLong = function(campaign, scrape
 }
 
 ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper, lastJob) {
-  var created = new Date(lastJob.created);
+  var created = new Date(lastJob._id.created);
   var intervalAgo = new Date.create('' + 60 * 6 + ' minutes ago');
 
   return created.isBefore(intervalAgo);
@@ -196,34 +197,35 @@ ScraperDispatcher.prototype.setJobAsExpired = function(job, reason) {
 // Add job to database
 // Add job to queue
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
-  var self = this;
+  var self = this
+    , jobId = null
+    ;
 
   logJob(campaign, scraper, 'Creating job');
 
-  self.jobs_.add(campaign, { consumer: scraper.name }, function(err, uid) {
-    if (err) {
+  Seq()
+    .seq('Create Job', function() {
+      self.jobs_.add(campaign._id, scraper.name, {}, this);
+    })
+    .seq('Create Message', function(id) {
+      jobId = id;
+      var opts = { messagettl: config.SCRAPER_JOB_EXPIRES_SECONDS };
+      var msg {
+        campaignId: JSON.stringify(campaign_id)
+        jobId: jobId,
+        scraper: scraper.name,
+        type: campaign.type,
+        created: Date.now()
+      };
+
+      self.queue_.push(msg, opts, this);
+    })
+    .catch(function(err) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
-      return;
-    }
-
-    var opts = {};
-    opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
-
-    var msg = {};
-    msg.clientId = campaign.PartitionKey;
-    msg.campaignId = campaign.RowKey;
-    msg.jobId = uid;
-    msg.scraper = scraper.name;
-    msg.type = campaign.type;
-    msg.created = Date.utc.create().getTime();
-
-    self.queue_.push(msg, opts, function(err) {
-      if (err) {
-        logger.warn('Unable to insert message ' + msg + ': ' + err);
-        self.queue_.close(uid, states.jobs.state.ERRRORED, err);
-      }
-    });
-  });
+      if (jobId)
+        self.jobs_.close(uid, states.jobs.state.ERRRORED, err);
+    })
+    ;
 }
 
 function logJob(campaign, scraper, log) {

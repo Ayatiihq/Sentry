@@ -34,14 +34,14 @@ function main() {
   }
 
   if (argv[2] === 'update') {
-    var query = JSON.parse(argv[3]);
+    var id = JSON.parse(argv[3]);
     var updates = JSON.parse(argv[4]);
-    campaigns.update(query, updates, console.log);
+    campaigns.update(id, updates, console.log);
   }
 
   if (argv[2] === 'remove') {
-    var query = JSON.parse(argv[3]);
-    campaigns.remove(query, console.log);
+    var id = JSON.parse(argv[3]);
+    campaigns.remove(id, console.log);
   }
 
   setTimeout(function() {

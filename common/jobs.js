@@ -8,8 +8,8 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('jobs.js')
   , sugar = require('sugar')
   , states = require('./states')
@@ -17,19 +17,19 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var TABLE = 'jobs'
-  , PACK_LIST = ['metadata', 'snapshot']
-  ;
+var COLLECTION = 'jobs';
 
 /**
  * Wraps the jobs table.
  * 
- * @param {string}    jobType     Type of job (scraper, spider, etc)
+ * @param {string}    role     Role of the job (scraper, spider, etc)
  * @return {object}
  */
-var Jobs = module.exports = function(jobType) {
-  this.tableService_ = null;
-  this.type_ = jobType;
+var Jobs = module.exports = function(role) {
+  this.role_ = role;
+  this.jobs_ = null;
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -37,11 +37,17 @@ var Jobs = module.exports = function(jobType) {
 Jobs.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_NETWORK_ACCOUNT,
-                                                config.AZURE_NETWORK_KEY);
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
+      return logger.error('Unable to connect to database %s', err);
+
+    self.db_ = db;
+    self.jobs_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
@@ -54,56 +60,6 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
-Jobs.prototype.genJobKey = function(name) {
-  return name + '.' + Date.utc.create().getTime();
-}
-
-Jobs.prototype.getPartitionKey = function(name) {
-  var self = this;
-  return self.type_ + '.' + name;
-}
-
-Jobs.prototype.pack = function(job) {
-  PACK_LIST.forEach(function(key) {
-    if (job[key])
-      job[key] = JSON.stringify(job[key]);
-  });
-
-  return job;
-}
-
-Jobs.prototype.unpackOne = function(callback, err, job) {
-  if (err) {
-    callback(err);
-    return;
-  }
-
-  PACK_LIST.forEach(function(key) {
-    if (job[key])
-      job[key] = JSON.parse(job[key]);
-  });
-  
-  callback(err, job);
-}
-
-Jobs.prototype.unpack = function(callback, err, list) {
-  var self = this;
-
-  if (err) {
-    callback(err);
-    return;
-  }
-
-  list.forEach(function(job) {
-    PACK_LIST.forEach(function(key) {
-      if (job[key])
-        job[key] = JSON.parse(job[key]);
-    });
-  });
-
-  callback(err, list);
-}
-
 //
 // Azure can't do 'distinct', so there might be duplicate jobs, and hence we
 // must flatten them into just the most recent. Results come back as 
@@ -114,12 +70,11 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
     ;
 
   if (err) {
-    callback(err);
-    return;
+    return callback(err);
   }
 
   jobs.forEach(function(job) {
-    hash[job.consumer] = job;
+    hash[JSON.stringify(job._id.consumer)] = job;
   });
 
   callback(err, Object.values(hash), hash);
@@ -131,218 +86,207 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
 /**
  * Get a list of active jobs for a domain.
  *
- * @param  {stringOrObject}              domain     The domain to search active jobs for.
+ * @param  {stringOrObject}              owner        Who owns the job.
  * @param  {function(err, jobs, mapped)} callback     The callback to consume the jobs and a mapped version of the jobs.
  * @return {undefined}
  */
-Jobs.prototype.listActiveJobs = function(domain, callback) {
+Jobs.prototype.listActiveJobs = function(owner, callback) {
   var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , partition = self.getPartitionKey(domain)
     , then = Date.utc.create('6 hours ago').getTime()
     ;
 
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select('PartitionKey, RowKey, consumer, created, started, finished, state')
-                              .from(TABLE)
-                              .where('PartitionKey eq ?', partition)
-                              .and('created gt ?', then);
-  self.tableService_.queryEntities(query, self.unpack.bind(self, self.flatten.bind(self, callback)));
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.listActiveJobs, Object.values(arguments)]);
+
+  var query = {
+    '_id.owner': owner,
+    '_id.role': self.role_,
+    '_id.created': { $gt: then }
+  };
+
+  self.jobs_.find(query).sort({ created: 1 }).toArray(self.flatten.bind(self, callback));
 }
 
 /**
  * Get details of a job.
  *
- * @param  {stringOrObject}        domain    The domain the job belongs to.
- * @param  {string}                job       The uid of the Job.
+ * @param  {string}                jobId     The uid of the Job.
  * @param  {function(err, job)}    callback  The callback to receive the details, or the error.
  * @return {undefined}
  */
-Jobs.prototype.getDetails = function(domain, job, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    , partition = self.getPartitionKey(domain)
-    ;
+Jobs.prototype.getDetails = function(jobId, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
+  jobId = Object.isString(jobId) ? JSON.parse(jobId) : jobId;
 
-  var query = azure.TableQuery.select()
-                              .from(TABLE)
-                              .where('PartitionKey eq ?', partition)
-                              .and('RowKey eq ?', job);
-  self.tableService_.queryEntities(query, self.unpack.bind(self, function(err, list) {
-    callback(err, list ? list[0] : list)
-  }));
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
+
+  self.jobs_.findOne({ _id: jobId}, callback);
 }
-
 
 /**
  * Add a new job to the table.
  *
- * @param  {stringOrObject}    domain    The domain the job belongs to.
- * @param  {object}            job         The job to add.
+ * @param  {stringOrObject}    owner       Who owns the job.
+ * @param  {string}            consumer    The consumer of the job.
+ * @param  {object}            metadata    The job's metadata.
  * @param  {function(err,uid)} callback    A callback receive the uid.
  * @return {string}            uid         The UID generated for the job.
  */
-Jobs.prototype.add = function(domain, job, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , partition = self.getPartitionKey(domain)
-    ;
+Jobs.prototype.add = function(owner, consumer, metadata, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  if (!(job && job.consumer)) {
-    return callback(new Error('job should be valid and have a consumer'));
-  }
-  
-  job.PartitionKey = partition;
-  job.RowKey = self.genJobKey(job.consumer);
-  job.created = Date.utc.create().getTime();
-  job.started = -1;
-  job.finished = -1;
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
+  var job = {};
+  job._id = {
+    owner: owner,
+    role: self.role_,
+    consumer: consumer,
+    created: Date.now()
+  };
+  job.started = 0;
+  job.finished = 0;
   job.state = ifUndefined(job.state, states.jobs.state.QUEUED);
-  job.reason = '';
+  job.reason = '';  
   job.snapshot = {};
-  job.metadata = {};
-  job = self.pack(job);
+  job.metadata = ifUndefined(metadata, {});
 
-  self.tableService_.insertEntity(TABLE, job, function(err) {
-    callback(err, job.RowKey);
+  self.jobs_.insert(job, function(err) {
+    callback(err, err ? null : JSON.stringify(job._id));
   });
-
-  return job.RowKey;
 }
 
 /**
  * Starts a job.
  *
- * @param  {stringOrObject}  domain   The domain the job belongs to.
- * @param  {stringOrObject}  job        The job.
+ * @param  {object}          job        The job.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.start = function(domain, job, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    ;
+Jobs.prototype.start = function(job, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.getPartitionKey(domain);
-  entity.RowKey = job;
-  entity.started = Date.utc.create().getTime();
-  entity.state = states.jobs.state.STARTED;
-  entity.worker = utilities.getWorkerId();
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.start, Object.values(arguments)]);
 
-  self.tableService_.mergeEntity(TABLE, entity, callback);
+  var updates = {
+    $set: {
+      started: Date.now(),
+      state: states.jobs.state.STARTED,
+      worker: utilities.getWorkerId()
+    }
+  };
+
+  self.jobs_.update({ _id: job._id }, updates, callback);
 }
 
 /**
  * Pauses a job.
  *
- * @param  {stringOrObject}  domain   The domain the job belongs to.
- * @param  {stringOrObject}  job        The job.
+ * @param  {object}          job        The job.
  * @param  {string}          snapshot   A snapshot of the job's current state, for resuming.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.pause = function(domain, job, snapshot, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    ;
+Jobs.prototype.pause = function(job, snapshot, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.getPartitionKey(domain);
-  entity.RowKey = job;
-  entity.state = states.jobs.state.PAUSED;
-  entity.paused = Date.utc.create().getTime();
-  entity.snapshot = JSON.stringify(snapshot);
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.pause, Object.values(arguments)]);
 
-  self.tableService_.mergeEntity(TABLE, entity, callback);
+  var updates = {
+    $set: {
+      paused: Date.now(),
+      state: states.jobs.state.PAUSED,
+      snapshot: snapshot
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
 }
 
 /**
  * Complete a job.
  *
- * @param  {stringOrObject}  domain   The domain the job belongs to.
- * @param  {stringOrObject}  job        The job.
+ * @param  {object}          job        The job.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.complete = function(domain, job, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    ;
+Jobs.prototype.complete = function(job, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.getPartitionKey(domain);
-  entity.RowKey = job;
-  entity.state = states.jobs.state.COMPLETED;
-  entity.finished = Date.utc.create().getTime();
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.complete, Object.values(arguments)]);
 
-  self.tableService_.mergeEntity(TABLE, entity, callback);
+  var updates = {
+    $set: {
+      finished: Date.now(),
+      state: states.jobs.state.COMPLETED
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
 }
 
 /**
  * Close a job due to a reason.
  *
- * @param  {stringOrObject}  domain   The domain the job belongs to.
- * @param  {stringOrObject}  job        The job.
+ * @param  {object}          job        The job.
  * @param  {int}             state      The state the job should be closed in. 
  * @param  {string}          reason     The reason why the job was closed.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.close = function(domain, job, state, reason, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    ;
+Jobs.prototype.close = function(job, state, reason, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.getPartitionKey(domain);
-  entity.RowKey = job;
-  entity.state = state;
-  entity.reason = reason;
-  entity.finished = Date.utc.create().getTime();
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.close, Object.values(arguments)]);
 
-  self.tableService_.mergeEntity(TABLE, entity, callback);
+  var updates = {
+    $set: {
+      finished: Date.now(),
+      state: state,
+      log: reason
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
 }
 
 /**
  * Close a job due to a reason.
  *
- * @param  {stringOrObject}  domain   The domain the job belongs to.
- * @param  {stringOrObject}  job        The job.
+ * @param  {object}          job        The job.
  * @param  {object}          metadata   The new metadata.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
-Jobs.prototype.setMetadata = function(domain, job, metadata, callback) {
-  var self = this
-    , domain = Object.isString(domain) ? domain : domain.RowKey
-    , job = Object.isString(job) ? job : job.RowKey
-    ;
+Jobs.prototype.setMetadata = function(job, metadata, callback) {
+  var self = this;
 
   callback = callback ? callback : defaultCallback;
 
-  var entity = {};
-  entity.PartitionKey = self.getPartitionKey(domain);
-  entity.RowKey = job;
-  entity.metadata = JSON.stringify(metadata);
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.complete, Object.values(arguments)]);
 
-  self.tableService_.mergeEntity(TABLE, entity, callback);
+  var updates = {
+    $set: {
+      metadata: metadata
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
 }

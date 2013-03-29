@@ -28,53 +28,42 @@ function main() {
 
   setupSignals();
 
-  var campaigns = new Campaigns();
   var jobs = new Jobs('test');
 
-  campaigns.listActiveCampaigns(function(err, camps) {
-    if (err) {
-      console.log(err);
-      process.exit();
-    }
+  if (argv[2] === 'add') {
+    var owner = JSON.parse(argv[3]);
+    var consumer = argv[4];
+    jobs.add(owner, consumer, {}, console.log);
+  } else {
 
-    var c = camps[0];
+    jobs.listActiveJobs(JSON.parse(argv[2]), function(err, list) {
+      if (err) {
+        console.warn(err);
+        process.exit();
+      }
 
-    if (argv[2] === 'add') {
-      var data = JSON.parse(argv[4]);
-      console.log(jobs.add(c, data));
-    }
+      if (argv.length == 3)
+        console.log(list);
 
-    setTimeout(function() {
-      jobs.listActiveJobs(c, function(err, list) {
-        if (err) {
-          console.warn(err);
-          process.exit();
-        }
+      if(argv[3] === 'details')
+        jobs.getDetails(list[0]._id, console.log);
 
-        if (argv.length == 2)
-          console.log(list);
+      if (argv[3] === 'start')
+        jobs.start(list[0]);
 
-        if(argv[2] === 'details')
-          jobs.getDetails(c, list[0].RowKey, console.log);
+      if (argv[3] === 'pause')
+        jobs.pause(list[0], { payload: 'this is saved data' });
 
-        if (argv[2] === 'start')
-          jobs.start(c, list[0].RowKey);
+      if (argv[3] === 'complete')
+        jobs.complete(list[0]);
 
-        if (argv[2] === 'pause')
-          jobs.pause(c, list[0].RowKey, { payload: 'this is saved data' });
+      if (argv[3] === 'close')
+        jobs.close(list[0], argv[4], argv[5]);
 
-        if (argv[2] === 'complete')
-          jobs.complete(c, list[0].RowKey);
-
-        if (argv[2] === 'close')
-          jobs.close(c, list[0].RowKey, argv[3]);
-
-        if(argv[2] === 'metadata')
-          jobs.setMetadata(c, list[0].RowKey, { hello: 'world' });
-      });
-    }, 1000 * 3);
-
-  });
+      if(argv[3] === 'metadata')
+        jobs.setMetadata(list[0], { hello: 'world' });
+    });
+  }
 }
 
 main();

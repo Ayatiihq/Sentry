@@ -19,7 +19,9 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Queue = acquire('queue')
   , Role = acquire('role')
-  , Scrapers = acquire('scrapers');
+  , Scrapers = acquire('scrapers')
+  , Seq = require('seq')
+  ;
 
 var MAX_QUEUE_POLLS = 1
   , QUEUE_CHECK_INTERVAL = 1000 * 10
@@ -91,53 +93,42 @@ Scraper.prototype.checkAvailableJob = function() {
         } else if (!message) {
           self.findJobs();
         } else {
-          self.processJobs(self.queue_, [message]);
+          self.processJobs(self.queue_, message);
         }
       });
     } else {
-      self.processJobs(self.priorityQueue_, [message]);
+      self.processJobs(self.priorityQueue_, message);
     }
   });
 }
 
-Scraper.prototype.processJobs = function(queue, jobs) {
+Scraper.prototype.processJobs = function(queue, job) {
   var self = this;
-  var nJobsProcessing = jobs.length;
 
-  function handleFail(err, job) {
-    logger.warn(err);
+  logger.info('Processing ' + JSON.stringify(job));
 
-    nJobsProcessing -= 1;
-    self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.CANCELLED, err.toString());
-    job.queue_.delete(job);
+  job.queue_ = queue;
 
-    if (nJobsProcessing < 1) {
+  Seq()
+    .seq('Job is valid', function() {
+      self.checkJobValidity(job, this);
+    })
+    .seq('Job has details', function() {
+      self.getJobDetails(job, this);
+    })
+    .seq('Start job', function() {
+      self.startJob(job);
+    })
+    .catch(function(err) {
+      logger.warn(err);
+
+      if (job.details) 
+        self.jobs_.close(job.details, states.jobs.state.CANCELLED, err.toString());
+
+      job.queue_.delete(job);
       self.findJobs();
-    }
-  }
-
-  jobs.forEach(function(job) {
-    logger.info('Processing ' + JSON.stringify(job));
-
-    job.queue_ = queue;
-
-    var j = job;
-    self.checkJobValidity(j, function(err) {
-      if (err) {
-        handleFail(err, j);
-        return;
-      }
-
-      self.getJobDetails(j, function(err) {
-        if (err) {
-          handleFail(err, j);
-          return;
-        }
-
-        self.startJob(j);
-      });
-    });
-  });
+    })
+    ;
 }
 
 Scraper.prototype.checkJobValidity = function(job, callback) {
@@ -155,30 +146,40 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 Scraper.prototype.getJobDetails = function(job, callback) {
   var self = this;
 
-  self.jobs_.getDetails(job.body.campaignId, job.body.jobId, function(err, details) {
-    job.details = details;
-    if (!err) {
-      if (job.details && job.details.state) {
-        var state = parseInt(job.details.state)
-          , s = states.jobs.state;
-        if (state != s.QUEUED && state != s.PAUSED)
-          err = new Error('Job (' + job.body.jobId + ') does not have a ready state: ' + state);
-      } else {
-        err = new Error('Unable to get job details: ' + job.body.jobId);
-      }
-    }
+  Seq()
+    .seq('Get job details', function() {
+      self.jobs_.getDetails(job.body.jobId, this);
+    })
+    .seq('Validate job', function(details) {
+      job.details = details;
 
-    if (!err) {
-      self.campaigns_.getDetails(job.body.campaignId, function(err, campaign) {
-        job.campaign = campaign;
-        if (!(job.campaign && job.campaign.type))
-          err = new Error('Unable to get campaign details');
-        callback(err);
-      });
-    } else {
-      callback(err);
-    }
-  });
+      if (job.details) {
+        var state = job.details.state;
+          , jobStates = states.jobs.states
+          ;
+
+        if (state == jobStates.QUEUED || state == jobStates.PAUSED)
+          this();
+        else
+          this(new Error('Job does not have a ready state: ' + job.body.jobId));
+
+      } else {
+        this(new Error('Unable to get valid job details: ' + job.body.jobId))
+      }
+    })
+    .seq('Get campaign details', function() {
+      self.campaigns_.getDetails(job.body.campaignId, this);
+    })
+    .seq('Validate campaign', function(campaign) {
+      job.campaign = campaign;
+
+      if (campaign && campaign.type)
+        callback();
+      else
+        this(new Error('Unable to get valid campaign details: ' + job.body.jobId));
+    })
+    .catch(callback)
+    ;
 }
 
 Scraper.prototype.startJob = function(job) {
@@ -188,7 +189,7 @@ Scraper.prototype.startJob = function(job) {
       var jobState = states.jobs.state;
 
       logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      self.jobs_.close(job.body.campaignId, job.body.jobId, jobState.ERRORED, err);
+      self.jobs_.close(job.details, jobState.ERRORED, err);
       job.queue_.delete(job);
       self.findJobs();
       return;
@@ -289,7 +290,7 @@ Scraper.prototype.onScraperStarted = function(scraper, job) {
     scraper.watchId = -1;
   }
 
-  self.jobs_.start(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.start(job.details, function(err) {
     if (err)
       logger.warn('Unable to make job as started ' + job.body.jobId + ': ' + err);
   });
@@ -298,7 +299,7 @@ Scraper.prototype.onScraperStarted = function(scraper, job) {
 Scraper.prototype.onScraperPaused = function(scraper, job, snapshot) {
   var self = this;
 
-  self.jobs_.pause(job.body.campaignId, job.body.jobId, state, function(err) {
+  self.jobs_.pause(job.details, snapshot, function(err) {
     if (err)
       logger.warn('Unable to make job as paused ' + job.body.jobId + ': ' + err);
   });
@@ -309,7 +310,7 @@ Scraper.prototype.onScraperPaused = function(scraper, job, snapshot) {
 Scraper.prototype.onScraperFinished = function(scraper, job) {
   var self = this;
 
-  self.jobs_.complete(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.complete(job.details, function(err) {
     if (err)
       logger.warn('Unable to make job as complete ' + job.body.jobId + ': ' + err);
   });
@@ -323,7 +324,7 @@ Scraper.prototype.onScraperError = function(scraper, job, jerr) {
   jerr = jerr ? jerr : new Error('unknown');
 
   logger.warn('Scraper error: ' + jerr);
-  self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.ERRORED, jerr.toString(), function(err) {
+  self.jobs_.close(job.details, states.jobs.state.ERRORED, jerr.toString(), function(err) {
     if (err)
       logger.warn('Unable to make job as errored ' + job.body.jobId + ': ' + err);
   });

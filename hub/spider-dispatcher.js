@@ -17,6 +17,7 @@ var acquire = require('acquire')
 
 var Jobs = acquire('jobs')
   , Queue = acquire('queue')
+  , Seq = require('seq')
   , Spiders = acquire('spiders');
 
 var SWEEP_INTERVAL_MINUTES = 60 * 3;
@@ -101,7 +102,7 @@ SpiderDispatcher.prototype.spiderHasExistingValidJob = function(spider, lastJobs
   log(spider, 'Inspecting existing job ' + lastJob.RowKey + ' state: ' + lastJob.state);
 
   // It has a job logged, but is it valid?
-  switch (parseInt(lastJob.state)) {
+  switch (lastJob.state) {
     case state.QUEUED:
       var jobValid = !self.spiderQueuedForTooLong(spider, lastJob);
       if (!jobValid) {
@@ -150,7 +151,7 @@ SpiderDispatcher.prototype.spiderStartedForTooLong = function(spider, lastJob) {
 }
 
 SpiderDispatcher.prototype.spiderQueuedForTooLong = function(spider, lastJob) {
-  var created = new Date(lastJob.created);
+  var created = new Date(lastJob._id.created);
   var intervalAgo = new Date.create('' + 60 * 12 + ' minutes ago');
 
   return created.isBefore(intervalAgo);
@@ -163,31 +164,33 @@ SpiderDispatcher.prototype.setJobAsExpired = function(job, reason) {
 // Add job to database
 // Add job to queue
 SpiderDispatcher.prototype.createSpiderJob = function(spider) {
-  var self = this;
+  var self = this
+    , jobId = null
+    ;
 
   log(spider, 'Creating job');
 
-  self.jobs_.add(spider.name, { consumer: spider.name }, function(err, uid) {
-    if (err) {
+  Seq()
+    .seq('Create Job', function() {
+      self.jobs_.add(spider.name, '', {}, this);
+    })
+    .seq('Create Message', function(id) {
+      jobId = id;
+      var opts = { messagettl: config.SPIDER_JOB_EXPIRES_SECONDS };
+      var msg = {
+        jobId: jobId,
+        spider: spider.name,
+        created: Date.now()
+      };
+
+      self.queue_.push(msg, opts, this);
+    })
+    .catch(function(err) {
       logWarn(spider, 'Unable to create job: ' + err);
-      return;
-    }
-
-    var opts = {};
-    opts.messagettl = config.SPIDER_JOB_EXPIRES_SECONDS;
-
-    var msg = {};
-    msg.jobId = uid;
-    msg.spider = spider.name;
-    msg.created = Date.utc.create().getTime();
-
-    self.queue_.push(msg, opts, function(err) {
-      if (err) {
-        logger.warn('Unable to insert message ' + msg + ': ' + err);
-        self.queue_.close(uid, states.jobs.state.ERRRORED, err);
-      }
-    });
-  });
+      if (jobId)
+        self.jobs_.close(jobId, states.jobs.state.ERRORED, err);
+    })
+    ;
 }
 
 function log(spider, log) {
