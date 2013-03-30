@@ -24,10 +24,14 @@ util.inherits(IsoHunt, Spider);
 
 IsoHunt.prototype.init = function() {
   var self = this;  
-  self.root = "http://www.isohunt.com";
   self.newDriver();
+  self.pageNumber = 1;
+  self.paginationCount;
+  self.results = [];
   self.categories = {audio: "/release/?cat=2", film: "/release/?cat=2"}
-  self.driver.get("http://ca.isohunt.com/release/?cat=2").then(self.parseCategory.bind(self, true));
+
+  // TODO - subsitute handles multiple categories
+  self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=1").then(self.parseCategory.bind(self, true));
 }
 
 IsoHunt.prototype.newDriver = function(){
@@ -46,10 +50,8 @@ IsoHunt.prototype.newDriver = function(){
 IsoHunt.prototype.parseCategory = function(firstPass){
   var self = this;
   var pageResults = [];
-  var paginationCount;
-  self.driver.sleep(3000);
+  self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
-
     var $ = cheerio.load(source);
     $('a').each(function(){
       if($(this).attr('title') === "Search BitTorrent with these keywords"){
@@ -59,17 +61,30 @@ IsoHunt.prototype.parseCategory = function(firstPass){
     var count = 0;
     $("td.releases").each(function(){
       if($(this).attr('style') === "background:#d9e2ec"){
-        pageResults[count].date = $(this).text();
+        pageResults[count].date = Date.create($(this).text());
         count += 1;
       }    
     });
 
+    self.driver.sleep(10000 * Number.random(0, 10));
+    self.results = self.results.union(pageResults);
+    console.log("pushing " + pageResults.length  + " on to results");
+    console.log("results new size " + self.results.length);
+    // TODO  compare against date not page number.
+    //Date.create(pageResults.last().date);
     if(firstPass){
-      paginationCount = self.ripPageCount($);
+      self.paginationCount = self.ripPageCount($);
     }
-    console.log(JSON.stringify(pageResults));
-    console.log(paginationCount);
-    self.stop()
+    if(self.pageNumber <= 10/*self.paginationCount*/){
+      self.pageNumber += 1;
+      var fetchPromise = self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=" + self.pageNumber);
+      fetchPromise.then(self.parseCategory.bind(self, false));
+    }
+    else{
+      console.log(JSON.stringify(self.results));
+      console.log("\n Collected " + self.results.length + " results");
+      self.stop();
+    }
   });
 }
 
