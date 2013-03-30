@@ -84,6 +84,23 @@ Utilities.normalizeURI = function(uri) {
 }
 
 /**
+ * Returns the scheme of the URI
+ *
+ * @param  {string}   uri      The uri to retrieve the schema of.
+ * @return {string}            The scheme.
+ */
+Utilities.getURIScheme = function(uri) {
+  var scheme = uri;
+
+  try {
+    scheme = URI(uri).scheme();
+  } catch (err) {
+    scheme = uri.split(':')[0];
+  }
+  return scheme;
+}
+
+/**
  * Generates a key that can be used in azure for URIs. Will normalize the URI too.
  *
  * @param {string}    uri     The uri to generate a key for.
@@ -112,7 +129,8 @@ Utilities.genLinkKey = function() {
   var string = '';
 
   Object.values(arguments, function(arg) {
-    string += '.' + arg;
+    if (arg)
+      string += '.' + arg;
   });
 
   var shasum = crypto.createHash('sha1');

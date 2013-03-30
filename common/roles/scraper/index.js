@@ -365,7 +365,7 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
     }
   });
 
-  self.infringements_.addMeta(campaign, uri, scraper.getName(), unverifiedState, metadata, function(err, id) {
+  self.infringements_.addMeta(campaign, uri, campaign.type, scraper.getName(), unverifiedState, metadata, function(err, id) {
     if (err) {
       logger.warn('Unable to add an meta infringement: %s %s %s %s', campaign, uri, metadata, err);
     }
@@ -386,9 +386,9 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   var self = this
     , source = scraper.getName()
 
-  self.infringements_.addMetaRelation(campaign, addMetaRelation, source, function(err, id) {
+  self.infringements_.addMetaRelation(campaign, uri, source, function(err, id) {
     if (err) {
-      logger.warn('Unable to add relation: %s %s %s %s', campaign, addMetaRelation, source, err);
+      logger.warn('Unable to add relation: %s %s %s %s', campaign, uri, source, err);
     }
   });
 }
@@ -396,9 +396,9 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
 Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points, source, message) {
   var self = this;
 
-  self.infringements.addPoints(infringement, points, source, message function(err, id){
-    if(err){
-      logger.warn("Unable to update Points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
+  self.infringements_.addPoints(infringement, source, points, message, function(err, id){
+    if(err) {
+      logger.warn("Unable to update points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
     }
   });
 }
@@ -406,8 +406,8 @@ Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points
 Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState) {
   var self = this;
 
-  self.infringements.changeState(infringement, newState, points, function(err, id){
-    if(err){
+  self.infringements_.setState(infringement, newState, function(err){
+    if(err) {
       logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
     }
   });

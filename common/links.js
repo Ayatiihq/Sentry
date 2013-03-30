@@ -18,6 +18,7 @@ var acquire = require('acquire')
   ;
 
 var COLLECTION = 'links'
+  , EDUPLICATE = 11000
   , SCHEMAS = {
     "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata'],
     "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata']
@@ -82,10 +83,10 @@ Links.prototype.isValid = function(link, schema, callback) {
 Links.prototype.add = function(link, callback) {
   var self = this;
 
-  callback = callback ? callback : defaultCallback;
-
   if (!self.links_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
 
   if (!self.isValid(link, SCHEMAS[link.type], callback))
     return;
@@ -96,7 +97,10 @@ Links.prototype.add = function(link, callback) {
   link.created = Date.now();
 
   self.links_.insert(link, function(err) {
-    callback(err, err ? undefined : link._id);
+    if (!err || err.code === EDUPLICATE)
+      callback(null, link._id);
+    else
+      callback(err);
   });
 }
 
@@ -112,10 +116,10 @@ Links.prototype.add = function(link, callback) {
 Links.prototype.getLinks = function(type, from, callback) {
   var self = this;
 
-  callback = callback ? callback : defaultCallback;
-
   if (!self.links_)
     return self.cachedCalls_.push([self.getLinks, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
 
   var query = {
     type: type,

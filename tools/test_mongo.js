@@ -24,7 +24,7 @@ function main() {
 
   setupSignals();
 
-  database.connectAndEnsureCollection('test', function(err, db, collection) {
+  database.connectAndEnsureCollection('clients', function(err, db, collection) {
     console.log('Ensuring clients: ', err ? err : 'success');
     
     db.collectionsInfo(function(err, cursor) {

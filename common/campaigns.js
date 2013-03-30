@@ -86,11 +86,11 @@ Campaigns.prototype.listActiveCampaigns = function(callback) {
   var self = this
     , now = Date.now()
     ;
-
-  callback = callback ? callback : defaultCallback;
-
+  
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.listActiveCampaigns, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
 
   var query = {
     sweep: true,
@@ -110,11 +110,11 @@ Campaigns.prototype.listActiveCampaigns = function(callback) {
 Campaigns.prototype.getDetails = function(id, callback) {
   var self = this;
 
-  callback = callback ? callback : defaultCallback;
-  id = Object.isString(id) ? JSON.parse(id) : id;
-
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  id = Object.isString(id) ? JSON.parse(id) : id;
 
   self.campaigns_.findOne({ _id: id }, callback);
 }

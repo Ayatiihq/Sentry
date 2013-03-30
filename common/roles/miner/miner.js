@@ -193,10 +193,11 @@ Miner.prototype.mineCampaign = function(campaign, links, done) {
     if (self.linkMatchesCampaign(link, campaign)) {
       self.infringements_.add (campaign,
                                link.uri, link.type, link.source, state,
-                               {score: 10, source: link.source, message: 'mined from the source'},
-                               link.metadata);
-      if (link.parent.length > 0)
-        self.infringements_.addRelation(campaign, link.parent, link.uri);
+                               { score: 10, source: link.source, message: 'mined' },
+                               link.metadata, function() {
+                                 if (link.parent.length > 0)
+                                   self.infringements_.addRelation(campaign, link.parent, link.uri);
+                               });
     }
   });
   done();
