@@ -13,7 +13,7 @@ var acquire = require('acquire')
   ;
 
 var Dependencies = require('./dependencies')
-  , Queue = acquire('queue')
+  , Jobs = acquire('jobs')
   , Roles = acquire('roles')
   , Seq = require('seq')
   ;
@@ -23,7 +23,7 @@ var FluxCapacitor = module.exports = function() {
   this.dependencies_ = null;
   this.roles_ = null;
 
-  this.queues_ = {};
+  this.jobs_ = {};
 
   this.init();
 }
@@ -46,9 +46,7 @@ FluxCapacitor.prototype.loadQueuesAndInitRole = function() {
   roles.forEach(function(role) {
     role.lastRun_ = Date.now();
     role.nRuns_ = 0;
-    role.queues.forEach(function(queue) {
-      self.queues_[queue] = new Queue(queue);
-    });
+    self.jobs_[role.name] = new Jobs(role.name);
   });
 }
 
@@ -57,25 +55,12 @@ FluxCapacitor.prototype.getRoleTotalQueueLength = function(role, callback) {
     , totalLength = 0
     ;
 
-  Seq(role.queues)
-    .parEach(function(queueName) {
-      var that = this
-        , queue = self.queues_[queueName]
-        ;
-      if (queue) {
-        queue.length(function(err, length) {
-          if (err) logger.warn(err);
-          totalLength += length ? length : 0;
-          that();
-        });
-      } else {
-        that();
-      }
-    })
-    .seq(function() {
-      callback(totalLength);
-    })
-    ;
+  self.jobs_[role.name].nAvailableJobs(function(err, count) {
+    if (err)
+      logger.warn(err);
+
+    callback(err ? 0 : count);
+  });
 }
 
 FluxCapacitor.prototype.getRoleDependenciesAvailable = function(role, callback) {

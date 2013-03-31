@@ -17,14 +17,12 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
-  , Queue = acquire('queue')
   , Seq = require('seq')
   , Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
   this.campaigns_ = null;
   this.jobs_ = null;
-  this.queue_ = null;
   this.scrapers_ = null;
 
   this.init();
@@ -37,7 +35,6 @@ ScraperDispatcher.prototype.init = function() {
 
   self.campaigns_ = new Campaigns();
   self.jobs_ = new Jobs('scraper');
-  self.queue_ = new Queue('scraper');
 
   self.scrapers_ = new Scrapers();
   if (self.scrapers_.isReady()) {
@@ -194,38 +191,16 @@ ScraperDispatcher.prototype.setJobAsExpired = function(job, reason) {
   self.jobs_.close(job, states.jobs.state.EXPIRED, reason);
 }
 
-// Add job to database
-// Add job to queue
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
-  var self = this
-    , jobId = null
-    ;
+  var self = this;
 
-  logJob(campaign, scraper, 'Creating job');
-
-  Seq()
-    .seq('Create Job', function() {
-      self.jobs_.add(campaign._id, scraper.name, {}, this);
-    })
-    .seq('Create Message', function(id) {
-      jobId = id;
-      var opts = { messagettl: config.SCRAPER_JOB_EXPIRES_SECONDS };
-      var msg {
-        campaignId: JSON.stringify(campaign_id)
-        jobId: jobId,
-        scraper: scraper.name,
-        type: campaign.type,
-        created: Date.now()
-      };
-
-      self.queue_.push(msg, opts, this);
-    })
-    .catch(function(err) {
+  self.jobs_.push(campaign._id, scraper.name, {}, function(err, id) {
+    if (err) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
-      if (jobId)
-        self.jobs_.close(uid, states.jobs.state.ERRRORED, err);
-    })
-    ;
+    } else {
+      logJob(campaign, scraper, 'Successfully created job');
+    }
+  });
 }
 
 function logJob(campaign, scraper, log) {

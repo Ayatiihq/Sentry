@@ -67,7 +67,7 @@ Database.connect = function(callback) {
   callback = callback ? callback : function() {};
 
   Seq()
-    .seq('Get Database', function() {
+    .seq('Get database', function() {
       Database.connect(this);
     })
     .seq('Ensure collection', function(db) {

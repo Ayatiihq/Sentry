@@ -16,7 +16,6 @@ var acquire = require('acquire')
   ;
 
 var Jobs = acquire('jobs')
-  , Queue = acquire('queue')
   , Seq = require('seq')
   , Spiders = acquire('spiders');
 
@@ -24,7 +23,6 @@ var SWEEP_INTERVAL_MINUTES = 60 * 3;
 
 var SpiderDispatcher = module.exports = function() {
   this.jobs_ = null;
-  this.queue_ = null;
   this.spiders_ = null;
 
   this.init();
@@ -36,7 +34,6 @@ SpiderDispatcher.prototype.init = function() {
   var self = this;
 
   self.jobs_ = new Jobs('spider');
-  self.queue_ = new Queue('spider');
 
   self.spiders_ = new Spiders();
   if (self.spiders_.isReady()) {
@@ -164,33 +161,15 @@ SpiderDispatcher.prototype.setJobAsExpired = function(job, reason) {
 // Add job to database
 // Add job to queue
 SpiderDispatcher.prototype.createSpiderJob = function(spider) {
-  var self = this
-    , jobId = null
-    ;
+  var self = this;
 
-  log(spider, 'Creating job');
-
-  Seq()
-    .seq('Create Job', function() {
-      self.jobs_.add(spider.name, '', {}, this);
-    })
-    .seq('Create Message', function(id) {
-      jobId = id;
-      var opts = { messagettl: config.SPIDER_JOB_EXPIRES_SECONDS };
-      var msg = {
-        jobId: jobId,
-        spider: spider.name,
-        created: Date.now()
-      };
-
-      self.queue_.push(msg, opts, this);
-    })
-    .catch(function(err) {
-      logWarn(spider, 'Unable to create job: ' + err);
-      if (jobId)
-        self.jobs_.close(jobId, states.jobs.state.ERRORED, err);
-    })
-    ;
+  self.jobs_.push(spider.name, '', {}, function(err, id) {
+    if (err) {
+      logJobWarn(spider, 'Unable to create job: ' + err);
+    } else {
+      log(spider, 'Successfully created job');
+    }
+  });
 }
 
 function log(spider, log) {

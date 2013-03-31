@@ -103,7 +103,7 @@ Campaigns.prototype.listActiveCampaigns = function(callback) {
 /**
  * Get a campaign's details.
  *
- * @param {string}                    id          The campaign id;
+ * @param {stringOrObject}             id          The campaign id;
  * @param {function(err, campaign)}    callback    The campaign details, or error.
  * @return {undefined}
  */

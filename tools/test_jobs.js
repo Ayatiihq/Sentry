@@ -50,8 +50,11 @@ function main() {
   if(action === 'getDetails')
     jobs.getDetails(id, log);
 
-  if (action === 'add')
-    jobs.add(id, argv[4], {}, log);
+  if (action === 'nAvailableJobs')
+    jobs.nAvailableJobs(log);
+
+  if (action === 'push')
+    jobs.push(id, argv[4], {}, log);
 
   if (action === 'pop')
     jobs.pop(log);

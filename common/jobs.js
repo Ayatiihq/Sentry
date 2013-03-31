@@ -110,6 +110,28 @@ Jobs.prototype.listActiveJobs = function(owner, callback) {
 }
 
 /**
+ * Get a list of available jobs for a domain.
+ *
+ * @param  {function(err, count)} callback     Callback to consume the number of available jobs, or an err.
+ * @return {undefined}
+ */
+Jobs.prototype.nAvailableJobs = function(callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.nAvailableJobs, Object.values(arguments)]);
+
+  var query = {
+    '_id.role': self.role_,
+    popped: 0
+  };
+
+  self.jobs_.find(query).count(callback);
+}
+
+/**
  * Get details of a job.
  *
  * @param  {string}                jobId     The uid of the Job.
@@ -137,7 +159,7 @@ Jobs.prototype.getDetails = function(jobId, callback) {
  * @param  {function(err,uid)} callback    A callback receive the uid.
  * @return {string}            uid         The UID generated for the job.
  */
-Jobs.prototype.add = function(owner, consumer, metadata, callback) {
+Jobs.prototype.push = function(owner, consumer, metadata, callback) {
   var self = this;
 
   callback = callback ? callback : defaultCallback;
