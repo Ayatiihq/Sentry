@@ -178,7 +178,7 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
 
   self.infringements_.insert(entity, function(err) {
     if (!err || err.code === EDUPLICATE) {
-      self.addMetaRelation(campaign, uri, source, console.log);
+      self.addMetaRelation(campaign, uri, source);
       callback(null, entity._id);
     }
     else
@@ -236,12 +236,9 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   if (!self.infringements_)
     return self.cachedCalls_.push([self.addMetaRelation, Object.values(arguments)]);
 
-  console.log('Before', campaign, uri, owner);
-
   campaign = normalizeCampaign(campaign);
   uri = utilities.normalizeURI(uri);
   callback = callback ? callback : defaultCallback;
-  console.log('After ', campaign, uri, owner);
 
   var query = {
     _id: self.generateKey(campaign, uri, owner)

@@ -25,10 +25,6 @@ var Campaigns = acquire('campaigns')
   , Settings = acquire('settings')
   ;
 
-var MAX_QUEUE_POLLS = 1
-  , QUEUE_CHECK_INTERVAL = 1000 * 10
-  ;
-
 var Miner = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
@@ -37,6 +33,8 @@ var Miner = module.exports = function() {
   this.jobs_ = null;
 
   this.started_ = false;
+
+  this.touchId_ = 0;
 
   this.init();
 }
@@ -84,6 +82,11 @@ Miner.prototype.mine = function(campaign, job) {
     , key = self.getCampaignKey(campaign)
     ;
 
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, 
+  4 * 60 * 1000);
+
   Seq()
     .seq('Get last mine timestamp', function() {
       var that = this;
@@ -109,11 +112,13 @@ Miner.prototype.mine = function(campaign, job) {
       logger.info('Finishing up mining for campaign %j', campaign._id);
       self.settings_.set(key, timestamp);
       self.jobs_.complete(job);
+      clearInterval(self.touchId_);
       self.emit('finished');
     })
     .catch(function(err) {
       logger.warn('Unable to mine links for %j: %s', campaign._id, err);
       self.jobs_.close(job, states.jobs.state.ERRORED, err.toString());
+      clearInterval(self.touchId_);
       self.emit('error', err);
     })
     ;
