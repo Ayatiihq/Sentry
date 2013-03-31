@@ -20,6 +20,13 @@ function setupSignals() {
   });
 }
 
+function log(err) {
+  if (err)
+    console.warn(err);
+  else
+    console.log.apply(null, Object.values(arguments).slice(1));
+}
+
 function main() {
   var argv = process.argv;
 
@@ -29,41 +36,40 @@ function main() {
   setupSignals();
 
   var jobs = new Jobs('test');
-
-  if (argv[2] === 'add') {
-    var owner = JSON.parse(argv[3]);
-    var consumer = argv[4];
-    jobs.add(owner, consumer, {}, console.log);
-  } else {
-
-    jobs.listActiveJobs(JSON.parse(argv[2]), function(err, list) {
-      if (err) {
-        console.warn(err);
-        process.exit();
-      }
-
-      if (argv.length == 3)
-        console.log(list);
-
-      if(argv[3] === 'details')
-        jobs.getDetails(list[0]._id, console.log);
-
-      if (argv[3] === 'start')
-        jobs.start(list[0]);
-
-      if (argv[3] === 'pause')
-        jobs.pause(list[0], { payload: 'this is saved data' });
-
-      if (argv[3] === 'complete')
-        jobs.complete(list[0]);
-
-      if (argv[3] === 'close')
-        jobs.close(list[0], argv[4], argv[5]);
-
-      if(argv[3] === 'metadata')
-        jobs.setMetadata(list[0], { hello: 'world' });
-    });
+  var action = argv[2];
+  var id;
+  try {
+    id = JSON.parse(argv[3]);
+  } catch(err) {
+    id = null;
   }
+
+  if (action === 'listActiveJobs')
+    jobs.listActiveJobs(id, log);
+
+  if(action === 'getDetails')
+    jobs.getDetails(id, log);
+
+  if (action === 'add')
+    jobs.add(id, argv[4], {}, log);
+
+  if (action === 'pop')
+    jobs.pop(log);
+
+  if (action === 'start')
+    jobs.start({ _id: id }, log);
+
+  if (action === 'complete')
+    jobs.complete({ _id: id }, log);
+
+  if (action === 'close')
+    jobs.close({ _id: id }, Number(argv[4]), argv[5], log);
+
+  if (action === 'setMetadata')
+    jobs.setMetadata({ _id: id }, JSON.parse(argv[4]), log);
+
+  if (action === 'touch')
+    jobs.touch({ _id: id }, log);
 }
 
 main();

@@ -12,7 +12,7 @@ var acquire = require('acquire')
   , database = acquire('database')
   , logger = acquire('logger').forFile('jobs.js')
   , sugar = require('sugar')
-  , states = require('./states')
+  , states = require('./states').jobs.state
   , util = require('util')
   , utilities = acquire('utilities')
   ;
@@ -106,7 +106,7 @@ Jobs.prototype.listActiveJobs = function(owner, callback) {
     '_id.created': { $gt: then }
   };
 
-  self.jobs_.find(query).sort({ created: 1 }).toArray(self.flatten.bind(self, callback));
+  self.jobs_.find(query).sort({ '_id.created': 1 }).toArray(self.flatten.bind(self, callback));
 }
 
 /**
@@ -152,16 +152,51 @@ Jobs.prototype.add = function(owner, consumer, metadata, callback) {
     consumer: consumer,
     created: Date.now()
   };
+  job.popped = 0;
+  job.priority = 0;
   job.started = 0;
   job.finished = 0;
-  job.state = ifUndefined(job.state, states.jobs.state.QUEUED);
-  job.reason = '';  
+  job.state = ifUndefined(job.state, states.QUEUED);
+  job.log = [];
   job.snapshot = {};
   job.metadata = ifUndefined(metadata, {});
 
   self.jobs_.insert(job, function(err) {
     callback(err, err ? undefined : JSON.stringify(job._id));
   });
+}
+
+/**
+ * Pops a job for this role from the queue.
+ *
+ * @param  {objectOrFunction}    [query]     An optional specific query to perform.
+ * @param  {function(err,job)    callback    A callback to receive the job, or the error.
+ * @return {undefined}
+ */
+Jobs.prototype.pop = function(callback) {
+  var self = this;
+
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
+
+  var query = {
+    '_id.role': self.role_,
+    popped: 0,
+    state: states.QUEUED
+  };
+
+  var sort = [ ['priority', -1 ], ['_id.created', 1] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now(),
+      who: utilities.getWorkerId()
+    }
+  };
+
+  var options = { new: true };
+
+  self.jobs_.findAndModify(query, sort, updates, options, callback);
 }
 
 /**
@@ -182,37 +217,11 @@ Jobs.prototype.start = function(job, callback) {
   var updates = {
     $set: {
       started: Date.now(),
-      state: states.jobs.state.STARTED,
+      state: states.STARTED,
       worker: utilities.getWorkerId()
     }
   };
 
-  self.jobs_.update({ _id: job._id }, updates, callback);
-}
-
-/**
- * Pauses a job.
- *
- * @param  {object}          job        The job.
- * @param  {string}          snapshot   A snapshot of the job's current state, for resuming.
- * @param  {function(err)}   callback   A The callback to handle errors.
- * @return {undefined}
- */
-Jobs.prototype.pause = function(job, snapshot, callback) {
-  var self = this;
-
-  callback = callback ? callback : defaultCallback;
-
-  if (!self.jobs_)
-    return self.cachedCalls_.push([self.pause, Object.values(arguments)]);
-
-  var updates = {
-    $set: {
-      paused: Date.now(),
-      state: states.jobs.state.PAUSED,
-      snapshot: snapshot
-    }
-  };
   self.jobs_.update({ _id: job._id }, updates, callback);
 }
 
@@ -234,7 +243,7 @@ Jobs.prototype.complete = function(job, callback) {
   var updates = {
     $set: {
       finished: Date.now(),
-      state: states.jobs.state.COMPLETED
+      state: states.COMPLETED
     }
   };
   self.jobs_.update({ _id: job._id }, updates, callback);
@@ -261,6 +270,8 @@ Jobs.prototype.close = function(job, state, reason, callback) {
     $set: {
       finished: Date.now(),
       state: state,
+    },
+    $push: {
       log: reason
     }
   };
@@ -281,11 +292,34 @@ Jobs.prototype.setMetadata = function(job, metadata, callback) {
   callback = callback ? callback : defaultCallback;
 
   if (!self.jobs_)
-    return self.cachedCalls_.push([self.complete, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.setMetadata, Object.values(arguments)]);
 
   var updates = {
     $set: {
       metadata: metadata
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
+}
+
+/**
+ * Touch a job to prevent it being reaped (for long-running jobs).
+ *
+ * @param  {object}          job        The job.
+ * @param  {function(err)}   callback   A The callback to handle errors.
+ * @return {undefined}
+ */
+Jobs.prototype.touch = function(job, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.touch, Object.values(arguments)]);
+
+  var updates = {
+    $set: {
+      popped: Date.now(),
     }
   };
   self.jobs_.update({ _id: job._id }, updates, callback);

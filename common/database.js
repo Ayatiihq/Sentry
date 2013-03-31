@@ -15,7 +15,10 @@ var acquire = require('acquire')
 
 var Seq = require('seq');
 
-var DATABASE = undefined;
+var DATABASE = undefined
+  , MAX_RETRIES = 5
+  , RETRIES = 0
+  ;
 
 var Database = module.exports;
 
@@ -29,14 +32,22 @@ var Database = module.exports;
  * @return {undefined}
  */
 Database.connect = function(callback) {
+
   callback = callback ? callback : function() {};
 
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
     mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
+      if (err && RETRIES < MAX_RETRIES) {
+        RETRIES += 1;
+        logger.warn('Unable to connect to database: %s. Retrying %s out of %s times',
+                    err, RETRIES, MAX_RETRIES)
+        setTimeout(Database.connect.bind(null, callback), 1000 * 4 * RETRIES); // Decaying
+        return;
+      }
       DATABASE = db;
-      callback(null, DATABASE);
+      callback(err, DATABASE);
     });
   }
 }
