@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , Promise = require('node-promise').Promise
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
+  , TorrentDescriptor = require('./torrent-descriptor');
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -79,7 +80,8 @@ IsoHunt.prototype.parseCategory = function(firstPass){
     var $ = cheerio.load(source);
     $('a').each(function(){
       if($(this).attr('title') === "Search BitTorrent with these keywords"){
-        pageResults.push({title: $(this).text(), link:$(this).attr('href')});
+        torrentDescriptor = new TorrentDescriptor($(this).text(), $(this).attr('href'));
+        pageResults.push(torrentDescriptor);
       }
     });
     var count = 0;
