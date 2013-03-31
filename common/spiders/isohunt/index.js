@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , URI = require('URIjs')
   , Promise = require('node-promise').Promise
   , webdriver = require('selenium-webdriver')
+  , Settings = acquire('settings')  
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -25,11 +26,31 @@ util.inherits(IsoHunt, Spider);
 IsoHunt.prototype.init = function() {
   var self = this;  
   self.newDriver();
-  self.pageNumber = 1;
-  self.paginationCount;
+  self.lastRun;
   self.results = [];
   self.categories = {audio: "/release/?cat=2", film: "/release/?cat=2"}
-
+  self.settings_ = new Settings('spider.isohunt');
+  // Fetch 'ranLast' from the settings
+  self.settings_.get('ranLast', function(err, from) {
+    if (err || from === undefined) {
+      logger.warn('Couldn\'t get value ranLast' + ':' + err);
+      from = '0';
+    }
+    if(from === '0'){
+      self.lastRun = false;
+    }
+    else{
+      self.lastRun = Date.create(from);
+    }
+    logger.info(util.format('Isohunt spider last ran %s', from));
+  });
+  // Reset the value before running this instance
+  // (just in case this run takes too long and another starts in the interim)
+  self.settings_.set('ranLast', Date.now(), function(err){
+    if (err) {
+      logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
+    }
+  });
   // TODO - subsitute handles multiple categories
   self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=1").then(self.parseCategory.bind(self, true));
 }
@@ -50,6 +71,9 @@ IsoHunt.prototype.newDriver = function(){
 IsoHunt.prototype.parseCategory = function(firstPass){
   var self = this;
   var pageResults = [];
+  var paginationCount;
+  var pageNumber=1;;
+
   self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
@@ -70,14 +94,15 @@ IsoHunt.prototype.parseCategory = function(firstPass){
     self.results = self.results.union(pageResults);
     console.log("pushing " + pageResults.length  + " on to results");
     console.log("results new size " + self.results.length);
-    // TODO  compare against date not page number.
-    //Date.create(pageResults.last().date);
+    
     if(firstPass){
-      self.paginationCount = self.ripPageCount($);
+      paginationCount = self.ripPageCount($);
     }
-    if(self.pageNumber <= 10/*self.paginationCount*/){
-      self.pageNumber += 1;
-      var fetchPromise = self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=" + self.pageNumber);
+
+    var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
+    if (haveNotSeen && pageNumber < paginationCount){
+      pageNumber += 1;
+      var fetchPromise = self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=" + pageNumber);
       fetchPromise.then(self.parseCategory.bind(self, false));
     }
     else{
