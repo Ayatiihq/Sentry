@@ -314,8 +314,10 @@ Infringements.prototype.setState = function(infringement, state, callback){
  * Gets the list of unverified infringements for a given campaign
  *
  * @param {object}           campaign         The campaign which we want unverified links for
-**/
-Infringements.prototype.getNeedsScraping = function(campaign, callback)
+ * @param {number}           limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err)}    callback         A callback to handle errors.
+*/
+Infringements.prototype.getNeedsScraping = function(campaign, limit, callback)
 {
   var self = this;
 
@@ -329,7 +331,7 @@ Infringements.prototype.getNeedsScraping = function(campaign, callback)
     state: states.infringements.state.NEEDS_SCRAPE
   };
 
-  self.infringements_.find(query).toArray(callback); 
+  var cursor = self.infringements_.find(query).limit(limit ? limit : 1000).toArray(callback); 
 }
 
 

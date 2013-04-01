@@ -80,7 +80,7 @@ MinerDispatcher.prototype.doesCampaignNeedJob = function(campaign, lastJobs) {
       return false;
 
     case states.STARTED:
-      var tooLong = Date.create(job.popped).isBefore(config.MINER_JOB_TIMEOUT_SECONDS + ' seconds ago');
+      var tooLong = Date.create(job.popped).isBefore((config.MINER_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
       return tooLong;
 
     default:

@@ -25,6 +25,8 @@ var Campaigns = acquire('campaigns')
   , Settings = acquire('settings')
   ;
 
+var MAX_LINKS = 1000;
+
 var Miner = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
@@ -85,7 +87,7 @@ Miner.prototype.mine = function(campaign, job) {
   self.touchId_ = setInterval(function() {
     self.jobs_.touch(job);
   }, 
-  4 * 60 * 1000);
+  config.MINER_JOB_TIMEOUT_MINUTES * 60 * 1000);
 
   Seq()
     .seq('Get last mine timestamp', function() {
@@ -106,7 +108,7 @@ Miner.prototype.mine = function(campaign, job) {
     })
     .seq('Try match links', function(links) {
       logger.info('Matching links');
-      self.matchLinks(campaign, links, this);
+      self.matchLinks(campaign, links, MAX_LINKS, this);
     })
     .seq('Finish up', function(timestamp){
       logger.info('Finishing up mining for campaign %j', campaign._id);

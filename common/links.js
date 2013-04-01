@@ -110,10 +110,11 @@ Links.prototype.add = function(link, callback) {
  *
  * @param {string}                type        The type of link.
  * @param {date}                  from        When to retrieve new links from.
+ * @param {number}                limit       Limit the number of results. Anything less than 1 gets up to 1000 matching links.
  * @param {function(err,links)}   callback    Callback to receive links, or error.
  * @return {undefined}
  */
-Links.prototype.getLinks = function(type, from, callback) {
+Links.prototype.getLinks = function(type, from, limit, callback) {
   var self = this;
 
   if (!self.links_)
@@ -126,5 +127,5 @@ Links.prototype.getLinks = function(type, from, callback) {
     created: { $gt: from.getTime() }
   };
 
-  self.links_.find(query).sort({ created: -1 }).toArray(callback);
+  self.links_.find(query).sort({ created: -1 }).limit(limit ? limit : 1000).toArray(callback); 
 }
