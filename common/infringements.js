@@ -331,7 +331,28 @@ Infringements.prototype.getNeedsScraping = function(campaign, limit, callback)
     state: states.infringements.state.NEEDS_SCRAPE
   };
 
-  var cursor = self.infringements_.find(query).limit(limit ? limit : 1000).toArray(callback); 
+  self.infringements_.find(query).limit(limit ? limit : 1000).toArray(callback); 
 }
 
+/**
+ * Gets the number of links that need scraping
+ *
+ * @param  {object}                campaign      The campaign for which to search links.
+ * @param  {function(err,count)}   callback      A callback to receive the count, or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.getNeedsScrapingCount = function(campaign, callback) {
+  var self = this;
+  
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getNeedsScrapingCount, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.NEEDS_SCRAPE
+  };
+
+  self.infringements_.find(query).count(callback); 
+}

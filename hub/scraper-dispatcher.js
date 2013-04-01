@@ -17,13 +17,17 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
+  , Infringements = acquire('infringements')
   , Seq = require('seq')
   , Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
   this.campaigns_ = null;
   this.jobs_ = null;
+  this.infringements_ = null;
   this.scrapers_ = null;
+
+  this.customDispatchers_ = {};
 
   this.init();
 }
@@ -35,6 +39,7 @@ ScraperDispatcher.prototype.init = function() {
 
   self.campaigns_ = new Campaigns();
   self.jobs_ = new Jobs('scraper');
+  self.infringements_ = new Infringements();
 
   self.scrapers_ = new Scrapers();
   if (self.scrapers_.isReady()) {
@@ -42,6 +47,14 @@ ScraperDispatcher.prototype.init = function() {
   } else {
     self.scrapers_.on('ready', self.start.bind(self));
   }
+
+  self.initCustomDispatchers();
+}
+
+ScraperDispatcher.prototype.initCustomDispatchers = function() {
+  var self = this;
+
+  self.customDispatchers_['generic'] = self.dispatchGeneric.bind(self);
 }
 
 ScraperDispatcher.prototype.start = function() {
@@ -102,7 +115,19 @@ ScraperDispatcher.prototype.enqueueJobsForCampaign = function(campaign, lastJobs
       return;
     }
 
-    self.createScraperJob(campaign, scraper);
+    // If the scraper has a custom dispatcher, that'll make the decision whether to
+    // create a job or not
+    if (scraper.dispatcher) {
+      var dispatcher = self.customDispatchers_[scraper.dispatcher];
+      if (dispatcher) {
+        dispatcher.call(null, campaign, scraper);
+      } else {
+        logger.warn('No dispatcher for %s, creating job as normal');
+        self.createScraperJob(campaign, scraper);
+      }
+    } else {
+      self.createScraperJob(campaign, scraper);
+    }
   });
 }
 
@@ -128,7 +153,8 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   if (!lastJob)
     return false;
 
-  logJob(campaign, scraper, 'Inspecting existing job ' + lastJob.id + ' state: ' + lastJob.state);
+  logJob(campaign, scraper, 
+         'Inspecting existing job ' + JSON.stringify(lastJob._id) + ', state: ' + lastJob.state);
 
   // It has a job logged, but is it valid?
   switch (lastJob.state) {
@@ -168,14 +194,15 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
 
 ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper, lastJob) {
   var finished = new Date(lastJob.finished);
-  var intervalAgo = new Date.create('' + campaign.sweepIntervalMinutes + ' minutes ago');
+  var interval = scraper.intervalMinutes ? scraper.intervalMinutes : campaign.sweepIntervalMinutes;
+  var intervalAgo = new Date.create('' + interval + ' minutes ago');
 
   return finished.isBefore(intervalAgo);
 }
 
 ScraperDispatcher.prototype.scraperStartedForTooLong = function(campaign, scraper, lastJob) {
   var started = new Date(lastJob.started);
-  var intervalAgo = new Date.create('' + 60 + ' minutes ago');
+  var intervalAgo = new Date.create('' + 120 + ' minutes ago');
 
   return started.isBefore(intervalAgo);
 }
@@ -199,6 +226,20 @@ ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
     } else {
       logJob(campaign, scraper, 'Successfully created job');
+    }
+  });
+}
+
+ScraperDispatcher.prototype.dispatchGeneric = function(campaign, scraper) {
+  var self = this;
+
+  self.infringements_.getNeedsScrapingCount(campaign, function(err, count) {
+    if (err) {
+      logger.warn('Unable to get NeedsScrapingCount for %j: %s', campaign, err);
+    } else if (count) {
+      self.createScraperJob(campaign, scraper);
+    } else {
+      logJob(campaign, scraper, 'no infringements to scrape');
     }
   });
 }

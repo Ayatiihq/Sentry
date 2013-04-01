@@ -3,5 +3,7 @@
   "main": "./generic-scraper.js",
   "types": {
     "tv": ".*"
-  }
+  },
+  "dispatcher": "generic",
+  "intervalMinutes": 5 
 }

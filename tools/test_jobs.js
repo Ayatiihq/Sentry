@@ -35,7 +35,7 @@ function main() {
 
   setupSignals();
 
-  var jobs = new Jobs('test');
+  var jobs = new Jobs('scraper');
   var action = argv[2];
   var id;
   try {

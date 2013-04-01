@@ -80,7 +80,12 @@ function main() {
 
   if (action === 'getNeedsScraping') {
     var campaign = argv[3];
-    infringements.getNeedsScraping(campaign, log);
+    infringements.getNeedsScraping(campaign, Number(argv[4]), log);
+  }
+
+  if (action === 'getNeedsScrapingCount') {
+    var campaign = argv[3];
+    infringements.getNeedsScrapingCount(campaign, log);
   }
 }
 

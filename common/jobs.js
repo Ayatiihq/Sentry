@@ -74,7 +74,7 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
   }
 
   jobs.forEach(function(job) {
-    hash[JSON.stringify(job._id.consumer)] = job;
+    hash[job._id.consumer] = job;
   });
 
   callback(err, Object.values(hash), hash);
