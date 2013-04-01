@@ -275,17 +275,25 @@ Jobs.prototype.complete = function(job, callback) {
  *
  * @param  {object}          job        The job.
  * @param  {int}             state      The state the job should be closed in. 
- * @param  {string}          reason     The reason why the job was closed.
+ * @param  {stringOrError}   reason     The reason why the job was closed.
  * @param  {function(err)}   callback   A The callback to handle errors.
  * @return {undefined}
  */
 Jobs.prototype.close = function(job, state, reason, callback) {
-  var self = this;
+  var self = this
+    , log = ''
+    ;
 
   callback = callback ? callback : defaultCallback;
 
   if (!self.jobs_)
     return self.cachedCalls_.push([self.close, Object.values(arguments)]);
+
+  if (Object.isString(reason)) {
+    log = reason + '\n' + new Error().stack;
+  } else {
+    log = reason.toString() + '\n' + reason.stack;
+  }
 
   var updates = {
     $set: {
@@ -293,7 +301,7 @@ Jobs.prototype.close = function(job, state, reason, callback) {
       state: state,
     },
     $push: {
-      log: reason
+      log: log
     }
   };
   self.jobs_.update({ _id: job._id }, updates, callback);

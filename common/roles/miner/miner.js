@@ -117,7 +117,7 @@ Miner.prototype.mine = function(campaign, job) {
     })
     .catch(function(err) {
       logger.warn('Unable to mine links for %j: %s', campaign._id, err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err.toString());
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
       clearInterval(self.touchId_);
       self.emit('error', err);
     })

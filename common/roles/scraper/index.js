@@ -78,7 +78,7 @@ Scraper.prototype.processJob = function(err, job) {
     })
     .catch(function(err) {
       logger.warn('Unable to process job: %s', err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err.toString());
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
       self.emit('error', err);
     })
     ;
@@ -150,6 +150,8 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
     scraper.on('infringementPointsUpdate', self.onScraperPointsUpdate.bind(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
+
+    process.on('uncaughtException', self.onScraperError.bind(self, scraper, job));
     
     try {
       scraper.start(campaign, job);
@@ -227,11 +229,10 @@ Scraper.prototype.onScraperError = function(scraper, job, jerr) {
   logger.warn('Scraper error: %s', jerr);
   logger.warn(jerr.stack);
 
-  self.jobs_.close(job, states.jobs.state.ERRORED, jerr.toString(), function(err) {
+  self.jobs_.close(job, states.jobs.state.ERRORED, jerr, function(err) {
     if (err)
       logger.warn('Unable to make job as errored %j: %s', job._id, err);
   });
-  self.jobs_.log(job, jerr.stack);
 
   self.cleanup(scraper, job);
   job.done();
