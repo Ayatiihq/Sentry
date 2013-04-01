@@ -76,8 +76,8 @@ Utilities.normalizeURI = function(uri) {
     uri = uri.toString();
 
   } catch (err) {
-    logger.warn('Malformed URI %s', orignal);
-    uri = orignal;
+    logger.warn('Malformed URI %s', original);
+    uri = original;
   }
 
   return uri;

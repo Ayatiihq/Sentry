@@ -239,8 +239,7 @@ Jobs.prototype.start = function(job, callback) {
   var updates = {
     $set: {
       started: Date.now(),
-      state: states.STARTED,
-      worker: utilities.getWorkerId()
+      state: states.STARTED
     }
   };
 
@@ -301,7 +300,31 @@ Jobs.prototype.close = function(job, state, reason, callback) {
 }
 
 /**
- * Close a job due to a reason.
+ * Log a message against the job.
+ *
+ * @param  {object}          job        The job.
+ * @param  {string}          log        The string to log.
+ * @param  {function(err)}   callback   A The callback to handle errors.
+ * @return {undefined}
+ */
+Jobs.prototype.log = function(job, log, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.close, Object.values(arguments)]);
+
+  var updates = {
+    $push: {
+      log: log
+    }
+  };
+  self.jobs_.update({ _id: job._id }, updates, callback);
+}
+
+/**
+ * Sets metadata on a job.
  *
  * @param  {object}          job        The job.
  * @param  {object}          metadata   The new metadata.

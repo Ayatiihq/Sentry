@@ -56,8 +56,8 @@ Links.prototype.init = function() {
 }
 
 function defaultCallback(err) {
-  if (err && err.code !== 'EntityAlreadyExists')
-    logger.warn('Reply Error: %s', err);
+  if (err && err.code !== EDUPLICATE)
+    logger.warn('Reply Error: %j', err);
 }
 
 Links.prototype.isValid = function(link, schema, callback) {

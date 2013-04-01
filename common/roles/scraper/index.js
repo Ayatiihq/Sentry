@@ -222,14 +222,17 @@ Scraper.prototype.onScraperFinished = function(scraper, job) {
 Scraper.prototype.onScraperError = function(scraper, job, jerr) {
   var self = this;
   jerr = jerr ? jerr : new Error('unknown');
+  jerr = Object.isString(jerr) ? new Error(jerr) : jerr;
 
   logger.warn('Scraper error: %s', jerr);
-  logger.warn(Object.isError(jerr) ? jerr.stack : new Error().stack);
+  logger.warn(jerr.stack);
 
   self.jobs_.close(job, states.jobs.state.ERRORED, jerr.toString(), function(err) {
     if (err)
       logger.warn('Unable to make job as errored %j: %s', job._id, err);
   });
+  self.jobs_.log(job, jerr.stack);
+
   self.cleanup(scraper, job);
   job.done();
 }
@@ -327,6 +330,7 @@ Scraper.prototype.getDisplayName = function() {
 
 Scraper.prototype.start = function() {
   var self = this;
+
   self.started_ = true;
   self.jobs_.pop(self.processJob.bind(self));
   self.emit('started');
