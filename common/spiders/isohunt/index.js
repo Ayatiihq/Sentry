@@ -166,11 +166,38 @@ IsoHunt.prototype.isAlive = function(cb) {
     cb();
 }
 
-IsoHunt.prototype.parseTorrentPage = function(torrent){
+IsoHunt.prototype.parseTorrentPage = function(done, torrent){
   var self = this;
+  console.log('parseTorrentPage for :' + torrent.name);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
-  });  
+    $('a#link1').each(function(){
+      try{
+        var uri = URI($(this).attr('href'));
+        var path = uri.absoluteTo(self.root);
+        self.driver.get(path.toString()).then(self.parseInnerTorrentPage.bind(self, done, torrent));
+      }        
+      catch(err){
+        logger.warn('failed to construct uri from link : ' + err);
+        done();
+      }
+    });
+  });
+}
+
+IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
+  var self = this;
+  var found = false;
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+    var $ = cheerio.load(source);
+    $('a#_tlink').each(function(){
+      torrent.fileLink = $(this).attr('href');
+      logger.info('Torrent file link : ' + torrent.fileLink);
+      found = true;
+      done();
+    });
+  });
+  if(!found)done();
 }
 
 IsoHunt.prototype.iterateRequests = function(collection){
@@ -181,14 +208,12 @@ IsoHunt.prototype.iterateRequests = function(collection){
       try{
         var uri = URI(torrent.initialLink);
         var path = uri.absoluteTo(self.root);
-        console.log('query path : ' + path.toString());
-        self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, torrent));
+        self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
       }
       catch(err){
-        console.log('Hmmm issue making a URI - :' + err);
+        logger.warn('Hmmm issue making a URI - :' + err);
       }
       self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
-      done();
     })
     .seq(function(){
       logger.info("results length : " + self.results.length);
