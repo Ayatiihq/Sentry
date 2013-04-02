@@ -232,7 +232,6 @@ Utilities.notify = function(message) {
  */
 
 Utilities.followRedirects = function(links, promise) {
-  console.log(links);
 
   function onHeadResponse(results, thePromise, err, resp, html){
     if(err){

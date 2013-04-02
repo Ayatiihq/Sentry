@@ -62,13 +62,14 @@ function defaultCallback(err) {
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already exists.
  *
- * @param  {string}            name         The content's name.
- * @param  {string}            text         The text of the content.
- * @param  {boolean}           overwrite    Whether an existing file of the same name should be overwritten.
- * @param  {function(err)}     callback     A callback to receive an err, if one occurs.
+ * @param  {string}            name               The content's name.
+ * @param  {string}            text               The text of the content.
+ * @param  {object}            options            The options object.
+ * @param  {boolean}           [options.replace]  Replace an existing file with the same name.
+ * @param  {function(err)}     callback           A callback to receive an err, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromText = function(name, text, overwrite, callback) {
+Storage.prototype.createFromText = function(name, text, options, callback) {
   var self = this;
 
   if (!self.blobService_)
@@ -84,13 +85,14 @@ Storage.prototype.createFromText = function(name, text, overwrite, callback) {
  * Create a new file in storage, optionally overwrite if one by the same name already
  * exists.
  *
- * @param  {string}            name         The contents name.
- * @param  {string}            filename     The filename of the file.
- * @param  {boolean}           overwrite    Whether an existing file of the same name should be overwritten.
- * @param  {function(err)}     callback     A callback to receive an err, if one occurs.
+ * @param  {string}            name               The contents name.
+ * @param  {string}            filename           The filename of the file.
+ * @param  {object}            options            The options object.
+ * @param  {boolean}           [options.replace]  Replace an existing file with the same name.
+ * @param  {function(err)}     callback           A callback to receive an err, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromFile = function(name, filename, overwrite, callback) {
+Storage.prototype.createFromFile = function(name, filename, options, callback) {
   var self = this;
 
   if (!self.blobService_)
@@ -104,22 +106,24 @@ Storage.prototype.createFromFile = function(name, filename, overwrite, callback)
 /*
  * Create a new file in storage from a URL, optionally overwrite an existing one.
  *
- * @param  {string}           name        The content's name.
- * @param  {string}           url         The URL to download.
- * @param  {boolean}          overwrite   Whether any existing data with the same name should be overwritten.
- * @param  {function(err)}    callback    A callback to receive an error, if one occurs.
+ * @param  {string}           name                 The content's name.
+ * @param  {string}           url                  The URL to download.
+ * @param  {object}           options              The options object.
+ * @param  {boolean}          [options.replace]    Replace an existing file with the same name.
+ * @param  {boolean}          [options.maxLength]  The maximium length the content downloaded can be.
+ * @param  {function(err)}    callback             A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromURL = function(name, url, overwrite, callback) {
+Storage.prototype.createFromURL = function(name, url, options, callback) {
   var self = this;
 
   if (!self.blobService_)
     return self.cachedCalls_.push([self.createFromURL, Object.values(arguments)]);
 
-  utilities.request(url, {}, function(err, res, body) {
+  utilities.request(url, options, function(err, res, body) {
     if (err)
       return callback(err);
 
-    self.createFromText(name, body, overwrite, callback);
+    self.createFromText(name, body, options, callback);
   });
 }
