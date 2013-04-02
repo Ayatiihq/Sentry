@@ -33,33 +33,81 @@ var MAX_SCRAPER_POINTS = 7;
 */
 
 //FIXME - do multiple searches with various search queries, will do after we get a base "this on its own works"
-var GoogleScraper = function (searchTerm) {
+var GoogleScraper = function (campaign) {
   events.EventEmitter.call(this);
-  this.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities(CAPABILITIES).build();
-  this.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+  var self = this;
 
-  this.searchTerm = searchTerm;
-  this.idleTime = [5, 10]; // min/max time to click next page
-  this.resultCount;
+  self.campaign = campaign;
+
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities(CAPABILITIES).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+
+  self.searchTerm = self.buildSearchQuery();
+  self.idleTime = [5, 10]; // min/max time to click next page
+  self.resultCount;
 };
 
 util.inherits(GoogleScraper, events.EventEmitter);
 
+GoogleScraper.prototype.buildSearchQuery = function () {
+  var self = this;
+  var queryBuilder = {
+    'tv.live': self.buildSearchQueryTV.bind(self),
+    'music.album': self.buildSearchQueryAlbum.bind(self),
+    'music.track': self.buildSearchQueryTrack.bind(self)
+  };
+
+  if (!Object.has(queryBuilder, self.campaign.type)) {
+    self.emit('error', new Error('Campaign is of non excepted type: ' + self.campaign.type));
+    return self.campaign.name;
+  }
+  else {
+    return queryBuilder[self.campaign.type]();
+  }
+};
+
+GoogleScraper.prototype.buildSearchQueryTV = function () {
+  return self.campaign.name;
+};
+
+GoogleScraper.prototype.buildSearchQueryAlbum = function () {
+  var self = this;
+  function getVal(key, obj) { console.log(obj); return obj[key]; }
+
+  var albumTitle = self.campaign.metadata.albumTitle;
+  var artist = self.campaign.metadata.artist;
+  var tracks = self.campaign.metadata.tracks.map(getVal.bind(null, 'title'));
+
+  var trackQuery = ''; // builds 'track 1' OR 'track 2' OR 'track 3'
+  tracks.each(function buildTrackQuery(track, index) { 
+    if (index === tracks.length - 1) { trackQuery += util.format('"%s"', track); }
+    else { trackQuery += util.format('"%s" OR ', track); }
+  });
+
+  var query = util.format('"%s" "%s" %s ~free ~download', artist, albumTitle, trackQuery);
+
+  return query;
+};
+
+GoogleScraper.prototype.buildSearchQueryTrack = function () {
+  var self = this;
+  var trackTitle = self.campaign.metadata.albumTitle;
+  var artist = self.campaign.metadata.artist;
+
+  var query = util.format('"%s" "%s" ~free ~download', artist, trackTitle);
+  return query;
+};
+
 GoogleScraper.prototype.beginSearch = function () {
   var self = this;
+  self.resultsCount = 0;
   try {
     self.emit('started');
     this.remoteClient.get('http://www.google.com'); // start at google.com
 
     this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
     .sendKeys(self.searchTerm); // types out our search term into the input box
-
-    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-    //this.remoteClient.findElement(webdriver.By.css('button[name=btnK]')).then(function onButtonFound(element) {
-    //  var actionSequence = new webdriver.ActionSequence(self.remoteClient);
-    //  actionSequence.mouseMove(element).mouseDown().mouseUp();
-    //});
 
     // just submit the query for now
     this.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
@@ -114,13 +162,16 @@ GoogleScraper.prototype.handleResults = function () {
 GoogleScraper.prototype.emitLinks = function (linkList) {
   var self = this;
   logger.info('scraping results page...');
+  console.log(self.resultsCount);
+  console.log(MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100));
+
   linkList.each(function linkEmitter(link) {
     self.emit('found-link', link, 
               {score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100),
                message: "Google result",
                source: 'scraper.google'});
 
-    self.resultsCount ++;
+    self.resultsCount++;
   });
 };
 
@@ -180,7 +231,7 @@ Google.prototype.start = function (campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
-  self.scraper = new GoogleScraper(campaign.name);
+  self.scraper = new GoogleScraper(campaign);
 
   self.scraper.on('finished', function onFinished() {
     self.emit('finished');

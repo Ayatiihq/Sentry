@@ -53,8 +53,17 @@ function main() {
   });
 
   var campaign = undefined;
-  campaign = process.argv[4];
-  console.log('campaign ' + JSON.stringify(campaign));
+
+  // conor don't remove this next time ;)
+  try {
+    campaign = require(process.argv[3]);
+  } catch (err) {
+    if (process.argv[3].endsWith('.json'))
+      console.log(err);
+    try {
+      campaign = JSON.parse(process.argv[3]);
+    } catch (err) { console.log(err); }
+  }
   
 
   if (Object.isObject(campaign)) {
