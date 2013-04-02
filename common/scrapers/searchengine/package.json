@@ -4,5 +4,10 @@
   "types": {
     "tv": ".*",
     "music": ".*"
-  }
+  },
+  "engines": [
+    "google",
+    "bing",
+    "yahoo";
+  ]
 }
