@@ -27,4 +27,5 @@ TorrentDescriptor.prototype.init = function(name, link)
   self.initialLink = link;
   self.fileLink = null;
   self.date = Date.now();
+  self.info_hash = null;
 }

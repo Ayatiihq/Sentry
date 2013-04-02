@@ -194,9 +194,15 @@ IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
       torrent.fileLink = $(this).attr('href');
       logger.info('Torrent file link : ' + torrent.fileLink);
       found = true;
-      done();
+      //done();
+    });
+    $('span#SL_desc').each(function(){
+      var tmp = $(this).text().split(' ');
+      torrent.info_hash = tmp[1];
+      console.log('info hash = ' + torrent.info_hash);
     });
   });
+  done();
   if(!found)done();
 }
 
