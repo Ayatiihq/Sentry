@@ -2,12 +2,12 @@
  * A wrapper around torrents on isoHunt
  * (C) 2013 Ayatii Limited
  */
+require('request');
 var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('IsoHunt/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
-  , request = require('request')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , Promise = require('node-promise').Promise
@@ -15,14 +15,15 @@ var acquire = require('acquire')
   , Settings = acquire('settings')  
 ;
 
-var TorrentDescriptor = module.exports = function() {
-  this.init();
+var TorrentDescriptor = module.exports.TorrentDescriptor = function(name, link) 
+{
+  this.init(name, link);
 }
 
-TorrentDescriptor.init = function(name, link)
+TorrentDescriptor.prototype.init = function(name, link)
 {
   var self = this;
   self.name = name;
   self.initialLink = link;
-  self.date;
+  self.date = Date.now();
 }

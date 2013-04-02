@@ -2,18 +2,19 @@
  * A IsoHunt spider
  * (C) 2013 Ayatii Limited
  */
+require('sugar');
 var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('IsoHunt/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')
-  , sugar = require('sugar')
   , URI = require('URIjs')
+  , Seq = require('seq')
   , Promise = require('node-promise').Promise
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
-  , TorrentDescriptor = require('./torrent-descriptor');
+  , TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -29,6 +30,9 @@ IsoHunt.prototype.init = function() {
   self.newDriver();
   self.lastRun;
   self.results = [];
+  self.completed = [];
+  self.root = "http://isohunt.com";
+
   self.categories = {audio: "/release/?cat=2", film: "/release/?cat=2"}
   self.settings_ = new Settings('spider.isohunt');
   // Fetch 'ranLast' from the settings
@@ -43,7 +47,7 @@ IsoHunt.prototype.init = function() {
     else{
       self.lastRun = Date.create(from);
     }
-    logger.info(util.format('Isohunt spider last ran %s', from));
+    logger.info(util.format('Isohunt spider last ran %s', Date.create(from)));
   });
   // Reset the value before running this instance
   // (just in case this run takes too long and another starts in the interim)
@@ -78,39 +82,36 @@ IsoHunt.prototype.parseCategory = function(firstPass){
   self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
-    $('a').each(function(){
-      if($(this).attr('title') === "Search BitTorrent with these keywords"){
-        torrentDescriptor = new TorrentDescriptor($(this).text(), $(this).attr('href'));
-        pageResults.push(torrentDescriptor);
+    $("td.releases").each(function(){
+      var torrentDescriptor;
+      if($(this).attr('width') === '60%'){
+        torrentDescriptor = new TorrentDescriptor($(this).children('a').text(), $(this).children('a').attr('href'));
+        pageResults.push(torrentDescriptor);   
       }
     });
+    // Fragile but doable going on the isoHunt style
     var count = 0;
     $("td.releases").each(function(){
+      var torrentDescriptor;
       if($(this).attr('style') === "background:#d9e2ec"){
         pageResults[count].date = Date.create($(this).text());
         count += 1;
-      }    
+      } 
     });
-
     self.driver.sleep(10000 * Number.random(0, 10));
-    self.results = self.results.union(pageResults);
-    console.log("pushing " + pageResults.length  + " on to results");
-    console.log("results new size " + self.results.length);
-    
+    self.results = self.results.union(pageResults);    
     if(firstPass){
       paginationCount = self.ripPageCount($);
     }
-
     var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
-    if (haveNotSeen && pageNumber < paginationCount){
+    if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
       pageNumber += 1;
       var fetchPromise = self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=" + pageNumber);
       fetchPromise.then(self.parseCategory.bind(self, false));
     }
     else{
-      console.log(JSON.stringify(self.results));
       console.log("\n Collected " + self.results.length + " results");
-      self.stop();
+      self.iterateRequests(self.results);
     }
   });
 }
@@ -165,27 +166,33 @@ IsoHunt.prototype.isAlive = function(cb) {
     cb();
 }
 
+IsoHunt.prototype.parseTorrentPage = function(torrent){
+  var self = this;
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+    var $ = cheerio.load(source);
+  });  
+}
+
 IsoHunt.prototype.iterateRequests = function(collection){
   var self= this;
   Seq(collection)
-    .seqEach(function(channel){
+    .seqEach(function(torrent){
       var done = this;
-
-      if(channel.isRetired()){
-        logger.warn('retired channel in live loop %s', channel.name);
-        done();
+      try{
+        var uri = URI(torrent.initialLink);
+        var path = uri.absoluteTo(self.root);
+        console.log('query path : ' + path.toString());
+        self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, torrent));
       }
-      else if(channel.currentState === TvChannelStates.WRANGLE_IT){
-        self.wrangler.on('finished', channel.wranglerFinished.bind(channel, self, done));
-        self.wrangler.beginSearch(channel.activeLink.uri);                    
-      }      
+      catch(err){
+        console.log('Hmmm issue making a URI - :' + err);
+      }
+      self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+      done();
     })
     .seq(function(){
-
       logger.info("results length : " + self.results.length);
-      logger.info("Completed length : " + self.complete.length);
-      logger.info("InCompleted length : " + self.incomplete.length);
-      
+      logger.info("Completed length : " + self.completed.length);
       // if we have more go again
       if(self.results.length > 0){
         self.iterateRequests(self.results);

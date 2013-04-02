@@ -1,12 +1,21 @@
-/*
- * cyberlockers.js: a flat list of the domains of known cyberlockers
- * 
- * (C) 2013 Ayatii Limited
- *
- */
-
-var CyberLockers = module.exports;
-
+/*
+
+ * cyberlockers.js: a flat list of the domains of known cyberlockers
+
+ * 
+
+ * (C) 2013 Ayatii Limited
+
+ *
+
+ */
+
+
+
+var CyberLockers = module.exports;
+
+
+
 CyberLockers.knownDomains = ['rapidshare.com', 'dropbox.com', 'mega.co.nz', 'depositfiles.com', 'hotfile.com', 'mediafire.com', 
                         	 'filesanywhere.com', 'minus.com', 'sockshare.com', 'novafile.com', 'bayfiles.com', 'vip-file.com',
                         	 'turbobit.net', 'shareflare.net', 'megashares.com', 'luckyshare.net', 'letitbit.net', 'gigasize.com',
@@ -32,5 +41,6 @@ CyberLockers.knownDomains = ['rapidshare.com', 'dropbox.com', 'mega.co.nz', 'dep
                         	 'ul.to', 'uploaded.net', 'uloz.to', 'usaupload.net', 'verzend.be', 'vreer.com', 'wikisend.com', 'xenubox.com', 'yandex.com',
                         	 'yousendit.com', 'ziddu.com', 'zomgupload.com', 'asuswebstorage.com', 'ubuntuone.com', 'wuala.com', 'syncblaze.com', 
                         	 'magicvortex.com', 'filechum.com', 'cloudsafe.com', 'syncblazecloud.vembu.com', 'twindocs.com', 'sharefiles.co', 'icloud.com',
-                        	 'firstclass-download.com'];
-
+                        	 'firstclass-download.com', 'free4udown.com'];
+
+
