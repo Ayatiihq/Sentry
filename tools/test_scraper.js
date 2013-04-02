@@ -14,7 +14,7 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns');
 
 function setupSignals() {
-  process.on('SIGINT', function() {
+  process.on('SIGINT', function () {
     process.exit(1);
   });
 }
@@ -39,11 +39,11 @@ function main() {
   var Scraper = require('../common/scrapers/' + scrapername);
   var instance = new Scraper();
   
-  SIGNALS.forEach(function(name) {
-    instance.on(name, function() {
+  SIGNALS.forEach(function (name) {
+    instance.on(name, function () {
       console.log('received signal', name);
       
-      Object.values(arguments, function(value) {
+      Object.values(arguments, function (value) {
         if (Object.isObject(value) || Object.isArray(value))
           console.log(JSON.stringify(value));
         else
@@ -72,7 +72,7 @@ function main() {
     var clientId = process.argv[3];
     var campaignId = process.argv[4];
     var campaigns = new Campaigns();
-    campaigns.getDetails(clientId, campaignId, function(err, campaign) {
+    campaigns.getDetails(clientId, campaignId, function (err, campaign) {
       if (err)
         console.log(err);
       else

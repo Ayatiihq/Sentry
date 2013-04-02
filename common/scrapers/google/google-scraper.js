@@ -167,7 +167,7 @@ GoogleScraper.prototype.emitLinks = function (linkList) {
 
   linkList.each(function linkEmitter(link) {
     self.emit('found-link', link, 
-              {score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount/100),
+              {score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100),
                message: "Google result",
                source: 'scraper.google'});
 
