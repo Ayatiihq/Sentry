@@ -1,10 +1,6 @@
 {
   "name": "spider",
   "main": "./index.js",
-  "queues": [
-    "spider",
-    "spider-priority"
-  ],
   "dependencies": {
     "selenium": 1
   }

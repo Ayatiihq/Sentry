@@ -120,7 +120,7 @@ Spiders.prototype.getSpiders = function() {
 }
 
 Spiders.prototype.loadSpider = function(spidername) {
-  var modPath = './scrapers/' + spidername;
+  var modPath = SPIDERS_DIR + '/' + spidername;
   var Spider = require(modPath);
   return new Spider();
 }

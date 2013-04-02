@@ -17,14 +17,17 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
-  , Queue = acquire('queue')
+  , Infringements = acquire('infringements')
+  , Seq = require('seq')
   , Scrapers = acquire('scrapers');
 
 var ScraperDispatcher = module.exports = function() {
   this.campaigns_ = null;
   this.jobs_ = null;
-  this.queue_ = null;
+  this.infringements_ = null;
   this.scrapers_ = null;
+
+  this.customDispatchers_ = {};
 
   this.init();
 }
@@ -36,7 +39,7 @@ ScraperDispatcher.prototype.init = function() {
 
   self.campaigns_ = new Campaigns();
   self.jobs_ = new Jobs('scraper');
-  self.queue_ = new Queue('scraper');
+  self.infringements_ = new Infringements();
 
   self.scrapers_ = new Scrapers();
   if (self.scrapers_.isReady()) {
@@ -44,6 +47,14 @@ ScraperDispatcher.prototype.init = function() {
   } else {
     self.scrapers_.on('ready', self.start.bind(self));
   }
+
+  self.initCustomDispatchers();
+}
+
+ScraperDispatcher.prototype.initCustomDispatchers = function() {
+  var self = this;
+
+  self.customDispatchers_['generic'] = self.dispatchGeneric.bind(self);
 }
 
 ScraperDispatcher.prototype.start = function() {
@@ -70,7 +81,7 @@ ScraperDispatcher.prototype.iterateCampaigns = function() {
 ScraperDispatcher.prototype.checkCampaign = function(campaign) {
   var self = this;
 
-  self.jobs_.listActiveJobs(campaign, function(err, jobs, mappedJobs) {
+  self.jobs_.listActiveJobs(campaign._id, function(err, jobs, mappedJobs) {
     if (err) {
       logger.warn('Unable to get active jobs for campaign: ' + campaign + ': ' + err);
       return;
@@ -104,7 +115,19 @@ ScraperDispatcher.prototype.enqueueJobsForCampaign = function(campaign, lastJobs
       return;
     }
 
-    self.createScraperJob(campaign, scraper);
+    // If the scraper has a custom dispatcher, that'll make the decision whether to
+    // create a job or not
+    if (scraper.dispatcher) {
+      var dispatcher = self.customDispatchers_[scraper.dispatcher];
+      if (dispatcher) {
+        dispatcher.call(null, campaign, scraper);
+      } else {
+        logger.warn('No dispatcher for %s, creating job as normal');
+        self.createScraperJob(campaign, scraper);
+      }
+    } else {
+      self.createScraperJob(campaign, scraper);
+    }
   });
 }
 
@@ -130,10 +153,11 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
   if (!lastJob)
     return false;
 
-  logJob(campaign, scraper, 'Inspecting existing job ' + lastJob.id + ' state: ' + lastJob.state);
+  logJob(campaign, scraper, 
+         'Inspecting existing job ' + JSON.stringify(lastJob._id) + ', state: ' + lastJob.state);
 
   // It has a job logged, but is it valid?
-  switch (parseInt(lastJob.state)) {
+  switch (lastJob.state) {
     case state.QUEUED:
       var jobValid = !self.scraperQueuedForTooLong(campaign, scraper, lastJob);
       if (!jobValid) {
@@ -170,20 +194,21 @@ ScraperDispatcher.prototype.scraperHasExistingValidJob = function(campaign, last
 
 ScraperDispatcher.prototype.scraperIntervalElapsed = function(campaign, scraper, lastJob) {
   var finished = new Date(lastJob.finished);
-  var intervalAgo = new Date.create('' + campaign.sweepIntervalMinutes + ' minutes ago');
+  var interval = scraper.intervalMinutes ? scraper.intervalMinutes : campaign.sweepIntervalMinutes;
+  var intervalAgo = new Date.create('' + interval + ' minutes ago');
 
   return finished.isBefore(intervalAgo);
 }
 
 ScraperDispatcher.prototype.scraperStartedForTooLong = function(campaign, scraper, lastJob) {
   var started = new Date(lastJob.started);
-  var intervalAgo = new Date.create('' + 60 + ' minutes ago');
+  var intervalAgo = new Date.create('' + 120 + ' minutes ago');
 
   return started.isBefore(intervalAgo);
 }
 
 ScraperDispatcher.prototype.scraperQueuedForTooLong = function(campaign, scraper, lastJob) {
-  var created = new Date(lastJob.created);
+  var created = new Date(lastJob._id.created);
   var intervalAgo = new Date.create('' + 60 * 6 + ' minutes ago');
 
   return created.isBefore(intervalAgo);
@@ -193,36 +218,29 @@ ScraperDispatcher.prototype.setJobAsExpired = function(job, reason) {
   self.jobs_.close(job, states.jobs.state.EXPIRED, reason);
 }
 
-// Add job to database
-// Add job to queue
 ScraperDispatcher.prototype.createScraperJob = function(campaign, scraper) {
   var self = this;
 
-  logJob(campaign, scraper, 'Creating job');
-
-  self.jobs_.add(campaign, { consumer: scraper.name }, function(err, uid) {
+  self.jobs_.push(campaign._id, scraper.name, {}, function(err, id) {
     if (err) {
       logJobWarn(campaign, scraper, 'Unable to create job: ' + err);
-      return;
+    } else {
+      logJob(campaign, scraper, 'Successfully created job');
     }
+  });
+}
 
-    var opts = {};
-    opts.messagettl = config.SCRAPER_JOB_EXPIRES_SECONDS;
+ScraperDispatcher.prototype.dispatchGeneric = function(campaign, scraper) {
+  var self = this;
 
-    var msg = {};
-    msg.clientId = campaign.PartitionKey;
-    msg.campaignId = campaign.RowKey;
-    msg.jobId = uid;
-    msg.scraper = scraper.name;
-    msg.type = campaign.type;
-    msg.created = Date.utc.create().getTime();
-
-    self.queue_.push(msg, opts, function(err) {
-      if (err) {
-        logger.warn('Unable to insert message ' + msg + ': ' + err);
-        self.queue_.close(uid, states.jobs.state.ERRRORED, err);
-      }
-    });
+  self.infringements_.getNeedsScrapingCount(campaign, function(err, count) {
+    if (err) {
+      logger.warn('Unable to get NeedsScrapingCount for %j: %s', campaign, err);
+    } else if (count) {
+      self.createScraperJob(campaign, scraper);
+    } else {
+      logJob(campaign, scraper, 'no infringements to scrape');
+    }
   });
 }
 

@@ -60,10 +60,9 @@ function main() {
   if (Object.isObject(campaign)) {
     instance.start(campaign);
   } else {
-    var clientId = process.argv[3];
-    var campaignId = process.argv[4];
+    var campaignId = process.argv[3];
     var campaigns = new Campaigns();
-    campaigns.getDetails(clientId, campaignId, function(err, campaign) {
+    campaigns.getDetails(campaignId, function(err, campaign) {
       if (err)
         console.log(err);
       else

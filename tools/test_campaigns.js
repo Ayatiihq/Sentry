@@ -29,9 +29,19 @@ function main() {
   var campaigns = new Campaigns();
 
   if (argv[2] === 'add') {
-    var client = JSON.parse(argv[3]);
-    var data = JSON.parse(argv[4]);
-    campaigns.add(client, data);
+    var data = JSON.parse(argv[3]);
+    campaigns.add(data, console.log);
+  }
+
+  if (argv[2] === 'update') {
+    var id = JSON.parse(argv[3]);
+    var updates = JSON.parse(argv[4]);
+    campaigns.update(id, updates, console.log);
+  }
+
+  if (argv[2] === 'remove') {
+    var id = JSON.parse(argv[3]);
+    campaigns.remove(id, console.log);
   }
 
   setTimeout(function() {
@@ -40,7 +50,6 @@ function main() {
         console.warn(err);
       else
         console.log(list);
-
     });
   }, 1000 * 3);
 }

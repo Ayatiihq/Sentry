@@ -1,9 +1,9 @@
 {
-  "announce": "common/announce.js",
   "campaigns": "common/campaigns.js",
   "clients": "common/clients.js",
   "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",
+  "cyberlockers": "common/cyberlockers.js",
   "database": "common/database.js",
   "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
@@ -11,10 +11,7 @@
   "infringements": "common/infringements.js",
   "jobs": "common/jobs.js",
   "links": "common/links.js",
-  "lock": "common/lock.js",
   "logger": "common/logger.js",
-  "queue": "common/queue.js",
-  "redis": "common/redis.js",
   "role": "common/role.js",
   "roles": "common/roles.js",
   "scraper": "common/scraper.js",
@@ -23,10 +20,7 @@
   "spider": "common/spider.js",
   "spiders": "common/spiders.js",
   "states": "common/states.js",
-  "swarm": "common/swarm.js",
-  "tablebus": "common/tablebus.js",
   "utilities": "common/utilities.js",
   "tv-channel": "common/tv-channel.js",
-  "wrangler-rules": "common/wrangler-rules.js",
-  "cyberlockers": "common/cyberlockers.js"
+  "wrangler-rules": "common/wrangler-rules.js"
 }

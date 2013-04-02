@@ -1,10 +1,6 @@
 {
   "name": "miner",
   "main": "./miner.js",
-  "queues": [
-    "miner",
-    "miner-priority"
-  ],
   "dependencies": {
   }
 }

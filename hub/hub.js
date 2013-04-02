@@ -8,6 +8,7 @@
 var acquire = require('acquire')
   , cluster = require('cluster')
   , config = acquire('config')
+  , database = acquire('database')
   , fs = require('fs')
   , https = require('https')
   , logger = acquire('logger').forFile('hub.js')
@@ -42,9 +43,14 @@ Hub.prototype.init = function() {
   self.socket_ = new Socket(self.server_);
   self.socket_.on('stateChanged', self.onStateChanged.bind(self));
 
-  self.quartermaster_ = new QuarterMaster();
-
-  self.server_.listen(config.HUB_PORT);
+  database.connect(function(err) {
+    if (err) {
+      logger.error('Unable to connect to database', err);
+    } else {
+      self.quartermaster_ = new QuarterMaster();
+      self.server_.listen(config.HUB_PORT);
+    }
+  });
 }
 
 Hub.prototype.onRequest = function(req, res) {

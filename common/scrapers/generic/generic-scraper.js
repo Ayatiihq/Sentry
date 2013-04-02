@@ -82,7 +82,7 @@ Generic.prototype.getName = function () {
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
-  self.infringements.getNeedsScraping(campaign, function (error, results) {
+  self.infringements.getNeedsScraping(campaign, MAX_INFRINGEMENTS, function (error, results) {
     if (error) {
       logger.error("Generic Scraper: Can't fetch links that need scraping: %s", error);
       self.stop();
@@ -101,7 +101,7 @@ Generic.prototype.start = function (campaign, job) {
 Generic.prototype.pump = function () {
   var self = this;
   
-  if (self.numInfringementsChecked >= MAX_INFRINGEMENTS && self.activeScrapes <= 0 && self.suspendedScrapes <= 0) {
+  if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0) {
     logger.info('Finishing up, no more urls to check');
     self.stop();
     return;

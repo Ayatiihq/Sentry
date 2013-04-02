@@ -18,7 +18,7 @@ var acquire = require('acquire')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
   , utilities = acquire('utilities')
-  , cyberlocker = acquire('cyberlocker')
+  , cyberlockers = acquire('cyberlockers')
 ;
 
 module.exports.shouldIgnoreUri = function (uri) {
