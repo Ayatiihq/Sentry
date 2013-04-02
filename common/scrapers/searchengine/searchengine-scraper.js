@@ -167,6 +167,7 @@ GenericSearchEngine.prototype.checkHasNextPage = function (source) {
   throw new Error('Stub!');
 };
 
+/* -- Google Scraper */
 var GoogleScraper = function (campaign) {
   var self = this;
   self.engineName = 'google';
@@ -226,31 +227,150 @@ GoogleScraper.prototype.checkHasNextPage = function (source) {
   return true;
 };
 
+/* -- Yahoo Scraper -- */
+var YahooScraper = function (campaign) {
+  var self = this;
+  self.engineName = 'yahoo';
 
-var Google = module.exports = function () {
+  self.constructor.super_.call(self, campaign);
+};
+
+util.inherits(YahooScraper, GenericSearchEngine);
+
+
+YahooScraper.prototype.beginSearch = function () {
+  var self = this;
+  self.emit('started');
+  this.remoteClient.get('http://www.yahoo.com'); // start at yahoo.com
+
+  this.remoteClient.findElement(webdriver.By.css('input[name=p]')) //finds <input name='q'>
+  .sendKeys(self.searchTerm); // types out our search term into the input box
+
+  // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
+  this.remoteClient.findElement(webdriver.By.css('input[name=p]')).submit();
+
+  logger.info('searching Yahoo with search query: ' + self.searchTerm);
+
+  // waits for a #search selector
+  this.remoteClient.findElement(webdriver.By.css('div#web')).then(function gotSearchResults(element) {
+    if (element) {
+      self.handleResults();
+    }
+    else {
+      self.emit('error', ERROR_NORESULTS);
+      self.cleanup();
+    }
+  });
+};
+
+
+YahooScraper.prototype.getLinksFromSource = function (source) {
+  var links = [];
+  var $ = cheerio.load(source);
+  $('div#web').find('ol').children('li').each(function () {
+    links.push($(this).find('a').attr('href'));
+  });
+  return links;
+};
+
+// clicks on the next page, waits for new results
+YahooScraper.prototype.nextPage = function () {
+  var self = this;
+  // clicks the next page element.
+  self.remoteClient.findElement(webdriver.By.css('a#pg-next')).click().then(function () { self.handleResults(); });
+};
+
+YahooScraper.prototype.checkHasNextPage = function (source) {
+  var $ = cheerio.load(source);
+  if ($('a#pg-next').length < 1) { return false; }
+  return true;
+};
+
+/* -- Bing Scraper -- */
+var BingScraper = function (campaign) {
+  var self = this;
+  self.engineName = 'bing';
+
+  self.constructor.super_.call(self, campaign);
+};
+
+util.inherits(BingScraper, GenericSearchEngine);
+
+
+BingScraper.prototype.beginSearch = function () {
+  var self = this;
+  self.emit('started');
+  this.remoteClient.get('http://www.bing.com'); // start at bing
+
+  this.remoteClient.findElement(webdriver.By.css('input[id=sb_form_q]')) //finds <input name='q'>
+  .sendKeys(self.searchTerm); // types out our search term into the input box
+
+  // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
+  this.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
+
+  logger.info('searching Bing with search query: ' + self.searchTerm);
+
+  // waits for a #search selector
+  this.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
+    if (element) {
+      self.handleResults();
+    }
+    else {
+      self.emit('error', ERROR_NORESULTS);
+      self.cleanup();
+    }
+  });
+};
+
+
+BingScraper.prototype.getLinksFromSource = function (source) {
+  var links = [];
+  var $ = cheerio.load(source);
+  $('#results').find('ul#wg0').children('li.sa_wr').each(function () {
+    links.push($(this).find('a').attr('href'));
+  });
+  return links;
+};
+
+// clicks on the next page, waits for new results
+BingScraper.prototype.nextPage = function () {
+  var self = this;
+  // clicks the next page element.
+  self.remoteClient.findElement(webdriver.By.css('a.sb_pagN')).click().then(function () { self.handleResults(); });
+};
+
+BingScraper.prototype.checkHasNextPage = function (source) {
+  var $ = cheerio.load(source);
+  if ($('a.sb_pagN').length < 1) { return false; }
+  return true;
+};
+
+/* Scraper Interface */
+
+var SearchEngine = module.exports = function () {
   this.init();
 };
-util.inherits(Google, Scraper);
+util.inherits(SearchEngine, Scraper);
 
-Google.prototype.init = function () {
+SearchEngine.prototype.init = function () {
   var self = this;
 };
 
 //
 // Overrides
 //
-Google.prototype.getName = function () {
-  return "Google";
+SearchEngine.prototype.getName = function () {
+  return "SearchEngine";
 };
 
-Google.prototype.start = function (campaign, job) {
+SearchEngine.prototype.start = function (campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
   var scraperMap = {
-    'google': GoogleScraper
-    //'yahoo': YahooScraper,
-    //'bing': BingScraper
+    'google': GoogleScraper,
+    'yahoo': YahooScraper,
+    'bing': BingScraper
   };
 
   console.log(campaign.metadata.engine);
@@ -272,12 +392,12 @@ Google.prototype.start = function (campaign, job) {
   self.emit('started');
 };
 
-Google.prototype.stop = function () {
+SearchEngine.prototype.stop = function () {
   var self = this;
   self.emit('finished');
 };
 
-Google.prototype.isAlive = function (cb) {
+SearchEngine.prototype.isAlive = function (cb) {
   var self = this;
   cb();
 };
