@@ -17,13 +17,13 @@ var SpideredStates = module.exports.SpideredStates = new Enum(['CATEGORY_PARSING
                                                                'END_OF_THE_ROAD']);
 
 var Spidered = module.exports.Spidered =  function(entityType, name, genre, topLink, initialState) { 
-  this.init(entityType, spiderName, name, genre, topLink, initialState);
+  this.init(entityType, name, genre, topLink, initialState);
 }
 
 Spidered.prototype.init = function(entityType, name, genre, topLink, initialState) {
   var self = this;
 
-  self.type = channelType;
+  self.type = entityType;
   self.name = name;
   self.genre = genre;  
   self.links = [{uri :topLink, desc: "Spidered link from target index or category page"}];
@@ -63,7 +63,7 @@ Spidered.prototype.isRetired = function(){
   return self.currentState === SpideredStates.END_OF_THE_ROAD;
 }
 
-Spidered.prototype.constructLink = function(extraMetadata, childLink){
+Spidered.prototype.constructLink = function(spider, extraMetadata, childLink){
   var self = this;
   var link;
   
@@ -75,10 +75,11 @@ Spidered.prototype.constructLink = function(extraMetadata, childLink){
   link = {channel: self.name,
           genre: self.genre,
           type: self.type,
-          source: "spiders.",// + spiderName,
+          source: "spiders." + spider.getName(),
           uri: childLink,
           parent: self.activeLink.uri,
           metadata: extraMetadata};
+  // don't pollute the emits (clone metadata and add extra uri for archives)          
   var archive = Object.clone(extraMetadata);
   archive.uri = childLink;
   self.links.push(archive);
@@ -95,7 +96,7 @@ Spidered.prototype.wranglerFinished = function(spider, done, items){
       x.parents.reverse();
       x.parents.each(function emitForParent(parent){
         spider.emit('link',
-                  self.constructLink({link_source : "An unwrangled parent"}, parent));
+                  self.constructLink(spider, {link_source : "An unwrangled parent"}, parent));
       });
     }
     
@@ -110,13 +111,13 @@ Spidered.prototype.wranglerFinished = function(spider, done, items){
     // under direct parent of where the stream is embedded.
     var flattened = x.items.map(function flatten(n){ return n.toString();});
     spider.emit('link',
-              self.constructLink({link_source: "final parent uri for the intended target",
+              self.constructLink(spider, {link_source: "final parent uri for the intended target",
               hiddenEndpoint: flattened.join(' , ')}, x.uri));
     
     // Finally emit the endpoint
     if(endPoint){
       spider.emit('link',
-                  self.constructLink({link_source: "End of the road"}, endPoint.toString()));  
+                  self.constructLink(spider, {link_source: "End of the road"}, endPoint.toString()));  
     }
   });
   spider.channelCompleted(self, items.length > 0);
