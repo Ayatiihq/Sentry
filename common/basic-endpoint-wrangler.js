@@ -10,17 +10,18 @@
  */
 require('sugar');
 var acquire = require('acquire')
+  , all = require('node-promise').all
   , cheerio = require('cheerio')
   , EndpointWrangler = acquire('endpoint-wrangler')
   , events = require('events')
   , logger = acquire('logger').forFile('basic-endpoint-wrangler.js')
   , Promise = require('node-promise').Promise
-  , all = require('node-promise').all
   , request = require('request')
   , seq = require('node-promise').seq
   , shouldIgnoreUri = acquire('iframe-exploder').shouldIgnoreUri
   , URI = require('URIjs')
   , util = require('util')
+  , utilities = acquire('utilities')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
@@ -131,7 +132,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
   self.foundURIs.push(uri);
 
   var reqOpts = {
-    'uri': uri, 
     'headers': {
       'Referer': parents.last(), 'User-Agent': USER_AGENT
     },
@@ -143,7 +143,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
     var reqPromise = new Promise();
-    var reqObj = request(reqOpts, function (error, response, body) { 
+    var reqObj = utilities.request(uri, reqOpts, function (error, response, body) { 
       self.busyCount = process.hrtime(); // bump the busy counter
       if (!!response) {
         if (response.statusCode >= 400 && response.statusCode < 600 && !error) {
