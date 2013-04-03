@@ -35,7 +35,7 @@ var GenericSearchEngine = function (campaign) {
 
   
   self.idleTime = [5, 10]; // min/max time to click next page
-  self.resultCount = 0;
+  self.resultsCount = 0;
   self.engineName = 'UNDEFINED';
 
   if (!self.keywords) {
@@ -137,12 +137,14 @@ GenericSearchEngine.prototype.emitLinks = function (linkList) {
   linkList.each(function linkEmitter(link) {
     if (link[0] === '/') { return; }
 
+    var linkScore = Math.max(1.0, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100));
+
     self.emit('found-link', link,
       {
         engine: self.engine,
-        score: MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100),
+        score: linkScore,
         message: "Engine result",
-        source: 'scraper.searchengine'
+        source: 'scraper.' + self.engine
       });
 
     self.resultsCount++;
