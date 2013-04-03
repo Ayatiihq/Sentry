@@ -108,9 +108,9 @@ SpiderDispatcher.prototype.spiderHasExistingValidJob = function(spider, lastJobs
       return jobValid;
 
     case state.STARTED:
-      var jobValid = !self.spiderStartedForTooLong(spider, lastJob);
+      var jobValid = !self.spiderPoppedForTooLong(spider, lastJob);
       if (!jobValid) {
-        self.setJobAsExpired(lastJob, "Started for too long");
+        self.setJobAsExpired(lastJob, "Popped for too long");
       }
       return jobValid;
 
@@ -140,11 +140,11 @@ SpiderDispatcher.prototype.spiderIntervalElapsed = function(spider, lastJob) {
   return finished.isBefore(intervalAgo);
 }
 
-SpiderDispatcher.prototype.spiderStartedForTooLong = function(spider, lastJob) {
-  var started = new Date(lastJob.started);
-  var intervalAgo = new Date.create('' + 120 + ' minutes ago');
+SpiderDispatcher.prototype.spiderPoppedForTooLong = function(spider, lastJob) {
+  var popped = new Date(lastJob.started);
+  var intervalAgo = new Date.create((config.SPIDER_JOB_TIMEOUT_SECONDS * 2) + ' minutes ago');
 
-  return started.isBefore(intervalAgo);
+  return popped.isBefore(intervalAgo);
 }
 
 SpiderDispatcher.prototype.spiderQueuedForTooLong = function(spider, lastJob) {
@@ -155,6 +155,7 @@ SpiderDispatcher.prototype.spiderQueuedForTooLong = function(spider, lastJob) {
 }
 
 SpiderDispatcher.prototype.setJobAsExpired = function(job, reason) {
+  var self = this;
   self.jobs_.close(job, states.jobs.state.EXPIRED, reason);
 }
 
