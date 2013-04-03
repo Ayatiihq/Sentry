@@ -1,0 +1,13 @@
+{
+  "name": "searchengine",
+  "main": "./searchengine-scraper.js",
+  "types": {
+    "tv": ".*",
+    "music": ".*"
+  },
+  "engines": [
+    "google",
+    "bing",
+    "yahoo"
+  ]
+}
