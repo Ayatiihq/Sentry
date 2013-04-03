@@ -24,7 +24,9 @@ var acquire = require('acquire')
   , zlib = require('zlib')
   ;
 
-var Seq = require('seq');
+var Promise = require('node-promise').Promise
+  , Seq = require('seq')
+  ;
 
 var REQ_TIMEOUT = 0.5 * 1000 * 60;
 
@@ -283,7 +285,7 @@ Utilities.request = function(url, options, callback) {
   if (Object.has(options, 'followRedirects') && !options.followRedirects) {
     Utilities.requestURL(url, options, callback);
   } else {
-    var promise = new (require('node-promise').Promise);
+    var promise = new Promise();
 
     Utilities.followRedirects([url], promise);
     promise.then(function(links) {
