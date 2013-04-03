@@ -11,17 +11,24 @@ var acquire = require('acquire')
   , config = acquire('config')
   , crypto = require('crypto')
   , exec = require('child_process').exec
+  , http = require('http')
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
   , os = require('os')
   , querystring = require('querystring')
   , sugar = require('sugar')
-  , URI = require('URIjs')
-  , util = require('util')
   , request = require('request')
+  , URI = require('URIjs')
+  , URL = require('url')
+  , util = require('util')
+  , zlib = require('zlib')
   ;
 
-var Seq = require('seq');
+var Promise = require('node-promise').Promise
+  , Seq = require('seq')
+  ;
+
+var REQ_TIMEOUT = 0.5 * 1000 * 60;
 
 var Utilities = module.exports;
 
@@ -248,7 +255,7 @@ Utilities.followRedirects = function(links, promise) {
       // push this link into our results  
       results.push(redirect.toString());
       logger.info('request redirect location : ' + redirect.toString());
-      requestHeader(results, thePromise);
+      Utilities.followRedirects(results, thePromise);
     }
     else{
       thePromise.resolve(results);      
@@ -260,6 +267,108 @@ Utilities.followRedirects = function(links, promise) {
               {timeout: 30000, followRedirect: false},
               onHeadResponse.bind(null, links, promise));
   return promise;
+}
+
+
+/**
+ * Gets the content of a URL
+ *
+ * @param  {string}                         url                       The URL to get.
+ * @param  {object}                         options                   Options for the request. Sent to http[s].request as well.
+ * @param  {number}                         options.maxlength         The maximum size of the data in bytes.
+ * @param  {boolean}                        options.followRedirects   Whether to follow redirects (default: true)
+ * @param  {function(err,response,body)}    callback                  The callback to receive the body of the URL, or an error.
+ * @return {undefined}
+ */
+Utilities.request = function(url, options, callback) {
+
+  if (Object.has(options, 'followRedirects') && !options.followRedirects) {
+    Utilities.requestURL(url, options, callback);
+  } else {
+    var promise = new Promise();
+
+    Utilities.followRedirects([url], promise);
+    promise.then(function(links) {
+      Utilities.requestURL(links.last(), options, callback);
+    },
+    callback);
+  }
+}
+
+
+/**
+ * Gets the content of a URL
+ *
+ * @param  {string}                         url                       The URL to get.
+ * @param  {object}                         options                   Options for the request. Sent to http[s].request as well.
+ * @param  {number}                         options.maxSize           The maximum size of the data in bytes.
+ * @param  {function(err,response,body)}    callback                  The callback to receive the body of the URL, or an error.
+ * @return {undefined}
+ */
+Utilities.requestURL = function(url, options, callback) {
+  var parsed = null
+    , err = null
+    ;
+
+  try {
+    parsed = URL.parse(url);
+  } catch (err) {
+    return callback(err);
+  }
+
+  var requestOptions = {
+    host: parsed.host,
+    path: parsed.path,
+    port: parsed.port,
+    headers: {
+      'accept-encoding': 'gzip,deflate'
+    }
+  };
+
+  var req;
+  if (url.startsWith('https'))
+    req = https.get(requestOptions);
+  else
+    req = http.get(requestOptions);
+  
+  req.on('socket', function(socket) {
+    socket.setTimeout(REQ_TIMEOUT);
+  });
+
+  req.on('response', function(response) {
+    var body = ''
+      , stream = null
+      ;
+
+    switch(response.headers['content-encoding']) {
+      case 'gzip':
+        stream = response.pipe(zlib.createGunzip());
+        break;
+      case 'deflate':
+        stream = response.pipe(zlib.createInflate())
+        break;
+      default:
+        stream = response;
+    }
+
+    stream.on('data', function(chunk) {
+      body += chunk;
+      
+      if (options.maxLength) {
+        if (body.length > options.maxLength) {
+          err = new Error('Body too large (greater than maxLength: ' + options.maxLength + ')');
+          req.abort();
+        }
+      }
+    });
+
+    stream.on('end', function() {
+      callback(err, response, body);
+    });
+
+  });
+
+  req.on('error', callback);
 }
 
 /**
