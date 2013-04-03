@@ -201,6 +201,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     }
   });
 
+  var promiseArray = [];
 
   flattened.each(function buildPromises(ulink) {
     promiseArray.push(utilities.followRedirects([ulink], new Promise.Promise()));
