@@ -152,18 +152,24 @@ Wrangler.prototype.processUri = function (uri, parents) {
       }
       if (!!error) { reqPromise.reject(error, response); }
       else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
-      else { throw new Error('omg wtfbbq', error, response); }
+      //else {
+        //console.log(response);
+        //console.log(error);
+     //   console.log(response.statusCode);
+        //logger.error(error, response);
+      //  throw new Error(error);
+     // }
     });
 
     // create a timeout, sometimes request doesn't seem to timeout appropriately. 
-    var timeoutRequest = function() {
-      reqObj.abort();
-      reqPromise.reject(new Error('Timeout reached'));
-    };
-    var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
+    //var timeoutRequest = function() {
+    //  reqObj.abort();
+    //  reqPromise.reject(new Error('Timeout reached'));
+    //};
+    //var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
 
     reqPromise.then(function (body) {
-      delayedTimeoutRequest.cancel();
+      //delayedTimeoutRequest.cancel();
       var $ = cheerio.load(body);
       self.processSource(uri, parents, $, body);
 
@@ -171,7 +177,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
       newParents.push(uri);
       self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
-      delayedTimeoutRequest.cancel();
+      //delayedTimeoutRequest.cancel();
       var statusCode = (!!response) ? response.statusCode : 0;
       logger.info('%s - Error(%d): %s', uri, statusCode, error);
       promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
