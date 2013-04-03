@@ -8,10 +8,8 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('IsoHunt/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
-  , request = require('request')
   , URI = require('URIjs')
   , Seq = require('seq')
-  , Promise = require('node-promise').Promise
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
   , TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
@@ -33,7 +31,16 @@ IsoHunt.prototype.init = function() {
   self.completed = [];
   self.root = "http://isohunt.com";
 
-  self.categories = {audio: "/release/?cat=2", film: "/release/?cat=2"}
+  self.categories = [{id: 2, name: 'music'}];
+                     /*{id: 1, name: 'film'},
+                     {id: 10, name:'books'},
+                     {id: 3, name: 'musicVideo'},
+                     {id: 4, name: 'tv'},
+                     {id: 5, name: 'games'},
+                     {id: 7, name: 'pics'},
+                     {id: 8, name: 'anime'},
+                     {id: 9, name: 'comics'}];*/
+
   self.settings_ = new Settings('spider.isohunt');
   // Fetch 'ranLast' from the settings
   self.settings_.get('ranLast', function(err, from) {
@@ -56,8 +63,7 @@ IsoHunt.prototype.init = function() {
       logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
     }
   });
-  // TODO - subsitute handles multiple categories
-  self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=1").then(self.parseCategory.bind(self, true));
+  self.iterateRequests(self.categories);
 }
 
 IsoHunt.prototype.newDriver = function(){
@@ -73,13 +79,13 @@ IsoHunt.prototype.newDriver = function(){
   self.driver.manage().timeouts().implicitlyWait(30000);
 }
 
-IsoHunt.prototype.parseCategory = function(firstPass){
+IsoHunt.prototype.parseCategory = function(done, category, firstPass){
   var self = this;
   var pageResults = [];
   var paginationCount;
   var pageNumber=1;;
 
-  self.driver.sleep(10000);
+  //self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     $("td.releases").each(function(){
@@ -98,7 +104,7 @@ IsoHunt.prototype.parseCategory = function(firstPass){
         count += 1;
       } 
     });
-    self.driver.sleep(10000 * Number.random(0, 10));
+    //self.driver.sleep(10000 * Number.random(0, 10));
     self.results = self.results.union(pageResults);    
     if(firstPass){
       paginationCount = self.ripPageCount($);
@@ -106,12 +112,13 @@ IsoHunt.prototype.parseCategory = function(firstPass){
     var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
     if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
       pageNumber += 1;
-      var fetchPromise = self.driver.get("http://ca.isohunt.com/release/?ihq=&poster=&cat=2&ihp=" + pageNumber);
-      fetchPromise.then(self.parseCategory.bind(self, false));
+      var requestUrl = "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + cat.id + "&ihp=" + pageNumber;
+      var fetchPromise = self.driver.get(requestUrl);
+      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
     }
     else{
-      console.log("\n Collected " + self.results.length + " results");
-      self.iterateRequests(self.results);
+      logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
+      done();
     }
   });
 }
@@ -171,17 +178,19 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
   console.log('parseTorrentPage for :' + torrent.name);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
+    var found = false;
     $('a#link1').each(function(){
       try{
         var uri = URI($(this).attr('href'));
         var path = uri.absoluteTo(self.root);
+        found = true;
         self.driver.get(path.toString()).then(self.parseInnerTorrentPage.bind(self, done, torrent));
       }        
       catch(err){
         logger.warn('failed to construct uri from link : ' + err);
-        done();
       }
     });
+    if(!found)done();
   });
 }
 
@@ -192,18 +201,21 @@ IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
     var $ = cheerio.load(source);
     $('a#_tlink').each(function(){
       torrent.fileLink = $(this).attr('href');
-      logger.info('Torrent file link : ' + torrent.fileLink);
+      logger.info('Torrent file link for ' + torrent.name + ' - ' + torrent.fileLink);
       found = true;
-      //done();
     });
     $('span#SL_desc').each(function(){
       var tmp = $(this).text().split(' ');
-      torrent.info_hash = tmp[1];
-      console.log('info hash = ' + torrent.info_hash);
+      if(tmp.length > 1){
+        torrent.info_hash = tmp[1];
+        logger.info('info hash for ' + torrent.name + ' - ' + torrent.info_hash);
+      }
+      else{
+        logger.error('Unable to scrape the info_hash !');
+      }
     });
+    done();
   });
-  done();
-  if(!found)done();
 }
 
 IsoHunt.prototype.iterateRequests = function(collection){
@@ -211,15 +223,22 @@ IsoHunt.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(torrent){
       var done = this;
-      try{
-        var uri = URI(torrent.initialLink);
-        var path = uri.absoluteTo(self.root);
-        self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
+      if (torrent instanceof TorrentDescriptor){
+        try{
+          var uri = URI(torrent.initialLink);
+          var path = uri.absoluteTo(self.root);
+          self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
+        }
+        catch(err){
+          logger.warn('Hmmm issue making a URI - :' + err);
+        }
+        self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
       }
-      catch(err){
-        logger.warn('Hmmm issue making a URI - :' + err);
+      else{
+        var category = torrent;
+        var requestUrl = "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + category.id + "&ihp=1";
+        self.driver.get(requestUrl).then(self.parseCategory.bind(self, done, category, true));
       }
-      self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
     })
     .seq(function(){
       logger.info("results length : " + self.results.length);

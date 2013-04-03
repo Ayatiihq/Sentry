@@ -24,8 +24,8 @@ TorrentDescriptor.prototype.init = function(name, link)
 {
   var self = this;
   self.name = name;
-  self.initialLink = link;
-  self.fileLink = null;
-  self.date = Date.now();
-  self.info_hash = null;
+  self.initialLink = link; // 
+  self.fileLink = null; // link to torrent
+  self.date = Date.now(); // date it was published on the torrent service
+  self.info_hash = null; // info_hash of the torrent
 }
