@@ -10,15 +10,16 @@
 require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
+  , cyberLockers = acquire('cyberlockers')
   , events = require('events')
   , logger = acquire('logger').forFile('wrangler-rules.js')
   , Promise = require('node-promise').Promise
   , request = require('request')
+  , URI = require('URIjs')
   , util = require('util')
+  , utilities = acquire('utilities')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
-  , utilities = acquire('utilities')
-  , cyberlockers = acquire('cyberlockers')
 ;
 
 module.exports.shouldIgnoreUri = function (uri) {
@@ -27,8 +28,8 @@ module.exports.shouldIgnoreUri = function (uri) {
    , XRegExp('facebook')   // like button
    , XRegExp('google')     // +1
    , XRegExp('twitter')    // tweet
-   , XRegExp('://ad\.')    // common ad subdomain
-   , XRegExp('/ads[0-9]*(\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
+   , XRegExp('://ad\\.')    // common ad subdomain
+   , XRegExp('/ads[0-9]*(\\.|/)') // foo.com/ads1.php or foo.com/ads/whateverelse
    , XRegExp('banner')
    , XRegExp('adjuggler')
    , XRegExp('yllix') // yllix.com - ads
@@ -187,12 +188,6 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
   }
 };
 
-/* - Collections, we create collections of rules here just to make the rule/spider codebases less verbose - */
-module.exports.rulesLiveTV = [module.exports.ruleEmbed
-                             , module.exports.ruleObject
-                             , module.exports.ruleRegexStreamUri
-                             , module.exports.ruleSwfObject];
-
 /* - Rules to identify links to files on a known cyberlocker - */
 module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems) {
   var promiseArray;
@@ -201,7 +196,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   // first Rip out links into an array
   $('a').each(function () {
     var hrefValue = $(this).attr('href');
-    if (hrefValue && !shouldIgnoreUri(hrefValue) && !flattened.some(hrefValue)) {
+    if (hrefValue && !module.exports.shouldIgnoreUri(hrefValue) && !flattened.some(hrefValue)) {
       flattened.push(hrefValue);
     }
   });
@@ -231,7 +226,37 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     promise.resolve(foundItems);
   });
   return promise;
-}
+};
 
-module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers]
+// finds any links that match the extensions in the extension list
+var ruleFindExtensions = module.exports.ruleFindExtensions = function (extensionList) {
+
+  var retfun = function findExtensions(extensions, $, source, foundItems) {
+    XRegExp.forEach(source, urlmatch, function (match, i) {
+      // we can extract lots of information from our regexp
+      var check = false;
+      if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
+      if (check) {
+        var newitem = new Endpoint(match.fulluri.toString());
+        newitem.isEndpoint = true;
+        foundItems.push(newitem);
+      }
+    });
+
+    return foundItems;
+  };
+
+  return retfun.bind(null, extensionList);
+};
+
+/* - Collections, we create collections of rules here just to make the rule/spider codebases less verbose - */
+module.exports.rulesLiveTV = [module.exports.ruleEmbed
+                             , module.exports.ruleObject
+                             , module.exports.ruleRegexStreamUri
+                             , module.exports.ruleSwfObject];
+
+var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls'];
+
+module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
+                                      ruleFindExtensions(audioExtensions)];
 
