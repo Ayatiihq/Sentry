@@ -141,10 +141,10 @@ GenericSearchEngine.prototype.emitLinks = function (linkList) {
 
     self.emit('found-link', link,
       {
-        engine: self.engine,
+        engine: self.engineName,
         score: linkScore,
         message: "Engine result",
-        source: 'scraper.' + self.engine
+        source: 'scraper.' + self.engineName
       });
 
     self.resultsCount++;
@@ -172,10 +172,10 @@ GenericSearchEngine.prototype.checkHasNextPage = function (source) {
 /* -- Google Scraper */
 var GoogleScraper = function (campaign) {
   var self = this;
-  self.engineName = 'google';
   self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
 
   self.constructor.super_.call(self, campaign);
+  self.engineName = 'google';
 };
 
 util.inherits(GoogleScraper, GenericSearchEngine);
@@ -232,9 +232,10 @@ GoogleScraper.prototype.checkHasNextPage = function (source) {
 /* -- Yahoo Scraper -- */
 var YahooScraper = function (campaign) {
   var self = this;
-  self.engineName = 'yahoo';
 
   self.constructor.super_.call(self, campaign);
+
+  self.engineName = 'yahoo';
 };
 
 util.inherits(YahooScraper, GenericSearchEngine);
@@ -291,9 +292,9 @@ YahooScraper.prototype.checkHasNextPage = function (source) {
 /* -- Bing Scraper -- */
 var BingScraper = function (campaign) {
   var self = this;
-  self.engineName = 'bing';
-
   self.constructor.super_.call(self, campaign);
+
+  self.engineName = 'bing';
 };
 
 util.inherits(BingScraper, GenericSearchEngine);
