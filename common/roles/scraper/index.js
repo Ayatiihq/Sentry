@@ -61,6 +61,15 @@ Scraper.prototype.processJob = function(err, job) {
 
   logger.info('Processing %j', job._id);
 
+  // Sanitize the scraper name
+  job.scraperName_ = job._id.consumer.split('.')[0];
+
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+
   Seq()
     .seq('Job has details', function() {
       self.campaigns_.getDetails(job._id.owner, this);
@@ -76,12 +85,10 @@ Scraper.prototype.processJob = function(err, job) {
       logger.info('Finished all work');
       self.emit('finished');
     })
-    .catch(function(err) {
-      logger.warn('Unable to process job: %s', err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      self.emit('error', err);
-    })
+    .catch(onError)
     ;
+
+  process.on('uncaughtException', onError);
 }
 
 Scraper.prototype.checkJobValidity = function(job, callback) {
@@ -89,8 +96,8 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
     , err = null
     ;
 
-  if (!self.scrapers_.hasScraperForType(job._id.consumer, job.campaign.type)) {
-    err = new Error(util.format('No match for %s and %s', job._id.consumer, job.campaign.type));
+  if (!self.scrapers_.hasScraperForType(job.scraperName_, job.campaign.type)) {
+    err = new Error(util.format('No match for %s and %s', job.scraperName_, job.campaign.type));
   }
   callback(err);
 }
@@ -109,9 +116,9 @@ Scraper.prototype.startJob = function(job, done) {
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
 
-  logger.info('Loading scraper %s for job %j', job._id.consumer, job);
+  logger.info('Loading scraper %s for job %j', job.scraperName_, job);
 
-  var scraperInfo = self.scrapers_.getScraper(job._id.consumer);
+  var scraperInfo = self.scrapers_.getScraper(job.scraperName_);
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
     return;
@@ -150,8 +157,6 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
     scraper.on('infringementPointsUpdate', self.onScraperPointsUpdate.bind(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
-
-    process.on('uncaughtException', self.onScraperError.bind(self, scraper, job));
     
     try {
       scraper.start(campaign, job);
