@@ -17,12 +17,14 @@ var acquire = require('acquire')
   , utilities = require('./utilities')
   ;
 
+var baseSchema = ['uri', 'parent', 'type', 'source', 'name', 'metadata'];
+
 var COLLECTION = 'links'
   , EDUPLICATE = 11000
   , SCHEMAS = {
-    "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata'],
-    "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata'],
-    "torrent": ['uri', 'parent', 'type', 'source', 'metadata']
+    "tv.live": baseSchema,
+    "music.download": baseSchema.union(['artist', 'collection']),
+    "torrent": baseSchema
     }
   ;
 

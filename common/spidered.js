@@ -4,8 +4,13 @@
  *
  * Representing an entity scraped from a given spidered page
  */
-var acquire = require('acquire');
-var logger = acquire('logger').forFile('Spidered.js');
+var acquire = require('acquire')
+  , logger = acquire('logger').forFile('Spidered.js')
+  , links = acquire('links')
+  ;
+// TODO
+// depending on the type autopopulate constructLink's link with the
+// key from the relevant schema
 
 require('enum').register();
 
@@ -72,8 +77,9 @@ Spidered.prototype.constructLink = function(spider, extraMetadata, childLink){
     return false;
   }
 
-  link = {channel: self.name,
-          genre: self.genre,
+  extraMetadata.genre = self.genre;
+
+  link = {name: self.name,
           type: self.type,
           source: "spiders." + spider.getName(),
           uri: childLink,

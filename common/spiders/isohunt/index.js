@@ -267,12 +267,14 @@ IsoHunt.prototype.parseReleasePage = function(done, torrent){
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     var found = false;
+    // TODO parse multiple links
     $('a#link1').each(function(){
       try{
         var uri = URI($(this).attr('href'));
         var path = uri.absoluteTo(self.root);
         found = true;
         self.driver.sleep(1000 * Number.random(0, 10));        
+        self.emit('link', torrent.constructLink(self, {linkSource: 'torrent release page'}, path.toString()));
         self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
       }        
       catch(err){
@@ -294,19 +296,21 @@ IsoHunt.prototype.parseInnerReleasePage = function(done, torrent){
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     $('a#_tlink').each(function(){
-      torrent.fileLink = $(this).attr('href');
-      logger.info('Torrent file link for ' + torrent.name + ' - ' + torrent.fileLink);
+      var fileLink = $(this).attr('href');
+      self.emit('link', torrent.constructLink(self, {description: 'torrent file link', points: 8}, fileLink));
+      //logger.info('Torrent file link for ' + torrent.name + ' - ' + fileLink);
       found = true;
     });
     $('span#SL_desc').each(function(){
       var tmp = $(this).text().split(' ');
       if(tmp.length > 1){
-        torrent.info_hash = tmp[1];
-        logger.info('info hash for ' + torrent.name + ' - ' + torrent.info_hash);
+        var infoHash = 'torrent://' + tmp[1];
+        self.emit('link', torrent.constructLink(self, {description: 'torrent end point', points: 10}, infoHash));
+        //logger.info('info hash for ' + torrent.name + ' - ' + infoHash);
         found &= true;
       }
       else{
-        logger.error('Unable to scrape the info_hash !');
+        logger.error('Unable to scrape the infoHash !');
       }
     });
 
