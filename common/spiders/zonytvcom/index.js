@@ -10,8 +10,8 @@ var acquire = require('acquire')
   , request = require('request')
   , sugar = require('sugar')
   , Seq = require('seq')
-  , TvChannel = acquire('tv-channel').TvChannel 
-  , TvChannelStates = acquire('tv-channel').TvChannelStates
+  , Spidered = acquire('spidered').Spidered 
+  , SpideredStates = acquire('spidered').SpideredStates
   , URI = require('URIjs')
   , webdriver = require('selenium-webdriver')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
@@ -65,14 +65,13 @@ ZonyTv.prototype.parseIndex = function(){
   var pageResults = [];
 
   var createChannel = function(name, link){
-    var channel = new TvChannel('tv.live',
-                                'ZonyTv',
+    var channel = new Spidered('tv.live',                                
                                 name,
                                 "",
                                 "http://www.zonytvcom.info/",
-                                TvChannelStates.WRANGLE_IT);
+                                SpideredStates.WRANGLE_IT);
     self.results.push(channel);
-    self.emit('link', channel.constructLink({link_source: "zonytvcom home page"}, link));
+    self.emit('link', channel.constructLink(self, {link_source: "zonytvcom home page"}, link));
   }
 
   self.driver.getPageSource().then(function parseSrcHtml(source){
@@ -132,7 +131,7 @@ ZonyTv.prototype.iterateRequests = function(collection){
         logger.warn('retired channel in live loop %s', channel.name);
         done();
       }
-      else if(channel.currentState === TvChannelStates.WRANGLE_IT){
+      else if(channel.currentState === SpideredStates.WRANGLE_IT){
         self.wrangler.on('finished', channel.wranglerFinished.bind(channel, self, done));
         self.wrangler.beginSearch(channel.activeLink.uri);                    
       }      
