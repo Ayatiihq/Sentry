@@ -1,45 +1,42 @@
 /*
- * tv-channel.js: 
+ * spidered.js: 
  * (C) 2013 Ayatii Limited
  *
- * Representing a channel or in BBC radio speak a 'Service', BBC Tv speak 'network'
- * Maybe it's more a generic model so should not be so specificly named. 
+ * Representing an entity scraped from a given spidered page
  */
 var acquire = require('acquire');
-var logger = acquire('logger').forFile('TvChannel.js');
+var logger = acquire('logger').forFile('Spidered.js');
 
 require('enum').register();
 
-var TvChannelStates = module.exports.TvChannelStates = new Enum(['CATEGORY_PARSING',
-                                                                 'CHANNEL_PARSING',
-                                                                 'DETECT_HORIZONTAL_LINKS',
-                                                                 'WRANGLE_IT',
-                                                                 'END_OF_THE_ROAD']);
+var SpideredStates = module.exports.SpideredStates = new Enum(['CATEGORY_PARSING',
+                                                               'ENTITY_PAGE_PARSING',
+                                                               'DETECT_HORIZONTAL_LINKS',
+                                                               'WRANGLE_IT',
+                                                               'DOWNLOADING',
+                                                               'END_OF_THE_ROAD']);
 
-var TvChannel = module.exports.TvChannel =  function(channelType, spiderName, name, genre, topLink, initialState) { 
-  this.init(channelType, spiderName, name, genre, topLink, initialState);
+var Spidered = module.exports.Spidered =  function(entityType, name, genre, topLink, initialState) { 
+  this.init(entityType, spiderName, name, genre, topLink, initialState);
 }
 
-TvChannel.prototype.init = function(channelType, spiderName, name, genre, topLink, initialState) {
+Spidered.prototype.init = function(entityType, name, genre, topLink, initialState) {
   var self = this;
 
   self.type = channelType;
-  self.source = "spiders." + spiderName;
-
   self.name = name;
   self.genre = genre;  
-
-  self.links = [{uri :topLink, desc: "TvChannel link from target index or category page"}];
+  self.links = [{uri :topLink, desc: "Spidered link from target index or category page"}];
   // The activeLink member is used to hold the
-  // link that is in the process of being requested / parsed
-  // so that when we successfully find the next link we know 
-  // that the activeLink is its parent.  
+  // link that is in the process of being requested / parsed / whatever
+  // the thinking being that when we successfully find the next link we know 
+  // that this activeLink is its parent.  
   self.activeLink = self.links[0];
   self.currentState = initialState;
   self.lastStageReached = initialState;
 }
 
-TvChannel.prototype.moveToNextLink = function(){
+Spidered.prototype.moveToNextLink = function(){
   var self = this;
   var n = self.links.indexOf(self.activeLink);
   if(n < 0){
@@ -55,18 +52,18 @@ TvChannel.prototype.moveToNextLink = function(){
   self.activeLink = self.links[n+1];
 }
 
-TvChannel.prototype.retire = function(){
+Spidered.prototype.retire = function(){
   var self = this;
   self.lastStageReached = self.currentState;
-  self.currentState = TvChannelStates.END_OF_THE_ROAD;
+  self.currentState = SpideredStates.END_OF_THE_ROAD;
 }
 
-TvChannel.prototype.isRetired = function(){
+Spidered.prototype.isRetired = function(){
   var self= this;
-  return self.currentState === TvChannelStates.END_OF_THE_ROAD;
+  return self.currentState === SpideredStates.END_OF_THE_ROAD;
 }
 
-TvChannel.prototype.constructLink = function(extraMetadata, childLink){
+Spidered.prototype.constructLink = function(extraMetadata, childLink){
   var self = this;
   var link;
   
@@ -78,7 +75,7 @@ TvChannel.prototype.constructLink = function(extraMetadata, childLink){
   link = {channel: self.name,
           genre: self.genre,
           type: self.type,
-          source: self.source,
+          source: "spiders.",// + spiderName,
           uri: childLink,
           parent: self.activeLink.uri,
           metadata: extraMetadata};
@@ -90,7 +87,7 @@ TvChannel.prototype.constructLink = function(extraMetadata, childLink){
 }
 
 // Unpack the results from the wrangler and emit accordingly
-TvChannel.prototype.wranglerFinished = function(spider, done, items){
+Spidered.prototype.wranglerFinished = function(spider, done, items){
   var self = this;
 
   items.each(function traverseResults(x){
@@ -113,7 +110,7 @@ TvChannel.prototype.wranglerFinished = function(spider, done, items){
     // under direct parent of where the stream is embedded.
     var flattened = x.items.map(function flatten(n){ return n.toString();});
     spider.emit('link',
-              self.constructLink({link_source: "final stream parent uri",
+              self.constructLink({link_source: "final parent uri for the intended target",
               hiddenEndpoint: flattened.join(' , ')}, x.uri));
     
     // Finally emit the endpoint

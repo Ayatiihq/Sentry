@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
   , TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
+  , TorrentDescriptorStates = require('./torrent-descriptor.js').TorrentDescriptorStates
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -190,7 +191,11 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
         logger.warn('failed to construct uri from link : ' + err);
       }
     });
-    if(!found)done();
+    // Sometimes the link is not available - usually when it just has been published
+    if(!found){
+      torrent.currentState = TorrentDescriptorStates.END_OF_THE_ROAD;      
+      done();
+    }
   });
 }
 
@@ -209,10 +214,16 @@ IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
       if(tmp.length > 1){
         torrent.info_hash = tmp[1];
         logger.info('info hash for ' + torrent.name + ' - ' + torrent.info_hash);
+        found &= true;
       }
       else{
         logger.error('Unable to scrape the info_hash !');
       }
+
+      if(found)
+        torrent.currentState = TorrentDescriptorStates.DOWNLOADING;
+      else
+        torrent.currentState = TorrentDescriptorStates.END_OF_THE_ROAD;
     });
     done();
   });
@@ -224,15 +235,26 @@ IsoHunt.prototype.iterateRequests = function(collection){
     .seqEach(function(torrent){
       var done = this;
       if (torrent instanceof TorrentDescriptor){
-        try{
-          var uri = URI(torrent.initialLink);
-          var path = uri.absoluteTo(self.root);
-          self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
+        if(torrent.currentState === TorrentDescriptorStates.SCRAPING){
+          try{
+            var uri = URI(torrent.initialLink);
+            var path = uri.absoluteTo(self.root);
+            self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
+          }
+          catch(err){
+            logger.warn('Hmmm issue making a URI - :' + err);
+          }
         }
-        catch(err){
-          logger.warn('Hmmm issue making a URI - :' + err);
+        else if(torrent.currentState === TorrentDescriptorStates.DOWNLOADING){
+          console.log('downloading but yeah retire ' + torrent.name);
+          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+          done();        
         }
-        self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+        else{
+          console.log('retire ' + torrent.name);
+          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+          done();
+        }
       }
       else{
         var category = torrent;
