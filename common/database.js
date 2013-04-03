@@ -43,7 +43,9 @@ Database.connect = function(callback) {
     
     WAITING = [];
 
-    mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
+    mongodb.MongoClient.connect(config.MONGODB_URL, 
+                                { auto_reconnect: true, socketOptions: { keepAlive: 100 } },
+                                function(err, db) {
       if (err && RETRIES < MAX_RETRIES) {
         RETRIES += 1;
         logger.warn('Unable to connect to database: %s. Retrying %s out of %s times',
@@ -54,6 +56,9 @@ Database.connect = function(callback) {
       DATABASE = db;
       callback(err, DATABASE);
 
+      db.on('error', function(err) {
+        throw err;
+      });
 
       if (WAITING.length) {
         WAITING.forEach(function(call) {
