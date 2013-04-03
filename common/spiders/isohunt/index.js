@@ -12,8 +12,6 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
-  //, TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
-  //, SpideredStates = require('./torrent-descriptor.js').SpideredStates
   , Spidered = acquire('spidered').Spidered 
   , SpideredStates = acquire('spidered').SpideredStates  
 ;
@@ -24,11 +22,17 @@ var IsoHunt = module.exports = function() {
   this.init();
 }
 
+//TODO:
+//For now just spider releases
+//Need to also spider torrents section
+
+
 util.inherits(IsoHunt, Spider);
 
 IsoHunt.prototype.init = function() {
   var self = this;  
   self.newDriver();
+  self.spiderReleases = true; // by default spider the torrents section
   self.lastRun;
   self.results = [];
   self.completed = [];
@@ -82,60 +86,25 @@ IsoHunt.prototype.newDriver = function(){
   self.driver.manage().timeouts().implicitlyWait(30000);
 }
 
+IsoHunt.prototype.formatGet = function(catId, pageNumber, age){
+  var self = this;
+  if(self.spiderReleases){
+    var page = pageNumber ? "&ihp=" + pageNumber : "&ihp=1";
+    return "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + catId + page;
+  }
+  else{
+    return "http://ca.isohunt.com/torrents/?ihs1=5&iho1=d&iht=2&age=0";
+  }
+}
+
 IsoHunt.prototype.parseCategory = function(done, category, firstPass){
   var self = this;
-  var pageResults = [];
-  var paginationCount;
-  var pageNumber=1;;
-
-  //self.driver.sleep(10000);
-  self.driver.getPageSource().then(function parseSrcHtml(source){
-    var $ = cheerio.load(source);
-    $("td.releases").each(function(){
-      var torrentDescriptor;
-      if($(this).attr('width') === '60%'){
-        torrentDescriptor = new Spidered('torrent',
-                                         $(this).children('a').text(),
-                                         category.name,
-                                         $(this).children('a').attr('href'),
-                                         SpideredStates.ENTITY_PAGE_PARSING);
-
-        pageResults.push(torrentDescriptor);   
-      }
-    });
-    // Fragile but doable going on the isoHunt style
-    var count = 0;
-    $("td.releases").each(function(){
-      var torrentDescriptor;
-      if($(this).attr('style') === "background:#d9e2ec"){
-        pageResults[count].date = Date.create($(this).text());
-        count += 1;
-      } 
-    });
-    self.driver.sleep(1000 * Number.random(0, 10));
-    self.results = self.results.union(pageResults);    
-    // check to make sure we are able to find anything
-    // sometimes the cat page is unavailable
-    if (self.results.length === 0 && pageNumber === 1){
-      done();
-      return;
-    }
-
-    if(firstPass){
-      paginationCount = self.ripPageCount($);
-    }    
-    var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
-    if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
-      pageNumber += 1;
-      var requestUrl = "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + cat.id + "&ihp=" + pageNumber;
-      var fetchPromise = self.driver.get(requestUrl);
-      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
-    }
-    else{
-      logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
-      done();
-    }
-  });
+  if(self.spiderReleases){
+    self.parseReleasesCategory(done, category, firstPass);
+  }
+  else{
+    self.parseTorrentsCategory(done, category, firstPass);
+  }
 }
 
 IsoHunt.prototype.ripPageCount = function($){
@@ -188,9 +157,113 @@ IsoHunt.prototype.isAlive = function(cb) {
     cb();
 }
 
-IsoHunt.prototype.parseTorrentPage = function(done, torrent){
+IsoHunt.prototype.iterateRequests = function(collection){
+  var self= this;
+  Seq(collection)
+    .seqEach(function(torrent){
+      var done = this;
+      if (torrent instanceof Spidered){
+        if(torrent.currentState === SpideredStates.ENTITY_PAGE_PARSING){
+          try{
+            var uri = URI(torrent.activeLink.uri);
+            var path = uri.absoluteTo(self.root);
+            self.driver.sleep(1000 * Number.random(0, 10));      
+                  
+            self.driver.get(path.toString()).then(self.parseReleasePage.bind(self, done, torrent));
+          }
+          catch(err){
+            logger.warn('Hmmm issue making a URI - :' + err);
+          }
+        }
+        else if(torrent.currentState === SpideredStates.DOWNLOADING){
+          console.log('downloading but yeah retire ' + torrent.name);
+          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+          done();        
+        }
+        else{
+          console.log('retire ' + torrent.name);
+          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
+          done();
+        }
+      }
+      else{
+        var category = torrent; 
+        self.driver.get(self.formatGet(category.id)).then(self.parseCategory.bind(self, done, category, true));
+      }
+    })
+    .seq(function(){
+      logger.info("results length : " + self.results.length);
+      logger.info("Completed length : " + self.completed.length);
+      // if we have more go again
+      if(self.results.length > 0){
+        self.iterateRequests(self.results);
+      }
+      else{
+        self.stop();
+      }
+    })    
+  ;    
+}
+
+/// Parse releases avenue ///////////////////////////////////////////////////
+IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
   var self = this;
-  console.log('parseTorrentPage for :' + torrent.name);
+  var pageResults = [];
+  var paginationCount;
+  var pageNumber=1;;
+
+  //self.driver.sleep(10000);
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+    var $ = cheerio.load(source);
+    $("td.releases").each(function(){
+      var torrentDescriptor;
+      if($(this).attr('width') === '60%'){
+        torrentDescriptor = new Spidered('torrent',
+                                         $(this).children('a').text(),
+                                         category.name,
+                                         $(this).children('a').attr('href'),
+                                         SpideredStates.ENTITY_PAGE_PARSING);
+
+        pageResults.push(torrentDescriptor);   
+      }
+    });
+    // Fragile but doable going on the isoHunt style
+    var count = 0;
+    $("td.releases").each(function(){
+      var torrentDescriptor;
+      if($(this).attr('style') === "background:#d9e2ec"){
+        pageResults[count].date = Date.create($(this).text());
+        count += 1;
+      } 
+    });
+    self.driver.sleep(1000 * Number.random(0, 10));
+    self.results = self.results.union(pageResults);    
+    // check to make sure we are able to find anything
+    // sometimes the cat page is unavailable
+    if (self.results.length === 0 && pageNumber === 1){
+      done();
+      return;
+    }
+
+    if(firstPass){
+      paginationCount = self.ripPageCount($);
+    }    
+    var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
+    if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
+      pageNumber += 1;
+      var fetchPromise = self.driver.get(self.formatGet(category.id, pageNumber));
+      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
+    }
+    else{
+      logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
+      done();
+    }
+  });
+}
+
+IsoHunt.prototype.parseReleasePage = function(done, torrent){
+  var self = this;
+  console.log('parseReleasePage for :' + torrent.name);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     var found = false;
@@ -200,7 +273,7 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
         var path = uri.absoluteTo(self.root);
         found = true;
         self.driver.sleep(1000 * Number.random(0, 10));        
-        self.driver.get(path.toString()).then(self.parseInnerTorrentPage.bind(self, done, torrent));
+        self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
       }        
       catch(err){
         logger.warn('failed to construct uri from link : ' + err);
@@ -215,7 +288,7 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
   });
 }
 
-IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
+IsoHunt.prototype.parseInnerReleasePage = function(done, torrent){
   var self = this;
   var found = false;
   self.driver.getPageSource().then(function parseSrcHtml(source){
@@ -251,52 +324,4 @@ IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
   });
 }
 
-IsoHunt.prototype.iterateRequests = function(collection){
-  var self= this;
-  Seq(collection)
-    .seqEach(function(torrent){
-      var done = this;
-      if (torrent instanceof Spidered){
-        if(torrent.currentState === SpideredStates.ENTITY_PAGE_PARSING){
-          try{
-            var uri = URI(torrent.activeLink.uri);
-            var path = uri.absoluteTo(self.root);
-            self.driver.sleep(1000 * Number.random(0, 10));      
-                  
-            self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
-          }
-          catch(err){
-            logger.warn('Hmmm issue making a URI - :' + err);
-          }
-        }
-        else if(torrent.currentState === SpideredStates.DOWNLOADING){
-          console.log('downloading but yeah retire ' + torrent.name);
-          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
-          done();        
-        }
-        else{
-          console.log('retire ' + torrent.name);
-          self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
-          done();
-        }
-      }
-      else{
-        var category = torrent;
-        var requestUrl = "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + category.id + "&ihp=1";
-        self.driver.get(requestUrl).then(self.parseCategory.bind(self, done, category, true));
-      }
-    })
-    .seq(function(){
-      logger.info("results length : " + self.results.length);
-      logger.info("Completed length : " + self.completed.length);
-      // if we have more go again
-      if(self.results.length > 0){
-        self.iterateRequests(self.results);
-      }
-      else{
-        self.stop();
-      }
-    })    
-  ;    
-}
 
