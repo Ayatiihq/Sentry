@@ -1,17 +1,17 @@
 /*
- * index.js: a TvChannelsOnline spider (http://www.tvchannelsliveonline.com/)
+ * index.js: a TvChannelsLiveOnline spider (http://www.tvchannelsliveonline.com/)
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('TvChannelsOnline.js')
+  , logger = acquire('logger').forFile('TvChannelsLiveOnline.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')
   , sugar = require('sugar')
   , Seq = require('seq')
-  , TvChannel = acquire('tv-channel').TvChannel 
-  , TvChannelStates = acquire('tv-channel').TvChannelStates
+  , Spidered = acquire('spidered').Spidered 
+  , SpideredStates = acquire('spidered').SpideredStates
   , URI = require('URIjs')
   , webdriver = require('selenium-webdriver')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
@@ -22,13 +22,13 @@ require('enum').register();
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 
-var TvChannelsOnline = module.exports = function() {
+var TvChannelsLiveOnline = module.exports = function() {
   this.init();
 }
 
-util.inherits(TvChannelsOnline, Spider);
+util.inherits(TvChannelsLiveOnline, Spider);
 
-TvChannelsOnline.prototype.init = function() {
+TvChannelsLiveOnline.prototype.init = function() {
   var self = this;  
 
   self.results = []; // the working resultset 
@@ -37,14 +37,14 @@ TvChannelsOnline.prototype.init = function() {
   
   self.root = "http://www.tvchannelsliveonline.com";
 
-  self.categories = [{cat: 'entertainment', currentState: TvChannelStates.CATEGORY_PARSING},
-                     //{cat: 'movies', currentState: TvChannelStates.CATEGORY_PARSING},
-                     {cat: 'sports', currentState: TvChannelStates.CATEGORY_PARSING}];
+  self.categories = [{cat: 'entertainment', currentState: SpideredStates.CATEGORY_PARSING},
+                     //{cat: 'movies', currentState: SpideredStates.CATEGORY_PARSING},
+                     {cat: 'sports', currentState: SpideredStates.CATEGORY_PARSING}];
   self.newWrangler();
   self.iterateRequests(self.categories);
 }
 
-TvChannelsOnline.prototype.newWrangler = function(){
+TvChannelsLiveOnline.prototype.newWrangler = function(){
   var self = this;
 
   if(self.driver){
@@ -67,43 +67,43 @@ TvChannelsOnline.prototype.newWrangler = function(){
 //
 // Overrides
 //
-TvChannelsOnline.prototype.getName = function() {
-  return "TvChannelsOnline";
+TvChannelsLiveOnline.prototype.getName = function() {
+  return "tvchannelsliveonline";
 }
 
-TvChannelsOnline.prototype.start = function(state) {
+TvChannelsLiveOnline.prototype.start = function(state) {
   var self = this;
   self.emit('started');
 }
 
-TvChannelsOnline.prototype.stop = function() {
+TvChannelsLiveOnline.prototype.stop = function() {
   var self = this;
   self.wrangler.quit();
   self.emit('finished');
 }
 
-TvChannelsOnline.prototype.isAlive = function(cb) {
+TvChannelsLiveOnline.prototype.isAlive = function(cb) {
   cb();
 }
 
-TvChannelsOnline.prototype.getChannel = function(self, channel, done){
+TvChannelsLiveOnline.prototype.getChannel = function(self, channel, done){
   //var self = this;
 }
 
-TvChannelsOnline.prototype.iterateRequests = function(collection){
+TvChannelsLiveOnline.prototype.iterateRequests = function(collection){
   var self= this;
   Seq(collection)
     .seqEach(function(item){
       var done = this;
 
-      if(item instanceof TvChannel && item.isRetired()){
+      if(item instanceof Spidered && item.isRetired()){
         logger.warn('retired item in live loop %s', item.name);
         done();
       }
-      else if(item.currentState === TvChannelStates.CATEGORY_PARSING){
+      else if(item.currentState === SpideredStates.CATEGORY_PARSING){
         self.driver.get(self.root + '/' + item.cat + '-channels').then(self.scrapeCategory.bind(self, item.cat, done));
       }
-      else if(item.currentState === TvChannelStates.CHANNEL_PARSING){
+      else if(item.currentState === SpideredStates.CHANNEL_PARSING){
         self.driver.get(item.activeLink.uri).then(self.scrapeChannel.bind(self, item, done));
       }
     })
@@ -125,7 +125,7 @@ TvChannelsOnline.prototype.iterateRequests = function(collection){
   ;    
 }
 
-TvChannelsOnline.prototype.scrapeCategory = function(category, done){
+TvChannelsLiveOnline.prototype.scrapeCategory = function(category, done){
   var self = this;
   var $ = null;
 
@@ -137,14 +137,14 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
           if($(this).attr('title')){
             var name = $(this).text().toLowerCase().trim();
             //if(name.match(/^espn/)){
-            var channel = new TvChannel('tv.live',
-                                        'TvChannelsLiveOnline',
+            var channel = new Spidered('tv.live',
                                         name,
                                         category,
                                         self.root + '/' + category + '-channels',
-                                        TvChannelStates.CHANNEL_PARSING);
+                                        SpideredStates.CHANNEL_PARSING);
+            console.log('created : ' + channel);
             self.results.push(channel);
-            self.emit('link', channel.constructLink({link_source: category + " page"}, $(this).attr('href')));
+            self.emit('link', channel.constructLink(self, {link_source: category + " page"}, $(this).attr('href')));
             //}
           }
         });
@@ -155,7 +155,7 @@ TvChannelsOnline.prototype.scrapeCategory = function(category, done){
   delayedScrape.delay(1000 * Math.random(), category, done);
 }  
 
-TvChannelsOnline.prototype.scrapeChannel = function(channel, done){
+TvChannelsLiveOnline.prototype.scrapeChannel = function(channel, done){
   var self = this;
   var $ = null;
   
@@ -171,15 +171,15 @@ TvChannelsOnline.prototype.scrapeChannel = function(channel, done){
           var ratio = parseFloat(width) / parseFloat(height);
           // Determine the right iframe by aspect ratio
           if(ratio > 1.2 && ratio < 1.5){
-            self.emit('link', channel.constructLink({remoteStreamer: "embedded @ channel page"}, src));            
-            channel.currentState = TvChannelStates.WRANGLE_IT;          
+            self.emit('link', channel.constructLink(self, {remoteStreamer: "embedded @ channel page"}, src));            
+            channel.currentState = SpideredStates.WRANGLE_IT;          
             self.wrangler.on('finished', channel.wranglerFinished.bind(channel, self, done));
             self.wrangler.beginSearch(channel.activeLink.uri);            
           }
         }
       });
       // retire those that didn't manage to move to the right iframe
-      if(channel.currentState === TvChannelStates.CHANNEL_PARSING){
+      if(channel.currentState === SpideredStates.CHANNEL_PARSING){
         self.channelCompleted(channel, false);
         done();
       }
@@ -188,7 +188,7 @@ TvChannelsOnline.prototype.scrapeChannel = function(channel, done){
   delayedScrape.delay(1000 * Math.random());
 }
 
-TvChannelsOnline.prototype.channelCompleted = function(channel, successfull){
+TvChannelsLiveOnline.prototype.channelCompleted = function(channel, successfull){
   var self = this;
   channel.retire();
 
