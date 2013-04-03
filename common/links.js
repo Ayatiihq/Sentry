@@ -21,7 +21,8 @@ var COLLECTION = 'links'
   , EDUPLICATE = 11000
   , SCHEMAS = {
     "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata'],
-    "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata']
+    "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata'],
+    "torrent": ['uri', 'parent', 'type', 'source', 'metadata']
     }
   ;
 

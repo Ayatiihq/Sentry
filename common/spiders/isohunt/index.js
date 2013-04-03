@@ -12,8 +12,10 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , webdriver = require('selenium-webdriver')
   , Settings = acquire('settings')  
-  , TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
-  , TorrentDescriptorStates = require('./torrent-descriptor.js').TorrentDescriptorStates
+  //, TorrentDescriptor = require('./torrent-descriptor.js').TorrentDescriptor
+  //, SpideredStates = require('./torrent-descriptor.js').SpideredStates
+  , Spidered = acquire('spidered').Spidered 
+  , SpideredStates = acquire('spidered').SpideredStates  
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -92,7 +94,12 @@ IsoHunt.prototype.parseCategory = function(done, category, firstPass){
     $("td.releases").each(function(){
       var torrentDescriptor;
       if($(this).attr('width') === '60%'){
-        torrentDescriptor = new TorrentDescriptor($(this).children('a').text(), $(this).children('a').attr('href'));
+        torrentDescriptor = new Spidered('torrent',
+                                         $(this).children('a').text(),
+                                         category.name,
+                                         $(this).children('a').attr('href'),
+                                         SpideredStates.ENTITY_PAGE_PARSING);
+
         pageResults.push(torrentDescriptor);   
       }
     });
@@ -105,11 +112,18 @@ IsoHunt.prototype.parseCategory = function(done, category, firstPass){
         count += 1;
       } 
     });
-    //self.driver.sleep(10000 * Number.random(0, 10));
+    self.driver.sleep(1000 * Number.random(0, 10));
     self.results = self.results.union(pageResults);    
+    // check to make sure we are able to find anything
+    // sometimes the cat page is unavailable
+    if (self.results.length === 0 && pageNumber === 1){
+      done();
+      return;
+    }
+
     if(firstPass){
       paginationCount = self.ripPageCount($);
-    }
+    }    
     var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
     if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
       pageNumber += 1;
@@ -185,6 +199,7 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
         var uri = URI($(this).attr('href'));
         var path = uri.absoluteTo(self.root);
         found = true;
+        self.driver.sleep(1000 * Number.random(0, 10));        
         self.driver.get(path.toString()).then(self.parseInnerTorrentPage.bind(self, done, torrent));
       }        
       catch(err){
@@ -192,8 +207,9 @@ IsoHunt.prototype.parseTorrentPage = function(done, torrent){
       }
     });
     // Sometimes the link is not available - usually when it just has been published
+    // TODO should we emit here anyway ?
     if(!found){
-      torrent.currentState = TorrentDescriptorStates.END_OF_THE_ROAD;      
+      torrent.currentState = SpideredStates.END_OF_THE_ROAD;      
       done();
     }
   });
@@ -219,12 +235,18 @@ IsoHunt.prototype.parseInnerTorrentPage = function(done, torrent){
       else{
         logger.error('Unable to scrape the info_hash !');
       }
-
-      if(found)
-        torrent.currentState = TorrentDescriptorStates.DOWNLOADING;
-      else
-        torrent.currentState = TorrentDescriptorStates.END_OF_THE_ROAD;
     });
+
+    $('td.row3').each(function(){
+      if($(this).attr('id') && $(this).attr('id').match(/\sfiles/)){
+        console.log('size = ' + $(this).text());
+      }
+    });
+
+    if(found)
+      torrent.currentState = SpideredStates.DOWNLOADING;
+    else
+      torrent.currentState = SpideredStates.END_OF_THE_ROAD;
     done();
   });
 }
@@ -234,18 +256,20 @@ IsoHunt.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(torrent){
       var done = this;
-      if (torrent instanceof TorrentDescriptor){
-        if(torrent.currentState === TorrentDescriptorStates.SCRAPING){
+      if (torrent instanceof Spidered){
+        if(torrent.currentState === SpideredStates.ENTITY_PAGE_PARSING){
           try{
-            var uri = URI(torrent.initialLink);
+            var uri = URI(torrent.activeLink.uri);
             var path = uri.absoluteTo(self.root);
+            self.driver.sleep(1000 * Number.random(0, 10));      
+                  
             self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
           }
           catch(err){
             logger.warn('Hmmm issue making a URI - :' + err);
           }
         }
-        else if(torrent.currentState === TorrentDescriptorStates.DOWNLOADING){
+        else if(torrent.currentState === SpideredStates.DOWNLOADING){
           console.log('downloading but yeah retire ' + torrent.name);
           self.completed.push(self.results.splice(self.results.indexOf(torrent), 1));
           done();        
