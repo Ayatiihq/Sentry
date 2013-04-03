@@ -34,13 +34,13 @@ var Database = module.exports;
  */
 Database.connect = function(callback) {
 
-  logger.info('Connecting to database');
-
   callback = callback ? callback : function() {};
 
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
+    logger.info('Connecting to database');
+    
     WAITING = [];
 
     mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
@@ -79,6 +79,7 @@ Database.connect = function(callback) {
   callback = callback ? callback : function() {};
 
   if (!DATABASE && Object.isArray(WAITING)) {
+
     return WAITING.push([Database.connectAndEnsureCollection, Object.values(arguments)]);
   }
 
