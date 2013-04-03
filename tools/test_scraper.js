@@ -21,6 +21,23 @@ function setupSignals() {
 
 var SIGNALS = ['started', 'finished', 'error', 'infringement', 'metaInfringement', 'relation', 'metaRelation', 'infringementStateChange'];
 
+function parseObject(arg) {
+  var ret = arg;
+
+  try {
+    ret = require(arg);
+  } catch (err) {
+    if (arg.endsWith('.json'))
+      console.error(err);
+    try {
+      ret = JSON.parse(arg);
+    } catch (err) { 
+      console.log(err); 
+    }
+  }
+  return ret;
+}
+
 function main() {
   var task = null;
 
@@ -52,30 +69,19 @@ function main() {
     });
   });
 
-  var campaign = undefined;
-
-  // conor don't remove this next time ;)
-  try {
-    campaign = require(process.argv[3]);
-  } catch (err) {
-    if (process.argv[3].endsWith('.json'))
-      console.log(err);
-    try {
-      campaign = JSON.parse(process.argv[3]);
-    } catch (err) { console.log(err); }
-  }
-  
+  var campaign = parseObject(process.argv[3]);
+  var job = process.argv[4] ? parseObject(process.argv[4]) : {};
 
   if (Object.isObject(campaign)) {
-    instance.start(campaign);
+    instance.start(campaign, job);
   } else {
     var campaignId = process.argv[3];
     var campaigns = new Campaigns();
     campaigns.getDetails(campaignId, function(err, campaign) {
       if (err)
-        console.log(err);
+        console.error(err);
       else
-        instance.start(campaign);
+        instance.start(campaign, job);
     });
   }
 }

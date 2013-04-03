@@ -375,8 +375,8 @@ SearchEngine.prototype.start = function (campaign, job) {
     'bing': BingScraper
   };
 
-  console.log(campaign.metadata.engine);
-  self.scraper = new scraperMap[campaign.metadata.engine](campaign);
+  logger.info('Loading search engine: %s', job.metadata.engine);
+  self.scraper = new scraperMap[job.metadata.engine](campaign);
 
   self.scraper.on('finished', function onFinished() {
     self.emit('finished');
