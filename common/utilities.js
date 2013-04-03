@@ -348,10 +348,14 @@ Utilities.requestURL = function(url, options, callback) {
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
-        stream = response.pipe(zlib.createGunzip());
+        var decompresser = zlib.createGunzip();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
         break;
       case 'deflate':
-        stream = response.pipe(zlib.createInflate())
+        var decompresser = zlib.createInflate();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
         break;
       default:
         stream = response;
