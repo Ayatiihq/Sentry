@@ -10,11 +10,8 @@
 var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
-  , http = require('http')
-  , https = require('https')
   , logger = acquire('logger').forFile('storage.js')
   , sugar = require('sugar')
-  , util = require('util')
   , utilities = acquire('utilities')
   ;
 
