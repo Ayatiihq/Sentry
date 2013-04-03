@@ -18,6 +18,7 @@ var Seq = require('seq');
 var DATABASE = undefined
   , MAX_RETRIES = 5
   , RETRIES = 0
+  , WAITING = null
   ;
 
 var Database = module.exports;
@@ -33,11 +34,15 @@ var Database = module.exports;
  */
 Database.connect = function(callback) {
 
+  logger.info('Connecting to database');
+
   callback = callback ? callback : function() {};
 
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
+    WAITING = [];
+
     mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
       if (err && RETRIES < MAX_RETRIES) {
         RETRIES += 1;
@@ -48,6 +53,13 @@ Database.connect = function(callback) {
       }
       DATABASE = db;
       callback(err, DATABASE);
+
+
+      if (WAITING.length) {
+        WAITING.forEach(function(call) {
+          call[0].apply(null, call[1]);
+        });
+      }
     });
   }
 }
@@ -65,6 +77,10 @@ Database.connect = function(callback) {
     return logger.warn('Collection name required');
 
   callback = callback ? callback : function() {};
+
+  if (!DATABASE && Object.isArray(WAITING)) {
+    return WAITING.push([Database.connectAndEnsureCollection, Object.values(arguments)]);
+  }
 
   Seq()
     .seq('Get database', function() {
