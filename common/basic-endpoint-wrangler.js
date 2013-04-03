@@ -132,6 +132,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
   self.foundURIs.push(uri);
 
   var reqOpts = {
+    'followRedirects': true,
     'headers': {
       'Referer': parents.last(), 'User-Agent': USER_AGENT
     },
@@ -150,15 +151,16 @@ Wrangler.prototype.processUri = function (uri, parents) {
           error = new Error('4xx status code: ' + response.statusCode);
         }
       }
-      if (!!error) { reqPromise.reject(error, response); }
-      else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
-      //else {
-        //console.log(response);
-        //console.log(error);
-     //   console.log(response.statusCode);
-        //logger.error(error, response);
-      //  throw new Error(error);
-     // }
+
+      if (!!error) {
+        reqPromise.reject(error, response);
+      }
+      else if (response.statusCode >= 200 && response.statusCode < 300) {
+        reqPromise.resolve(body);
+      }
+      else {
+        reqPromise.reject(new Error('Bad status code: ' + response.statusCode));
+      }
     });
 
     // create a timeout, sometimes request doesn't seem to timeout appropriately. 
