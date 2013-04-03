@@ -8,17 +8,14 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('clients.js')
   , sugar = require('sugar')
   , util = require('util')
   ;
 
-var Swarm = acquire('swarm');
-
-var TABLE = 'clients';
-var PARTITION = '0';
+var COLLECTION = 'clients';
 
 /**
  * Wraps the clients table.
@@ -26,7 +23,10 @@ var PARTITION = '0';
  * @return {object}
  */
 var Clients = module.exports = function() {
-  this.tableService_ = null;
+  this.db_ = null;
+  this.clients_ = null;
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -34,21 +34,23 @@ var Clients = module.exports = function() {
 Clients.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_CORE_ACCOUNT,
-                                                config.AZURE_CORE_KEY);
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
+      return logger.error('Unable to connect to database %s', err);
+
+    self.db_ = db;
+    self.clients_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
 function defaultCallback(err) {
   if (err)
     logger.warn('Reply Error: %s', err);
-}
-
-Clients.prototype.genClientKey = function(name) {
-  return name;
 }
 
 //
@@ -64,65 +66,68 @@ Clients.prototype.listClients = function(callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select().from(TABLE);
-  self.tableService_.queryEntities(query, callback);
+  if (!self.clients_)
+    return self.cachedCalls_.push([self.listClients, Object.values(arguments)]);
+
+  self.clients_.find().toArray(callback);
 }
 
 /**
  * Adds a client.
  *
  * @param {object}          client     An object containing details of the client.
- * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @param {function(err, doc)}   callback   A callback to receive an error, if one occurs, otherwise the inserted documents.
  * @return {undefined}
  */
 Clients.prototype.add = function(client, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!(client && client.name && client.state)) {
-    callback(new Error('Client should have name and state'));
-    return;
+  if (!(client && client.name)) {
+    callback = callback ? callback : defaultCallback;
+    return callback(new Error('Client should have name and state:' + JSON.stringify(client)));
   }
 
-  client.PartitionKey = PARTITION;
-  client.RowKey = self.genClientKey(client.name);
-  client.created = Date.utc.create().getTime();
+  if (!self.clients_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
-  self.tableService_.insertEntity(TABLE, client, callback);
+  client._id = client.name;
+  client.created = Date.now();
+
+  self.clients_.insert(client, callback);
 }
 
 /**
  * Update a client's details.
  *
+ * @param {object}          query      The query selecting the client.
  * @param {object}          updates    An object containing updates for the client.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Clients.prototype.update = function(updates, callback) {
+Clients.prototype.update = function(query, updates, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!(updates && updates.PartitionKey && updates.RowKey)) {
-    callback(new Error('Updates should have PartitionKey and RowKey'));
-    return;
-  }
-  self.tableService_.mergeEntity(TABLE, updates, callback);
+  if (!self.clients_)
+    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
+
+  self.clients_.update(query, { $set: updates }, callback);
 }
 
 /**
  * Remove a client.
  *
- * @param {object}          client     An object containing details of the client.
+ * @param {object}          query      The query selecting the client(s).
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Clients.prototype.remove = function(client, callback) {
+Clients.prototype.remove = function(query, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!(client && client.PartitionKey && client.RowKey)) {
-    callback(new Error('Client should have PartitionKey and RowKey'));
-    return;
-  }
-  self.tableService_.deleteEntity(TABLE, client, callback);
+  if (!self.clients_)
+    return self.cachedCalls_.remove([self.update, Object.values(arguments)]);
+
+  self.clients_.remove(query, callback);
 }

@@ -8,6 +8,7 @@
     "azure": "git://github.com/njpatel/azure-sdk-for-node.git",
     "cheerio": "0.10.x",
     "enum": "0.2.x",
+    "mongodb": "1.2.x",
     "node-promise": "0.5.x",
     "parseq": "0.2.x",
     "request": "2.12.x",

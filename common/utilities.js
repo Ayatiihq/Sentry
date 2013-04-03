@@ -13,10 +13,12 @@ var acquire = require('acquire')
   , exec = require('child_process').exec
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
+  , os = require('os')
   , querystring = require('querystring')
   , sugar = require('sugar')
   , URI = require('URIjs')
   , util = require('util')
+  , request = require('request')
   ;
 
 var Seq = require('seq');
@@ -74,11 +76,28 @@ Utilities.normalizeURI = function(uri) {
     uri = uri.toString();
 
   } catch (err) {
-    logger.warn('Malformed URI %s', orignal);
-    uri = orignal;
+    logger.warn('Malformed URI %s', original);
+    uri = original;
   }
 
   return uri;
+}
+
+/**
+ * Returns the scheme of the URI
+ *
+ * @param  {string}   uri      The uri to retrieve the schema of.
+ * @return {string}            The scheme.
+ */
+Utilities.getURIScheme = function(uri) {
+  var scheme = uri;
+
+  try {
+    scheme = URI(uri).scheme();
+  } catch (err) {
+    scheme = uri.split(':')[0];
+  }
+  return scheme;
 }
 
 /**
@@ -110,7 +129,8 @@ Utilities.genLinkKey = function() {
   var string = '';
 
   Object.values(arguments, function(arg) {
-    string += '.' + arg;
+    if (arg)
+      string += '.' + arg;
   });
 
   var shasum = crypto.createHash('sha1');
@@ -197,4 +217,56 @@ Utilities.notify = function(message) {
   var req = https.request(msg);
   req.write(msg.data);
   req.end();
+}
+
+/**
+ * Follows redirects manually 
+ * @param  {array}  links   A array usually containing one link from which to start the requesting from   
+ * @param  {object} promise A promise instance which resolves at some point returning an array of link(s)
+ * @return {object} the given promise.
+ */
+
+Utilities.followRedirects = function(links, promise) {
+
+  function onHeadResponse(results, thePromise, err, resp, html){
+    if(err){
+      logger.info('error onHeadResponse ! : ' + err.message);
+      thePromise.resolve(results);
+      return;      
+    }
+
+    var circularCheck = results.some(resp.headers.location); 
+
+    if(circularCheck){
+      logger.info('clocked a circular reference - finish up');
+      thePromise.resolve(results);
+    }
+    else if(resp.headers.location){
+      var redirect = URI(resp.headers.location.replace(/\s/g, ""));
+      if(redirect.is("relative"))
+        redirect = redirect.absoluteTo(links.last());
+      // push this link into our results  
+      results.push(redirect.toString());
+      logger.info('request redirect location : ' + redirect.toString());
+      requestHeader(results, thePromise);
+    }
+    else{
+      thePromise.resolve(results);      
+    }
+  }
+  // Request just the headers with a long timeout
+  // Don't allow redirects to follow on automatically
+  request.head(links.last(),
+              {timeout: 30000, followRedirect: false},
+              onHeadResponse.bind(null, links, promise));
+  return promise;
+}
+
+/**
+ * Produces a string id for the machine and worker.
+ *
+ * @return {object} the id of the worker.
+ */
+Utilities.getWorkerId  = function() {
+  return util.format('%s-%s', os.hostname(), process.pid);
 }

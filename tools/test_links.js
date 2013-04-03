@@ -30,10 +30,14 @@ function main() {
   var links = new Links();
   var action = argv[2];
 
-  if (action === 'get') {
-    links.getLinks(argv[3], Date.utc.create(argv[4]), function(err, entities) {
-      console.log(entities);
-      console.log(entities.length);
+  if (action === 'getLinks') {
+    links.getLinks(argv[3], Date.utc.create(argv[4]), Number(argv[5]), function(err, entities) {
+      if (err) {
+        console.warn(err);
+      } else {
+        console.log(entities);
+        console.log(entities.length);
+      }
     });
   }
 

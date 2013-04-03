@@ -34,7 +34,7 @@ var Scraper = module.exports = function() {
 
   // ("metaRelation", uri) - When a meta relation should be made.
 
-  // ("changeState", infringement, newState) - When the state of a infringement should be changed.
+  // ("infringementStateChange", infringement, newState) - When the state of a infringement should be changed.
 }
 
 util.inherits(Scraper, events.EventEmitter);

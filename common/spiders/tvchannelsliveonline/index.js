@@ -57,7 +57,7 @@ TvChannelsOnline.prototype.newWrangler = function(){
   self.driver.manage().timeouts().implicitlyWait(30000);
   self.wrangler = new Wrangler(self.driver);
 
-  self.wrangler.addRule(acquire('endpoint-wrangler').rulesLiveTV);
+  self.wrangler.addRule(acquire('wrangler-rules').rulesLiveTV);
   self.wrangler.on('error', function onWranglerError(error) {
     logger.info('got error when scraping with selenium : ' + error.toString());
     self.wrangler.removeAllListeners();
@@ -83,19 +83,7 @@ TvChannelsOnline.prototype.stop = function() {
 }
 
 TvChannelsOnline.prototype.isAlive = function(cb) {
-  var self = this;
-
-  logger.info('Is alive called');
-
-  if (!self.alive)
-    self.alive = 1;
-  else
-    self.alive++;
-
-  if (self.alive > 4)
-    cb(new Error('exceeded'));
-  else
-    cb();
+  cb();
 }
 
 TvChannelsOnline.prototype.getChannel = function(self, channel, done){

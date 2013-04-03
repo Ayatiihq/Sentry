@@ -30,7 +30,7 @@ RunTask.prototype.init = function() {
     ;
 
   try {
-    klass = require(util.format('./%s/%s', self.task_, self.task_));
+    klass = require(util.format('../%s/%s', self.task_, self.task_));
   } catch (err) {
     self.done_(err);
   }

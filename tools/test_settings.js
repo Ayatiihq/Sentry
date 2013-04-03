@@ -27,7 +27,7 @@ function main() {
 
   setupSignals();
 
-  var settings = new Settings('role.miner');
+  var settings = new Settings('foo.bar');
   var action = argv[2];
 
   if (action === 'get')
@@ -38,9 +38,6 @@ function main() {
 
   if (action === 'set')
     settings.set(argv[3], JSON.parse(argv[4]));
-
-  if (action === 'setAll')
-    settings.setAll(JSON.parse(argv[3]));
 
   if (action === 'delete')
     settings.delete(argv[3]);

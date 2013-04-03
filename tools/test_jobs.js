@@ -20,6 +20,13 @@ function setupSignals() {
   });
 }
 
+function log(err) {
+  if (err)
+    console.warn(err);
+  else
+    console.log.apply(null, Object.values(arguments).slice(1));
+}
+
 function main() {
   var argv = process.argv;
 
@@ -28,53 +35,44 @@ function main() {
 
   setupSignals();
 
-  var campaigns = new Campaigns();
-  var jobs = new Jobs('test');
+  var jobs = new Jobs('scraper');
+  var action = argv[2];
+  var id;
+  try {
+    id = JSON.parse(argv[3]);
+  } catch(err) {
+    id = null;
+  }
 
-  campaigns.listActiveCampaigns(function(err, camps) {
-    if (err) {
-      console.log(err);
-      process.exit();
-    }
+  if (action === 'listActiveJobs')
+    jobs.listActiveJobs(id, log);
 
-    var c = camps[0];
+  if(action === 'getDetails')
+    jobs.getDetails(id, log);
 
-    if (argv[2] === 'add') {
-      var data = JSON.parse(argv[4]);
-      console.log(jobs.add(c, data));
-    }
+  if (action === 'nAvailableJobs')
+    jobs.nAvailableJobs(log);
 
-    setTimeout(function() {
-      jobs.listActiveJobs(c, function(err, list) {
-        if (err) {
-          console.warn(err);
-          process.exit();
-        }
+  if (action === 'push')
+    jobs.push(id, argv[4], {}, log);
 
-        if (argv.length == 2)
-          console.log(list);
+  if (action === 'pop')
+    jobs.pop(log);
 
-        if(argv[2] === 'details')
-          jobs.getDetails(c, list[0].RowKey, console.log);
+  if (action === 'start')
+    jobs.start({ _id: id }, log);
 
-        if (argv[2] === 'start')
-          jobs.start(c, list[0].RowKey);
+  if (action === 'complete')
+    jobs.complete({ _id: id }, log);
 
-        if (argv[2] === 'pause')
-          jobs.pause(c, list[0].RowKey, { payload: 'this is saved data' });
+  if (action === 'close')
+    jobs.close({ _id: id }, Number(argv[4]), argv[5], log);
 
-        if (argv[2] === 'complete')
-          jobs.complete(c, list[0].RowKey);
+  if (action === 'setMetadata')
+    jobs.setMetadata({ _id: id }, JSON.parse(argv[4]), log);
 
-        if (argv[2] === 'close')
-          jobs.close(c, list[0].RowKey, argv[3]);
-
-        if(argv[2] === 'metadata')
-          jobs.setMetadata(c, list[0].RowKey, { hello: 'world' });
-      });
-    }, 1000 * 3);
-
-  });
+  if (action === 'touch')
+    jobs.touch({ _id: id }, log);
 }
 
 main();

@@ -17,27 +17,18 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
-  , Queue = acquire('queue')
   , Role = acquire('role')
   , Scrapers = acquire('scrapers')
-
-var MAX_QUEUE_POLLS = 1
-  , QUEUE_CHECK_INTERVAL = 1000 * 10
+  , Seq = require('seq')
   ;
-  
+ 
 var Scraper = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
-  this.queue_ = null;
-  this.priorityQueue_ = null;
 
   this.scrapers_ = null;
   this.started_ = false;
-
-  this.poll = 0;
-
-  this.queuePolls_ = 0;
 
   this.runningScrapers_ = [];
 
@@ -52,92 +43,45 @@ Scraper.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('scraper');
-  self.queue_ = new Queue(config.SCRAPER_QUEUE);
-  self.priorityQueue_ = new Queue(config.SCRAPER_QUEUE_PRIORITY);
   self.scrapers_ = new Scrapers();
 }
 
-Scraper.prototype.findJobs = function() {
+Scraper.prototype.processJob = function(err, job) {
   var self = this;
 
-  if (self.poll || self.runningScrapers_.length)
+  if (err) {
+    self.emit('error', err);
     return;
-
-  self.poll = setTimeout(self.checkAvailableJob.bind(self), QUEUE_CHECK_INTERVAL);
-  logger.info('Job search enqueued');
-}
-
-Scraper.prototype.checkAvailableJob = function() {
-  var self = this;
-
-  if (self.queuePolls_ >= MAX_QUEUE_POLLS)
-    return self.emit('finished');
-
-  self.queuePolls_ += 1;
-
-  self.poll = 0;
-
-  logger.info('Checking priority queue');
-  self.priorityQueue_.pop(function(err, message) {
-    if (err || !message) {
-      if (err)
-        logger.warn('Unable to check priority queue: ' + err);
-
-      logger.info('Checking default queue');
-      self.queue_.pop(config.SCRAPER_JOB_TIMEOUT_SECONDS, function(err, message) {
-        if (err) {
-          logger.warn(err);
-          self.findJobs();
-        } else if (!message) {
-          self.findJobs();
-        } else {
-          self.processJobs(self.queue_, [message]);
-        }
-      });
-    } else {
-      self.processJobs(self.priorityQueue_, [message]);
-    }
-  });
-}
-
-Scraper.prototype.processJobs = function(queue, jobs) {
-  var self = this;
-  var nJobsProcessing = jobs.length;
-
-  function handleFail(err, job) {
-    logger.warn(err);
-
-    nJobsProcessing -= 1;
-    self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.CANCELLED, err.toString());
-    job.queue_.delete(job);
-
-    if (nJobsProcessing < 1) {
-      self.findJobs();
-    }
+  
+  } else if (!job) {
+    logger.info('No job to process');
+    self.emit('finished');
+    return;
   }
 
-  jobs.forEach(function(job) {
-    logger.info('Processing ' + JSON.stringify(job));
+  logger.info('Processing %j', job._id);
 
-    job.queue_ = queue;
-
-    var j = job;
-    self.checkJobValidity(j, function(err) {
-      if (err) {
-        handleFail(err, j);
-        return;
-      }
-
-      self.getJobDetails(j, function(err) {
-        if (err) {
-          handleFail(err, j);
-          return;
-        }
-
-        self.startJob(j);
-      });
-    });
-  });
+  Seq()
+    .seq('Job has details', function() {
+      self.campaigns_.getDetails(job._id.owner, this);
+    })
+    .seq('Job is valid', function(campaign) {
+      job.campaign = campaign;
+      self.checkJobValidity(job, this);
+    })
+    .seq('Start job', function() {
+      self.startJob(job, this);
+    })
+    .seq('Done', function() {
+      logger.info('Finished all work');
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job: %s', err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      self.emit('error', err);
+    })
+    ;
 }
 
 Scraper.prototype.checkJobValidity = function(job, callback) {
@@ -145,64 +89,29 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
     , err = null
     ;
 
-  if (!self.scrapers_.hasScraperForType(job.body.scraper, job.body.type)) {
-    err = new Error(util.format('No match for %s and %s', job.body.scraper, job.body.type));
+  if (!self.scrapers_.hasScraperForType(job._id.consumer, job.campaign.type)) {
+    err = new Error(util.format('No match for %s and %s', job._id.consumer, job.campaign.type));
   }
-
   callback(err);
 }
 
-Scraper.prototype.getJobDetails = function(job, callback) {
+Scraper.prototype.startJob = function(job, done) {
   var self = this;
-
-  self.jobs_.getDetails(job.body.campaignId, job.body.jobId, function(err, details) {
-    job.details = details;
-    if (!err) {
-      if (job.details && job.details.state) {
-        var state = parseInt(job.details.state)
-          , s = states.jobs.state;
-        if (state != s.QUEUED && state != s.PAUSED)
-          err = new Error('Job (' + job.body.jobId + ') does not have a ready state: ' + state);
-      } else {
-        err = new Error('Unable to get job details: ' + job.body.jobId);
-      }
-    }
-
-    if (!err) {
-      self.campaigns_.getDetails(job.body.clientId, job.body.campaignId, function(err, campaign) {
-        job.campaign = campaign;
-        if (!(job.campaign && job.campaign.type))
-          err = new Error('Unable to get campaign details');
-        callback(err);
-      });
-    } else {
-      callback(err);
-    }
-  });
-}
-
-Scraper.prototype.startJob = function(job) {
-  var self = this;
+  
   self.loadScraperForJob(job, function(err, scraper) {
-    if (err) {
-      var jobState = states.jobs.state;
+    if (err)
+      return done(err);
 
-      logger.warn(util.format('Unable to start job %s: %s', job.id, err));
-      self.jobs_.close(job.body.campaignId, job.body.jobId, jobState.ERRORED, err);
-      job.queue_.delete(job);
-      self.findJobs();
-      return;
-    }
-    self.runScraper(scraper, job);
+    self.runScraper(scraper, job, done);
   });
 }
 
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
 
-  logger.info('Loading scraper %s for job %s', job.body.scraper, job);
+  logger.info('Loading scraper %s for job %j', job._id.consumer, job);
 
-  var scraperInfo = self.scrapers_.getScraper(job.body.scraper);
+  var scraperInfo = self.scrapers_.getScraper(job._id.consumer);
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
     return;
@@ -219,12 +128,16 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   callback(err, scraper);
 }
 
-Scraper.prototype.runScraper = function(scraper, job) {
+Scraper.prototype.runScraper = function(scraper, job, done) {
     var self = this;
-    logger.info('Running job '  + job.body.jobId);
+
+    // Save the callback so we can call it when necessary
+    job.done = done;
+
+    logger.info('Running job %j', job._id);
+
     self.runningScrapers_.push(scraper);
     scraper.on('started', self.onScraperStarted.bind(self, scraper, job));
-    scraper.on('paused', self.onScraperPaused.bind(self, scraper, job));
     scraper.on('finished', self.onScraperFinished.bind(self, scraper, job));
     scraper.on('error', self.onScraperError.bind(self, scraper, job));
 
@@ -234,9 +147,11 @@ Scraper.prototype.runScraper = function(scraper, job) {
     scraper.on('relation', self.onScraperRelation.bind(self, scraper, campaign));
     scraper.on('metaRelation', self.onScraperMetaRelation.bind(self, scraper, campaign));
     scraper.on('infringementStateChange', self.onScraperStateChange.bind(self, scraper));
-    scraper.on('infringementPointsUpdate'), self.onScraperPointsUpdate(self, scraper));
+    scraper.on('infringementPointsUpdate', self.onScraperPointsUpdate.bind(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
+
+    process.on('uncaughtException', self.onScraperError.bind(self, scraper, job));
     
     try {
       scraper.start(campaign, job);
@@ -276,7 +191,7 @@ Scraper.prototype.isScraperStalled = function(scraper, job) {
     if (err) {
       timedOut(err);
     } else {
-      job.queue_.touch(job, config.SCRAPER_JOB_TIMEOUT_SECONDS);
+      self.jobs_.touch(job);
     }
   });
 }
@@ -289,47 +204,38 @@ Scraper.prototype.onScraperStarted = function(scraper, job) {
     scraper.watchId = -1;
   }
 
-  self.jobs_.start(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.start(job, function(err) {
     if (err)
-      logger.warn('Unable to make job as started ' + job.body.jobId + ': ' + err);
+      logger.warn('Unable to make job as started %j: %s', job._id, err);
   });
-}
-
-Scraper.prototype.onScraperPaused = function(scraper, job, snapshot) {
-  var self = this;
-
-  self.jobs_.pause(job.body.campaignId, job.body.jobId, state, function(err) {
-    if (err)
-      logger.warn('Unable to make job as paused ' + job.body.jobId + ': ' + err);
-  });
-  self.cleanup(scraper, job);
-  self.findJobs();
 }
 
 Scraper.prototype.onScraperFinished = function(scraper, job) {
   var self = this;
 
-  self.jobs_.complete(job.body.campaignId, job.body.jobId, function(err) {
+  self.jobs_.complete(job, function(err) {
     if (err)
-      logger.warn('Unable to make job as complete ' + job.body.jobId + ': ' + err);
+      logger.warn('Unable to make job as complete %j: %s', job._id, err);
   });
-  job.queue_.delete(job);
   self.cleanup(scraper, job);
-  self.findJobs();
+  job.done();
 }
 
 Scraper.prototype.onScraperError = function(scraper, job, jerr) {
   var self = this;
   jerr = jerr ? jerr : new Error('unknown');
+  jerr = Object.isString(jerr) ? new Error(jerr) : jerr;
 
-  logger.warn('Scraper error: ' + jerr);
-  self.jobs_.close(job.body.campaignId, job.body.jobId, states.jobs.state.ERRORED, jerr.toString(), function(err) {
+  logger.warn('Scraper error: %s', jerr);
+  logger.warn(jerr.stack);
+
+  self.jobs_.close(job, states.jobs.state.ERRORED, jerr, function(err) {
     if (err)
-      logger.warn('Unable to make job as errored ' + job.body.jobId + ': ' + err);
+      logger.warn('Unable to make job as errored %j: %s', job._id, err);
   });
-  job.queue_.delete(job);
+
   self.cleanup(scraper, job);
-  self.findJobs();
+  job.done();
 }
 
 Scraper.prototype.cleanup = function(scraper, job) {
@@ -346,7 +252,7 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, point
     ;
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
+      logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
   });
 }
@@ -360,13 +266,13 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
   // FIXME: Check blacklists and spiders before adding infringement
   self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, points, metadata, function(err) {
     if (err) {
-      logger.warn('Unable to add an infringement: %s %s %s %s', campaign, uri, points, err);
+      logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
   });
 
-  self.infringements_.addMeta(campaign, uri, scraper.getName(), unverifiedState, metadata, function(err, id) {
+  self.infringements_.addMeta(campaign, uri, campaign.type, scraper.getName(), unverifiedState, metadata, function(err, id) {
     if (err) {
-      logger.warn('Unable to add an meta infringement: %s %s %s %s', campaign, uri, metadata, err);
+      logger.warn('Unable to add an meta infringement: %j %s %s %s', campaign._id, uri, metadata, err);
     }
   });
 }
@@ -376,7 +282,7 @@ Scraper.prototype.onScraperRelation = function(scraper, campaign, sourceUri, tar
 
   self.infringements_.addRelation(campaign, sourceUri, targetUri, function(err, id) {
     if (err) {
-      logger.warn('Unable to add relation: %s %s %s %s', campaign, sourceUri, targetUri, err);
+      logger.warn('Unable to add relation: %j %s %s %s', campaign._id, sourceUri, targetUri, err);
     }
   });
 }
@@ -385,9 +291,9 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   var self = this
     , source = scraper.getName()
 
-  self.infringements_.addMetaRelation(campaign, addMetaRelation, source, function(err, id) {
+  self.infringements_.addMetaRelation(campaign, uri, source, function(err, id) {
     if (err) {
-      logger.warn('Unable to add relation: %s %s %s %s', campaign, addMetaRelation, source, err);
+      logger.warn('Unable to add relation: %j %s %s %s', campaign._id, uri, source, err);
     }
   });
 }
@@ -395,9 +301,9 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
 Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points, source, message) {
   var self = this;
 
-  self.infringements.addPoints(infringement, points, source, message function(err, id){
-    if(err){
-      logger.warn("Unable to update Points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
+  self.infringements_.addPoints(infringement, source, points, message, function(err, id){
+    if(err) {
+      logger.warn("Unable to update points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
     }
   });
 }
@@ -405,8 +311,8 @@ Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points
 Scraper.prototype.onScraperStateChange = function(scraper, infringement, newState) {
   var self = this;
 
-  self.infringements.changeState(infringement, newState, points, function(err, id){
-    if(err){
+  self.infringements_.setState(infringement, newState, function(err){
+    if(err) {
       logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
     }
   });
@@ -425,8 +331,9 @@ Scraper.prototype.getDisplayName = function() {
 
 Scraper.prototype.start = function() {
   var self = this;
+
   self.started_ = true;
-  self.findJobs();
+  self.jobs_.pop(self.processJob.bind(self));
   self.emit('started');
 }
 

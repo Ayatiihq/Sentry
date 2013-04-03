@@ -19,27 +19,24 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
+  , Jobs = acquire('jobs')
   , Links = acquire('links')
   , Role = acquire('role')
   , Settings = acquire('settings')
-  , Queue = acquire('queue')
   ;
 
-var MAX_QUEUE_POLLS = 1
-  , QUEUE_CHECK_INTERVAL = 1000 * 10
-  ;
+var MAX_LINKS = 1000;
 
 var Miner = module.exports = function() {
   this.campaigns_ = null;
   this.infringements_ = null;
   this.links_ = null;
   this.settings_ = null;
-  this.queue_ = null;
-  this.priorityQueue_ = null;
+  this.jobs_ = null;
 
   this.started_ = false;
-  this.poll = 0;
-  this.queuePolls_ = 0;
+
+  this.touchId_ = 0;
 
   this.init();
 }
@@ -53,153 +50,102 @@ Miner.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.links_ = new Links();
   self.settings_ = new Settings('role.miner');
-  self.queue_ = new Queue('miner');
-  self.priorityQueue_ = new Queue('miner-priority');
+  self.jobs_ = new Jobs('miner');
 }
 
-Miner.prototype.findJobs = function() {
+Miner.prototype.processJob = function(err, job) {
   var self = this;
 
-  if (self.poll)
+  if (err) {
+    self.emit('error', err);
     return;
+  
+  } else if (!job) {
+    logger.info('No job to process');
+    self.emit('finished');
+    return;
+  }
 
-  self.poll = setTimeout(self.checkAvailableJob.bind(self), QUEUE_CHECK_INTERVAL);
-  logger.info('Job search enqueued');
-}
-
-Miner.prototype.checkAvailableJob = function() {
-  var self = this;
-
-  if (self.queuePolls_ >= MAX_QUEUE_POLLS)
-    return self.emit('finished');
-
-  self.queuePolls_ += 1;
-
-  self.poll = 0;
-
-  logger.info('Checking priority queue');
-  self.priorityQueue_.pop(function(err, message) {
-    if (err || !message) {
-      if (err)
-        logger.warn('Unable to check priority queue: ' + err);
-
-      logger.info('Checking default queue');
-      self.queue_.pop(config.MINER_JOB_TIMEOUT_SECONDS, function(err, message) {
-        if (err) {
-          logger.warn(err);
-          self.findJobs();
-        } else if (!message) {
-          self.findJobs();
-        } else {
-          self.processJobs(self.queue_, [message]);
-        }
-      });
-    } else {
-      self.processJobs(self.priorityQueue_, [message]);
-    }
-  });
-}
-
-Miner.prototype.processJobs = function(queue, jobs) {
-  var self = this;
-
-  jobs.forEach(function(job) {
-    logger.info('Processing ' + JSON.stringify(job));
-    queue.delete(job, console.log);
-  });
-
-  self.mine();
-}
-
-Miner.prototype.mine = function() {
-  var self = this
-    , cache = {}
-    ;
-
-  self.campaigns_.listActiveCampaigns(function(err, campaigns) {
+  self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
-      logger.warn('Unable to get list of campaigns: ' + err);
+      self.emit('error', err);
       return;
     }
-
-    // To avoid hammering the CPU, we seq() the workload
-    Seq(campaigns)
-      .seqEach(function(campaign) {
-        var done = this
-           , key = self.getTimestampKey(campaign)
-           ;
-
-        self.settings_.get(key, function(err, from) {
-          if (err || from === undefined) {
-            logger.warn('Couldn\'t get value ' + key + ':' + err);
-            from = '0';
-          }
-          from = parseInt(from);
-
-          logger.info(util.format('Search for campaign %s from timestamp %s',
-                      campaign.name, from));
-
-          // Get us some links
-          var cacheKey = campaign.type + from.toString();
-          var links = cache[cacheKey];
-          if (links) {
-            self.mineCampaign(campaign, links, done);
-            self.updateTimestamp(key, campaign, links);
-            self.findJobs();
-          
-          } else {
-            self.links_.getLinks(campaign.type, Date.create(from), function(err, links) {
-              if (err) {
-                logger.warn('Couldn\'t get links for ' + campaign.type + ':' + err);
-                links = [];
-              } else {
-                links = links;
-                cache[cacheKey] = links;
-              }
-
-              self.mineCampaign(campaign, links, done);
-              self.updateTimestamp(key, campaign, links);
-            });
-          }
-        });
-      })
-      .seq(function() {
-        self.findJobs();
-      })
-      ;
+    self.mine(campaign, job);
   });
 }
 
-Miner.prototype.updateTimestamp = function(key, campaign, links) {
-  var self = this;
-
-  logger.info(util.format('Found %s new links for campaign %s',
-              links.length, campaign.name));
-
-  if (links) {
-    var lastLink = links[links.length - 1];
-    if (lastLink && lastLink.created) {
-      self.settings_.set(key, lastLink.created);
-    }
-  }
+Miner.prototype.getCampaignKey = function(campaign) {
+  return util.format('%s.%s.%s', campaign.name, campaign.created, 'timestamp');
 }
 
-Miner.prototype.mineCampaign = function(campaign, links, done) {
+Miner.prototype.mine = function(campaign, job) {
   var self = this
-    , state = states.infringements.state.UNVERIFIED
+    , key = self.getCampaignKey(campaign)
     ;
 
-  links.forEach(function(link) {
-    if (self.linkMatchesCampaign(link, campaign)) {
-      self.infringements_.add (campaign,
-                               link.uri, link.type, link.source, state,
-                               {score: 10, source: link.source, message: 'mined from the source'},
-                               link.metadata);
-      if (link.parent.length > 0)
-        self.infringements_.addRelation(campaign, link.parent, link.uri);
-    }
-  });
-  done();
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, 
+  config.MINER_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+  Seq()
+    .seq('Get last mine timestamp', function() {
+      var that = this;
+      self.settings_.get(key, function(err, value) {
+        if (err) console.warn(err);
+        
+        if (!value)
+          value = 0;
+
+        that(null, value);
+      });
+    })
+    .seq('Get links since that timestamp', function(from) {
+      logger.info('Mining links for %j from timestamp %s', campaign._id, from);
+
+      self.links_.getLinks(campaign.type, Date.create(from), this);
+    })
+    .seq('Try match links', function(links) {
+      logger.info('Matching links');
+      self.matchLinks(campaign, links, MAX_LINKS, this);
+    })
+    .seq('Finish up', function(timestamp){
+      logger.info('Finishing up mining for campaign %j', campaign._id);
+      self.settings_.set(key, timestamp);
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to mine links for %j: %s', campaign._id, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Miner.prototype.matchLinks = function(campaign, links, done) {
+  var self = this;
+
+  Seq(links)
+    .seqEach(function(link) {
+      if (self.linkMatchesCampaign(link, campaign)) {
+        self.addLink(campaign, link, this);
+      }
+      else
+        this();
+    })
+    .seq('done', function() {
+      var last = links.last();
+      if (last && last.created)
+        done(null, last.created);
+      else
+        done(null, 0)
+    })
+    .catch(done)
+    ;
 }
 
 Miner.prototype.linkMatchesCampaign = function(link, campaign) {
@@ -214,11 +160,37 @@ Miner.prototype.linkMatchesCampaign = function(link, campaign) {
     }
   }
 
-  return false; // for now
+  return false;
+}
+
+Miner.prototype.addLink = function(campaign, link, done) {
+  var self = this
+    , state = states.infringements.state.UNVERIFIED
+    ;
+
+  self.infringements_.add(campaign,
+                          link.uri,
+                          link.source,
+                          state,
+                          { score: 10, source: link.source, message: 'mined' },
+                          link.metadata,
+                          function(err) {
+    if (err) {
+      logger.warn(err);
+      done();
+    }
+    else if (link.parent.length) {
+      self.infringements_.addRelation(campaign, link.parent, link.uri, function() {
+        done();
+      });
+    } else {
+      done();
+    }
+  });
 }
 
 Miner.prototype.getTimestampKey = function(campaign) {
-  return util.format('%s.%s.%s', campaign.type, campaign.name, 'timestamp');
+  return util.format('%s%s%s', campaign.type, campaign.name, 'timestamp');
 }
 
 //
@@ -232,8 +204,8 @@ Miner.prototype.start = function() {
   var self = this;
 
   self.started_ = true;
-  self.findJobs();
-
+  self.jobs_.pop(self.processJob.bind(self));
+  
   self.emit('started');
 }
 
@@ -241,10 +213,6 @@ Miner.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
-  if (self.poll) {
-    clearInterval(self.poll);
-    self.poll = 0;
-  }
 
   self.emit('ended');
 }
