@@ -190,8 +190,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
 
 /* - Rules to identify links to files on a known cyberlocker - */
 module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems) {
-  var promiseArray;
-  var flattened = [];
+  /*var flattened = [];
   var promise;
   // first Rip out links into an array
   $('a').each(function () {
@@ -201,13 +200,11 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     }
   });
 
-  var promiseArray = [];
-
-  flattened.each(function buildPromises(ulink) {
-    promiseArray.push(utilities.followRedirects([ulink], new Promise.Promise()));
+  var promiseArray = flattened.map(function buildPromises(ulink) {
+    return utilities.followRedirects([ulink], new Promise());
   });
 
-  promise = new Promise.Promise();
+  promise = new Promise();
 
   all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
     lifted30Xs.each(function (list) {
@@ -227,7 +224,26 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     });
     promise.resolve(foundItems);
   });
-  return promise;
+  return promise; */
+
+  // nope to all of the above right now, too slow
+  $('a').each(function () {
+    var hrefValue = $(this).attr('href');
+    var URILink;
+    try {
+      URILink = URI(hrefValue);
+    }
+    catch (error) {
+      return foundItems; // some dodgy link => move on.
+    }
+    if (cyberLockers.knownDomains.some(URILink.domain())) {
+      var newitem = new Endpoint(hrefValue);
+      newitem.isEndpoint = true;
+      foundItems.push(newitem);
+    }
+  });
+
+  return foundItems;
 };
 
 // finds any links that match the extensions in the extension list
@@ -259,6 +275,6 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
 
 var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls'];
 
-module.exports.rulesDownloadsMusic = [//module.exports.ruleCyberLockers,
+module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
                                       ruleFindExtensions(audioExtensions)];
 
