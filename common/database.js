@@ -44,7 +44,7 @@ Database.connect = function(callback) {
     WAITING = [];
 
     mongodb.MongoClient.connect(config.MONGODB_URL, 
-                                { auto_reconnect: true, socketOptions: { keepAlive: 100 } },
+                                { auto_reconnect: true, socketOptions: { connectTimeoutMS:3000, keepAlive: 100 } },
                                 function(err, db) {
       if (err && RETRIES < MAX_RETRIES) {
         RETRIES += 1;
