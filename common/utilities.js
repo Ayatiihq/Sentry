@@ -335,6 +335,12 @@ Utilities.requestURL = function(url, options, callback) {
     socket.setTimeout(REQ_TIMEOUT);
   });
 
+  var timeoutId = setTimeout(function() {
+    err = new Error('Request took too long');
+    req.abort();
+  },
+  REQ_TIMEOUT);
+
   req.on('response', function(response) {
     var body = ''
       , stream = null
@@ -363,12 +369,16 @@ Utilities.requestURL = function(url, options, callback) {
     });
 
     stream.on('end', function() {
+      clearTimeout(timeoutId);
       callback(err, response, body);
     });
 
   });
 
-  req.on('error', callback);
+  req.on('error', function(err) {
+    clearTimeout(timeoutId);
+    callback(err);
+  });
 }
 
 /**
