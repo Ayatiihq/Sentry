@@ -171,7 +171,14 @@ Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
-  wrangler.addRule(acquire('wrangler-rules').rulesLiveTV);
+
+  var rules = {
+    'music': acquire('wrangler-rules').rulesDownloadsMusic,
+    'tv': acquire('wrangler-rules').rulesLiveTV
+  };
+
+  wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
   wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
   wrangler.on('suspended', function onWranglerSuspend() {
     self.activeScrapes = self.activeScrapes - 1;
