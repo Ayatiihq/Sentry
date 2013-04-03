@@ -82,6 +82,9 @@ Generic.prototype.getName = function () {
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
+  self.campaign = campaign;
+  self.job = job;
+
   self.infringements.getNeedsScraping(campaign, MAX_INFRINGEMENTS, function (error, results) {
     if (error) {
       logger.error("Generic Scraper: Can't fetch links that need scraping: %s", error);
@@ -93,15 +96,15 @@ Generic.prototype.start = function (campaign, job) {
     self.activeScrapes = 0;
     self.suspendedScrapes = 0;
    
-    self.pump();
+    self.pump(true);
   });
   self.emit('started');
 };
 
-Generic.prototype.pump = function () {
+Generic.prototype.pump = function (firstRun) {
   var self = this;
   
-  if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0) {
+  if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0 && !firstRun) {
     logger.info('Finishing up, no more urls to check');
     self.stop();
     return;
@@ -171,7 +174,14 @@ Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
   var wrangler = new BasicWrangler();
-  wrangler.addRule(acquire('wrangler-rules').rulesLiveTV);
+
+  var rules = {
+    'music': acquire('wrangler-rules').rulesDownloadsMusic,
+    'tv': acquire('wrangler-rules').rulesLiveTV
+  };
+
+  wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
   wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
   wrangler.on('suspended', function onWranglerSuspend() {
     self.activeScrapes = self.activeScrapes - 1;

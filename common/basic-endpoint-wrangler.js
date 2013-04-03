@@ -10,17 +10,18 @@
  */
 require('sugar');
 var acquire = require('acquire')
+  , all = require('node-promise').all
   , cheerio = require('cheerio')
   , EndpointWrangler = acquire('endpoint-wrangler')
   , events = require('events')
   , logger = acquire('logger').forFile('basic-endpoint-wrangler.js')
   , Promise = require('node-promise').Promise
-  , all = require('node-promise').all
   , request = require('request')
   , seq = require('node-promise').seq
-  , shouldIgnoreUri = acquire('iframe-exploder').shouldIgnoreUri
+  , shouldIgnoreUri = acquire('wrangler-rules').shouldIgnoreUri
   , URI = require('URIjs')
   , util = require('util')
+  , utilities = acquire('utilities')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
@@ -131,7 +132,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
   self.foundURIs.push(uri);
 
   var reqOpts = {
-    'uri': uri, 
     'headers': {
       'Referer': parents.last(), 'User-Agent': USER_AGENT
     },
@@ -143,7 +143,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
     var reqPromise = new Promise();
-    var reqObj = request(reqOpts, function (error, response, body) { 
+    var reqObj = utilities.request(uri, reqOpts, function (error, response, body) { 
       self.busyCount = process.hrtime(); // bump the busy counter
       if (!!response) {
         if (response.statusCode >= 400 && response.statusCode < 600 && !error) {
@@ -152,18 +152,24 @@ Wrangler.prototype.processUri = function (uri, parents) {
       }
       if (!!error) { reqPromise.reject(error, response); }
       else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
-      else { throw new Error('omg wtfbbq', error, response); }
+      //else {
+        //console.log(response);
+        //console.log(error);
+     //   console.log(response.statusCode);
+        //logger.error(error, response);
+      //  throw new Error(error);
+     // }
     });
 
     // create a timeout, sometimes request doesn't seem to timeout appropriately. 
-    var timeoutRequest = function() {
-      reqObj.abort();
-      reqPromise.reject(new Error('Timeout reached'));
-    };
-    var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
+    //var timeoutRequest = function() {
+    //  reqObj.abort();
+    //  reqPromise.reject(new Error('Timeout reached'));
+    //};
+    //var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
 
     reqPromise.then(function (body) {
-      delayedTimeoutRequest.cancel();
+      //delayedTimeoutRequest.cancel();
       var $ = cheerio.load(body);
       self.processSource(uri, parents, $, body);
 
@@ -171,7 +177,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
       newParents.push(uri);
       self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
-      delayedTimeoutRequest.cancel();
+      //delayedTimeoutRequest.cancel();
       var statusCode = (!!response) ? response.statusCode : 0;
       logger.info('%s - Error(%d): %s', uri, statusCode, error);
       promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
