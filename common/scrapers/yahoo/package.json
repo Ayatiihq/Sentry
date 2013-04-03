@@ -1,8 +1,0 @@
-{
-  "name": "yahoo",
-  "main": "./yahoo-scraper.js",
-  "types": {
-    "tv": ".*",
-    "film": ".*"
-  }
-}

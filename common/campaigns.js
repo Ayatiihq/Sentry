@@ -8,18 +8,14 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('campaigns.js')
   , sugar = require('sugar')
   , util = require('util')
   ;
 
-var Swarm = acquire('swarm');
-
-var TABLE = 'campaigns'
-  , PACK_LIST = ['names', 'metadata', 'scrapersEnabled', 'scrapersIgnored']
-  ;
+var COLLECTION = 'campaigns';
 
 /**
  * Wraps the campaigns table.
@@ -27,7 +23,10 @@ var TABLE = 'campaigns'
  * @return {object}
  */
 var Campaigns = module.exports = function() {
-  this.tableService_ = null;
+  this.db_ = null;
+  this.campaigns_ = null;
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -35,11 +34,17 @@ var Campaigns = module.exports = function() {
 Campaigns.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_CORE_ACCOUNT,
-                                                config.AZURE_CORE_KEY);
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
+      return logger.error('Unable to connect to database %s', err);
+
+    self.db_ = db;
+    self.campaigns_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
@@ -50,44 +55,6 @@ function defaultCallback(err) {
 
 function ifUndefined(test, falsey) {
   return test ? test : falsey;
-}
-
-Campaigns.prototype.genCampaignKey = function(client, campaign) {
-  return util.format('%s.%s', client, campaign);
-}
-
-Campaigns.prototype.unpack = function(callback, err, list) {
-  var self = this;
-
-  if (err) {
-    callback(err);
-    return;
-  }
-
-  list.forEach(function(campaign) {
-    PACK_LIST.forEach(function(key) {
-      if (campaign[key])
-        campaign[key] = JSON.parse(campaign[key]);
-    });
-  });
-
-  callback(err, list);
-}
-
-Campaigns.prototype.unpackOne = function(callback, err, campaign) {
-  var self = this;
-
-  if (err) {
-    callback(err);
-    return;
-  }
-
-  PACK_LIST.forEach(function(key) {
-    if (campaign[key])
-      campaign[key] = JSON.parse(campaign[key]);
-  });
-
-  callback(err, campaign);
 }
 
 //
@@ -102,9 +69,11 @@ Campaigns.prototype.unpackOne = function(callback, err, campaign) {
 Campaigns.prototype.listCampaigns = function(callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
+  
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.listCampaigns, Object.values(arguments)]);
 
-  var query = azure.TableQuery.select().from(TABLE);
-  self.tableService_.queryEntities(query, self.unpack.bind(self, callback));
+  self.campaigns_.find().toArray(callback);
 }
 
 /**
@@ -115,62 +84,67 @@ Campaigns.prototype.listCampaigns = function(callback) {
  */
 Campaigns.prototype.listActiveCampaigns = function(callback) {
   var self = this
-    , now = Date.utc.create().getTime()
+    , now = Date.now()
     ;
+  
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.listActiveCampaigns, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
-  var query = azure.TableQuery.select()
-                              .from(TABLE)
-                              .where('sweep == ?', true)
-                              .and('sweepFrom < ?', now)
-                              .and('sweepTo > ?', now);
-  self.tableService_.queryEntities(query, self.unpack.bind(self, callback));
+  var query = {
+    sweep: true,
+    sweepFrom: { $lt: now },
+    sweepTo: { $gt: now }
+  };
+  self.campaigns_.find(query).toArray(callback);
 }
 
 /**
  * Get a campaign's details.
  *
- * @param {string}                    client      The client uid;
- * @param {string}                    campaign    The campaign uid;
- * @param {function(err, details)}    callback    The campaign details, or error.
+ * @param {stringOrObject}             id          The campaign id;
+ * @param {function(err, campaign)}    callback    The campaign details, or error.
  * @return {undefined}
  */
-Campaigns.prototype.getDetails = function(client, campaign, callback) {
+Campaigns.prototype.getDetails = function(id, callback) {
   var self = this;
 
-  callback = callback ? callback : defaultCallback;
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
 
-  self.tableService_.queryEntity(TABLE, client, campaign, self.unpackOne.bind(self, callback));
+  callback = callback ? callback : defaultCallback;
+  id = Object.isString(id) ? JSON.parse(id) : id;
+
+  self.campaigns_.findOne({ _id: id }, callback);
 }
 
 /**
  * Adds a campaign.
  *
  * @param {object}          campaign     An object containing details of the campaign.
- * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @param {function(err,campaign)}   callback   A callback to receive an error, if one occurs, otherwise the new campaign.
  * @return {undefined}
  */
-Campaigns.prototype.add = function(client, campaign, callback) {
+Campaigns.prototype.add = function(campaign, callback) {
   var self = this
     , now = Date.utc.create().getTime()
     ;
   
   callback = callback ? callback : defaultCallback;
 
-  if (!(client && client.RowKey && client.name)) {
-    callback(new Error('client should exist and have a valid RowKey & name'));
-    return;
-  }
-
-  if (!(campaign && campaign.name && campaign.type)) { 
+  if (!(campaign && campaign.client && campaign.name && campaign.type)) { 
     callback(new Error('campaign should exist & have name and type'));
     return;
   }
 
-  campaign.PartitionKey = client.RowKey;
-  campaign.RowKey = self.genCampaignKey(client.name, campaign.name);
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
+  campaign._id = {
+    client: campaign.client,
+    campaign: campaign.name
+  };
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');
@@ -180,54 +154,45 @@ Campaigns.prototype.add = function(client, campaign, callback) {
   campaign.sweepFrom = ifUndefined(campaign.sweepFrom, now);
   campaign.sweepTo = ifUndefined(campaign.sweepTo, Date.utc.create('two weeks from now').getTime());
   campaign.sweepIntervalMinutes = ifUndefined(campaign.sweepIntervalMinutes, 180);
-  campaign.names = JSON.stringify(ifUndefined(campaign.names, []));
-  campaign.metadata = JSON.stringify(ifUndefined(campaign.metadata, {}));
-  campaign.scrapersEnabled = JSON.stringify(ifUndefined(campaign.scrapersEnabled, []));
-  campaign.scrapersIgnored = JSON.stringify(ifUndefined(campaign.scrapersIgnored,  []));
+  campaign.names = ifUndefined(campaign.names, []);
+  campaign.metadata = ifUndefined(campaign.metadata, {});
+  campaign.scrapersEnabled = ifUndefined(campaign.scrapersEnabled, []);
+  campaign.scrapersIgnored = ifUndefined(campaign.scrapersIgnored,  []);
 
-  self.tableService_.insertEntity(TABLE, campaign, callback);
+  self.campaigns_.insert(campaign, callback);
 }
 
 /**
  * Update a campaign's details.
  *
+ * @param {object}          id      The id selecting the client.
  * @param {object}          updates    An object containing updates for the campaign.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.update = function(updates, callback) {
+Campaigns.prototype.update = function(id, updates, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!(updates && updates.PartitionKey && updates.RowKey)) {
-    callback(new Error('Updates should have PartitionKey and RowKey'));
-    return;
-  }
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
 
-  var data = {};
-  Object.keys(updates, function(key, value) {
-    if (PACK_LIST.indexOf(key) > -1)
-      value = JSON.stringify(value);
-    data[key] = value;
-  });
-
-  self.tableService_.mergeEntity(TABLE, data, callback);
+  self.campaigns_.update({ _id: id }, { $set: updates }, callback);
 }
 
 /**
  * Remove a campaign.
  *
- * @param {object}          campaign     An object containing details of the campaign.
+ * @param {object}          id      The id selecting the client(s).
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.remove = function(campaign, callback) {
+Campaigns.prototype.remove = function(id, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!(campaign && campaign.PartitionKey && campaign.RowKey)) {
-    callback(new Error('Campaign should have PartitionKey and RowKey'));
-    return;
-  }
-  self.tableService_.deleteEntity(TABLE, campaign, callback);
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.remove, Object.values(arguments)]);
+
+  self.campaigns_.remove({ _id: id }, callback);
 }

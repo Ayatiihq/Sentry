@@ -1,0 +1,16 @@
+﻿{
+  "metadata": {
+    "artist": "Girl's Generation",
+    "albumTitle": "Gee",
+    "engine": "google",
+    "tracks": [
+      {"title": "Gee"},
+      {"title": "힘내"},
+      {"title": "Dear Mom"},
+      {"title": "Destiny"},
+      {"title": "힘들어하는 연인들을 위해"}
+    ]
+  },
+  "name": "Google Album Test Data",
+  "type": "music.album"
+}

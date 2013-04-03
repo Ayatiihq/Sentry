@@ -4,7 +4,7 @@
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('FancyStreems.js')
+  , logger = acquire('logger').forFile('index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')
@@ -87,18 +87,7 @@ FancyStreems.prototype.stop = function() {
 
 FancyStreems.prototype.isAlive = function(cb) {
   var self = this;
-
-  logger.info('Is alive called');
-
-  if (!self.alive)
-    self.alive = 1;
-  else
-    self.alive++;
-
-  if (self.alive > 4)
-    cb(new Error('exceeded'));
-  else
-    cb();
+  cb();
 }
 
 FancyStreems.prototype.iterateRequests = function(collection){

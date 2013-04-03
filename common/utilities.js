@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , exec = require('child_process').exec
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
+  , os = require('os')
   , querystring = require('querystring')
   , sugar = require('sugar')
   , URI = require('URIjs')
@@ -75,11 +76,28 @@ Utilities.normalizeURI = function(uri) {
     uri = uri.toString();
 
   } catch (err) {
-    logger.warn('Malformed URI %s', orignal);
-    uri = orignal;
+    logger.warn('Malformed URI %s', original);
+    uri = original;
   }
 
   return uri;
+}
+
+/**
+ * Returns the scheme of the URI
+ *
+ * @param  {string}   uri      The uri to retrieve the schema of.
+ * @return {string}            The scheme.
+ */
+Utilities.getURIScheme = function(uri) {
+  var scheme = uri;
+
+  try {
+    scheme = URI(uri).scheme();
+  } catch (err) {
+    scheme = uri.split(':')[0];
+  }
+  return scheme;
 }
 
 /**
@@ -111,7 +129,8 @@ Utilities.genLinkKey = function() {
   var string = '';
 
   Object.values(arguments, function(arg) {
-    string += '.' + arg;
+    if (arg)
+      string += '.' + arg;
   });
 
   var shasum = crypto.createHash('sha1');
@@ -243,3 +262,11 @@ Utilities.followRedirects = function(links, promise) {
   return promise;
 }
 
+/**
+ * Produces a string id for the machine and worker.
+ *
+ * @return {object} the id of the worker.
+ */
+Utilities.getWorkerId  = function() {
+  return util.format('%s-%s', os.hostname(), process.pid);
+}

@@ -8,8 +8,8 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('links.js')
   , sugar = require('sugar')
   , states = require('./states')
@@ -17,8 +17,8 @@ var acquire = require('acquire')
   , utilities = require('./utilities')
   ;
 
-var TABLE = 'links'
-  , PACK_LIST = ['metadata']
+var COLLECTION = 'links'
+  , EDUPLICATE = 11000
   , SCHEMAS = {
     "tv.live": ['uri', 'parent', 'type', 'source', 'channel', 'genre', 'metadata'],
     "music.download": ['uri', 'parent', 'type', 'source', 'artist', 'title', 'genre', 'collection', 'metadata']
@@ -31,7 +31,9 @@ var TABLE = 'links'
  * @return {object}
  */
 var Links = module.exports = function() {
-  this.tableService_ = null;
+  this.links_ = null;
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -39,73 +41,23 @@ var Links = module.exports = function() {
 Links.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_CORE_ACCOUNT,
-                                                config.AZURE_CORE_KEY);
-
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
+      return logger.error('Unable to connect to database %s', err);
+
+    self.db_ = db;
+    self.links_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
 function defaultCallback(err) {
-  if (err && err.code !== 'EntityAlreadyExists')
-    logger.warn('Reply Error: %s', err);
-}
-
-function ifUndefined(test, falsey) {
-  return test ? test : falsey;
-}
-
-
-Links.prototype.getKeyFromCache = function(partition, key) {
-  // FIXME
-  return undefined;
-}
-
-Links.prototype.updateCache = function(partition, key) {
-  // FIXME
-}
-
-Links.prototype.pack = function(entity) {
-  PACK_LIST.forEach(function(key) {
-    if (entity[key])
-      entity[key] = JSON.stringify(entity[key]);
-  });
-
-  return entity;
-}
-
-Links.prototype.unpack = function(callback, err, entities) {
-  var self = this;
-
-  if (err) {
-    callback(err);
-    return;
-  }
-
-  entities.forEach(function(entity) {
-    PACK_LIST.forEach(function(key) {
-      if (entity[key])
-        entity[key] = JSON.parse(entity[key]);
-    });
-  });
-
-  callback(err, entities);
-}
-
-Links.prototype.insert = function(entity, callback) {
-  var self = this;
-
-  self.tableService_.insertEntity(TABLE, entity, function(err) {
-    if (!err)
-      self.updateCache(entity.PartitionKey, entity.RowKey);
-
-    if (err && err.code === 'EntityAlreadyExists')
-      callback(null, entity.RowKey);
-    else
-      callback(err, err ? undefined : entity.RowKey);
-  });
+  if (err && err.code !== EDUPLICATE)
+    logger.warn('Reply Error: %j', err);
 }
 
 Links.prototype.isValid = function(link, schema, callback) {
@@ -116,31 +68,6 @@ Links.prototype.isValid = function(link, schema, callback) {
     }
   });
   return true;
-}
-
-Links.prototype.get = function(partition, from, callback) {
-  var self = this;
-  var allEntities = [];
-  
-  var query = azure.TableQuery.select()
-                              .from(TABLE)
-                              .where('PartitionKey eq ?', partition)
-                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
-
-  function reply(err, entities, res) {
-    allEntities.add(entities);
-
-    if (err)
-      logger.warn(err);
-
-    if (res.hasNextPage()) {
-      res.getNextPage(reply);
-    } else {
-      self.unpack(callback, null, allEntities);
-    }
-  }
-
-  self.tableService_.queryEntities(query, reply);
 }
 
 //
@@ -154,31 +81,27 @@ Links.prototype.get = function(partition, from, callback) {
  * @return {undefined}
  */
 Links.prototype.add = function(link, callback) {
-  var self = this
-    , type = link.type
-    ;
+  var self = this;
+
+  if (!self.links_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
-  if (!self.isValid(link, SCHEMAS[type], callback))
+  if (!self.isValid(link, SCHEMAS[link.type], callback))
     return;
 
   link.uri = utilities.normalizeURI(link.uri);
   link.parent = utilities.normalizeURI(link.parent);
+  link._id = utilities.genLinkKey(JSON.stringify(link));
+  link.created = Date.now();
 
-  link.PartitionKey = type;
-  link.RowKey = utilities.genLinkKey(JSON.stringify(link));
-
-  var id = self.getKeyFromCache(link.PartitionKey, link.RowKey);
-  if (id) {
-    callback(null, id);
-    return;
-  }
-
-  link.created = Date.utc.create().getTime();
-  link = self.pack(link);
-
-  self.insert(link, callback);
+  self.links_.insert(link, function(err) {
+    if (!err || err.code === EDUPLICATE)
+      callback(null, link._id);
+    else
+      callback(err);
+  });
 }
 
 
@@ -187,14 +110,22 @@ Links.prototype.add = function(link, callback) {
  *
  * @param {string}                type        The type of link.
  * @param {date}                  from        When to retrieve new links from.
+ * @param {number}                limit       Limit the number of results. Anything less than 1 gets up to 1000 matching links.
  * @param {function(err,links)}   callback    Callback to receive links, or error.
  * @return {undefined}
  */
-Links.prototype.getLinks = function(type, from, callback) {
+Links.prototype.getLinks = function(type, from, limit, callback) {
   var self = this;
 
-  from = from.getTime();
+  if (!self.links_)
+    return self.cachedCalls_.push([self.getLinks, Object.values(arguments)]);
+
   callback = callback ? callback : defaultCallback;
 
-  self.get(type, from, callback);
+  var query = {
+    type: type,
+    created: { $gt: from.getTime() }
+  };
+
+  self.links_.find(query).sort({ created: -1 }).limit(limit ? limit : 1000).toArray(callback); 
 }

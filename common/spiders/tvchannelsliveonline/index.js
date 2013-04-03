@@ -83,19 +83,7 @@ TvChannelsOnline.prototype.stop = function() {
 }
 
 TvChannelsOnline.prototype.isAlive = function(cb) {
-  var self = this;
-
-  logger.info('Is alive called');
-
-  if (!self.alive)
-    self.alive = 1;
-  else
-    self.alive++;
-
-  if (self.alive > 4)
-    cb(new Error('exceeded'));
-  else
-    cb();
+  cb();
 }
 
 TvChannelsOnline.prototype.getChannel = function(self, channel, done){

@@ -119,19 +119,7 @@ ZonyTv.prototype.stop = function() {
 }
 
 ZonyTv.prototype.isAlive = function(cb) {
-  var self = this;
-
-  logger.info('Is alive called');
-
-  if (!self.alive)
-    self.alive = 1;
-  else
-    self.alive++;
-
-  if (self.alive > 4)
-    cb(new Error('exceeded'));
-  else
-    cb();
+  cb();
 }
 
 ZonyTv.prototype.iterateRequests = function(collection){

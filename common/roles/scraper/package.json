@@ -1,10 +1,6 @@
 {
   "name": "scraper",
   "main": "./index.js",
-  "queues": [
-    "scraper",
-    "scraper-priority"
-  ],
   "dependencies": {
     "selenium": 1
   }

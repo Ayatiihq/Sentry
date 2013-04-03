@@ -8,8 +8,8 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
+  , database = acquire('database')
   , logger = acquire('logger').forFile('infringements.js')
   , sugar = require('sugar')
   , states = require('./states')
@@ -17,9 +17,8 @@ var acquire = require('acquire')
   , utilities = require('./utilities')
   ;
 
-var RELATION_TABLE = 'infringementRelations'
-  , TABLE = 'infringements'
-  , PACK_LIST = ['metadata', 'points']
+var COLLECTION = 'infringements'
+  , EDUPLICATE = 11000
   ;
 
 /**
@@ -28,7 +27,9 @@ var RELATION_TABLE = 'infringementRelations'
  * @return {object}
  */
 var Infringements = module.exports = function() {
-  this.tableService_ = null;
+  this.infringements_ = null;
+
+  this.cachedCalls_ = [];
 
   this.init();
 }
@@ -36,16 +37,17 @@ var Infringements = module.exports = function() {
 Infringements.prototype.init = function() {
   var self = this;
 
-  self.tableService_ = azure.createTableService(config.AZURE_CORE_ACCOUNT,
-                                                config.AZURE_CORE_KEY);
-  self.tableService_.createTableIfNotExists(TABLE, function(err) {
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
     if (err)
-      logger.warn(err);
-  });
+      return logger.error('Unable to connect to database %s', err);
 
-  self.tableService_.createTableIfNotExists(RELATION_TABLE, function(err) {
-    if (err)
-      logger.warn(err);
+    self.db_ = db;
+    self.infringements_ = collection;
+
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
   });
 }
 
@@ -58,62 +60,35 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
-Infringements.prototype.getKeyFromCache = function(campaign, uri) {
-  // FIXME
-  return undefined;
-}
-
-Infringements.prototype.updateCache = function(campaign, uri) {
-  // FIXME
-}
-
-Infringements.prototype.getKeyFromMetaCache = function(campaign, uri) {
-  // FIXME
-  return undefined;
-}
-
-Infringements.prototype.updateMetaCache = function(campaign, uri) {
-  // FIXME
-}
-
-Infringements.prototype.getKeyFromRelationCache = function(campaign, source, target) {
-  // FIXME
-  return undefined;
-}
-
-Infringements.prototype.updateRelationCache = function(campaign, source, target) {
-  // FIXME
-}
-
-Infringements.prototype.pack = function(entity) {
-  PACK_LIST.forEach(function(key) {
-    if (entity[key])
-      entity[key] = JSON.stringify(entity[key]);
-  });
-
-  return entity;
-}
-
-Infringements.prototype.unpack = function(callback, err, entities){
-  var self = this;
-
-  if(err){
-    callback(err);
-    return;
+function normalizeCampaign(campaign) {
+  if (Object.isString(campaign)) {
+    // It's the _id of the campaign stringified
+    return JSON.parse(campaign);
+  } else if (campaign._id) {
+    // It's an entire campaign row
+    return campaign._id;
+  } else {
+    // It's just the _id object
+    return campaign;
   }
-  
-  entities.forEach(function(entity) {
-    PACK_LIST.forEach(function(key) {
-      if (entity[key])
-        entity[key] = JSON.parse(entity[key]);
-    });
-  });
-  callback(err, entities);  
 }
 
 //
 // Public Methods
 //
+
+/**
+ * Generates a unique key for the campaign, uri and optional metdata.
+ *
+ * @param {stringOrObject}     campaign    The campaign the uri infringement belongs to.
+ * @param {string}             uri         The uri to add.
+ * @param {string}             [metadata]  Optional metadata for uri.
+ * @return {string}                        The unique key.
+ */
+Infringements.prototype.generateKey = function(campaign, uri, metadata) {
+  return utilities.genLinkKey(JSON.stringify(campaign), uri, metadata);
+}
+
 /**
  * Add a infringement for the campaign.
  *
@@ -121,49 +96,44 @@ Infringements.prototype.unpack = function(callback, err, entities){
  * @param  {string}            uri         The uri to add.
  * @param  {string}            type        The type of uri.
  * @param  {string}            source      The source of this infringement.
- * @param  {object}            points      The points (rating) of this infringment (to signify how 'hot' this infringment is)
+ * @param  {object}            pointsEntry The points (rating) of this infringment (to signify how 'hot' this infringment is)
  * @param  {object}            metadata    Any metadata belonging to this infringement.
  * @param  {function(err,uid)} callback    A callback to receive the uid of the uri, or an error.
  * @return {undefined}
  */
-Infringements.prototype.add = function(campaign, uri, type, source, state, points, metadata, callback) {
-  var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , key = utilities.genURIKey(uri)
-    ;
+Infringements.prototype.add = function(campaign, uri, type, source, state, pointsEntry, metadata, callback) {
+  var self = this;
 
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
   callback = callback ? callback : defaultCallback;
   uri = utilities.normalizeURI(uri);
+  pointsEntry.created = Date.now();
 
-  var id = self.getKeyFromCache(campaign, key);
-  if (id) {
-    callback(null, id);
-    return;
-  }
-
-  points.timestamp = Date.now(); 
   var entity = {};
-  entity.PartitionKey = campaign;
-  entity.RowKey = key;
+  entity._id = self.generateKey(campaign, uri);
+  entity.campaign = campaign;
   entity.uri = uri;
+  entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
   entity.state = state;
-  entity.created = Date.utc.create().getTime();
-  entity.points = {};
-  entity.points[points.source] = [points]; 
+  entity.created = Date.now();
+  entity.points = {
+    total: pointsEntry.score,
+    modified: Date.now(),
+    entries: [ pointsEntry ]
+  };
   entity.metadata = metadata;
+  entity.targets = [];
 
-  entity = self.pack(entity);
-
-  self.tableService_.insertEntity(TABLE, entity, function(err) {
-    if (!err)
-      self.updateCache(campaign, key);
-
-    if (err && err.code === 'EntityAlreadyExists')
-      callback(null, key);
+  self.infringements_.insert(entity, function(err) {
+    if (!err || err.code === EDUPLICATE)
+      callback(null, entity._id);
     else
-      callback(err, err ? undefined : key);
+      callback(err);
   });
 }
 
@@ -178,44 +148,41 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
  * @param {function(err,uid)} callback    Callback to receive the uid of the infringement, or an error.
  * @return {undefined}
  */
-Infringements.prototype.addMeta = function(campaign, uri, source, state, metadata, callback) {
-  var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , key = utilities.genURIKey(uri, source)
-    , metadata = metadata ? metdata : {}
-    ;
+Infringements.prototype.addMeta = function(campaign, uri, type, source, state, metadata, callback) {
+  var self = this;
 
-  callback = callback ? callback : defaultCallback;
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addMeta, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
   uri = utilities.normalizeURI(uri);
-
-  var id = self.getKeyFromMetaCache(campaign, uri, source);
-  if (id) {
-    callback(null, id);
-    return;
-  }
+  callback = callback ? callback : defaultCallback;
 
   var entity = {};
-  entity.PartitionKey = campaign;
-  entity.RowKey = key;
+  entity._id = self.generateKey(campaign, uri, source);
+  entity.campaign = campaign;
   entity.uri = uri;
-  entity.type = 'meta';
+  entity.scheme = utilities.getURIScheme(uri);
+  entity.type = type;
+  entity.meta = true;
   entity.source = source;
   entity.state = state;
-  entity.created = Date.utc.create().getTime();
+  entity.created = Date.now();
+  entity.points = {
+    total: 0,
+    modified: Date.now(),
+    entries: []
+  };
   entity.metadata = metadata;
+  entity.targets = [];
 
-  entity = self.pack(entity);
-
-  self.tableService_.insertEntity(TABLE, entity, function(err) {
-    if (!err) {
-      self.updateMetaCache(campaign, key);
+  self.infringements_.insert(entity, function(err) {
+    if (!err || err.code === EDUPLICATE) {
       self.addMetaRelation(campaign, uri, source);
+      callback(null, entity._id);
     }
-
-    if (err && err.code === 'EntityAlreadyExists')
-      callback(null, key);
     else
-      callback(err, err ? undefined : key);
+      callback(err);
   });
 }
 
@@ -229,35 +196,29 @@ Infringements.prototype.addMeta = function(campaign, uri, source, state, metadat
  * @return {undefined}   
  */
 Infringements.prototype.addRelation = function(campaign, source, target, callback) {
-  var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , target = utilities.genURIKey(uri)
-    , source = utilities.genURIKey(uri)
-    ;
+  var self = this;
 
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addRelation, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+  source = utilities.normalizeURI(source);
+  target = utilities.normalizeURI(target);
   callback = callback ? callback : defaultCallback;
 
-  var id = self.getKeyFromRelationCache(campaign, source, target);
-  if (id) {
-    callback(null, id);
-    return;
-  }
+  var query = {
+    _id: self.generateKey(campaign, source)
+  };
 
-  var entity = {};
-  entity.PartitionKey = campaign;
-  entity.RowKey = target;
-  entity.source = source;
-  entity.created = Date.utc.create().getTime();
+  var updates = {
+    $addToSet: {
+      targets: {
+        uri: target
+      }
+    }
+  };
 
-  self.tableService_.insertEntity(RELATION_TABLE, entity, function(err) {
-    if (!err)
-      self.updateRelationCache(campaign, source, target);
-
-    if (err && err.code === 'EntityAlreadyExists')
-      callback(null);
-    else
-      callback(err);
-  });
+  self.infringements_.update(query, updates, callback);
 }
 
 /**
@@ -270,35 +231,28 @@ Infringements.prototype.addRelation = function(campaign, source, target, callbac
  * @return {undefined}   
  */
 Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callback) {
-  var self = this
-    , campaign = Object.isString(campaign) ? campaign : campaign.RowKey
-    , target = utilities.genURIKey(uri)
-    , source = utilities.genURIKey(uri, owner)
-    ;
+  var self = this;
 
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addMetaRelation, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+  uri = utilities.normalizeURI(uri);
   callback = callback ? callback : defaultCallback;
 
-  var id = self.getKeyFromRelationCache(campaign, source, target);
-  if (id) {
-    callback(null, id);
-    return;
-  }
+  var query = {
+    _id: self.generateKey(campaign, uri, owner)
+  };
 
-  var entity = {};
-  entity.PartitionKey = campaign;
-  entity.RowKey = target;
-  entity.source = source;
-  entity.created = Date.utc.create().getTime();
+  var updates = {
+    $addToSet: {
+      targets: {
+        uri: uri
+      }
+    }
+  };
 
-  self.tableService_.insertEntity(RELATION_TABLE, entity, function(err) {
-    if (!err)
-      self.updateRelationCache(campaign, source, target);
-
-    if (err && err.code === 'EntityAlreadyExists')
-      callback(null);
-    else
-      callback(err);
-  });
+  self.infringements_.update(query, updates, callback);
 }
 
 /**
@@ -306,78 +260,99 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
  *
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            source          The source of the points -> role.plugin
- * @param {integer}           p_score         The new values to be added to the points {} on the infringements.
+ * @param {integer}           score           The new values to be added to the points {} on the infringements.
  * @param {string}            message         Info about the context.
 **/
-Infringements.prototype.addPoints = function(infringement, source, p_score, p_message, callback)
+Infringements.prototype.addPoints = function(infringement, source, score, message, callback)
 {
   var self = this;
-  callback = callback ? callback : defaultCallback;
-  if(!Object.has(infringement, 'points'))
-    infringement.points = {};
-  if(!Object.has(infringement.points, 'source'))
-    infringement.points[source] = [];  
-  infringement.points[source].push({score: p_score, message: p_message, timestamp: Date.now()})
-  
-  var entity = self.pack(infringement);
 
-  self.tableService_.updateEntity (TABLE, entity,
-                                   function(err){
-                                     if(err){
-                                       console.log('err : %s', err.message);
-                                      }
-                                    callback(err)});
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addPoints, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $inc: {
+      'points.total': score
+    },
+    $set: {
+      'points.modified': Date.now()
+    },
+    $push: {
+      'points.entries': {
+        score: score,
+        source: source,
+        message: message,
+        created: Date.now()
+      }
+    },
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
 }
 
 /**
- * Update the state field on the given infringement with the give newState
+ * Change the state field on the given infringement with the given state
+ *
  * @param {object}           infringement     The infringement which we want to work on
- * @param {integer}          newState         The newState to be to saved on the infringement.
+ * @param {integer}          state            The state to be to set on the infringement.
  * @param {function(err)}    callback         A callback to handle errors. 
 **/
-Infringements.prototype.changeState = function(infringement, newState, callback){
+Infringements.prototype.setState = function(infringement, state, callback){
   var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
+
   callback = callback ? callback : defaultCallback;
-  infringement.state = newState;  
-  var entity = self.pack(infringement);
-  self.tableService_.updateEntity(TABLE, entity,
-                                  function(err){
-                                    if(err){
-                                      console.log('err : %s', err.message);
-                                    }
-                                    callback(err)
-                                  });
+
+  self.infringements_.update({ _id: infringement._id }, { $set: { state: state } }, callback);
 }
 
 /**
  * Gets the list of unverified infringements for a given campaign
  *
  * @param {object}           campaign         The campaign which we want unverified links for
-**/
-Infringements.prototype.getNeedsScraping = function(campaign, callback)
+ * @param {number}           limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err)}    callback         A callback to handle errors.
+*/
+Infringements.prototype.getNeedsScraping = function(campaign, limit, callback)
 {
   var self = this;
-  var needScrapingEntities = [];
-  
-  var query = azure.TableQuery.select()
-                              .from(TABLE)
-                              .where('PartitionKey eq ?', campaign.RowKey)
-                              .and('state eq ?', states.infringements.state.NEEDS_SCRAPE);
-                              
-  function reply(err, entities, res) {
-    needScrapingEntities.add(entities);
-    if (err){
-      logger.warn(err);
-      callback(err);
-    }
 
-    if (res.hasNextPage()) {
-      res.getNextPage(reply);
-    } else {
-      self.unpack(callback, null, needScrapingEntities);
-    }
-  }
-  self.tableService_.queryEntities(query, reply);    
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getNeedsScraping, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.NEEDS_SCRAPE
+  };
+
+  self.infringements_.find(query).limit(limit ? limit : 1000).toArray(callback); 
 }
 
+/**
+ * Gets the number of links that need scraping
+ *
+ * @param  {object}                campaign      The campaign for which to search links.
+ * @param  {function(err,count)}   callback      A callback to receive the count, or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.getNeedsScrapingCount = function(campaign, callback) {
+  var self = this;
+  
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getNeedsScrapingCount, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.NEEDS_SCRAPE
+  };
+
+  self.infringements_.find(query).count(callback); 
+}

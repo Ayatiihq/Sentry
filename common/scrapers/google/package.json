@@ -1,8 +1,0 @@
-{
-  "name": "google",
-  "main": "./google-scraper.js",
-  "types": {
-    "tv": ".*",
-    "film": ".*"
-  }
-}

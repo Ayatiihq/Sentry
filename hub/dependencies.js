@@ -17,6 +17,7 @@ var acquire = require('acquire')
 
 var Seq = require('seq');
 
+var TABS_PER_NODE = 2;
 
 var Dependencies = module.exports = function() {
   this.depMap_ = {};
@@ -62,7 +63,7 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       this(null, $('body').find('fieldset').length, $('body').find('.busy').length);
     })
     .seq('updateCacheAndReturn', function(nAvailable, nBusy) {
-      self.seleniumAvailableNodes_ = nAvailable;
+      self.seleniumAvailableNodes_ = nAvailable * TABS_PER_NODE;
       self.seleniumBusyNodes_ = nBusy;
       self.seleniumLastCheck_ = new Date();
 

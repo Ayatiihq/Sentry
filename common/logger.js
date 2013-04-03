@@ -14,7 +14,7 @@ var cluster = require('cluster')
   , winston = require('winston');
 
 var Logger = function(filename) {
-  var id =  process.pid + '::' + os.hostname();
+  var id = os.hostname()  + '::' + process.pid;
 
   if (!cluster.isMaster) {
     id += '::' + cluster.worker.id;

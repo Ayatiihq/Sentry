@@ -11,16 +11,18 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('miner-dispatcher.js')
-  , states = acquire('states')
+  , states = acquire('states').jobs.state
   , util = require('util')
   ;
 
-var Jobs = acquire('jobs')
-  , Queue = acquire('queue')
-  , Campaigns = acquire('campaigns');
+var Campaigns = acquire('campaigns')
+  , Jobs = acquire('jobs')
+  , Seq = require('seq')
+  ;
 
 var MinerDispatcher = module.exports = function() {
-  this.queue_ = null;
+  this.campaigns_ = null;
+  this.jobs_ = null;
 
   this.init();
 }
@@ -30,43 +32,69 @@ util.inherits(MinerDispatcher, events.EventEmitter);
 MinerDispatcher.prototype.init = function() {
   var self = this;
 
-  self.queue_ = new Queue('miner');
+  self.campaigns_ = new Campaigns();
+  self.jobs_ = new Jobs('miner');
 
-  setTimeout(self.checkExistingJob.bind(self), config.MINER_CHECK_INTERVAL_MINUTES * 60 * 1000);
-  self.checkExistingJob();
+  setTimeout(self.iterateCampaigns.bind(self), config.MINER_CHECK_INTERVAL_MINUTES * 60 * 1000);
+  self.iterateCampaigns();
 }
 
-MinerDispatcher.prototype.checkExistingJob = function() {
+MinerDispatcher.prototype.iterateCampaigns = function() {
   var self = this;
 
-  self.queue_.length(function(err, length) {
-    length = length ? length : 0;
-    if (!length) {
-      self.createMinerJob();
+  self.campaigns_.listActiveCampaigns(function(err, campaigns) {
+    if (err)
+      logger.warn(err);
+    else
+      campaigns.forEach(self.checkCampaign.bind(self));
+  });
+}
+
+MinerDispatcher.prototype.checkCampaign = function(campaign) {
+  var self = this;
+
+  self.jobs_.listActiveJobs(campaign._id, function(err, jobs) {
+    if (err) {
+      return logger.warn('Unable to get active obs for campaign %s, %s', campaign, err);
+    }
+
+    if (self.doesCampaignNeedJob(campaign, jobs)) {
+      self.createJob(campaign);
     } else {
-      logger.info('Existing job exists');
+      logger.info('Existing job for %j', campaign._id);
     }
   });
 }
 
-// Add job to database
-// Add job to queue
-MinerDispatcher.prototype.createMinerJob = function() {
+MinerDispatcher.prototype.doesCampaignNeedJob = function(campaign, lastJobs) {
   var self = this;
 
-  logger.info('Creating job');
-  var opts = {};
-  opts.messagettl = config.MINER_JOB_EXPIRES_SECONDS;
+  job = lastJobs.last();
 
-  var msg = {};
-  msg.created = Date.utc.create().getTime();
+  if (!job)
+    return true;
 
-  self.queue_.push(msg, opts, function(err) {
-    if (err) {
-      logger.warn('Unable to insert message %s: %s', msg, err);
-      self.queue_.close(uid, states.jobs.state.ERRRORED, err);
-    } else {
-      logger.info('Job successfully created');
-    }
+  switch(job.state) {
+    case states.QUEUED:
+    case states.PAUSED:
+      return false;
+
+    case states.STARTED:
+      var tooLong = Date.create(job.popped).isBefore((config.MINER_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
+      return tooLong;
+
+    default:
+      return true;
+  }
+}
+
+MinerDispatcher.prototype.createJob = function(campaign) {
+  var self = this;
+
+  self.jobs_.push(campaign._id, '', {}, function(err, id) {
+    if (err)
+      logger.warn('Unable to create job for %j: %s', campaign._id, err);
+    else
+      logger.info('Created job for %j: %s', campaign._id, id);
   });
 }
