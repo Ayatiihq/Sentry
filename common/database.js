@@ -50,8 +50,9 @@ Database.connect = function(callback) {
                                   replset: {
                                     strategy: 'ping',
                                     rs_name: 'hydros',
-                                    readSecondary: true,
+                                    readSecondary: false,
                                     socketOptions: {
+                                      connectTimeoutMS: 3000,
                                       keepAlive: 1
                                     }
                                   },
@@ -60,7 +61,7 @@ Database.connect = function(callback) {
                                     readPreference: 'primary',
                                     auto_reconnect: true,
                                     socketOptions: { 
-//                                      connectTimeoutMS: 3000,
+                                      connectTimeoutMS: 3000,
                                       keepAlive: 1
                                     }
                                   },
