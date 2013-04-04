@@ -1,0 +1,5 @@
+{
+  "name": "kat",
+  "main": "./index.js",
+  "match": "https?://(%5B%5Cw-%5D+).[kat.ph|katproxy.com]/?.*"
+}

@@ -22,10 +22,6 @@ var IsoHunt = module.exports = function() {
   this.init();
 }
 
-//TODO:
-//For now just spider releases
-//Need to also spider torrents section
-
 util.inherits(IsoHunt, Spider);
 
 IsoHunt.prototype.init = function() {
