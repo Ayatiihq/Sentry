@@ -210,7 +210,6 @@ IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
   var paginationCount;
   var pageNumber=1;;
 
-  //self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     $('a').each(function(){
@@ -224,17 +223,32 @@ IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
         pageResults.push(torrentDescriptor);           
       }
     });
+
     var count = 0;
+    var age ;
+    $("td.row1").each(function(){
+      if($(this).attr('id') && $(this).attr('id').match(/row_[0-9]_[0-9]+/)){
+        var hoursB = parseFloat($(this).text());
+        pageResults[count].date = Date.create().addHours(-hoursB);;
+        count += 1;
+      }
+    });
+
+    count = 0;
     $("td.row3").each(function(){
       if($(this).attr('title') && $(this).attr('title').match(/[0-9]*\sfiles$/)){
         pageResults[count].fileSize = $(this).text();
-        console.log('found : ' + pageResults[count].activeLink.uri + ' with ' + pageResults[count].name + '\n and size ' + pageResults[count].fileSize);      
+        console.log('found : ' + pageResults[count].activeLink.uri +
+                    ' with ' + pageResults[count].name + '\n and size ' +
+                     pageResults[count].fileSize + ' date ' + 
+                     pageResults[count].date);      
         count += 1;
       }
     });
     done();
   });
 }
+
 /// Parse releases avenue ///////////////////////////////////////////////////
 IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
   var self = this;
