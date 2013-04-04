@@ -87,6 +87,13 @@ function main() {
     var campaign = argv[3];
     infringements.getNeedsScrapingCount(campaign, log);
   }
+
+  if (action === 'getForCampaign') {
+    var campaign = require(argv[3]);
+    var skip = Number(argv[4]);
+    var limit = Number(argv[5]);
+    infringements.getForCampaign(campaign, skip, limit, log);
+  }
 }
 
 main()

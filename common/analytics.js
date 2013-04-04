@@ -92,6 +92,9 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   if (!self.analytics_)
     return self.cachedCalls_.push([self.getCampaignStats, Object.values(arguments)]);
 
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
   Seq()
     .par(function() {
       var that = this;
@@ -104,7 +107,6 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
       var that = this
         , query = { 'campaign': campaign._id, targets: { $size: 0 } }
         ;
-      console.log(query);
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
         that(err);
