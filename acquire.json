@@ -21,6 +21,7 @@
   "spiders": "common/spiders.js",
   "states": "common/states.js",
   "storage": "common/storage.js",
+  "users": "common/users.js",
   "utilities": "common/utilities.js",
   "tv-channel": "common/tv-channel.js",
   "wrangler-rules": "common/wrangler-rules.js"
