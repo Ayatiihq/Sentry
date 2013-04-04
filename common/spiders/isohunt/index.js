@@ -31,21 +31,22 @@ util.inherits(IsoHunt, Spider);
 IsoHunt.prototype.init = function() {
   var self = this;  
   self.newDriver();
-  self.spiderReleases = true; // by default spider the torrents section
+  self.spiderReleases = false; // by default spider the torrents section
   self.lastRun;
   self.results = [];
   self.completed = [];
   self.root = "http://isohunt.com";
 
-  self.categories = [{id: 2, name: 'music'}];// for now just do music
-                     /*{id: 1, name: 'film'},
-                     {id: 10, name:'books'},
-                     {id: 3, name: 'musicVideo'},
-                     {id: 4, name: 'tv'},
-                     {id: 5, name: 'games'},
-                     {id: 7, name: 'pics'},
-                     {id: 8, name: 'anime'},
-                     {id: 9, name: 'comics'}];*/
+  self.categories = [{id: 2, name: 'music'}];//,// for now just do music
+                     //{id: 1, name: 'film'},
+                     //{id: 10, name: 'musicVideo'}];
+                     /*{id: 3, name: 'tv'},
+                     {id: 4, name: 'games'},
+                     {id: 5, name: 'apps'},
+                     {id: 6, name: 'pics'},
+                     {id: 7, name: 'anime'},
+                     {id: 8, name: 'comics'},
+                     {id: 9, name:'books'}];*/
 
   self.settings_ = new Settings('spider.isohunt');
   // Fetch 'ranLast' from the settings
@@ -96,13 +97,13 @@ IsoHunt.prototype.formatGet = function(catId, pageNumber, age){
   }
 }
 
-IsoHunt.prototype.parseCategory = function(done, category, firstPass){
+IsoHunt.prototype.parseCategory = function(done, category, pageNumber){
   var self = this;
   if(self.spiderReleases){
-    self.parseReleasesCategory(done, category, firstPass);
+    self.parseReleasesCategory(done, category, pageNumber);
   }
   else{
-    self.parseTorrentsCategory(done, category, firstPass);
+    self.parseTorrentsCategory(done, category, pageNumber);
   }
 }
 
@@ -182,7 +183,7 @@ IsoHunt.prototype.iterateRequests = function(collection){
               self.driver.get(path.toString()).then(self.parseReleasePage.bind(self, done, torrent));
             }      
             else{
-              self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
+              self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
             }
           }
           catch(err){
@@ -202,7 +203,7 @@ IsoHunt.prototype.iterateRequests = function(collection){
       }
       else{
         var category = torrent; 
-        self.driver.get(self.formatGet(category.id)).then(self.parseCategory.bind(self, done, category, true));
+        self.driver.get(self.formatGet(category.id)).then(self.parseCategory.bind(self, done, category, 1));
       }
     })
     .seq(function(){
@@ -219,11 +220,10 @@ IsoHunt.prototype.iterateRequests = function(collection){
   ;    
 }
 /// Parse Torrents avenue ///////////////////////////////////////////////////
-IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
+IsoHunt.prototype.parseTorrentsCategory = function(done, category, pageNumber){
   var self = this;
   var pageResults = [];
   var paginationCount;
-  var pageNumber=1;;
 
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
@@ -240,28 +240,39 @@ IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
     });
 
     var count = 0;
-    var age ;
+
     $("td.row1").each(function(){
       if($(this).attr('id') && $(this).attr('id').match(/row_[0-9]_[0-9]+/)){
         var hoursB = parseFloat($(this).text());
-        pageResults[count].date = Date.create().addHours(-hoursB);;
-        count += 1;
+        if(pageResults.length-1 < count){
+          logger.warn('dodgy parsing');
+        }
+        else{
+          pageResults[count].date = Date.create().addHours(-hoursB);;
+          count += 1;
+        }
       }
     });
 
     count = 0;
     $("td.row3").each(function(){
       if($(this).attr('title') && $(this).attr('title').match(/[0-9]*\sfiles$/)){
-        pageResults[count].fileSize = $(this).text();
-        console.log('found : ' + pageResults[count].activeLink.uri +
-                    ' with ' + pageResults[count].name + '\n and size ' +
-                     pageResults[count].fileSize + ' date ' + 
-                     pageResults[count].date);      
-        count += 1;
+        if(pageResults.length-1 < count){
+          logger.warn('dodgy parsing');
+        }
+        else{
+          pageResults[count].fileSize = $(this).text();
+          console.log('found : ' + pageResults[count].activeLink.uri +
+                      ' with ' + pageResults[count].name + '\n and size ' +
+                       pageResults[count].fileSize + ' date ' + 
+                       pageResults[count].date);      
+          count += 1;
+        }
       }
     });
     self.driver.sleep(1000 * Number.random(0, 10));
-    self.results = self.results.union(pageResults);    
+    self.results = self.results.union(pageResults);  
+    pageResults = [];  
     // check to make sure we are able to find anything
     // sometimes the cat page is unavailable
     if (self.results.length === 0 && pageNumber === 1){
@@ -269,33 +280,32 @@ IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
       return;
     }
 
-    if(firstPass){
-      paginationCount = self.ripPageCount($);
-    } 
+    paginationCount = self.ripPageCount($);
 
-    var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
-    if (/*TODO remove!!!*/false && haveNotSeen && pageNumber < paginationCount){
+    var haveNotSeen = self.lastRun ? Date.create(self.results.last().date).isAfter(self.lastRun) : true;
+    console.log('\n haveNotSeen : ' + haveNotSeen +
+                '\n pagecount : ' + paginationCount + 
+                '\n pageNumber : ' + pageNumber +
+                '\n new results size : ' + self.results.length);
+    if (haveNotSeen && pageNumber < paginationCount/20){
       pageNumber += 1;
       var fetchPromise = self.driver.get(self.formatGet(category.id, pageNumber));
-      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
+      fetchPromise.then(self.parseCategory.bind(self, done, category, pageNumber));
     }
     else{
       logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
       done();
     }
-    //self.driver.sleep(1000 * Number.random(0, 10));      
-    //done();
+    self.driver.sleep(1000 * Number.random(0, 10)/2);
   });
 }
 
 /// Parse releases avenue ///////////////////////////////////////////////////
-IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
+IsoHunt.prototype.parseReleasesCategory = function(done, category, pageNumber){
   var self = this;
   var pageResults = [];
   var paginationCount;
-  var pageNumber=1;;
 
-  //self.driver.sleep(10000);
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     $("td.releases").each(function(){
@@ -327,14 +337,13 @@ IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
       return;
     }
 
-    if(firstPass){
-      paginationCount = self.ripPageCount($);
-    }    
+    paginationCount = self.ripPageCount($);
+
     var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
-    if (/*TODO remove!!!*/false && haveNotSeen && pageNumber < paginationCount){
+    if (haveNotSeen && pageNumber < paginationCount/8){
       pageNumber += 1;
       var fetchPromise = self.driver.get(self.formatGet(category.id, pageNumber));
-      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
+      fetchPromise.then(self.parseCategory.bind(self, done, category, pageNumber));
     }
     else{
       logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
@@ -365,7 +374,7 @@ IsoHunt.prototype.parseReleasePage = function(done, torrent){
         found = true;
         self.driver.sleep(1000 * Number.random(0, 10));        
         self.emit('link', torrent.constructLink(self, {linkSource: 'torrent RELEASE page'}, path.toString()));
-        self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
+        self.driver.get(path.toString()).then(self.parseTorrentPage.bind(self, done, torrent));
       }        
       catch(err){
         logger.warn('failed to construct uri from link : ' + err);
@@ -380,7 +389,7 @@ IsoHunt.prototype.parseReleasePage = function(done, torrent){
   });
 }
 
-IsoHunt.prototype.parseInnerReleasePage = function(done, torrent){
+IsoHunt.prototype.parseTorrentPage = function(done, torrent){
   var self = this;
   var found = false;
   self.driver.getPageSource().then(function parseSrcHtml(source){
