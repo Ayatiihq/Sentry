@@ -381,7 +381,7 @@ Infringements.prototype.getForCampaign = function(campaign, skip, limit, callbac
   var options = { 
     skip: skip, 
     limit: limit,
-    sort: { 'points.total': -10, created: -1 }
+    sort: { 'points.total': -1, created: 1 }
   };
 
   self.infringements_.find(query, options).toArray(callback); 
