@@ -103,7 +103,7 @@ Generic.prototype.start = function (campaign, job) {
 
 Generic.prototype.pump = function (firstRun) {
   var self = this;
-  
+
   if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0 && !firstRun) {
     logger.info('Finishing up, no more urls to check');
     self.stop();

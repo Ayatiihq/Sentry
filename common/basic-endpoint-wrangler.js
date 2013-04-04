@@ -28,7 +28,30 @@ var acquire = require('acquire')
 
 var MAX_DEPTH = 7; // don't go more than 7 iframes deep, that is reta.. bad. 
 var USER_AGENT = 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1';
-
+var acceptedMimetypes = [
+  'application/atom+xml',
+  'application/ecmascript',
+  'application/EDI-X12',
+  'application/EDIFACT',
+  'application/json',
+  'application/javascript',
+  'application/rdf+xml',
+  'application/rss+xml',
+  'application/soap+xml',
+  'application/xhtml+xml',
+  'application/xml',
+  'application/xml-dtd',
+  'application/xop+xml',
+  'message/http',
+  'text/cmd',
+  'text/css',
+  'text/csv',
+  'text/html',
+  'text/javascript',
+  'text/plain',
+  'text/vcard',
+  'text/xml'
+];
 var Wrangler = module.exports.Wrangler = function () {
   var self = this;
   events.EventEmitter.call(self);
@@ -144,7 +167,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
     var reqPromise = new Promise();
-    var reqObj = utilities.request(uri, reqOpts, function (error, response, body) { 
+    var reqObj = utilities.request(uri, reqOpts, function (error, response, body) {
       self.busyCount = process.hrtime(); // bump the busy counter
       if (!!response) {
         if (response.statusCode >= 400 && response.statusCode < 600 && !error) {
@@ -156,22 +179,19 @@ Wrangler.prototype.processUri = function (uri, parents) {
         reqPromise.reject(error, response);
       }
       else if (response.statusCode >= 200 && response.statusCode < 300) {
-        reqPromise.resolve(body);
+        if (acceptedMimetypes.some(response.headers['content-type'])) {
+          reqPromise.resolve(body);
+        }
+        else {
+          reqPromise.reject(new Error('Mimetype not accepted: ' + response.headers['content-type']));
+        }
       }
       else {
         reqPromise.reject(new Error('Bad status code: ' + response.statusCode));
       }
     });
 
-    // create a timeout, sometimes request doesn't seem to timeout appropriately. 
-    //var timeoutRequest = function() {
-    //  reqObj.abort();
-    //  reqPromise.reject(new Error('Timeout reached'));
-    //};
-    //var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
-
     reqPromise.then(function (body) {
-      //delayedTimeoutRequest.cancel();
       var $ = cheerio.load(body);
       self.processSource(uri, parents, $, body);
 
@@ -179,7 +199,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
       newParents.push(uri);
       self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
-      //delayedTimeoutRequest.cancel();
       var statusCode = (!!response) ? response.statusCode : 0;
       logger.info('%s - Error(%d): %s', uri, statusCode, error);
       promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
