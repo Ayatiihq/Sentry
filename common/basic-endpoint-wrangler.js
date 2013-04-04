@@ -162,6 +162,12 @@ Wrangler.prototype.processUri = function (uri, parents) {
     'timeout':30*1000 
   };
 
+  function CheckMimetype(test) {
+    return !!acceptedMimetypes.count(function fuzzyMimeCheck(type) {
+      return test.has(type);
+    });
+  };
+
   // we do all this in a callback to process.nextTick
   // so that we return to nodes event loop, just means we should be more efficient
   // with reguards to distributing resources between cpu and io
@@ -179,7 +185,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
         reqPromise.reject(error, response);
       }
       else if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (acceptedMimetypes.some(response.headers['content-type'])) {
+        if (CheckMimetype(response.headers['content-type'])) {
           reqPromise.resolve(body);
         }
         else {
