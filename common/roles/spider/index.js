@@ -58,16 +58,20 @@ Spider.prototype.processJob = function(err, job) {
 
   logger.info('Processing %j', job._id);
 
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+
   Seq()
     .seq('Start job', function() {
       self.startJob(job, this);
     })
-    .catch(function(err) {
-      logger.warn('Unable to process job: %s', err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      self.emit('error', err);
-    })
+    .catch(onError)
     ;
+  
+  process.on('uncaughtException', onError);
 }
 
 Spider.prototype.startJob = function(job, done) {
@@ -98,8 +102,6 @@ Spider.prototype.runSpider = function(spider, job, done) {
 
   self.doSpiderStartWatch(spider, job);
   self.doSpiderTakesTooLongWatch(spider, job);
-
-  process.on('uncaughtException', self.onSpiderError.bind(self, spider, job));
 
   try {
     spider.start(job);

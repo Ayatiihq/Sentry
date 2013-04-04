@@ -50,7 +50,7 @@ config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, '
 
 // Mongo
 
-config.MONGODB_URL = getEnv(process.env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@hydros.cloudapp.net:6001,hydros.cloudapp.net:6002,hydros.cloudapp.net:6003/goldrush?replicaSet=hydros');
+config.MONGODB_URL = getEnv(process.env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@168.61.5.194:6001,168.61.5.194:6002,168.61.5.194:6003/goldrush?replicaSet=hydros');
 
 config.MONGODB_SERVERS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['hydros.cloudapp.net', 'hydros.cloudapp.net', 'hydros.cloudapp.net']);
 

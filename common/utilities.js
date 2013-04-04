@@ -335,6 +335,12 @@ Utilities.requestURL = function(url, options, callback) {
     socket.setTimeout(REQ_TIMEOUT);
   });
 
+  var timeoutId = setTimeout(function() {
+    err = new Error('Request took too long');
+    req.abort();
+  },
+  REQ_TIMEOUT);
+
   req.on('response', function(response) {
     var body = ''
       , stream = null
@@ -342,10 +348,14 @@ Utilities.requestURL = function(url, options, callback) {
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
-        stream = response.pipe(zlib.createGunzip());
+        var decompresser = zlib.createGunzip();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
         break;
       case 'deflate':
-        stream = response.pipe(zlib.createInflate())
+        var decompresser = zlib.createInflate();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
         break;
       default:
         stream = response;
@@ -363,12 +373,16 @@ Utilities.requestURL = function(url, options, callback) {
     });
 
     stream.on('end', function() {
+      clearTimeout(timeoutId);
       callback(err, response, body);
     });
 
   });
 
-  req.on('error', callback);
+  req.on('error', function(err) {
+    clearTimeout(timeoutId);
+    callback(err);
+  });
 }
 
 /**

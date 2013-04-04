@@ -61,6 +61,15 @@ Scraper.prototype.processJob = function(err, job) {
 
   logger.info('Processing %j', job._id);
 
+  // Sanitize the scraper name
+  job.scraperName_ = job._id.consumer.split('.')[0];
+
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+
   Seq()
     .seq('Job has details', function() {
       self.campaigns_.getDetails(job._id.owner, this);
@@ -76,12 +85,10 @@ Scraper.prototype.processJob = function(err, job) {
       logger.info('Finished all work');
       self.emit('finished');
     })
-    .catch(function(err) {
-      logger.warn('Unable to process job: %s', err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      self.emit('error', err);
-    })
+    .catch(onError)
     ;
+
+  process.on('uncaughtException', onError);
 }
 
 Scraper.prototype.checkJobValidity = function(job, callback) {
@@ -89,8 +96,8 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
     , err = null
     ;
 
-  if (!self.scrapers_.hasScraperForType(job._id.consumer, job.campaign.type)) {
-    err = new Error(util.format('No match for %s and %s', job._id.consumer, job.campaign.type));
+  if (!self.scrapers_.hasScraperForType(job.scraperName_, job.campaign.type)) {
+    err = new Error(util.format('No match for %s and %s', job.scraperName_, job.campaign.type));
   }
   callback(err);
 }
@@ -109,9 +116,9 @@ Scraper.prototype.startJob = function(job, done) {
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
 
-  logger.info('Loading scraper %s for job %j', job._id.consumer, job);
+  logger.info('Loading scraper %s for job %j', job.scraperName_, job);
 
-  var scraperInfo = self.scrapers_.getScraper(job._id.consumer);
+  var scraperInfo = self.scrapers_.getScraper(job.scraperName_);
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
     return;
@@ -133,6 +140,7 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
 
     // Save the callback so we can call it when necessary
     job.done = done;
+    scraper.job = job;
 
     logger.info('Running job %j', job._id);
 
@@ -150,8 +158,6 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
     scraper.on('infringementPointsUpdate', self.onScraperPointsUpdate.bind(self, scraper));
     self.doScraperStartWatch(scraper, job);
     self.doScraperTakesTooLongWatch(scraper, job);
-
-    process.on('uncaughtException', self.onScraperError.bind(self, scraper, job));
     
     try {
       scraper.start(campaign, job);
@@ -162,7 +168,7 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
 
 Scraper.prototype.doScraperStartWatch = function(scraper, job) {
   var self = this;
-  var err = new Error(util.format('Scraper took too long to start: %s', scraper.getName()));
+  var err = new Error(util.format('Scraper took too long to start: %s', scraper.job._id.consumer));
 
   scraper.watchId = setTimeout(self.onScraperError.bind(self, scraper, job, err),
                                1000 * 60);
@@ -250,7 +256,7 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, point
   var self = this
     , state = states.infringements.state.UNVERIFIED
     ;
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), state, points, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.job._id.consumer, state, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
@@ -264,13 +270,13 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
     ;
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
-  self.infringements_.add(campaign, uri, campaign.type, scraper.getName(), scrapeState, points, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, scraper.job._id.consumer, scrapeState, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
   });
 
-  self.infringements_.addMeta(campaign, uri, campaign.type, scraper.getName(), unverifiedState, metadata, function(err, id) {
+  self.infringements_.addMeta(campaign, uri, campaign.type, scraper.job._id.consumer, unverifiedState, metadata, function(err, id) {
     if (err) {
       logger.warn('Unable to add an meta infringement: %j %s %s %s', campaign._id, uri, metadata, err);
     }
@@ -289,7 +295,7 @@ Scraper.prototype.onScraperRelation = function(scraper, campaign, sourceUri, tar
 
 Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   var self = this
-    , source = scraper.getName()
+    , source = scraper.job._id.consumer
 
   self.infringements_.addMetaRelation(campaign, uri, source, function(err, id) {
     if (err) {
@@ -303,7 +309,7 @@ Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points
 
   self.infringements_.addPoints(infringement, source, points, message, function(err, id){
     if(err) {
-      logger.warn("Unable to update points on infringement: %s %s %s", scraper.getName(), infringement.uri, source);
+      logger.warn("Unable to update points on infringement: %s %s %s", scraper.job._id.consumer, infringement.uri, source);
     }
   });
 }
@@ -313,7 +319,7 @@ Scraper.prototype.onScraperStateChange = function(scraper, infringement, newStat
 
   self.infringements_.setState(infringement, newState, function(err){
     if(err) {
-      logger.warn("Unable to change state on infringement: %s %s %i", scraper.getName(), infringement.uri, newState);
+      logger.warn("Unable to change state on infringement: %s %s %i", scraper.job._id.consumer, infringement.uri, newState);
     }
   });
 }

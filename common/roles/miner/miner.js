@@ -37,6 +37,7 @@ var Miner = module.exports = function() {
   this.started_ = false;
 
   this.touchId_ = 0;
+  this.lastTimestamp_ = 0;
 
   this.init();
 }
@@ -101,14 +102,8 @@ Miner.prototype.mine = function(campaign, job) {
         that(null, value);
       });
     })
-    .seq('Get links since that timestamp', function(from) {
-      logger.info('Mining links for %j from timestamp %s', campaign._id, from);
-
-      self.links_.getLinks(campaign.type, Date.create(from), this);
-    })
-    .seq('Try match links', function(links) {
-      logger.info('Matching links');
-      self.matchLinks(campaign, links, MAX_LINKS, this);
+    .seq('Empty available links', function(from) {
+      self.processAllLinks(campaign, from, this);
     })
     .seq('Finish up', function(timestamp){
       logger.info('Finishing up mining for campaign %j', campaign._id);
@@ -124,6 +119,27 @@ Miner.prototype.mine = function(campaign, job) {
       self.emit('error', err);
     })
     ;
+}
+
+Miner.prototype.processAllLinks = function(campaign, from, done) {
+  var self = this;
+
+  logger.info('Mining links for %j from timestamp %s', campaign._id, from);
+
+  self.links_.getLinks(campaign.type, Date.create(from), MAX_LINKS, function(err, links) {
+    if (err || links.length == 0)
+      return done(err, self.lastTimestamp_);
+
+    self.matchLinks(campaign, links, function(err, timestamp) {
+      self.lastTimestamp_ = timestamp;
+      
+      if (err)
+        return done(err, self.lastTimestamp_);
+
+      // Try to get more links to processs
+      self.processAllLinks(campaign, from, done);
+    });
+  });
 }
 
 Miner.prototype.matchLinks = function(campaign, links, done) {

@@ -18,6 +18,8 @@ var Seq = require('seq');
 var DATABASE = undefined
   , MAX_RETRIES = 5
   , RETRIES = 0
+  , CONNECTING = false
+  , WAITING = null
   ;
 
 var Database = module.exports;
@@ -38,16 +40,54 @@ Database.connect = function(callback) {
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
-    mongodb.MongoClient.connect(config.MONGODB_URL, function(err, db) {
+    logger.info('Connecting to database');
+    
+    CONNECTING = true;
+    WAITING = [];
+
+    mongodb.MongoClient.connect(config.MONGODB_URL, 
+                                { 
+                                  replset: {
+                                    strategy: 'ping',
+                                    rs_name: 'hydros',
+                                    readSecondary: true,
+                                    socketOptions: {
+                                      keepAlive: 1
+                                    }
+                                  },
+                                  server: 
+                                  { 
+                                    readPreference: 'primary',
+                                    auto_reconnect: true,
+                                    socketOptions: { 
+//                                      connectTimeoutMS: 3000,
+                                      keepAlive: 1
+                                    }
+                                  },
+                                  db: {
+                                    readPreference: 'primary'
+                                  }
+                                },
+                                function(err, db) {
       if (err && RETRIES < MAX_RETRIES) {
         RETRIES += 1;
         logger.warn('Unable to connect to database: %s. Retrying %s out of %s times',
                     err, RETRIES, MAX_RETRIES)
-        setTimeout(Database.connect.bind(null, callback), 1000 * 4 * RETRIES); // Decaying
+        setTimeout(Database.connect.bind(null, callback), 1000 * 10 * RETRIES); // Decaying
         return;
       }
       DATABASE = db;
       callback(err, DATABASE);
+
+      db.on('error', function(err) {
+        throw err;
+      });
+
+      if (WAITING.length) {
+        WAITING.forEach(function(call) {
+          call[0].apply(null, call[1]);
+        });
+      }
     });
   }
 }
@@ -61,10 +101,11 @@ Database.connect = function(callback) {
  * @return {undefined} 
  */
  Database.connectAndEnsureCollection = function(collectionName, callback) {
-  if (!collectionName)
-    return logger.warn('Collection name required');
-
   callback = callback ? callback : function() {};
+
+  if (!DATABASE && CONNECTING) {
+    return WAITING.push([Database.connectAndEnsureCollection, Object.values(arguments)]);
+  }
 
   Seq()
     .seq('Get database', function() {

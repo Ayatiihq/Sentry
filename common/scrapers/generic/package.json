@@ -2,7 +2,8 @@
   "name": "generic",
   "main": "./generic-scraper.js",
   "types": {
-    "tv": ".*"
+    "tv": ".*",
+    "music": ".*"
   },
   "dispatcher": "generic",
   "intervalMinutes": 5 

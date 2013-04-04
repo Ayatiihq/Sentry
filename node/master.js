@@ -186,24 +186,28 @@ Master.prototype.getSomeWork = function() {
     , msg = self.newMessage()
     ;
 
-  // FIXME: Normally msg would contain any limitations of this node
-  // such as which roles it can execute, we don't support that
-  // right now as all nodes are equal.
-  logger.info('Asking Hub for some work to do');
-  self.hub_.emit('getWork', msg, function(work) {
-    if (!work) {
-      logger.info('Hub has no work to do');
-      return;
-    }
+  // Stagger requests for work
+  setTimeout(function() {
 
-    if (Object.size(cluster.workers) >= self.nPossibleWorkers_) {
-      logger.info('No available workers');
-      return;
-    }
+    // FIXME: Normally msg would contain any limitations of this node
+    // such as which roles it can execute, we don't support that
+    // right now as all nodes are equal.
+    logger.info('Asking Hub for some work to do');
+    self.hub_.emit('getWork', msg, function(work) {
+      if (!work) {
+        logger.info('Hub has no work to do');
+        return;
+      }
 
-    logger.info('Got some work', JSON.stringify(work));
-    self.launchWorker(work);
-  });
+      if (Object.size(cluster.workers) >= self.nPossibleWorkers_) {
+        logger.info('No available workers');
+        return;
+      }
+
+      logger.info('Got some work', JSON.stringify(work));
+      self.launchWorker(work);
+    });
+  }, 1000 * 20 * Math.random());
 }
 
 Master.prototype.launchWorker = function(work) {

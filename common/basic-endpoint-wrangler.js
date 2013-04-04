@@ -10,24 +10,48 @@
  */
 require('sugar');
 var acquire = require('acquire')
+  , all = require('node-promise').all
   , cheerio = require('cheerio')
   , EndpointWrangler = acquire('endpoint-wrangler')
   , events = require('events')
   , logger = acquire('logger').forFile('basic-endpoint-wrangler.js')
   , Promise = require('node-promise').Promise
-  , all = require('node-promise').all
   , request = require('request')
   , seq = require('node-promise').seq
-  , shouldIgnoreUri = acquire('iframe-exploder').shouldIgnoreUri
+  , shouldIgnoreUri = acquire('wrangler-rules').shouldIgnoreUri
   , URI = require('URIjs')
   , util = require('util')
+  , utilities = acquire('utilities')
   , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
 
 var MAX_DEPTH = 7; // don't go more than 7 iframes deep, that is reta.. bad. 
 var USER_AGENT = 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1';
-
+var acceptedMimetypes = [
+  'application/atom+xml',
+  'application/ecmascript',
+  'application/EDI-X12',
+  'application/EDIFACT',
+  'application/json',
+  'application/javascript',
+  'application/rdf+xml',
+  'application/rss+xml',
+  'application/soap+xml',
+  'application/xhtml+xml',
+  'application/xml',
+  'application/xml-dtd',
+  'application/xop+xml',
+  'message/http',
+  'text/cmd',
+  'text/css',
+  'text/csv',
+  'text/html',
+  'text/javascript',
+  'text/plain',
+  'text/vcard',
+  'text/xml'
+];
 var Wrangler = module.exports.Wrangler = function () {
   var self = this;
   events.EventEmitter.call(self);
@@ -131,11 +155,17 @@ Wrangler.prototype.processUri = function (uri, parents) {
   self.foundURIs.push(uri);
 
   var reqOpts = {
-    'uri': uri, 
+    'followRedirects': true,
     'headers': {
       'Referer': parents.last(), 'User-Agent': USER_AGENT
     },
     'timeout':30*1000 
+  };
+
+  function CheckMimetype(test) {
+    return !!acceptedMimetypes.count(function fuzzyMimeCheck(type) {
+      return test.has(type);
+    });
   };
 
   // we do all this in a callback to process.nextTick
@@ -143,27 +173,31 @@ Wrangler.prototype.processUri = function (uri, parents) {
   // with reguards to distributing resources between cpu and io
   process.nextTick(function doInNextTick() {
     var reqPromise = new Promise();
-    var reqObj = request(reqOpts, function (error, response, body) { 
+    var reqObj = utilities.request(uri, reqOpts, function (error, response, body) {
       self.busyCount = process.hrtime(); // bump the busy counter
       if (!!response) {
         if (response.statusCode >= 400 && response.statusCode < 600 && !error) {
           error = new Error('4xx status code: ' + response.statusCode);
         }
       }
-      if (!!error) { reqPromise.reject(error, response); }
-      else if (response.statusCode >= 200 && response.statusCode < 300) { reqPromise.resolve(body); }
-      else { throw new Error('omg wtfbbq', error, response); }
+
+      if (!!error) {
+        reqPromise.reject(error, response);
+      }
+      else if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (CheckMimetype(response.headers['content-type'])) {
+          reqPromise.resolve(body);
+        }
+        else {
+          reqPromise.reject(new Error('Mimetype not accepted: ' + response.headers['content-type']));
+        }
+      }
+      else {
+        reqPromise.reject(new Error('Bad status code: ' + response.statusCode));
+      }
     });
 
-    // create a timeout, sometimes request doesn't seem to timeout appropriately. 
-    var timeoutRequest = function() {
-      reqObj.abort();
-      reqPromise.reject(new Error('Timeout reached'));
-    };
-    var delayedTimeoutRequest = timeoutRequest.delay(40 * 1000);
-
     reqPromise.then(function (body) {
-      delayedTimeoutRequest.cancel();
       var $ = cheerio.load(body);
       self.processSource(uri, parents, $, body);
 
@@ -171,7 +205,6 @@ Wrangler.prototype.processUri = function (uri, parents) {
       newParents.push(uri);
       self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
-      delayedTimeoutRequest.cancel();
       var statusCode = (!!response) ? response.statusCode : 0;
       logger.info('%s - Error(%d): %s', uri, statusCode, error);
       promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
