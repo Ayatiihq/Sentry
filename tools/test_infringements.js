@@ -94,6 +94,12 @@ function main() {
     var limit = Number(argv[5]);
     infringements.getForCampaign(campaign, skip, limit, log);
   }
+
+
+  if (action === 'getCountForCampaign') {
+    var campaign = require(argv[3]);
+    infringements.getCountForCampaign(campaign, log);
+  }
 }
 
 main()
