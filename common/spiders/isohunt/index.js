@@ -26,19 +26,18 @@ var IsoHunt = module.exports = function() {
 //For now just spider releases
 //Need to also spider torrents section
 
-
 util.inherits(IsoHunt, Spider);
 
 IsoHunt.prototype.init = function() {
   var self = this;  
   self.newDriver();
-  self.spiderReleases = true; // by default spider the torrents section
+  self.spiderReleases = false; // by default spider the torrents section
   self.lastRun;
   self.results = [];
   self.completed = [];
   self.root = "http://isohunt.com";
 
-  self.categories = [{id: 2, name: 'music'}];
+  self.categories = [{id: 2, name: 'music'}];// for now just do music
                      /*{id: 1, name: 'film'},
                      {id: 10, name:'books'},
                      {id: 3, name: 'musicVideo'},
@@ -93,7 +92,7 @@ IsoHunt.prototype.formatGet = function(catId, pageNumber, age){
     return "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + catId + page;
   }
   else{
-    return "http://ca.isohunt.com/torrents/?ihs1=5&iho1=d&iht=2&age=0";
+    return "http://ca.isohunt.com/torrents/?ihs1=5&iho1=d&iht=" + catId + "&age=0";
   }
 }
 
@@ -204,7 +203,38 @@ IsoHunt.prototype.iterateRequests = function(collection){
     })    
   ;    
 }
+/// Parse Torrents avenue ///////////////////////////////////////////////////
+IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
+  var self = this;
+  var pageResults = [];
+  var paginationCount;
+  var pageNumber=1;;
 
+  //self.driver.sleep(10000);
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+    var $ = cheerio.load(source);
+    $('a').each(function(){
+      var torrentDescriptor;
+      if($(this).attr('id') && $(this).attr('id').match(/link[0-9]+/)){
+        torrentDescriptor = new Spidered('torrent',
+                                         $(this).text(),
+                                         category.name,
+                                         $(this).attr('href'),
+                                         SpideredStates.ENTITY_PAGE_PARSING);        
+        pageResults.push(torrentDescriptor);           
+      }
+    });
+    var count = 0;
+    $("td.row3").each(function(){
+      if($(this).attr('title') && $(this).attr('title').match(/[0-9]*\sfiles$/)){
+        pageResults[count].fileSize = $(this).text();
+        console.log('found : ' + pageResults[count].activeLink.uri + ' with ' + pageResults[count].name + '\n and size ' + pageResults[count].fileSize);      
+        count += 1;
+      }
+    });
+    done();
+  });
+}
 /// Parse releases avenue ///////////////////////////////////////////////////
 IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
   var self = this;
@@ -249,7 +279,7 @@ IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
       paginationCount = self.ripPageCount($);
     }    
     var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
-    if (/*TODO*/false && haveNotSeen && pageNumber < paginationCount){
+    if (/*TODO remove!!!*/false && haveNotSeen && pageNumber < paginationCount){
       pageNumber += 1;
       var fetchPromise = self.driver.get(self.formatGet(category.id, pageNumber));
       fetchPromise.then(self.parseCategory.bind(self, done, category, false));
@@ -267,14 +297,14 @@ IsoHunt.prototype.parseReleasePage = function(done, torrent){
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     var found = false;
-    // TODO parse multiple links
+    // TODO parse multiple links (release pages could have links to x number of torrent links)
     $('a#link1').each(function(){
       try{
         var uri = URI($(this).attr('href'));
         var path = uri.absoluteTo(self.root);
         found = true;
         self.driver.sleep(1000 * Number.random(0, 10));        
-        self.emit('link', torrent.constructLink(self, {linkSource: 'torrent release page'}, path.toString()));
+        self.emit('link', torrent.constructLink(self, {linkSource: 'torrent RELEASE page'}, path.toString()));
         self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
       }        
       catch(err){
