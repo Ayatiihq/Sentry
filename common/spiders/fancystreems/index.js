@@ -4,14 +4,14 @@
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('index.js')
+  , logger = acquire('logger').forFile('fancystreems/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')
   , sugar = require('sugar')
   , Seq = require('seq')
-  , TvChannel = acquire('tv-channel').TvChannel 
-  , TvChannelStates = acquire('tv-channel').TvChannelStates
+  , Spidered = acquire('spidered').Spidered 
+  , SpideredStates = acquire('spidered').SpideredStates
   , URI = require('URIjs')
   , webdriver = require('selenium-webdriver')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
@@ -39,9 +39,9 @@ FancyStreems.prototype.init = function() {
   
   self.root = "http://fancystreems.com/";
 
-  self.categories = [{cat: 'entertainment', currentState: TvChannelStates.CATEGORY_PARSING},
-                     {cat: 'movies', currentState: TvChannelStates.CATEGORY_PARSING},
-                     {cat: 'sports', currentState: TvChannelStates.CATEGORY_PARSING}];
+  self.categories = [{cat: 'entertainment', currentState: SpideredStates.CATEGORY_PARSING},
+                     {cat: 'movies', currentState: SpideredStates.CATEGORY_PARSING},
+                     {cat: 'sports', currentState: SpideredStates.CATEGORY_PARSING}];
   self.newWrangler();
   self.iterateRequests(self.categories);
 }
@@ -96,22 +96,22 @@ FancyStreems.prototype.iterateRequests = function(collection){
   Seq(collection)
     .seqEach(function(item){
       var done = this;
-      if( item instanceof TvChannel && item.isRetired()){
+      if( item instanceof Spidered && item.isRetired()){
         console.warn('\n\n Shouldnt get to here : %s', JSON.stringify(item));
         self.channelCompleted(item, false);
         done();        
       }
       // for the initial stage we just want to request the category pages (don't need selenium)
-      else if(item.currentState === TvChannelStates.CATEGORY_PARSING){
+      else if(item.currentState === SpideredStates.CATEGORY_PARSING){
         request ({uri: self.root + 'tvcat/' + item.cat + 'tv.php', timeout: 5000}, self.scrapeCategory.bind(self, item.cat, done));
       }
-      else if(item.currentState === TvChannelStates.CHANNEL_PARSING){
+      else if(item.currentState === SpideredStates.CHANNEL_PARSING){
         request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeChannel.bind(self, item, done));
       }
-      else if(item.currentState === TvChannelStates.DETECT_HORIZONTAL_LINKS){
+      else if(item.currentState === SpideredStates.DETECT_HORIZONTAL_LINKS){
         request ({uri: item.activeLink.uri, timeout: 5000}, self.scrapeIndividualaLinksOnWindow.bind(self, item, done));
       }
-      else if(item.currentState === TvChannelStates.WRANGLE_IT){
+      else if(item.currentState === SpideredStates.WRANGLE_IT){
         console.log("\n\n HERE about to begin a wrangler for %s \n\n", item.activeLink.uri);
         self.wrangler.on('finished', item.wranglerFinished.bind(item, self, done));
         self.wrangler.beginSearch(item.activeLink.uri);
@@ -157,13 +157,12 @@ FancyStreems.prototype.scrapeCategory = function(category, done, err, resp, html
       //if(name.match(/^star/g)){
         var topLink = self.root + 'tvcat/' + category + 'tv.php';
         var categoryLink = category_index(elem).children().first().attr('href');
-        var channel = new TvChannel('tv.live',
-                                    'FancyStreems',
+        var channel = new Spidered('tv.live',
                                     name,
                                     category,
                                     topLink,
-                                    TvChannelStates.CHANNEL_PARSING);
-        self.emit('link', channel.constructLink({link_source : category + " page"}, categoryLink));
+                                    SpideredStates.CHANNEL_PARSING);
+        self.emit('link', channel.constructLink(self, {link_source : category + " page"}, categoryLink));
         self.results.push(channel);
       //}
     }
@@ -204,18 +203,18 @@ FancyStreems.prototype.scrapeChannel = function(channel, done, err, resp, html)
   }); 
   // if there is an iframe, first step is to check for horizontal links across the top
   if (target){
-    channel.currentState = TvChannelStates.DETECT_HORIZONTAL_LINKS;
+    channel.currentState = SpideredStates.DETECT_HORIZONTAL_LINKS;
     // TODO: just for testing, skip the flattening.
-    //channel.currentState = TvChannelStates.WRANGLE_IT;
+    //channel.currentState = SpideredStates.WRANGLE_IT;
     self.emit('link',
-              channel.constructLink({link_source : 'channel page'}, URI(target).absoluteTo('http://fancystreems.com').toString()));
+              channel.constructLink(self, {link_source : 'channel page'}, URI(target).absoluteTo('http://fancystreems.com').toString()));
   }
   else{
     // Note:
     // Ideally we should try to unwrangle at this point.
     // for some reason it craps out because the wrangler
     // is trying to be used by two different channels
-    //channel.currentState = TvChannelStates.WRANGLE_IT;
+    //channel.currentState = SpideredStates.WRANGLE_IT;
     // for now retire the network - TODO - figure out.
     self.channelCompleted(channel, false);    
   }   
@@ -246,7 +245,7 @@ FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(channel, done, 
     if(relevant_a_link === true){
       var completed_uri = URI(iframe_parsed(this).attr('href')).absoluteTo('http://fancystreems.com').toString();
       self.emit('link',
-                channel.constructLink({link_source : "alink around png button on the screen"}, completed_uri));
+                channel.constructLink(self, {link_source : "alink around png button on the screen"}, completed_uri));
       embedded_results.push(completed_uri);
     }
   }); 
@@ -261,7 +260,7 @@ FancyStreems.prototype.scrapeIndividualaLinksOnWindow = function(channel, done, 
   else{
     // no links at the top ?
     // push it on to iframe parsing where we hope it should work.
-    channel.currentState = TvChannelStates.WRANGLE_IT;
+    channel.currentState = SpideredStates.WRANGLE_IT;
   }
   done();
 }
@@ -291,7 +290,7 @@ FancyStreems.prototype.flattenHorizontalLinkedObjects = function(channel, succes
       channelClone.embeddedALinks = [];
       channelClone.links.push({desc: 'starting point', uri: link});
       channelClone.activeLink = channelClone.links[0];
-      channelClone.currentState = TvChannelStates.WRANGLE_IT;
+      channelClone.currentState = SpideredStates.WRANGLE_IT;
       newResults.push(channelClone);
     });
     self.horizontallyLinked.splice(self.horizontallyLinked.indexOf(ser),1);

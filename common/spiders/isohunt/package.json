@@ -1,0 +1,5 @@
+{
+  "name": "isohunt",
+  "main": "./index.js",
+  "match": "https?://(%5B%5Cw-%5D+).isohunt.com/?.*"
+}

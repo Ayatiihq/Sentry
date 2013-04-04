@@ -22,6 +22,6 @@
   "states": "common/states.js",
   "storage": "common/storage.js",
   "utilities": "common/utilities.js",
-  "tv-channel": "common/tv-channel.js",
+  "spidered": "common/spidered.js",
   "wrangler-rules": "common/wrangler-rules.js"
 }

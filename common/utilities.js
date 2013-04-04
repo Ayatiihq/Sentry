@@ -387,7 +387,6 @@ Utilities.requestURL = function(url, options, callback) {
 
 /**
  * Produces a string id for the machine and worker.
- *
  * @return {object} the id of the worker.
  */
 Utilities.getWorkerId  = function() {
