@@ -41,6 +41,7 @@ Spidered.prototype.init = function(entityType, name, genre, topLink, initialStat
   self.lastStageReached = initialState;
   self.date = null; // when it was published (if available)
   self.fileSize = null; //if applicable
+  self.fileData = [];
 }
 
 Spidered.prototype.moveToNextLink = function(){

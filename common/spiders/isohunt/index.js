@@ -31,7 +31,7 @@ util.inherits(IsoHunt, Spider);
 IsoHunt.prototype.init = function() {
   var self = this;  
   self.newDriver();
-  self.spiderReleases = false; // by default spider the torrents section
+  self.spiderReleases = true; // by default spider the torrents section
   self.lastRun;
   self.results = [];
   self.completed = [];
@@ -87,12 +87,12 @@ IsoHunt.prototype.newDriver = function(){
 
 IsoHunt.prototype.formatGet = function(catId, pageNumber, age){
   var self = this;
+  var page = pageNumber ? "&ihp=" + pageNumber : "&ihp=1";
   if(self.spiderReleases){
-    var page = pageNumber ? "&ihp=" + pageNumber : "&ihp=1";
     return "http://ca.isohunt.com/release/?ihq=&poster=&cat=" + catId + page;
   }
   else{
-    return "http://ca.isohunt.com/torrents/?ihs1=5&iho1=d&iht=" + catId + "&age=0";
+    return "http://ca.isohunt.com/torrents/?ihs1=5&iho1=d&iht=" + catId + page;
   }
 }
 
@@ -107,19 +107,29 @@ IsoHunt.prototype.parseCategory = function(done, category, firstPass){
 }
 
 IsoHunt.prototype.ripPageCount = function($){
+  var self = this;
   var count = 0;
   var paginationCount = 0;
-  $("table.pager td u").each(function(){
-    var line = $(this).text();
-    if(count === 0){
-      line.words(function(wordText){
-        var word = wordText.toNumber();
-        if(word !== NaN && word !== 1)
-          paginationCount = word;
-      });
-      count += 1;
-    }
-  });    
+  if(self.spiderReleases){
+    $("table.pager td u").each(function(){
+      var line = $(this).text();
+      if(count === 0){
+        line.words(function(wordText){
+          var word = wordText.toNumber();
+          if(word !== NaN && word !== 1)
+            paginationCount = word;
+        });
+        count += 1;
+      }
+    });
+  }
+  else{
+    $("table.pager td b").each(function(){
+      var word = $(this).text().toNumber();
+      if(word !== NaN)
+        paginationCount = word
+    });
+  }    
   return paginationCount;
 }
 //
@@ -167,8 +177,13 @@ IsoHunt.prototype.iterateRequests = function(collection){
             var uri = URI(torrent.activeLink.uri);
             var path = uri.absoluteTo(self.root);
             self.driver.sleep(1000 * Number.random(0, 10));      
-                  
-            self.driver.get(path.toString()).then(self.parseReleasePage.bind(self, done, torrent));
+
+            if(self.spiderReleases){
+              self.driver.get(path.toString()).then(self.parseReleasePage.bind(self, done, torrent));
+            }      
+            else{
+              self.driver.get(path.toString()).then(self.parseInnerReleasePage.bind(self, done, torrent));
+            }
           }
           catch(err){
             logger.warn('Hmmm issue making a URI - :' + err);
@@ -245,7 +260,31 @@ IsoHunt.prototype.parseTorrentsCategory = function(done, category, firstPass){
         count += 1;
       }
     });
-    done();
+    self.driver.sleep(1000 * Number.random(0, 10));
+    self.results = self.results.union(pageResults);    
+    // check to make sure we are able to find anything
+    // sometimes the cat page is unavailable
+    if (self.results.length === 0 && pageNumber === 1){
+      done();
+      return;
+    }
+
+    if(firstPass){
+      paginationCount = self.ripPageCount($);
+    } 
+
+    var haveNotSeen = Date.create(pageResults.last().date).isAfter(self.lastRun);
+    if (/*TODO remove!!!*/false && haveNotSeen && pageNumber < paginationCount){
+      pageNumber += 1;
+      var fetchPromise = self.driver.get(self.formatGet(category.id, pageNumber));
+      fetchPromise.then(self.parseCategory.bind(self, done, category, false));
+    }
+    else{
+      logger.info("\n Finished " + category.name + '- results size now is ' + self.results.length);
+      done();
+    }
+    //self.driver.sleep(1000 * Number.random(0, 10));      
+    //done();
   });
 }
 
@@ -267,7 +306,6 @@ IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
                                          category.name,
                                          $(this).children('a').attr('href'),
                                          SpideredStates.ENTITY_PAGE_PARSING);
-
         pageResults.push(torrentDescriptor);   
       }
     });
@@ -278,7 +316,7 @@ IsoHunt.prototype.parseReleasesCategory = function(done, category, firstPass){
       if($(this).attr('style') === "background:#d9e2ec"){
         pageResults[count].date = Date.create($(this).text());
         count += 1;
-      } 
+      }
     });
     self.driver.sleep(1000 * Number.random(0, 10));
     self.results = self.results.union(pageResults);    
@@ -312,6 +350,14 @@ IsoHunt.prototype.parseReleasePage = function(done, torrent){
     var $ = cheerio.load(source);
     var found = false;
     // TODO parse multiple links (release pages could have links to x number of torrent links)
+    var count = 0;
+    $('td.row3').each(function(){
+      if(!$(this).attr('id') && count === 0){
+        torrent.fileSize = $(this).text();
+        count += 1;
+      }
+    });
+
     $('a#link1').each(function(){
       try{
         var uri = URI($(this).attr('href'));
@@ -345,22 +391,28 @@ IsoHunt.prototype.parseInnerReleasePage = function(done, torrent){
       //logger.info('Torrent file link for ' + torrent.name + ' - ' + fileLink);
       found = true;
     });
+    // scrape the file info data
+    $('td.fileRows').each(function(){
+      torrent.fileData.push($(this).text());
+    });
+
     $('span#SL_desc').each(function(){
       var tmp = $(this).text().split(' ');
       if(tmp.length > 1){
         var infoHash = 'torrent://' + tmp[1];
-        self.emit('link', torrent.constructLink(self, {description: 'torrent end point', points: 10}, infoHash));
+        self.emit('link',
+                   torrent.constructLink(self,
+                                        {description: 'torrent end point',
+                                         points: 10,
+                                         files: torrent.fileData.join(','),
+                                         fileSize: torrent.fileSize,
+                                         date: torrent.date},
+                                         infoHash));
         //logger.info('info hash for ' + torrent.name + ' - ' + infoHash);
         found &= true;
       }
       else{
         logger.error('Unable to scrape the infoHash !');
-      }
-    });
-
-    $('td.row3').each(function(){
-      if($(this).attr('id') && $(this).attr('id').match(/\sfiles/)){
-        console.log('size = ' + $(this).text());
       }
     });
 
