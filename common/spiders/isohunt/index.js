@@ -80,7 +80,7 @@ IsoHunt.prototype.newDriver = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(30000);
