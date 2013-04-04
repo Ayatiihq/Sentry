@@ -84,7 +84,7 @@ Spidered.prototype.constructLink = function(spider, extraMetadata, childLink){
 
   link = {name: self.name,
           type: self.type,
-          source: "spiders." + spider.getName(),
+          source: spider.getName(),
           uri: childLink,
           parent: self.activeLink.uri,
           metadata: extraMetadata};

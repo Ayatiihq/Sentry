@@ -4,7 +4,7 @@
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('ZonyTv.js')
+  , logger = acquire('logger').forFile('zonytv/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')

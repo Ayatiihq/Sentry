@@ -4,7 +4,7 @@
  */
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('index.js')
+  , logger = acquire('logger').forFile('fancystreems/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , request = require('request')

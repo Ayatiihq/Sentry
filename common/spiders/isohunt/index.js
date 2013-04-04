@@ -5,7 +5,7 @@
 require('sugar');
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('IsoHunt/index.js')
+  , logger = acquire('logger').forFile('isohunt/index.js')
   , util = require('util')
   , cheerio = require('cheerio')
   , URI = require('URIjs')
