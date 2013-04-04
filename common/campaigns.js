@@ -101,6 +101,23 @@ Campaigns.prototype.listActiveCampaigns = function(callback) {
 }
 
 /**
+ * Get a list of campaigns for a client.
+ *
+ * @param  {string}                    client      The client.
+ * @param  {function(err,campaigns)}   callback    The callback to consume the campaigns.
+ * @return {undefined}
+ */
+Campaigns.prototype.listCampaignsForClient = function(client, callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+  
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.listCampaignsForClient, Object.values(arguments)]);
+
+  self.campaigns_.find({ '_id.client': client }).toArray(callback);
+}
+
+/**
  * Get a campaign's details.
  *
  * @param {stringOrObject}             id          The campaign id;
