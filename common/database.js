@@ -53,6 +53,7 @@ Database.connect = function(callback) {
                                     readSecondary: false,
                                     socketOptions: {
                                       connectTimeoutMS: 3000,
+                                      socketTimeoutMS: 200000,
                                       keepAlive: 1
                                     }
                                   },
@@ -62,6 +63,7 @@ Database.connect = function(callback) {
                                     auto_reconnect: true,
                                     socketOptions: { 
                                       connectTimeoutMS: 3000,
+                                      socketTimeoutMS: 200000,
                                       keepAlive: 1
                                     }
                                   },
