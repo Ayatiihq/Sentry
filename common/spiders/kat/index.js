@@ -32,7 +32,7 @@ Kat.prototype.init = function() {
   self.completed = [];
   self.root = "http://www.katproxy.com";
 
-  self.categories = [{name: 'music'}];//,// for now just do music
+  self.categories = [{name: 'music'}];// for now just do music
 
   self.settings_ = new Settings('spider.kat');
   self.settings_.get('ranLast', function(err, from) {
@@ -71,13 +71,64 @@ Kat.prototype.newDriver = function(){
   self.driver.manage().timeouts().implicitlyWait(30000);
 }
 
-Kat.prototype.formatGet = function(cat, pageNumber, age){
+Kat.prototype.formatGet = function(cat, pageNumber){
   var self = this;
-  return self.host + '/' + cat;
+  var result = self.root + '/' + cat + '/' + pageNumber + '/?field=time_add&sorder=desc';
+  console.log('result : ' + result);
+  return result;
 }
 
 Kat.prototype.parseCategory = function(done, category, pageNumber){
   var self = this;
+
+  self.driver.getPageSource().then(function parseSrcHtml(source){
+
+    var $ = cheerio.load(source);
+
+    function testAttr($$, attrK, handle){
+      return $$(this).attr(attrK) && $$(this).attr(attrK) === handle;
+    }
+
+    $('tr').each(function(){
+      var magnet = null;
+      var fileLink = null;
+      var torrentName = null;
+      var size = null;
+
+      if($(this).attr('id') && $(this).attr('id').match(/torrent_music_torrents[0-9]+/)){
+        $(this).find('a').each(function(){
+          if($(this).attr('title'))
+
+          if(testAttr.call(this, $, 'title', 'Torrent magnet link'))
+            magnet = $(this).attr('href');
+
+          if(testAttr.call(this, $, 'title', 'Download torrent file'))
+            fileLink = $(this).attr('href');
+          
+          if(testAttr.call(this, $, 'class', 'normalgrey font12px plain bold'))
+            torrentName = $(this).text();
+        });
+        if(magnet && fileLink && torrentName){
+          
+          logger.info('Created Spidered \n Name :' +
+                      torrentName + '\nFileLink : ' +
+                      fileLink + '\nMagnet : ' + 
+                      magnet + '\nSize : ' + size);
+          var torrent =  new Spidered('torrent',
+                                       torrentName,
+                                       category.name,
+                                       fileLink,
+                                       SpideredStates.ENTITY_PAGE_PARSING);              
+          torrent.magnetLink = magnet;
+          torrent.fileSize = size;
+        }
+        else{
+          logger.warn('fail to create : ' + torrentName + '\n' + fileLink + '\n' + magnet);
+        }
+      }
+    }); 
+  });
+  done();
 }
 
 //
@@ -123,19 +174,19 @@ Kat.prototype.iterateRequests = function(collection){
       }
       else{
         var category = torrent; 
-        self.driver.get(self.formatGet(category.name)).then(self.parseCategory.bind(self, done, category, 1));
+        self.driver.get(self.formatGet(category.name,1)).then(self.parseCategory.bind(self, done, category, 1));
       }
     })
     .seq(function(){
       logger.info("results length : " + self.results.length);
       logger.info("Completed length : " + self.completed.length);
       // if we have more go again
-      if(self.results.length > 0){
-        self.iterateRequests(self.results);
-      }
-      else{
-        self.stop();
-      }
+      //if(self.results.length > 0){
+        //self.iterateRequests(self.results);
+      //}
+      //else{
+      self.stop();
+      //}
     })    
   ;    
 }
