@@ -95,6 +95,12 @@ Worker.prototype.setRole = function(rolename) {
   self.role_.on('error', self.onRoleError.bind(self));
   
   self.role_.start();
+
+  setTimeout(function() {
+    logger.warn('Role took too long to run, reaping.')
+    process.exit(1);
+  },
+  1000 * 60 * 90);
 }
 
 Worker.prototype.startExit = function() {
