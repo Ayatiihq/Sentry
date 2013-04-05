@@ -39,7 +39,12 @@ var GenericSearchEngine = function (campaign) {
   self.engineName = 'UNDEFINED';
 
   if (!self.keywords) {
-    self.keywords = (self.campaign.type.has('live')) ? 'live stream' : 'free download';
+    if (Object.has(self.campaign.metadata, 'engineKeywords')) {
+      self.keywords = self.campaign.metadata.engineKeywords;
+    }
+    else {
+      self.keywords = '';
+    }
   }
 
   self.searchTerm = self.buildSearchQuery();
@@ -172,7 +177,7 @@ GenericSearchEngine.prototype.checkHasNextPage = function (source) {
 /* -- Google Scraper */
 var GoogleScraper = function (campaign) {
   var self = this;
-  self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
+  //self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
 
   self.constructor.super_.call(self, campaign);
   self.engineName = 'google';
