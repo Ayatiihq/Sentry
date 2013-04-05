@@ -74,7 +74,6 @@ Kat.prototype.newDriver = function(){
 Kat.prototype.formatGet = function(cat, pageNumber){
   var self = this;
   var result = self.root + '/' + cat + '/' + pageNumber + '/?field=time_add&sorder=desc';
-  console.log('result : ' + result);
   return result;
 }
 
@@ -83,7 +82,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
   self.driver.getPageSource().then(function parseSrcHtml(source){
 
     var $ = cheerio.load(source);
-    // Wouldn't be great if cherrio supported proper xpath querying.
+    // Wouldn't it be great if cherrio supported proper xpath querying.
     function testAttr($$, attrK, handle){
       return $$(this).attr(attrK) && $$(this).attr(attrK) === handle;
     }
@@ -107,7 +106,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
           if(testAttr.call(this, $, 'class', 'normalgrey font12px plain bold'))
             torrentName = $(this).text();
         });
-
+        // grab the size and figure out the date.
         $(this).find('td').each(function(){
           if(testAttr.call(this, $, 'class', 'nobr center')){
             size = $(this).text();
@@ -119,10 +118,10 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
                 offset = word;
             })            
             date = isMinutes ? Date.create().addMinutes(-offset) : Date.create().addHours(-offset);
-            //console.log('age :' + age + '\nisMinutes : ' + isMinutes  + '\noffset : ' + offset + '\nDate : ' + date);
+            //logger.info('age :' + age + '\nisMinutes : ' + isMinutes  + '\noffset : ' + offset + '\nDate : ' + date);
           }
         });
-        if(magnet && fileLink && torrentName){
+        if(magnet && entityLink && torrentName){
           
           logger.info('Created Spidered \nName :' +
                       torrentName + '\nFileLink : ' +
@@ -139,7 +138,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
           torrent.magnetLink = magnet;
           torrent.fileSize = size;
           torrent.date = date;
-          torrent.directLink = fileLink;
+          torrent.directLink = fileLink; // direct link to torrent via querying torcache
         }
         else{
           logger.warn('fail to create : ' + torrentName + '\n' + fileLink + '\n' + magnet);
