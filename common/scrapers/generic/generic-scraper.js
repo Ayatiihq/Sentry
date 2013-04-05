@@ -32,6 +32,10 @@ util.inherits(Generic, Scraper);
 var MAX_SCRAPER_POINTS = 20;
 var MAX_INFRINGEMENTS = 100;
 
+var safeDomains = ['amazon.',
+                   'apple.',
+                   'spotify.'];
+
 Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
@@ -173,27 +177,38 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
-  var wrangler = new BasicWrangler();
 
-  var rules = {
-    'music': acquire('wrangler-rules').rulesDownloadsMusic,
-    'tv': acquire('wrangler-rules').rulesLiveTV
+  function arrayHas(test, arr) {
+    return !!arr.count(function (v) { return test.has(v); });
   };
 
-  wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+  if (arrayHas(infringement.uri, safeDomains)) {
+    // auto reject this result
+    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
+  }
+  else {
+    var wrangler = new BasicWrangler();
 
-  wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-  wrangler.on('suspended', function onWranglerSuspend() {
-    self.activeScrapes = self.activeScrapes - 1;
-    self.suspendedScrapes = self.suspendedScrapes + 1;
-    self.pump();
-  });
-  wrangler.on('resumed', function onWranglerResume() {
-    self.activeScrapes = self.activeScrapes + 1;
-    self.suspendedScrapes = self.suspendedScrapes - 1;
-    self.pump();
-  });
-  wrangler.beginSearch(infringement.uri);
+    var rules = {
+      'music': acquire('wrangler-rules').rulesDownloadsMusic,
+      'tv': acquire('wrangler-rules').rulesLiveTV
+    };
+
+    wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
+    wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+    wrangler.on('suspended', function onWranglerSuspend() {
+      self.activeScrapes = self.activeScrapes - 1;
+      self.suspendedScrapes = self.suspendedScrapes + 1;
+      self.pump();
+    });
+    wrangler.on('resumed', function onWranglerResume() {
+      self.activeScrapes = self.activeScrapes + 1;
+      self.suspendedScrapes = self.suspendedScrapes - 1;
+      self.pump();
+    });
+    wrangler.beginSearch(infringement.uri);
+  }
   return promise;
 };
 
