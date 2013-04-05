@@ -80,7 +80,6 @@ Kat.prototype.formatGet = function(cat, pageNumber){
 
 Kat.prototype.parseCategory = function(done, category, pageNumber){
   var self = this;
-
   self.driver.getPageSource().then(function parseSrcHtml(source){
 
     var $ = cheerio.load(source);
@@ -94,33 +93,48 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
       var fileLink = null;
       var torrentName = null;
       var size = null;
+      var entityLink = null;
+      var date = null;
 
       if($(this).attr('id') && $(this).attr('id').match(/torrent_music_torrents[0-9]+/)){
         $(this).find('a').each(function(){
-          if($(this).attr('title'))
-
           if(testAttr.call(this, $, 'title', 'Torrent magnet link'))
             magnet = $(this).attr('href');
-
           if(testAttr.call(this, $, 'title', 'Download torrent file'))
             fileLink = $(this).attr('href');
-          
+          if(testAttr.call(this, $, 'class', 'torType musicType'))
+            entityLink = $(this).attr('href');
           if(testAttr.call(this, $, 'class', 'normalgrey font12px plain bold'))
             torrentName = $(this).text();
         });
+
+        $(this).find('td').each(function(){
+          if(testAttr.call(this, $, 'class', 'nobr center')){
+            size = $(this).text();
+            age = $(this).next().next().text().trim();
+            var isMinutes = age.match(/min\./)
+            var offset = age.first(1);
+
+            console.log('offset : ' + offset);
+          }
+        });
         if(magnet && fileLink && torrentName){
           
-          logger.info('Created Spidered \n Name :' +
+          logger.info('Created Spidered \nName :' +
                       torrentName + '\nFileLink : ' +
                       fileLink + '\nMagnet : ' + 
-                      magnet + '\nSize : ' + size);
+                      magnet + '\nSize : ' + 
+                      size + '\nEntity link : ' +
+                      entityLink + '\nDate : ' +
+                      date);
           var torrent =  new Spidered('torrent',
                                        torrentName,
                                        category.name,
-                                       fileLink,
+                                       entityLink,
                                        SpideredStates.ENTITY_PAGE_PARSING);              
           torrent.magnetLink = magnet;
           torrent.fileSize = size;
+          torrent.date = date;
         }
         else{
           logger.warn('fail to create : ' + torrentName + '\n' + fileLink + '\n' + magnet);
