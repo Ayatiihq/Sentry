@@ -83,7 +83,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
   self.driver.getPageSource().then(function parseSrcHtml(source){
 
     var $ = cheerio.load(source);
-
+    // Wouldn't be great if cherrio supported proper xpath querying.
     function testAttr($$, attrK, handle){
       return $$(this).attr(attrK) && $$(this).attr(attrK) === handle;
     }
@@ -111,11 +111,15 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
         $(this).find('td').each(function(){
           if(testAttr.call(this, $, 'class', 'nobr center')){
             size = $(this).text();
-            age = $(this).next().next().text().trim();
-            var isMinutes = age.match(/min\./)
-            var offset = age.first(1);
-
-            console.log('offset : ' + offset);
+            var age = $(this).next().next().text().trim();
+            var isMinutes = age.match(/min\./);
+            var offset;
+            age.words(function(word){
+              if(parseInt(word))
+                offset = word;
+            })            
+            date = isMinutes ? Date.create().addMinutes(-offset) : Date.create().addHours(-offset);
+            //console.log('age :' + age + '\nisMinutes : ' + isMinutes  + '\noffset : ' + offset + '\nDate : ' + date);
           }
         });
         if(magnet && fileLink && torrentName){
@@ -135,14 +139,15 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
           torrent.magnetLink = magnet;
           torrent.fileSize = size;
           torrent.date = date;
+          torrent.directLink = fileLink;
         }
         else{
           logger.warn('fail to create : ' + torrentName + '\n' + fileLink + '\n' + magnet);
         }
       }
-    }); 
+    });
+    done();
   });
-  done();
 }
 
 //
