@@ -356,3 +356,55 @@ Infringements.prototype.getNeedsScrapingCount = function(campaign, callback) {
 
   self.infringements_.find(query).count(callback); 
 }
+
+/**
+ * Get infringements for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {number}                skip             The number of documents to skip, for pagenation.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Infringements.prototype.getForCampaign = function(campaign, skip, limit, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign
+  };
+
+  var options = { 
+    skip: skip, 
+    limit: limit,
+    sort: { 'points.total': -1, created: 1 }
+  };
+
+  self.infringements_.find(query, options).toArray(callback); 
+}
+
+/**
+ * Get infringements count for a campaign at the specified points.
+ *
+ * @param {object}                 campaign         The campaign which we want unverified links for
+  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Infringements.prototype.getCountForCampaign = function(campaign, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getCountForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign
+  };
+
+  self.infringements_.find(query).count(callback);
+}

@@ -18,6 +18,15 @@ function setupSignals() {
   });
 }
 
+function log(err) {
+  if (err)
+    console.warn(err);
+  else
+    console.log.apply(null, Object.values(arguments).slice(1));
+
+  process.exit();
+}
+
 function main() {
   var argv = process.argv;
 
@@ -31,6 +40,10 @@ function main() {
   if (argv[2] === 'add') {
     var data = JSON.parse(argv[3]);
     clients.add(data);
+  }
+
+  if (argv[2] === 'get') {
+    clients.get(argv[3], log);
   }
 
   setTimeout(function() {

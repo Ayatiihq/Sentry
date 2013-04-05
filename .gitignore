@@ -15,4 +15,5 @@ npm-debug.log
 node_modules
 
 sentry.sln
-sentry.v11.suo
+sentry.v11.suotmp
+tmp/

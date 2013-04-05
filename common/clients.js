@@ -73,6 +73,23 @@ Clients.prototype.listClients = function(callback) {
 }
 
 /**
+ * Get a client's details.
+ *
+ * @param {object}                  client     The id of the client.
+ * @param {function(err,details)}   callback   A callback to receive the details or an error.
+ * @return {undefined}
+ */
+Clients.prototype.get = function(client, callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.clients_)
+    return self.cachedCalls_.push([self.get, Object.values(arguments)]);
+
+  self.clients_.findOne({ _id: client }, callback);
+}
+
+/**
  * Adds a client.
  *
  * @param {object}          client     An object containing details of the client.

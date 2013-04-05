@@ -18,6 +18,15 @@ function setupSignals() {
   });
 }
 
+function log(err) {
+  if (err)
+    console.warn(err);
+  else
+    console.log.apply(null, Object.values(arguments).slice(1));
+
+  process.exit();
+}
+
 function main() {
   var argv = process.argv;
 
@@ -27,31 +36,29 @@ function main() {
   setupSignals();
 
   var campaigns = new Campaigns();
+  var action = argv[2];
 
-  if (argv[2] === 'add') {
+  if (action === 'listActiveCampaigns')
+    campaigns.listActiveCampaigns(log);
+
+  if (action === 'listCampaignsForClient')
+    campaigns.listCampaignsForClient(argv[3], log);
+
+  if (action === 'add') {
     var data = JSON.parse(argv[3]);
-    campaigns.add(data, console.log);
+    campaigns.add(data, log);
   }
 
-  if (argv[2] === 'update') {
+  if (action === 'update') {
     var id = JSON.parse(argv[3]);
     var updates = JSON.parse(argv[4]);
-    campaigns.update(id, updates, console.log);
+    campaigns.update(id, updates, log);
   }
 
-  if (argv[2] === 'remove') {
+  if (action === 'remove') {
     var id = JSON.parse(argv[3]);
-    campaigns.remove(id, console.log);
+    campaigns.remove(id, log);
   }
-
-  setTimeout(function() {
-    campaigns.listActiveCampaigns(function(err, list) {
-      if (err)
-        console.warn(err);
-      else
-        console.log(list);
-    });
-  }, 1000 * 3);
 }
 
 main();
