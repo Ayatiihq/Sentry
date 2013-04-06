@@ -190,7 +190,7 @@ Generic.prototype.checkInfringement = function (infringement) {
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
     promise.resolve();
 
-  } else if (arrayHas(infringement.uri, cyberlockers.knownDomains))
+  } else if (arrayHas(infringement.uri, cyberlockers.knownDomains)) {
     // FIXME: This should be done in another place, is just a hack, see
     //        https://github.com/afive/sentry/issues/65
     // It's a cyberlocker URI, so important but we don't scrape it further

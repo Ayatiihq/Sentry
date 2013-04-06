@@ -222,7 +222,7 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
 
   // Set the reverse link
   query = {
-    _id: self.generateKey(campaign, child);
+    _id: self.generateKey(campaign, child)
   };
   updates = {
     $inc: { 'parents.count': 1 },
@@ -266,7 +266,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   // Set the reverse link
   var parent = 'meta+' + owner + ':' + self.generateKey(campaign, uri, owner);
   query = {
-    _id: self.generateKey(campaign, uri);
+    _id: self.generateKey(campaign, uri)
   };
   updates = {
     $inc: { 'parents.count': 1 },
