@@ -52,7 +52,7 @@ Database.connect = function(callback) {
                                     rs_name: 'hydros',
                                     readSecondary: false,
                                     socketOptions: {
-                                      connectTimeoutMS: 3000,
+                                      connectTimeoutMS: 10000,
                                       socketTimeoutMS: 200000,
                                       keepAlive: 1
                                     }
@@ -62,7 +62,7 @@ Database.connect = function(callback) {
                                     readPreference: 'primary',
                                     auto_reconnect: true,
                                     socketOptions: { 
-                                      connectTimeoutMS: 3000,
+                                      connectTimeoutMS: 10000,
                                       socketTimeoutMS: 200000,
                                       keepAlive: 1
                                     }
