@@ -59,13 +59,6 @@ IsoHunt.prototype.init = function() {
     }
     logger.info(util.format('Isohunt spider last ran %s', Date.create(from)));
   });
-  // Reset the value before running this instance
-  // (just in case this run takes too long and another starts in the interim)
-  self.settings_.set('ranLast', Date.now(), function(err){
-    if (err) {
-      logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
-    }
-  });
   self.iterateRequests(self.categories);
 }
 
@@ -144,6 +137,11 @@ IsoHunt.prototype.start = function(state) {
 IsoHunt.prototype.stop = function() {
   var self = this;
   self.driver.quit();
+  self.settings_.set('ranLast', Date.now(), function(err){
+    if (err) {
+      logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
+    }
+  });
   self.emit('finished');    
 }
 

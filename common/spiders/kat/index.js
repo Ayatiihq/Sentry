@@ -48,14 +48,7 @@ Kat.prototype.init = function() {
     }
     else{
       self.lastRun = Date.create(from);
-    }
-    logger.info(util.format('Kat spider last ran %s', Date.create(from)));
-  });
-  // Reset the value before running this instance
-  // (just in case this run takes too long and another starts in the interim)
-  self.settings_.set('ranLast', Date.now(), function(err){
-    if (err) {
-      logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
+      logger.info(util.format('Kat spider last ran %s', self.lastRun));
     }
   });
   self.iterateRequests(self.categories);
@@ -68,7 +61,7 @@ Kat.prototype.newDriver = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                                        .withCapabilities(CAPABILITIES)
                                        .build();
   self.driver.manage().timeouts().implicitlyWait(30000);
@@ -159,7 +152,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
                                 name: torrentName,
                                 link: entityLink});
         }
-        if(pageNumber < self.maxPage){
+        if(self.lastRun && self.results.last().date < self.lastRun){
           pageNumber += 1;
           self.driver.sleep(2000);
           self.driver.get(self.formatGet(category.name,pageNumber)).then(
@@ -233,6 +226,11 @@ Kat.prototype.start = function(state) {
 Kat.prototype.stop = function() {
   var self = this;
   self.driver.quit();
+  self.settings_.set('ranLast', Date.now(), function(err){
+    if (err) {
+      logger.warn("Couldn\'t set value 'ranLast'" + ':' + err);
+    }
+  });
   self.emit('finished');    
 }
 
