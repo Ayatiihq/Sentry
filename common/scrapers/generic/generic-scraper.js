@@ -189,13 +189,14 @@ Generic.prototype.checkInfringement = function (infringement) {
     // auto reject this result
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
     promise.resolve();
-
+    logger.info('%s is a safe domain', infringement.uri);
   } else if (arrayHas(infringement.uri, cyberlockers.knownDomains)) {
     // FIXME: This should be done in another place, is just a hack, see
     //        https://github.com/afive/sentry/issues/65
     // It's a cyberlocker URI, so important but we don't scrape it further
     self.emit('infringementPointsUpdate', infringement, 'generic', 10, 'cyberlocker');
     promise.resolve();
+    logger.info('%s is a cyberlocker', infringement.uri);
   } else {
     var wrangler = new BasicWrangler();
 
