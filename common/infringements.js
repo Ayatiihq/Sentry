@@ -127,7 +127,8 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
     entries: [ pointsEntry ]
   };
   entity.metadata = metadata;
-  entity.targets = [];
+  entity.parents = { count: 0, uris: [] };
+  entity.children = { count: 0, uris: [] };
 
   self.infringements_.insert(entity, function(err) {
     if (!err || err.code === EDUPLICATE)
@@ -174,7 +175,8 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
     entries: []
   };
   entity.metadata = metadata;
-  entity.targets = [];
+  entity.parents = { count: 0, uris: [] };
+  entity.children = { count: 0, uris: [] };
 
   self.infringements_.insert(entity, function(err) {
     if (!err || err.code === EDUPLICATE) {
@@ -190,34 +192,43 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
  * Adds a parent -> child relationship between uris.
  *
  * @param {stringOrObject}    campaign    The campaign the uris belong to.
- * @param {string}            source      The parent URI.
- * @param {string}            target      The child URI.
+ * @param {string}            parent      The parent URI.
+ * @param {string}            child       The child URI.
  * @param {function(err)}     callback    A callback to handle errors.
  * @return {undefined}   
  */
-Infringements.prototype.addRelation = function(campaign, source, target, callback) {
+Infringements.prototype.addRelation = function(campaign, parent, child, callback) {
   var self = this;
 
   if (!self.infringements_)
     return self.cachedCalls_.push([self.addRelation, Object.values(arguments)]);
 
   campaign = normalizeCampaign(campaign);
-  source = utilities.normalizeURI(source);
-  target = utilities.normalizeURI(target);
+  parent = utilities.normalizeURI(parent);
+  child = utilities.normalizeURI(child);
   callback = callback ? callback : defaultCallback;
 
+  // Set the forward link
   var query = {
-    _id: self.generateKey(campaign, source)
-  };
-
-  var updates = {
-    $addToSet: {
-      targets: {
-        uri: target
+        _id: self.generateKey(campaign, parent)
       }
-    }
-  };
+    , updates = {
+        $inc: { 'children.count': 1 },
+        $addToSet: { 'children.uris': child }
+      }
+    ;
+  
+  self.infringements_.update(query, updates, callback);
 
+  // Set the reverse link
+  query = {
+    _id: self.generateKey(campaign, child)
+  };
+  updates = {
+    $inc: { 'parents.count': 1 },
+    $addToSet: { 'parents.uris': parent }
+  };
+  
   self.infringements_.update(query, updates, callback);
 }
 
@@ -240,18 +251,28 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   uri = utilities.normalizeURI(uri);
   callback = callback ? callback : defaultCallback;
 
+  // Set the forward link
   var query = {
-    _id: self.generateKey(campaign, uri, owner)
-  };
-
-  var updates = {
-    $addToSet: {
-      targets: {
-        uri: uri
+        _id: self.generateKey(campaign, uri, owner)
       }
-    }
-  };
+    , updates = {
+        $inc: { 'children.count': 1 },
+        $addToSet: { 'children.uris': uri }
+      }
+    ;
+  
+  self.infringements_.update(query, updates, callback);
 
+  // Set the reverse link
+  var parent = 'meta+' + owner + ':' + self.generateKey(campaign, uri, owner);
+  query = {
+    _id: self.generateKey(campaign, uri)
+  };
+  updates = {
+    $inc: { 'parents.count': 1 },
+    $addToSet: { 'parents.uris': parent }
+  };
+  
   self.infringements_.update(query, updates, callback);
 }
 

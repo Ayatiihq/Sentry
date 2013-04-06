@@ -304,7 +304,7 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   });
 }
 
-Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, points, source, message) {
+Scraper.prototype.onScraperPointsUpdate = function(scraper, infringement, source, points, message) {
   var self = this;
 
   self.infringements_.addPoints(infringement, source, points, message, function(err, id){
