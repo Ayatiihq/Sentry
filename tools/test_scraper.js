@@ -58,13 +58,13 @@ function main() {
   
   SIGNALS.forEach(function (name) {
     instance.on(name, function () {
-      console.log('received signal', name);
+      console.log('\nreceived signal', name);
       
      Object.values(arguments, function (value) {
         if (Object.isObject(value) || Object.isArray(value))
-          console.log(JSON.stringify(value));
+          console.log('\t' + JSON.stringify(value));
         else
-          console.log(value);
+          console.log('\t' + value);
       });
     });
   });
