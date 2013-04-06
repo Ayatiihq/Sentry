@@ -40,16 +40,11 @@ Kat.prototype.init = function() {
   self.settings_ = new Settings('spider.kat');
   self.settings_.get('ranLast', function(err, from) {
     if (err || from === undefined) {
-      logger.warn('Couldn\'t get value ranLast' + ':' + err);
+      logger.warn('Couldn\'t get value ranLast' + ' : ' + err);
       from = '0';
     }
-    if(from === '0'){
-      self.lastRun = false;
-    }
-    else{
-      self.lastRun = Date.create(from);
-      logger.info(util.format('Kat spider last ran %s', self.lastRun));
-    }
+    self.lastRun = Date.create(from);
+    logger.info(util.format('Kat spider last ran %s', self.lastRun));
   });
   self.iterateRequests(self.categories);
 }
@@ -118,14 +113,21 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
           if(testAttr.call(this, $, 'class', 'nobr center')){
             size = $(this).text();
             var age = $(this).next().next().text().trim();
-            var isMinutes = age.match(/min\./);
+            var context = {'Minutes': age.match(/min\./),
+                           'Hours': age.match(/hour(s)?/),
+                           'Days': age.match(/day(s)?/),
+                           'Weeks': age.match(/week(s)?/),
+                           'Months': age.match(/month(s)?/),
+                           'Years': age.match(/year(s)?/)};
+            var offsetLiteral;
+            Object.keys(context).each(function(key){ if(context[key] !== null) offsetLiteral = key ;}); // its gotta be one and only one !
             var offset;
             age.words(function(word){
               if(parseInt(word)) 
                 offset = word;
             })            
-            date = isMinutes ? Date.create().addMinutes(-offset) : Date.create().addHours(-offset);
-            //logger.info('age :' + age + '\nisMinutes : ' + isMinutes  + '\noffset : ' + offset + '\nDate : ' + date);
+            date = Date.create()['add' + offsetLiteral](-offset);
+            //logger.info('Context : ' + offsetLiteral + ' Date : ' + date);
           }
         });
 
@@ -152,7 +154,10 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
                                 name: torrentName,
                                 link: entityLink});
         }
-        if(self.lastRun && self.results.last().date < self.lastRun){
+        
+        console.log('results last date : ' + self.results.last().date);
+
+        if(!self.lastRun || self.results.last().date.isAfter(self.lastRun)){
           pageNumber += 1;
           self.driver.sleep(2000);
           self.driver.get(self.formatGet(category.name,pageNumber)).then(
