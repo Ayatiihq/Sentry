@@ -296,6 +296,7 @@ Scraper.prototype.onScraperRelation = function(scraper, campaign, sourceUri, tar
 Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   var self = this
     , source = scraper.job._id.consumer
+    ;
 
   self.infringements_.addMetaRelation(campaign, uri, source, function(err, id) {
     if (err) {

@@ -164,7 +164,9 @@ Wrangler.prototype.processUri = function (uri, parents) {
 
   function CheckMimetype(test) {
     return !!acceptedMimetypes.count(function fuzzyMimeCheck(type) {
-      return test.has(type);
+      // FIXME: This could still be valid html. Need to figure out how not to
+      // crash cheerio if it's binary, however
+      return test ? test.has(type) : false;
     });
   };
 
