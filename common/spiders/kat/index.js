@@ -74,12 +74,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
     var $ = cheerio.load(source);
     // Wouldn't it be great if cherrio supported proper xpath querying.
     function testAttr($$, attrK, test){
-      if(!$$(this).attr(attrK))
-        return false;
-      if(test instanceof RegExp){
-        return $$(this).attr(attrK).match(test);
-      }
-      return $$(this).attr(attrK) === test;
+      return $$(this).attr(attrK) && $$(this).attr(attrK).match(test);
     }
 
     $('tr').each(function(){
@@ -88,14 +83,15 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
       var torrentName = null;
       var size = null;
       var entityLink = null;
-      var date = null;
+      var roughDate = null;
 
       if($(this).attr('id') && $(this).attr('id').match(/torrent_music_torrents[0-9]+/)){
         $(this).find('a').each(function(){
-          if(testAttr.call(this, $, 'title', 'Torrent magnet link'))
+          if(testAttr.call(this, $, 'title', /Torrent magnet link/))
             magnet = $(this).attr('href');
-          if(testAttr.call(this, $, 'title', 'Download torrent file'))
+          if(testAttr.call(this, $, 'title', /Download torrent file/))
             fileLink = $(this).attr('href');
+          // TODO there are other 'choices' which i have yet to capture - 1 in 50 or so fails.
           if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music)Type$/)){
             try{
               var inst = URI($(this).attr('href'));
@@ -120,14 +116,14 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
                            'Months': age.match(/month(s)?/),
                            'Years': age.match(/year(s)?/)};
             var offsetLiteral;
-            Object.keys(context).each(function(key){ if(context[key] !== null) offsetLiteral = key ;}); // its gotta be one and only one !
+            // its gotta be one and only one !            
+            Object.keys(context).each(function(key){ if(context[key] !== null) offsetLiteral = key ;});
             var offset;
             age.words(function(word){
               if(parseInt(word)) 
                 offset = word;
             })            
-            date = Date.create()['add' + offsetLiteral](-offset);
-            //logger.info('Context : ' + offsetLiteral + ' Date : ' + date);
+            roughDate = Date.create()['add' + offsetLiteral](-offset);
           }
         });
 
@@ -140,7 +136,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
                                        SpideredStates.ENTITY_PAGE_PARSING);              
           torrent.magnet = magnet;
           torrent.fileSize = size;
-          torrent.date = date;
+          torrent.date = roughDate;
           torrent.directLink = fileLink; // direct link to torrent via querying torcache
           //if(self.results.length === 0) // test with just the first (sort out sleep)
           self.results.push(torrent);
@@ -149,15 +145,15 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
           logger.warn('fail to create : ' + magnet + '\n' + entityLink + '\n' + torrentName);
           self.incomplete.push({magnet: magnet,
                                 fileSize: size,
-                                date: date,
+                                date: roughDate,
                                 file: fileLink,
                                 name: torrentName,
                                 link: entityLink});
         }
-        
-        console.log('results last date : ' + self.results.last().date);
+        done();        
+        //console.log('results last date : ' + self.results.last().date);
 
-        if(!self.lastRun || self.results.last().date.isAfter(self.lastRun)){
+        /*if(!self.lastRun || self.results.last().date.isAfter(self.lastRun)){
           pageNumber += 1;
           self.driver.sleep(2000);
           self.driver.get(self.formatGet(category.name,pageNumber)).then(
@@ -165,7 +161,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
         }
         else{
           done();
-        }
+        }*/
       }
     });
   });
