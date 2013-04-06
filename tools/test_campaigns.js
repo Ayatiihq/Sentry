@@ -7,7 +7,9 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , fs = require('fs')
   , logger = acquire('logger')
+  , path = require('path')
   ;
 
 var Campaigns = acquire('campaigns');
@@ -58,6 +60,24 @@ function main() {
   if (action === 'remove') {
     var id = JSON.parse(argv[3]);
     campaigns.remove(id, log);
+  }
+
+  if (action === 'export') {
+    var dir = argv[3];
+
+    campaigns.listActiveCampaigns(function(err, campaigns) {
+      if (err)
+        return console.warn(err);
+
+      console.log('Exporting %d campaigns', campaigns.length);
+      campaigns.forEach(function(campaign) {
+        var filename = path.join(dir, campaign.name.dasherize().toLowerCase() + '.json');
+        var buffer = JSON.stringify(campaign);
+        console.log('Exporting %s', filename);
+        fs.writeFileSync(filename, buffer);
+      });
+      process.exit();
+    });
   }
 }
 
