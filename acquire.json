@@ -1,5 +1,6 @@
 {
   "analytics": "common/analytics.js",
+  "blacklist": "common/blacklist.js",
   "campaigns": "common/campaigns.js",
   "clients": "common/clients.js",
   "confidence-aggregator": "common/confidence-aggregator.js",

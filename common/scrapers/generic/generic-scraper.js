@@ -11,6 +11,7 @@
  */
 
 var acquire = require('acquire')
+  , cyberlockers = acquire('cyberlockers')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
@@ -19,6 +20,7 @@ var acquire = require('acquire')
   , Infringements = acquire('infringements')
   , states = acquire('states')
   , Promise = require('node-promise')
+  , blacklist = acquire('blacklist')
 ;
 
 var Scraper = acquire('scraper');
@@ -32,9 +34,7 @@ util.inherits(Generic, Scraper);
 var MAX_SCRAPER_POINTS = 20;
 var MAX_INFRINGEMENTS = 100;
 
-var safeDomains = ['amazon.',
-                   'apple.',
-                   'spotify.'];
+var safeDomains = blacklist.safeDomains;
 
 Generic.prototype.init = function () {
   var self = this;
@@ -99,6 +99,9 @@ Generic.prototype.start = function (campaign, job) {
     self.checkURLS = results;
     self.activeScrapes = 0;
     self.suspendedScrapes = 0;
+
+    if (campaign.metadata.blacklist)
+      safeDomains.add(campaign.metadata.blacklist);
    
     self.pump(true);
   });
@@ -185,8 +188,15 @@ Generic.prototype.checkInfringement = function (infringement) {
   if (arrayHas(infringement.uri, safeDomains)) {
     // auto reject this result
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-  }
-  else {
+    promise.resolve();
+
+  } else if (arrayHas(infringement.uri, cyberlockers.knownDomains))
+    // FIXME: This should be done in another place, is just a hack, see
+    //        https://github.com/afive/sentry/issues/65
+    // It's a cyberlocker URI, so important but we don't scrape it further
+    self.emit('infringementPointsUpdate', infringement, 'generic', 10, 'cyberlocker');
+    promise.resolve();
+  } else {
     var wrangler = new BasicWrangler();
 
     var rules = {
