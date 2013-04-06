@@ -23,7 +23,7 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
-var MAX_SCRAPER_POINTS = 7;
+var MAX_SCRAPER_POINTS = 20;
 
 var GenericSearchEngine = function (campaign) {
   events.EventEmitter.call(this);
@@ -43,7 +43,7 @@ var GenericSearchEngine = function (campaign) {
       self.keywords = self.campaign.metadata.engineKeywords;
     }
     else {
-      self.keywords = '';
+      self.keywords = [];
     }
   }
 
@@ -103,6 +103,29 @@ GenericSearchEngine.prototype.buildSearchQueryTV = function () {
   return self.campaign.name;
 };
 
+
+// Remove terms whose prefix already is in the terms array
+// i.e. ["Foo Bar", "Foo Bar (remix)"] => ["Foo Bar"]
+// This avoids us hitting search term limits on search engines
+GenericSearchEngine.prototype.removeRedundantTerms = function(terms) {
+  var self = this
+    , ret = []
+    ;
+
+  terms.forEach(function(term) {
+    var hasPrefix = false;
+    ret.forEach(function(prefix) {
+      if (term.indexOf(prefix) == 0)
+        hasPrefix = true;
+    });
+
+    if (!hasPrefix)
+      ret.push(term);
+  });
+
+  return ret;
+}
+
 GenericSearchEngine.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   function getVal(key, obj) { console.log(obj); return obj[key]; }
@@ -111,13 +134,14 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function () {
   var artist = self.campaign.metadata.artist;
   var tracks = self.campaign.metadata.tracks.map(getVal.bind(null, 'title'));
 
+  tracks = self.removeRedundantTerms(tracks);
   var trackQuery = ''; // builds 'track 1' OR 'track 2' OR 'track 3'
   tracks.each(function buildTrackQuery(track, index) {
     if (index === tracks.length - 1) { trackQuery += util.format('"%s"', track); }
     else { trackQuery += util.format('"%s" OR ', track); }
   });
 
-  var query = util.format('"%s" "%s" %s %s', artist, albumTitle, trackQuery, self.keywords);
+  var query = util.format('"%s" "%s" %s %s', artist, albumTitle, trackQuery, self.keywords.join(' '));
 
   return query;
 };
