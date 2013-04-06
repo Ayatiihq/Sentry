@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
+  , url = require('url')
   , sugar = require('sugar')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Infringements = acquire('infringements')
@@ -73,7 +74,7 @@ Generic.prototype.emitInfringementUpdates = function (infringement, parents, ext
     self.emit('infringement',
               endpoint.toString(),
               {score: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
-    self.emit('relation', endpoint.toString(), parents.last());
+    self.emit('relation', infringement.uri, endpoint.toString());
   });
 };
 
@@ -177,25 +178,52 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
+Generic.prototype.getHasPath = function(uri) {
+  var ret = true;
+  try {
+    var parsed = url.parse(uri);
+    ret = parsed.path != '/';
+  } catch (err) {
+    logger.warn('Error parsing uri: %s', err);
+  }
+  
+  return ret;
+}
+
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
+
+  if (!infringement ||!infringement.uri) {
+    logger.warn('Infringement isn\'t valid: %j', infringement);
+    promise.resolve();
+    return promise;
+  }
 
   function arrayHas(test, arr) {
     return !!arr.count(function (v) { return test.has(v); });
   };
 
-  if (arrayHas(infringement.uri, safeDomains)) {
+  if (!self.getHasPath(infringement.uri)) {
+    logger.info('%s has no path, not scraping', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+    promise.resolve();
+  
+  } else if (arrayHas(infringement.uri, safeDomains)) {
+    logger.info('%s is a safe domain', infringement.uri);
     // auto reject this result
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
     promise.resolve();
-
+  
   } else if (arrayHas(infringement.uri, cyberlockers.knownDomains)) {
+    logger.info('%s is a cyberlocker', infringement.uri);
     // FIXME: This should be done in another place, is just a hack, see
     //        https://github.com/afive/sentry/issues/65
     // It's a cyberlocker URI, so important but we don't scrape it further
-    self.emit('infringementPointsUpdate', infringement, 'generic', 10, 'cyberlocker');
+    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+    self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
     promise.resolve();
+  
   } else {
     var wrangler = new BasicWrangler();
 

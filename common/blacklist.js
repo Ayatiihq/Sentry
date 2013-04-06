@@ -11,6 +11,7 @@ Whitelist = module.exports;
 Whitelist.safeDomains = [
   , 'amazon.'
   , 'apple.'
+  , 'answers.yahoo.com'
   , 'flipkart.'
   , 'imdb.'
   , 'saavn.'

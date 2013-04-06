@@ -12,7 +12,7 @@
 
 var acquire = require('acquire')
   , events = require('events')
-  , logger = acquire('logger').forFile('google-scraper.js')
+  , logger = acquire('logger').forFile('searchengine-scraper.js')
   , util = require('util')
   , webdriver = require('selenium-webdriver')
   , sugar = require('sugar')
@@ -151,7 +151,7 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function () {
   var trackTitle = self.campaign.metadata.albumTitle;
   var artist = self.campaign.metadata.artist;
 
-  var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords);
+  var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   return query;
 };
 
@@ -318,6 +318,19 @@ YahooScraper.prototype.checkHasNextPage = function (source) {
   return true;
 };
 
+YahooScraper.prototype.buildSearchQueryAlbum = function () {
+  var self = this;
+  function getVal(key, obj) { console.log(obj); return obj[key]; }
+
+  // Need to keep it simple because, well, yahoo doesn't like complex searches
+  // also need to add 'song', otherwise it's just movie links
+  var albumTitle = self.campaign.metadata.albumTitle;
+  var query = util.format('"%s" song %s', albumTitle, self.keywords.join(' '));
+
+  return query;
+};
+
+
 /* -- Bing Scraper -- */
 var BingScraper = function (campaign) {
   var self = this;
@@ -376,6 +389,19 @@ BingScraper.prototype.checkHasNextPage = function (source) {
   if ($('a.sb_pagN').length < 1) { return false; }
   return true;
 };
+
+BingScraper.prototype.buildSearchQueryAlbum = function () {
+  var self = this;
+  function getVal(key, obj) { console.log(obj); return obj[key]; }
+
+  // Need to keep it simple because, well, bing doesn't like complex searches
+  // also need to add 'song', otherwise it's just movie links
+  var albumTitle = self.campaign.metadata.albumTitle;
+  var query = util.format('"%s" song %s', albumTitle, self.keywords.join(' '));
+
+  return query;
+};
+
 
 /* Scraper Interface */
 
