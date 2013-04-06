@@ -181,6 +181,12 @@ Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
 
+  if (!infringement ||!infringement.uri) {
+    promise.resolve();
+    logger.warn('Infringement isn\'t valid: %j', infringement);
+    return promise;
+  }
+
   function arrayHas(test, arr) {
     return !!arr.count(function (v) { return test.has(v); });
   };
