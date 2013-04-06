@@ -41,7 +41,10 @@ Spidered.prototype.init = function(entityType, name, genre, topLink, initialStat
   self.lastStageReached = initialState;
   self.date = null; // when it was published (if available)
   self.fileSize = null; //if applicable
+  // Bittorrent related
   self.fileData = [];
+  self.magnet;
+  self.directLink; // ?
 }
 
 Spidered.prototype.moveToNextLink = function(){
