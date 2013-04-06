@@ -14,6 +14,7 @@ var acquire = require('acquire')
   , Settings = acquire('settings')  
   , Spidered = acquire('spidered').Spidered 
   , SpideredStates = acquire('spidered').SpideredStates  
+  , XRegExp = require('xregexp').XRegExp
 ;
 var Spider = acquire('spider');
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -28,9 +29,11 @@ Kat.prototype.init = function() {
   var self = this;  
   self.newDriver();
   self.lastRun;
-  self.maxPage = 2;
+  self.maxPage = 1;
   self.results = [];
   self.completed = [];
+  self.incomplete = [];
+
   self.root = "http://www.katproxy.com";
 
   self.categories = [{name: 'music'}];// for now just do music
@@ -83,16 +86,13 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
   self.driver.getPageSource().then(function parseSrcHtml(source){
     var $ = cheerio.load(source);
     // Wouldn't it be great if cherrio supported proper xpath querying.
-    // TODO fix
     function testAttr($$, attrK, test){
       if(!$$(this).attr(attrK))
         return false;
-      var regexTest = test.first() === '/';
-      //console.log('regextest : ' + regexTest + ' test : ' + test);
-      if($$(this).attr(attrK) === test){
-        console.log(regexTest ? $$(this).attr(attrK).match(test) : $$(this).attr(attrK) === test); 
+      if(test instanceof RegExp){
+        return $$(this).attr(attrK).match(test);
       }
-      return regexTest ? $$(this).attr(attrK).match(test) : $$(this).attr(attrK) === test;
+      return $$(this).attr(attrK) === test;
     }
 
     $('tr').each(function(){
@@ -109,7 +109,8 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
             magnet = $(this).attr('href');
           if(testAttr.call(this, $, 'title', 'Download torrent file'))
             fileLink = $(this).attr('href');
-          if(testAttr.call(this, $, 'class', '/^torType (movie|picture)Type$/'))
+
+          if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music)Type$/)){
             try{
               var inst = URI($(this).attr('href'));
               entityLink = inst.absoluteTo(self.root).toString();
@@ -117,6 +118,7 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
             catch(err){
               logger.warn('failed to create valid entity link : ' + err);
             }
+          }
           if(testAttr.call(this, $, 'class', 'normalgrey font12px plain bold'))
             torrentName = $(this).text();
         });
@@ -152,6 +154,12 @@ Kat.prototype.parseCategory = function(done, category, pageNumber){
         }
         else{
           logger.warn('fail to create : ' + magnet + '\n' + entityLink + '\n' + torrentName);
+          self.incomplete.push({magnet: magnet,
+                                fileSize: size,
+                                date: date,
+                                file: fileLink,
+                                name: torrentName,
+                                link: entityLink});
         }
         if(pageNumber < self.maxPage){
           pageNumber += 1;
@@ -179,9 +187,11 @@ Kat.prototype.parseTorrentPage = function(done, torrent){
         torrent.fileData.push($('td.torFileName').text().trim().humanize());
       }
     });
-    
-    // TODO scrape hash
-
+    $('span').each(function(){
+      if($(this).attr('class') && $(this).attr('class') === 'lightgrey font10px'){
+        console.log('hash : ' + $(this).html());
+      }      
+    });
     // For now retire
     self.results.splice(self.results.indexOf(torrent), 1);
     self.completed.push(torrent);
@@ -261,6 +271,11 @@ Kat.prototype.iterateRequests = function(collection){
                         torrent.date + '\nFileData : ' +
                         torrent.fileData);
           }
+          self.incomplete.each(function debugIncomplete(failure){
+            logger.info('\n Failure : ' + JSON.stringify(failure));            
+          })
+          logger.info("results length : " + self.results.length);
+          logger.info("Completed length : " + self.completed.length);
         });
         self.stop();
       }
