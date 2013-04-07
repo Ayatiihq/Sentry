@@ -73,6 +73,59 @@ function defaultCallback(err) {
 // Public Methods
 //
 /**
+ * Get basic stats for a client
+ *
+ * @param {object}               client        The client to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getClientStats = function(client, callback) {
+  var self = this
+    , stats = {
+      nInfringements: 0,
+      nEndpoints: 0,
+      nNotices: 0
+    } 
+    ;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.analytics_)
+    return self.cachedCalls_.push([self.getClientStats, Object.values(arguments)]);
+
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  Seq()
+    .par(function() {
+      var that = this;
+      self.infringements_.find({ 'campaign.client': client._id }).count(function(err, count) {
+        stats.nInfringements = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this
+        , query = { 'campaign.client': client._id, 'children.count': 0 }
+        ;
+      self.infringements_.find(query).count(function(err, count) {
+        stats.nEndpoints = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      this();
+    })
+    .seq(function() {
+      callback(null, stats);
+    })
+    .catch(function(err) {
+      callback(err, stats);
+    })
+    ;
+}
+
+/**
  * Get basic statistics for a campaign.
  *
  * @param  {object}              campaign      The campaign to find stats for.
@@ -105,7 +158,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     .par(function() {
       var that = this
-        , query = { 'campaign': campaign._id, targets: { $size: 0 } }
+        , query = { 'campaign': campaign._id, 'children.count': { $size: 0 } }
         ;
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;

@@ -1,5 +1,5 @@
 /*
- * test_analytics.js: tests the analyticswrapper
+ * test_verifications.js: tests the verificationswrapper
  *
  * (C) 2012 Ayatii Limited
  *
@@ -13,7 +13,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Analytics = acquire('analytics');
+  , Verifications = acquire('verifications');
 
 function setupSignals() {
   process.on('SIGINT', function() {
@@ -34,19 +34,13 @@ function main() {
   var argv = process.argv;
 
   logger.init();
-  logger = logger.forFile('test_analytics.js');
+  logger = logger.forFile('test_verifications.js');
 
   setupSignals();
 
-  var analytics = new Analytics();
+  var verifications = new Verifications();
   var action = argv[2];
   var arg0 = argv[3];
-
-  if (action === 'getClientStats')
-    analytics.getClientStats(require(arg0), log);
-
-  if (action === 'getCampaignStats')
-    analytics.getCampaignStats(require(arg0), log);
 }
 
 main()
