@@ -120,9 +120,9 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
 
   var albumTitle = self.campaign.metadata.albumTitle;
   var artist = self.campaign.metadata.artist;
-
-  var query = util.format('"%s" "%s"', artist, albumTitle);
-
+  var query = util.format('%s%20%s',
+                          artist.replace(/\s/, '%20'),
+                          albumTitle.replace(/\s/, '%20'));
   return query;
 };
 
@@ -164,7 +164,6 @@ BittorrentPortal.prototype.beginSearch = function () {
   throw new Error('Stub!');
 };
 
-
 BittorrentPortal.prototype.getLinksFromSource = function (source) {
   throw new Error('Stub!');
 };
@@ -195,13 +194,9 @@ KatScraper.prototype.beginSearch = function () {
   self.emit('started');
   self.root = 'http://www.katproxy.com';
   this.remoteClient.get(self.root); 
-  this.remoteClient.findElement(webdriver.By.css('form[id=searchform]')) 
-  .sendKeys(self.searchTerm); // types out our search term into the input box
-  this.remoteClient.sleep(5000);
+  this.remoteClient.sleep(2000);
+  this.remoteClient.get(self.root + '/usearch/' + self.searchTerm);
   // just submit the query for now
-  this.remoteClient.findElement(webdriver.By.css('form[id=searchform]')).submit();
-  logger.info('searching KAT with search query: ' + self.searchTerm);
-
   // waits for a #search selector
   this.remoteClient.findElement(webdriver.By.css('.data')).then(function gotSearchResults(element) {
     if (element) {
@@ -212,8 +207,8 @@ KatScraper.prototype.beginSearch = function () {
       self.cleanup();
     }
   });
-  self.emit('error', ERROR_NORESULTS);
-  self.cleanup();
+  //self.emit('error', ERROR_NORESULTS);
+  //self.cleanup();
 };
 
 KatScraper.prototype.getLinksFromSource = function (source) {
