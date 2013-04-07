@@ -97,6 +97,12 @@ Generic.prototype.start = function (campaign, job) {
       return;
     }
 
+    if (results.length < 1) {
+      logger.info('No results to scrape');
+      self.stop();
+      return;
+    }
+
     self.checkURLS = results;
     self.activeScrapes = 0;
     self.suspendedScrapes = 0;
