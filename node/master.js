@@ -62,7 +62,8 @@ Master.prototype.getPossibleWorkers = function() {
 
 Master.prototype.initHubConnection = function() {
   var self = this;
-
+  
+  logger.info('Connecting to hub at %s', config.HUB_ADDRESS);
   self.hub_ = io.connect(config.HUB_ADDRESS + '/node', { port: config.HUB_PORT, secure: true });
   self.hub_.on('connect', self.onConnection.bind(self));
   self.hub_.on('disconnect', self.onDisconnection.bind(self));

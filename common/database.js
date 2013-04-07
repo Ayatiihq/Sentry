@@ -40,7 +40,7 @@ Database.connect = function(callback) {
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
-    logger.info('Connecting to database');
+    logger.info('Connecting to database at %s', config.MONGODB_URL);
     
     CONNECTING = true;
     WAITING = [];
