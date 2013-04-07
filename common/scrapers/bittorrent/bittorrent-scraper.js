@@ -14,7 +14,7 @@ var acquire = require('acquire')
 
 var Scraper = acquire('scraper');
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
+var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 20;
 
@@ -43,12 +43,11 @@ var BittorrentPortal = function (campaign) {
 
 util.inherits(BittorrentPortal, events.EventEmitter);
 
-
 BittorrentPortal.prototype.handleResults = function () {
   var self = this;
   self.remoteClient.sleep(2500);
 
-  /*self.remoteClient.getPageSource().then(function sourceParser(source) {
+  self.remoteClient.getPageSource().then(function sourceParser(source) {
     var newresults = self.getLinksFromSource(source);
     if (newresults.length < 1) {
       self.emit('error', ERROR_NORESULTS);
@@ -56,19 +55,18 @@ BittorrentPortal.prototype.handleResults = function () {
     }
     else {
       self.emitLinks(newresults);
-
-      if (self.checkHasNextPage(source)) {
+      /*if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
           self.nextPage();
         }, randomTime * 1000);
-      }
-      else {
-        logger.info('finished scraping succesfully');
-        self.cleanup();
-      }
+      }*/
+      //else {
+      logger.info('finished scraping succesfully');
+      self.cleanup();
+      //}
     }
-  });*/
+  });
 };
 
 BittorrentPortal.prototype.buildSearchQuery = function () {
@@ -122,16 +120,8 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
 
   var albumTitle = self.campaign.metadata.albumTitle;
   var artist = self.campaign.metadata.artist;
-  var tracks = self.campaign.metadata.tracks.map(getVal.bind(null, 'title'));
 
-  tracks = self.removeRedundantTerms(tracks);
-  var trackQuery = ''; // builds 'track 1' OR 'track 2' OR 'track 3'
-  tracks.each(function buildTrackQuery(track, index) {
-    if (index === tracks.length - 1) { trackQuery += util.format('"%s"', track); }
-    else { trackQuery += util.format('"%s" OR ', track); }
-  });
-
-  var query = util.format('"%s" "%s" %s %s', artist, albumTitle, trackQuery, self.keywords.join(' '));
+  var query = util.format('"%s" "%s"', artist, albumTitle);
 
   return query;
 };
@@ -204,17 +194,16 @@ KatScraper.prototype.beginSearch = function () {
   self.resultsCount = 0;
   self.emit('started');
   self.root = 'http://www.katproxy.com';
-  this.remoteClient.get(self.root); // start at google.com
-
-  this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
+  this.remoteClient.get(self.root); 
+  this.remoteClient.findElement(webdriver.By.css('form[id=searchform]')) 
   .sendKeys(self.searchTerm); // types out our search term into the input box
-
+  this.remoteClient.sleep(5000);
   // just submit the query for now
-  this.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
+  this.remoteClient.findElement(webdriver.By.css('form[id=searchform]')).submit();
   logger.info('searching KAT with search query: ' + self.searchTerm);
 
   // waits for a #search selector
-  this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
+  this.remoteClient.findElement(webdriver.By.css('.data')).then(function gotSearchResults(element) {
     if (element) {
       self.handleResults();
     }
@@ -223,15 +212,17 @@ KatScraper.prototype.beginSearch = function () {
       self.cleanup();
     }
   });
+  self.emit('error', ERROR_NORESULTS);
+  self.cleanup();
 };
-
 
 KatScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
   var $ = cheerio.load(source);
-  $('#search').find('#ires').find('#rso').children().each(function () {
+  //console.log('Search results source = ' + source);
+  /*$('.data').find('#ires').find('#rso').children().each(function () {
     links.push($(this).find('a').attr('href'));
-  });
+  });*/
   return links;
 };
 
@@ -249,25 +240,25 @@ KatScraper.prototype.checkHasNextPage = function (source) {
 };
 
 
-/* Scraper Interface */
 
-var SearchEngine = module.exports = function () {
+/* Scraper Interface */
+var Bittorrent = module.exports = function () {
   this.init();
 };
-util.inherits(SearchEngine, Scraper);
+util.inherits(Bittorrent, Scraper);
 
-SearchEngine.prototype.init = function () {
+Bittorrent.prototype.init = function () {
   var self = this;
 };
 
 //
 // Overrides
 //
-SearchEngine.prototype.getName = function () {
-  return "SearchEngine";
+Bittorrent.prototype.getName = function () {
+  return "Bittorrent";
 };
 
-SearchEngine.prototype.start = function (campaign, job) {
+Bittorrent.prototype.start = function (campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
@@ -294,12 +285,12 @@ SearchEngine.prototype.start = function (campaign, job) {
   self.emit('started');
 };
 
-SearchEngine.prototype.stop = function () {
+Bittorrent.prototype.stop = function () {
   var self = this;
   self.emit('finished');
 };
 
-SearchEngine.prototype.isAlive = function (cb) {
+Bittorrent.prototype.isAlive = function (cb) {
   var self = this;
   cb();
 };
