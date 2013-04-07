@@ -42,6 +42,9 @@ function main() {
   var action = argv[2];
   var arg0 = argv[3];
 
+  if (action === 'getClientStats')
+    analytics.getClientStats(require(arg0), log);
+
   if (action === 'getCampaignStats')
     analytics.getCampaignStats(require(arg0), log);
 }
