@@ -11,6 +11,9 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , cheerio = require('cheerio')
   , URI = require('URIjs')  
+  , Settings = acquire('settings')  
+  , Spidered = acquire('spidered').Spidered 
+  , SpideredStates = acquire('spidered').SpideredStates    
 ;
 
 var Scraper = acquire('scraper');
@@ -25,7 +28,7 @@ var BittorrentPortal = function (campaign) {
   self.campaign = campaign;
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 10000ms before erroring, gives pages enough time to load
 
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -91,7 +94,6 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
   var self = this;
   return self.campaign.name;
 };
-
 
 // Remove terms whose prefix already is in the terms array
 // i.e. ["Foo Bar", "Foo Bar (remix)"] => ["Foo Bar"]
