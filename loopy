@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /etc/environment
+
 echo "Grabbing latest copy"
 git pull
 
