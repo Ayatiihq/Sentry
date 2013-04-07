@@ -105,7 +105,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     .par(function() {
       var that = this
-        , query = { 'campaign': campaign._id, targets: { $size: 0 } }
+        , query = { 'campaign': campaign._id, 'children.count': { $size: 0 } }
         ;
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
