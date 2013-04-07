@@ -1,0 +1,11 @@
+{
+  "name": "bittorrent",
+  "main": "./bittorrent-scraper.js",
+  "types": {
+    "tv": ".*",
+    "music": ".*"
+  },
+  "engines": [
+    "kat"
+  ]
+}
