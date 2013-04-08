@@ -46,6 +46,7 @@ Verifications.prototype.init = function() {
     })
     .seq(function(db, verifications) {
       self.verifications = verifications;
+      this();
     })
     .seq(function() {
       self.cachedCalls_.forEach(function(call) {
@@ -64,6 +65,75 @@ function defaultCallback(err) {
     logger.warn('Reply Error: %s', err);
 }
 
+function normalizeCampaign(campaign) {
+  if (Object.isString(campaign)) {
+    // It's the _id of the campaign stringified
+    return JSON.parse(campaign);
+  } else if (campaign._id) {
+    // It's an entire campaign row
+    return campaign._id;
+  } else {
+    // It's just the _id object
+    return campaign;
+  }
+}
+
 //
 // Public Methods
 //
+
+/**
+ * Get verifications for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {number}                skip             The number of documents to skip, for pagenation.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Verifications.prototype.getForCampaign = function(campaign, skip, limit, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: 0,
+    'children.count': 0
+  };
+
+  var options = { 
+    skip: skip, 
+    limit: limit,
+    sort: { 'points.total': -1, created: 1 }
+  };
+
+  self.infringements_.find(query, options).toArray(callback); 
+}
+
+/**
+ * Get infringements count for a campaign at the specified points.
+ *
+ * @param {object}                 campaign         The campaign which we want unverified links for
+  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Verifications.prototype.getCountForCampaign = function(campaign, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getCountForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: 0,
+    'children.count': 0
+  };
+
+  self.infringements_.find(query).count(callback);
+}
