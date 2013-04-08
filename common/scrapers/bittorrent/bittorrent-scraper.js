@@ -22,7 +22,7 @@ var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
-var MAX_SCRAPER_POINTS = 20;
+var MAX_SCRAPER_POINTS = 25;
 
 var BittorrentPortal = function (campaign) {
   events.EventEmitter.call(this);
@@ -119,23 +119,38 @@ BittorrentPortal.prototype.cleanup = function () {
   this.remoteClient.quit();
 };
 
-BittorrentPortal.prototype.emitLinks = function (linkList) {
+BittorrentPortal.prototype.emitInfringements = function () {
   var self = this;
-
-  linkList.each(function linkEmitter(link) {
-    if (link[0] === '/') { return; }
-
-    var linkScore = Math.max(1.0, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100));
-
-    self.emit('found-link', link,
-      {
-        engine: self.engineName,
-        score: linkScore,
-        message: "Engine result",
-        source: 'scraper.' + self.engineName
-      });
-    self.resultsCount++;
-  });
+  self.results.each(function (torrent){
+    self.emit('infringement',
+               torrent.activeLink.uri,
+               {score: MAX_SCRAPER_POINTS / 2,
+                source: 'scraper.bittorrent' + self.engineName,
+                message: 'Torrent page at ' + self.engineName});
+    self.emit('infringement',
+               torrent.directLink,
+               {score: MAX_SCRAPER_POINTS / 1.5,
+                source: 'scraper.bittorrent' + self.engineName,
+                message: 'Link to actual Torrent file from ' + self.engineName,
+                fileSize: torrent.fileSize});
+    self.emit('infringement',
+               torrent.magnet,
+               {score: MAX_SCRAPER_POINTS / 1.25,
+                source: 'scraper.bittorrent' + self.engineName,
+                message: 'Torrent page at ' + self.engineName,
+                fileSize: torrent.fileSize});
+    self.emit('relation', torrent.activeLink.uri, torrent.magnet);
+    self.emit('relation', torrent.activeLink.uri, torrent.directLink);
+    self.emit('infringement',
+               torrent.hash_ID,
+               {score: MAX_SCRAPER_POINTS,
+                source: 'scraper.bittorrent' + self.engineName,
+                message: 'Torrent hash scraped from ' + self.engineName,
+                fileSize: torrent.fileSize, fileDate: fileData.join(', ')});
+    self.emit('relation', torrent.magnet, torrent.hash_ID);
+    self.emit('relation', torrent.directLink, torrent.hash_ID);
+  })
+  self.cleanup();
 };
 
 BittorrentPortal.prototype.beginSearch = function () {
@@ -208,9 +223,8 @@ KatScraper.prototype.getTorrentsDetails = function(){
   var promiseArray;
   promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
   Promise.seq(promiseArray).then(function(){
-    logger.info('Finished KAT run !');
-    self.cleanup();
-  })  
+    self.emitTorrentLinks();
+  }); 
 }
 
 KatScraper.prototype.getTorrentsFromResults = function (source) {
@@ -268,8 +282,8 @@ Bittorrent.prototype.start = function (campaign, job) {
     // do nuffink right now, handled elsewhere
   });
 
-  self.scraper.on('found-link', function onFoundLink(link, points) {
-    self.emit('metaInfringement', link, points);
+  self.scraper.on('link', function onFoundLink(link, points) {
+    self.emit('infringement', link, points);
   });
 
   self.scraper.beginSearch();
