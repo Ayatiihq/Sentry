@@ -58,17 +58,17 @@ BittorrentPortal.prototype.handleResults = function () {
       self.cleanup();
     }
     else {
-      self.emitLinks(newresults);
-      /*if (self.checkHasNextPage(source)) {
+      //self.emitLinks(newresults);
+      if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
           self.nextPage();
         }, randomTime * 1000);
-      }*/
-      //else {
-      logger.info('finished scraping succesfully');
-      self.cleanup();
-      //}
+      }
+      else {
+        logger.info('finished scraping succesfully');
+        self.cleanup();
+      }
     }
   });
 };
@@ -197,7 +197,8 @@ KatScraper.prototype.beginSearch = function () {
               + self.root +
               '/usearch/' +
               self.searchTerm);
-  this.remoteClient.get(self.root + '/usearch/' + self.searchTerm + "?field=time_add&sorder=desc");
+  var queryString = self.root + '/usearch/' + self.searchTerm + "?field=time_add&sorder=desc";
+  this.remoteClient.get(queryString);
   // just submit the query for now
   // waits for a #search selector
   this.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
@@ -295,6 +296,18 @@ KatScraper.prototype.getLinksFromSource = function (source) {
       }
     }
   });
+  var currentPage;
+  var otherPages = [];
+  $('div.pages').children('a').each(function(){
+    if($(this).attr('class').has('active')){
+      currentPage = parseInt($(this).text());
+      console.log('We are on page ' + currentPage);
+    }
+    else if($(this).attr('class').has('turnoverButton')){
+      otherPages.push(parseInt($(this).text()));      
+    }
+  });
+  console.log("other pages : " + JSON.stringify(otherPages));
   return links;
 };
 
