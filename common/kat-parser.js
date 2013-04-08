@@ -1,3 +1,4 @@
+require('sugar');
 var acquire = require('acquire')
   , Spidered = acquire('spidered').Spidered 
   , cheerio = require('cheerio')
@@ -7,12 +8,14 @@ var acquire = require('acquire')
 ;
 
 var KatParser = module.exports;
-var ROOT = 'http//www.katproxy.com';
+var KAT_ROOT = 'http://www.katproxy.com';
+
 /*
  * @param  {string}   source   The source of the given page
  * @return {array}             Populated or not with instances of Spidereds.
  */
-KatParser.resultsPage = function(source){
+KatParser.resultsPage = function(source, releaseDate){
+
   var links = [];
   var $ = cheerio.load(source);
 
@@ -27,6 +30,7 @@ KatParser.resultsPage = function(source){
     var size = null;
     var entityLink = null;
     var roughDate = null;
+    var relevant = true;
 
     if(testAttr.call(this, $, 'id', /torrent_*/)){
       $(this).find('a').each(function(){
@@ -38,7 +42,9 @@ KatParser.resultsPage = function(source){
         if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music)Type$/)){
           try{
             var inst = URI($(this).attr('href'));
-            entityLink = inst.absoluteTo(ROOT).toString();
+            entityLink = inst.absoluteTo(KAT_ROOT).toString();
+            logger.info('entityLink ' + entityLink + ' Kat root ' + KAT_ROOT);
+
           }
           catch(err){
             logger.warn('failed to create valid entity link : ' + err);
@@ -67,10 +73,18 @@ KatParser.resultsPage = function(source){
               offset = word;
           })            
           roughDate = Date.create()['add' + offsetLiteral](-offset);
+          if(releaseDate){
+            var relDate = Date.create(releaseDate);
+            relDate.addWeeks(-2);
+            relevant = relDate.isBefore(roughDate);
+            //DEBUG
+            if(!relevant)
+              console.log('relDate: ' + relDate + ' & roughDate : ' + roughDate);
+          }
         }
       });
 
-      if(magnet && entityLink && torrentName){
+      if(magnet && entityLink && torrentName && relevant){
         
         var torrent =  new Spidered('torrent',
                                      torrentName,
@@ -82,7 +96,7 @@ KatParser.resultsPage = function(source){
         torrent.date = roughDate;
         torrent.directLink = fileLink; // direct link to torrent via querying torcache
         links.push(torrent);
-        //console.log('just created : ' + JSON.stringify(torrent));
+        console.log('just created : ' + JSON.stringify(torrent));
       }
       else{
         logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
@@ -113,4 +127,23 @@ KatParser.paginationDetails = function(source){
     }
   });
   return result;
+}
+
+KatParser.torrentPage = function(source, torrent){
+  var $ = cheerio.load(source);
+  var haveFiles = false;
+  // do you need to iterate - cheerio lookup API is a bit odd or maybe it's just me.
+  $('table.torrentFileList tr').each(function(){
+    if($('td').hasClass('torFileName') && !haveFiles){
+      //TODO: split string on known file extensions.
+      torrent.fileData.push($('td.torFileName').text().trim().humanize());
+      haveFiles = true;
+    }
+  });
+  $('span').each(function(){
+    if($(this).attr('class') && $(this).attr('class') === 'lightgrey font10px'){
+      var tmp = $(this).html().trim();
+      torrent.hash_ID = 'torrent://' + tmp.split(': ')[1]; 
+    }      
+  });
 }

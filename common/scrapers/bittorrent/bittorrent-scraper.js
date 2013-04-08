@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , Spidered = acquire('spidered').Spidered 
   , SpideredStates = acquire('spidered').SpideredStates    
   , katparser = acquire('kat-parser')
+  , Promise = require('node-promise')
 ;
 
 var Scraper = acquire('scraper');
@@ -54,7 +55,7 @@ BittorrentPortal.prototype.handleResults = function () {
   self.remoteClient.sleep(2500);
 
   self.remoteClient.getPageSource().then(function sourceParser(source) {
-    var newresults = self.getLinksFromSource(source);
+    var newresults = self.getTorrentsFromResults(source);
     self.results = self.results.union(newresults);
     if (newresults.length < 1 && self.results.isEmpty()) {
       self.emit('error', ERROR_NORESULTS);
@@ -69,7 +70,7 @@ BittorrentPortal.prototype.handleResults = function () {
       }
       else {
         console.log('managed to scrape ' + self.results.length + ' results');
-        self.cleanup();
+        self.getTorrentsDetails();
       }
     }
   });
@@ -133,7 +134,6 @@ BittorrentPortal.prototype.emitLinks = function (linkList) {
         message: "Engine result",
         source: 'scraper.' + self.engineName
       });
-
     self.resultsCount++;
   });
 };
@@ -142,7 +142,11 @@ BittorrentPortal.prototype.beginSearch = function () {
   throw new Error('Stub!');
 };
 
-BittorrentPortal.prototype.getLinksFromSource = function (source) {
+BittorrentPortal.prototype.getTorrentsFromResults = function (source) {
+  throw new Error('Stub!');
+};
+
+BittorrentPortal.prototype.getTorrentsDetails = function (source) {
   throw new Error('Stub!');
 };
 
@@ -158,8 +162,6 @@ BittorrentPortal.prototype.checkHasNextPage = function (source) {
 /* -- KAT Scraper */
 var KatScraper = function (campaign) {
   var self = this;
-  //self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
-
   self.constructor.super_.call(self, campaign);
   self.engineName = 'kat';
   self.root = 'http://www.katproxy.com';
@@ -173,14 +175,14 @@ KatScraper.prototype.beginSearch = function () {
   self.emit('started');
   self.remoteClient.get(self.root); 
   self.remoteClient.sleep(2000);
-  self.searchQuery(1);
+  self.searchQuery(1);//pageNumber
 };
 
 KatScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
   var queryString = self.root + '/usearch/' + self.searchTerm + pageNumber + '/' + "?field=time_add&sorder=desc";
-  this.remoteClient.get(queryString);
-  this.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
+  self.remoteClient.get(queryString);
+  self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
     if (element) {
       self.handleResults();
     }
@@ -191,9 +193,29 @@ KatScraper.prototype.searchQuery = function(pageNumber){
   });
 }
 
-KatScraper.prototype.getLinksFromSource = function (source) {
+KatScraper.prototype.getTorrentsDetails = function(){
   var self = this;
-  return katparser.resultsPage(source);
+  function torrentDetails(torrent){
+    var promise = new Promise.Promise;
+    self.remoteClient.sleep(1000 * Number.random(1,5));
+    self.remoteClient.get(torrent.activeLink.uri);
+    self.remoteClient.getPageSource().then(function(source){
+      katparser.torrentPage(source, torrent);
+      promise.resolve();
+    });
+    return promise;
+  }
+  var promiseArray;
+  promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
+  Promise.seq(promiseArray).then(function(){
+    logger.info('Finished KAT run !');
+    self.cleanup();
+  })  
+}
+
+KatScraper.prototype.getTorrentsFromResults = function (source) {
+  var self = this;
+  return katparser.resultsPage(source, self.campaign.metadata.releaseDate);
 };
 
 KatScraper.prototype.nextPage = function (source) {
