@@ -119,13 +119,8 @@ BittorrentPortal.prototype.removeRedundantTerms = function(terms) {
 
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
-  function getVal(key, obj) { console.log(obj); return obj[key]; }
-
   var albumTitle = self.campaign.metadata.albumTitle;
-  var artist = self.campaign.metadata.artist;
-  var query = util.format('%s%20%s',
-                          artist.replace(/\s/, '%20'),
-                          albumTitle.replace(/\s/, '%20'));
+  var query = albumTitle.replace(/\s/, '%20') + '%20category%3Amusic/';
   return query;
 };
 
@@ -202,7 +197,7 @@ KatScraper.prototype.beginSearch = function () {
               + self.root +
               '/usearch/' +
               self.searchTerm);
-  this.remoteClient.get(self.root + '/usearch/' + self.searchTerm);
+  this.remoteClient.get(self.root + '/usearch/' + self.searchTerm + "?field=time_add&sorder=desc");
   // just submit the query for now
   // waits for a #search selector
   this.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
