@@ -77,9 +77,6 @@ KatParser.resultsPage = function(source, releaseDate){
             var relDate = Date.create(releaseDate);
             relDate.addWeeks(-2);
             relevant = relDate.isBefore(roughDate);
-            //DEBUG
-            if(!relevant)
-              console.log('relDate: ' + relDate + ' & roughDate : ' + roughDate);
           }
         }
       });
@@ -129,6 +126,11 @@ KatParser.paginationDetails = function(source){
   return result;
 }
 
+/*
+ * Scrape the hash ID and any file data from the torrent page.
+ * @param  {string}     source   The source of the given page
+ * @param {Spidered}   torrent  Instance of Spidered
+ */
 KatParser.torrentPage = function(source, torrent){
   var $ = cheerio.load(source);
   var haveFiles = false;

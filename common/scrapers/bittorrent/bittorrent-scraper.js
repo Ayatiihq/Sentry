@@ -146,10 +146,10 @@ BittorrentPortal.prototype.emitInfringements = function () {
                {score: MAX_SCRAPER_POINTS,
                 source: 'scraper.bittorrent' + self.engineName,
                 message: 'Torrent hash scraped from ' + self.engineName,
-                fileSize: torrent.fileSize, fileDate: fileData.join(', ')});
+                fileSize: torrent.fileSize, fileData: torrent.fileData.join(', ')});
     self.emit('relation', torrent.magnet, torrent.hash_ID);
     self.emit('relation', torrent.directLink, torrent.hash_ID);
-  })
+  });
   self.cleanup();
 };
 
@@ -223,7 +223,7 @@ KatScraper.prototype.getTorrentsDetails = function(){
   var promiseArray;
   promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
   Promise.seq(promiseArray).then(function(){
-    self.emitTorrentLinks();
+    self.emitInfringements();
   }); 
 }
 
@@ -243,7 +243,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return true;
+  return true; 
 };
 
 /* Scraper Interface */
