@@ -71,10 +71,12 @@ Generic.prototype.emitInfringementUpdates = function (infringement, parents, ext
   var endpoints = extradata.filter(function findEndpoints(v) { return !!(v.isEndpoint); });
 
   endpoints.each(function emitEndpoints(endpoint) {
-    self.emit('infringement',
-              endpoint.toString(),
-              {score: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
-    self.emit('relation', infringement.uri, endpoint.toString());
+    if (!arrayHas(endpoint.toString(), safeDomains)) {
+      self.emit('infringement',
+                endpoint.toString(),
+                {score: MAX_SCRAPER_POINTS, source: 'scraper.generic', message: "Endpoint"});
+      self.emit('relation', infringement.uri, endpoint.toString());
+    }
   });
 };
 
@@ -158,13 +160,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   wrangler.removeAllListeners();
 
   // First figure out what the state update is for this infringement   
-  var newState;
-  if (items.length > 0) {
-    newState = states.infringements.state.UNVERIFIED;
-  }
-  else {
-    newState = states.infringements.state.FALSE_POSITIVE;
-  }
+  var newState = states.infringements.state.UNVERIFIED;
   self.emit('infringementStateChange', infringement, newState);
 
   items.each(function onFoundItem(foundItem) {
@@ -205,10 +201,6 @@ Generic.prototype.checkInfringement = function (infringement) {
     promise.resolve();
     return promise;
   }
-
-  function arrayHas(test, arr) {
-    return !!arr.count(function (v) { return test.has(v); });
-  };
 
   if (!self.getHasPath(infringement.uri)) {
     logger.info('%s has no path, not scraping', infringement.uri);
@@ -264,4 +256,9 @@ Generic.prototype.stop = function () {
 Generic.prototype.isAlive = function (cb) {
   var self = this;
   cb();
+};
+
+// Utils
+function arrayHas(test, arr) {
+  return !!arr.count(function (v) { return test.has(v); });
 };
