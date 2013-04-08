@@ -14,6 +14,7 @@ var acquire = require('acquire')
   , Settings = acquire('settings')  
   , Spidered = acquire('spidered').Spidered 
   , SpideredStates = acquire('spidered').SpideredStates    
+  , katparser = acquire('kat-parser')
 ;
 
 var Scraper = acquire('scraper');
@@ -25,6 +26,7 @@ var MAX_SCRAPER_POINTS = 20;
 var BittorrentPortal = function (campaign) {
   events.EventEmitter.call(this);
   var self = this;
+  self.results = [];
   self.campaign = campaign;
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
@@ -53,20 +55,20 @@ BittorrentPortal.prototype.handleResults = function () {
 
   self.remoteClient.getPageSource().then(function sourceParser(source) {
     var newresults = self.getLinksFromSource(source);
-    if (newresults.length < 1) {
+    self.results = self.results.union(newresults);
+    if (newresults.length < 1 && self.results.isEmpty()) {
       self.emit('error', ERROR_NORESULTS);
       self.cleanup();
     }
     else {
-      //self.emitLinks(newresults);
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
-          self.nextPage();
+          self.nextPage(source);
         }, randomTime * 1000);
       }
       else {
-        logger.info('finished scraping succesfully');
+        console.log('managed to scrape ' + self.results.length + ' results');
         self.cleanup();
       }
     }
@@ -94,28 +96,6 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
   var self = this;
   return self.campaign.name;
 };
-
-// Remove terms whose prefix already is in the terms array
-// i.e. ["Foo Bar", "Foo Bar (remix)"] => ["Foo Bar"]
-// This avoids us hitting search term limits on search engines
-BittorrentPortal.prototype.removeRedundantTerms = function(terms) {
-  var self = this
-    , ret = []
-    ;
-
-  terms.forEach(function(term) {
-    var hasPrefix = false;
-    ret.forEach(function(prefix) {
-      if (term.indexOf(prefix) == 0)
-        hasPrefix = true;
-    });
-
-    if (!hasPrefix)
-      ret.push(term);
-  });
-
-  return ret;
-}
 
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
@@ -182,6 +162,7 @@ var KatScraper = function (campaign) {
 
   self.constructor.super_.call(self, campaign);
   self.engineName = 'kat';
+  self.root = 'http://www.katproxy.com';
 };
 
 util.inherits(KatScraper, BittorrentPortal);
@@ -190,17 +171,15 @@ KatScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
-  self.root = 'http://www.katproxy.com';
-  this.remoteClient.get(self.root); 
-  this.remoteClient.sleep(2000);
-  console.log('about to request : '
-              + self.root +
-              '/usearch/' +
-              self.searchTerm);
-  var queryString = self.root + '/usearch/' + self.searchTerm + "?field=time_add&sorder=desc";
+  self.remoteClient.get(self.root); 
+  self.remoteClient.sleep(2000);
+  self.searchQuery(1);
+};
+
+KatScraper.prototype.searchQuery = function(pageNumber){
+  var self = this;
+  var queryString = self.root + '/usearch/' + self.searchTerm + pageNumber + '/' + "?field=time_add&sorder=desc";
   this.remoteClient.get(queryString);
-  // just submit the query for now
-  // waits for a #search selector
   this.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
     if (element) {
       self.handleResults();
@@ -210,118 +189,25 @@ KatScraper.prototype.beginSearch = function () {
       self.cleanup();
     }
   });
-};
+}
 
 KatScraper.prototype.getLinksFromSource = function (source) {
   var self = this;
-  var links = [];
-  var $ = cheerio.load(source);
-
-  function testAttr($$, attrK, test){
-    return $$(this).attr(attrK) && $$(this).attr(attrK).match(test);
-  }
-
-  $('tr').each(function(){
-    var magnet = null;
-    var fileLink = null;
-    var torrentName = null;
-    var size = null;
-    var entityLink = null;
-    var roughDate = null;
-
-    if(testAttr.call(this, $, 'id', /torrent_*/)){
-      $(this).find('a').each(function(){
-        if(testAttr.call(this, $, 'title', /Torrent magnet link/))
-          magnet = $(this).attr('href');
-        if(testAttr.call(this, $, 'title', /Download torrent file/))
-          fileLink = $(this).attr('href');
-        // TODO there are other 'choices' which i have yet to capture - 1 in 50 or so fails.
-        if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music)Type$/)){
-          try{
-            var inst = URI($(this).attr('href'));
-            entityLink = inst.absoluteTo(self.root).toString();
-          }
-          catch(err){
-            logger.warn('failed to create valid entity link : ' + err);
-          }
-        }
-        if(testAttr.call(this, $, 'class', 'normalgrey font12px plain bold'))
-          torrentName = $(this).text();
-      });
-      // grab the size and figure out the date.
-      $(this).find('td').each(function(){
-        if(testAttr.call(this, $, 'class', 'nobr center')){
-          size = $(this).text();
-          var age = $(this).next().next().text().trim();
-          var context = {'Minutes': age.match(/min\./),
-                         'Hours': age.match(/hour(s)?/),
-                         'Days': age.match(/day(s)?/),
-                         'Weeks': age.match(/week(s)?/),
-                         'Months': age.match(/month(s)?/),
-                         'Years': age.match(/year(s)?/)};
-          var offsetLiteral;
-          // its gotta be one and only one !            
-          Object.keys(context).each(function(key){ if(context[key] !== null) offsetLiteral = key ;});
-          var offset;
-          age.words(function(word){
-            if(parseInt(word)) 
-              offset = word;
-          })            
-          roughDate = Date.create()['add' + offsetLiteral](-offset);
-        }
-      });
-
-      if(magnet && entityLink && torrentName){
-        
-        var torrent =  new Spidered('torrent',
-                                     torrentName,
-                                     null,
-                                     entityLink,
-                                     SpideredStates.ENTITY_PAGE_PARSING);              
-        torrent.magnet = magnet;
-        torrent.fileSize = size;
-        torrent.date = roughDate;
-        torrent.directLink = fileLink; // direct link to torrent via querying torcache
-        //if(self.results.length === 0) // test with just the first (sort out sleep)
-        links.push(torrent);
-        console.log('just created : ' + JSON.stringify(torrent));
-      }
-      else{
-        logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
-                                                          fileSize: size,
-                                                          date: roughDate,
-                                                          file: fileLink,
-                                                          name: torrentName,
-                                                          link: entityLink}));
-      }
-    }
-  });
-  var currentPage;
-  var otherPages = [];
-  $('div.pages').children('a').each(function(){
-    if($(this).attr('class').has('active')){
-      currentPage = parseInt($(this).text());
-      console.log('We are on page ' + currentPage);
-    }
-    else if($(this).attr('class').has('turnoverButton')){
-      otherPages.push(parseInt($(this).text()));      
-    }
-  });
-  console.log("other pages : " + JSON.stringify(otherPages));
-  return links;
+  return katparser.resultsPage(source);
 };
 
-// clicks on the next page, waits for new results
-KatScraper.prototype.nextPage = function () {
+KatScraper.prototype.nextPage = function (source) {
   var self = this;
-  // clicks the next page element.
-  //self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
+  var result = katparser.paginationDetails(source);
+  self.searchQuery(result.currentPage + 1);
 };
 
 KatScraper.prototype.checkHasNextPage = function (source) {
-  var $ = cheerio.load(source);
-  //if ($('a#pnnext').length < 1) { return false; }
-  return false;
+  var self = this;
+  var result = katparser.paginationDetails(source);
+  if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
+    return false;
+  return true;
 };
 
 /* Scraper Interface */

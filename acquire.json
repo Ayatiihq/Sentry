@@ -27,5 +27,6 @@
   "utilities": "common/utilities.js",
   "spidered": "common/spidered.js",
   "verifications": "common/verifications.js",
-  "wrangler-rules": "common/wrangler-rules.js"
+  "wrangler-rules": "common/wrangler-rules.js",
+  "kat-parser": "common/kat-parser.js"
 }
