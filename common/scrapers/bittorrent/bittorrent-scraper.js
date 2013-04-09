@@ -272,7 +272,7 @@ Bittorrent.prototype.start = function (campaign, job) {
   });
 
   self.scraper.on('torrent', function onFoundTorrent(uri, points, metadata){
-    self.emit('infringement', torrent, points, metadata);
+    self.emit('infringement', uri, points, metadata);
   });
 
   self.scraper.on('relation', function onFoundRelation(parent, child){
