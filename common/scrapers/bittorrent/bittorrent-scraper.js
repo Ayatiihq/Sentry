@@ -241,6 +241,78 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   return true;  
 };
 
+/* -- ISOHunt Scraper */
+var IsoHuntScraper = function (campaign) {
+  var self = this;
+  self.constructor.super_.call(self, campaign);
+  self.engineName = 'isohunt';
+  self.root = 'http://www.isohunt.com';
+};
+
+util.inherits(IsoHuntScraper, BittorrentPortal);
+
+IsoHuntScraper.prototype.beginSearch = function () {
+  var self = this;
+  self.resultsCount = 0;
+  self.emit('started');
+  self.remoteClient.get(self.root); 
+  self.remoteClient.sleep(2000);
+  self.searchQuery(1);//pageNumber
+};
+
+IsoHuntScraper.prototype.searchQuery = function(pageNumber){
+  var self = this;
+  var queryString = self.root + '/usearch/' + self.searchTerm + pageNumber + '/' + "?field=time_add&sorder=desc";
+  self.remoteClient.get(queryString);
+  /*self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
+    if (element) {
+      self.handleResults();
+    }
+    else {
+      self.emit('error', ERROR_NORESULTS);
+      self.cleanup();
+    }
+  });*/
+}
+
+KatScraper.prototype.getTorrentsDetails = function(){
+  var self = this;
+  function torrentDetails(torrent){
+    var promise = new Promise.Promise;
+    self.remoteClient.sleep(1000 * Number.random(1,5));
+    self.remoteClient.get(torrent.activeLink.uri);
+    self.remoteClient.getPageSource().then(function(source){
+      katparser.torrentPage(source, torrent);
+      promise.resolve();
+    });
+    return promise;
+  }
+  var promiseArray;
+  promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
+  Promise.seq(promiseArray).then(function(){
+    self.emitInfringements();
+  }); 
+}
+
+KatScraper.prototype.getTorrentsFromResults = function (source) {
+  var self = this;
+  return katparser.resultsPage(source, self.campaign);
+};
+
+KatScraper.prototype.nextPage = function (source) {
+  var self = this;
+  var result = katparser.paginationDetails(source);
+  self.searchQuery(result.currentPage + 1);
+};
+
+KatScraper.prototype.checkHasNextPage = function (source) {
+  var self = this;
+  var result = katparser.paginationDetails(source);
+  if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
+    return false;
+  return false; // TODO 
+};
+
 /* Scraper Interface */
 var Bittorrent = module.exports = function () {
   this.init();
