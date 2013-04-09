@@ -113,6 +113,7 @@ Storage.prototype.createFromFile = function(name, filename, options, callback) {
  */
 Storage.prototype.createFromURL = function(name, url, options, callback) {
   var self = this;
+  callback = callback ? callback : defaultCallback;
 
   if (!self.blobService_)
     return self.cachedCalls_.push([self.createFromURL, Object.values(arguments)]);
