@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , URI = require('URIjs')  
   , Settings = acquire('settings')  
   , katparser = acquire('kat-parser')
+  , Storage = acquire('storage')
   , Promise = require('node-promise')
 ;
 
@@ -26,10 +27,11 @@ var BittorrentPortal = function (campaign) {
   events.EventEmitter.call(this);
   var self = this;
   self.results = [];
+  self.storage = new Storage('torrent');
   self.campaign = campaign;
   self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 10000ms before erroring, gives pages enough time to load
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -98,7 +100,6 @@ BittorrentPortal.prototype.buildSearchQueryTrack = function () {
   var self = this;
   var trackTitle = self.campaign.metadata.albumTitle;
   var artist = self.campaign.metadata.artist;
-
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   return query;
 };
@@ -115,19 +116,22 @@ BittorrentPortal.prototype.emitInfringements = function () {
                torrent.activeLink.uri,
                MAX_SCRAPER_POINTS / 2,
                {source: 'scraper.bittorrent' + self.engineName,
-                message: 'Torrent page at ' + self.engineName});
+                message: 'Torrent page at ' + self.engineName,
+                type: torrent.genre});
     self.emit('torrent',
                torrent.directLink,
                MAX_SCRAPER_POINTS / 1.5,
-               {source: 'scraper.bittorrent' + self.engineName,
+               {source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Link to actual Torrent file from ' + self.engineName,
-                fileSize: torrent.fileSize});
+                fileSize: torrent.fileSize,
+                type: torrent.genre});
     self.emit('torrent',
                torrent.magnet,
                MAX_SCRAPER_POINTS / 1.25,
-               {source: 'scraper.bittorrent' + self.engineName,
+               {source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Torrent page at ' + self.engineName,
-                fileSize: torrent.fileSize});
+                fileSize: torrent.fileSize,
+                type: torrent.genre});
     self.emit('relation', torrent.activeLink.uri, torrent.magnet);
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
     self.emit('torrent',
@@ -135,9 +139,11 @@ BittorrentPortal.prototype.emitInfringements = function () {
                MAX_SCRAPER_POINTS,
                {source: 'scraper.bittorrent' + self.engineName,
                 message: 'Torrent hash scraped from ' + self.engineName,
-                fileSize: torrent.fileSize, fileData: torrent.fileData.join(', ')});
+                fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
+                type: torrent.genre});
     self.emit('relation', torrent.magnet, torrent.hash_ID);
     self.emit('relation', torrent.directLink, torrent.hash_ID);
+    self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
   });
   self.cleanup();
 };
@@ -218,7 +224,7 @@ KatScraper.prototype.getTorrentsDetails = function(){
 
 KatScraper.prototype.getTorrentsFromResults = function (source) {
   var self = this;
-  return katparser.resultsPage(source, self.campaign.metadata.releaseDate);
+  return katparser.resultsPage(source, self.campaign);
 };
 
 KatScraper.prototype.nextPage = function (source) {
@@ -232,7 +238,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return true; 
+  return false; // TODO 
 };
 
 /* Scraper Interface */

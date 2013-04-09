@@ -11,10 +11,11 @@ var KatParser = module.exports;
 var KAT_ROOT = 'http://www.katproxy.com';
 
 /*
+ * Scrape the results page and create TorrentDescriptor instance per result
  * @param  {string}   source   The source of the given page
  * @return {array}             Populated or not with instances of Spidereds.
  */
-KatParser.resultsPage = function(source, releaseDate){
+KatParser.resultsPage = function(source, campaign){
 
   var links = [];
   var $ = cheerio.load(source);
@@ -43,7 +44,7 @@ KatParser.resultsPage = function(source, releaseDate){
           try{
             var inst = URI($(this).attr('href'));
             entityLink = inst.absoluteTo(KAT_ROOT).toString();
-            logger.info('entityLink ' + entityLink + ' Kat root ' + KAT_ROOT);
+            //logger.info('entityLink ' + entityLink + ' Kat root ' + KAT_ROOT);
 
           }
           catch(err){
@@ -73,8 +74,8 @@ KatParser.resultsPage = function(source, releaseDate){
               offset = word;
           })            
           roughDate = Date.create()['add' + offsetLiteral](-offset);
-          if(releaseDate){
-            var relDate = Date.create(releaseDate);
+          if(campaign && campaign.metadata.releaseDate){
+            var relDate = Date.create(campaign.metadata.releaseDate);
             relDate.addWeeks(-2);
             relevant = relDate.isBefore(roughDate);
           }
@@ -84,12 +85,12 @@ KatParser.resultsPage = function(source, releaseDate){
       if(magnet && entityLink && torrentName && relevant){
         
         var torrent =  new TorrentDescriptor(torrentName,
-                                             null,
+                                             campaign.type,
                                              entityLink);              
         torrent.magnet = magnet;
         torrent.fileSize = size;
         torrent.date = roughDate;
-        torrent.directLink = fileLink; // direct link to torrent via querying torcache
+        torrent.directLink = 'http:' + fileLink; // direct link to torrent via querying torcache
         links.push(torrent);
         //logger.info('just created : ' + JSON.stringify(torrent));
       }
@@ -107,8 +108,8 @@ KatParser.resultsPage = function(source, releaseDate){
 }
 
 /*
- * @param  {string}   source   The source of the given page
- * @return {dictionary}        With keys 'currentPage' (null or int)  and 'otherPages' (an array).
+ * @param  {string}     source   The source of the given page
+ * @return {dictionary}          With keys 'currentPage' (null or int)  and 'otherPages' (an array).
  */
 KatParser.paginationDetails = function(source){
   var $ = cheerio.load(source);
@@ -127,16 +128,16 @@ KatParser.paginationDetails = function(source){
 /*
  * Scrape the hash ID and any file data from the torrent page.
  * @param  {string}              source   The source of the given page
- * @param {TorrentDescriptor}    torrent  Instance of Spidered
+ * @param  {TorrentDescriptor}   torrent  Instance of Spidered
  */
 KatParser.torrentPage = function(source, torrent){
   var $ = cheerio.load(source);
   var haveFiles = false;
-  // do you need to iterate - cheerio lookup API is a bit odd or maybe it's just me.
   $('table.torrentFileList tr').each(function(){
-    if($('td').hasClass('torFileName') && !haveFiles){
-      //TODO: split string on known file extensions.
-      torrent.fileData.push($('td.torFileName').text().trim().humanize());
+    if($('td').hasClass('torFileName') && !haveFiles){      
+      $('td.torFileName').each(function(){
+        torrent.fileData.push($(this).text().trim());
+      });
       haveFiles = true;
     }
   });
