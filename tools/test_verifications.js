@@ -41,6 +41,30 @@ function main() {
   var verifications = new Verifications();
   var action = argv[2];
   var arg0 = argv[3];
+
+  if (action === 'getForCampaign') {
+    var campaign = require(argv[3]);
+    var skip = Number(argv[4]);
+    var limit = Number(argv[5]);
+    verifications.getForCampaign(campaign, skip, limit, log);
+  }
+
+
+  if (action === 'getCountForCampaign') {
+    var campaign = require(argv[3]);
+    verifications.getCountForCampaign(campaign, log);
+  }
+
+  if (action === 'pop') {
+    var campaign = require(argv[3]);
+    verifications.pop(campaign, log);
+  }
+
+  if (action === 'submit') {
+    var infringement = require(argv[3]);
+    var verification = require(argv[4]);
+    verifications.submit(infringement, verification, log);
+  }
 }
 
 main()
