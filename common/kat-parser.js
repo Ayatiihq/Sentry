@@ -91,7 +91,7 @@ KatParser.resultsPage = function(source, releaseDate){
         torrent.date = roughDate;
         torrent.directLink = fileLink; // direct link to torrent via querying torcache
         links.push(torrent);
-        logger.info('just created : ' + JSON.stringify(torrent));
+        //logger.info('just created : ' + JSON.stringify(torrent));
       }
       else{
         logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
