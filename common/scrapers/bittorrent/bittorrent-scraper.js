@@ -238,7 +238,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return false; // TODO 
+  return true;  
 };
 
 /* Scraper Interface */
