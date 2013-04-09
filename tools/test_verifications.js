@@ -59,6 +59,12 @@ function main() {
     var campaign = require(argv[3]);
     verifications.pop(campaign, log);
   }
+
+  if (action === 'submit') {
+    var infringement = require(argv[3]);
+    var verification = require(argv[4]);
+    verifications.submit(infringement, verification, log);
+  }
 }
 
 main()

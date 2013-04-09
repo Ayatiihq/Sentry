@@ -46,7 +46,7 @@ Verifications.prototype.init = function() {
       database.connectAndEnsureCollection('verifications', this);
     })
     .seq(function(db, verifications) {
-      self.verifications = verifications;
+      self.verifications_ = verifications;
       this();
     })
     .seq(function() {
@@ -93,7 +93,9 @@ function normalizeCampaign(campaign) {
 */
 Verifications.prototype.getForCampaign = function(campaign, skip, limit, callback)
 {
-  var self = this;
+  var self = this
+    , iStates = states.infringements.state
+    ;
 
   if (!self.infringements_)
     return self.cachedCalls_.push([self.getForCampaign, Object.values(arguments)]);
@@ -102,8 +104,12 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
 
   var query = {
     campaign: campaign,
-    state: 0,
-    'children.count': 0
+    verified: { 
+      $exists: true
+    },
+    state: {
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+    }
   };
 
   var options = { 
@@ -123,7 +129,9 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
  */
 Verifications.prototype.getCountForCampaign = function(campaign, callback)
 {
-  var self = this;
+  var self = this
+    , iStates = states.infringements.state
+    ;
 
   if (!self.infringements_)
     return self.cachedCalls_.push([self.getCountForCampaign, Object.values(arguments)]);
@@ -132,8 +140,12 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
 
   var query = {
     campaign: campaign,
-    state: 0,
-    'children.count': 0
+    verified: { 
+      $exists: true
+    },
+    state: {
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+    }
   };
 
   self.infringements_.find(query).count(callback);
@@ -176,4 +188,52 @@ Verifications.prototype.pop = function(campaign, callback) {
   var options = { new: true };
 
   self.infringements_.findAndModify(query, sort, updates, options, callback);
+}
+
+/**
+ * Submit a verification for an infringement.
+ *
+ * @param  {object}                       infringement    The infringement that has been verified.
+ * @param  {object}                       verification    The verification result of the infringement.
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
+ * @return {undefined}
+ */
+Verifications.prototype.submit = function(infringement, verification, callback) {
+  var self = this;
+
+  if (!self.infringements_ || !self.verifications_)
+    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
+
+  // First add the verification to the verifications table. Do an upsert because we're cool
+  verification.created = Date.now();
+
+  var updates = {
+    $push: { 
+      verifications: verification
+    }
+  };
+
+  var options = { upsert: true };
+
+  self.verifications_.update({ _id: infringement._id }, updates, options, function(err) {
+    if (err)
+      return callback(err);
+
+    // Now update the infringement
+    var query = {
+      _id: infringement._id,
+      state: states.infringements.state.UNVERIFIED
+    };
+
+    var updates = {
+      $set: {
+        state: verification.state,
+        verification: Date.now()
+      }
+    };
+
+    self.infringements_.update(query, updates, callback);
+  });
+
+
 }
