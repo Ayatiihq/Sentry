@@ -7,6 +7,7 @@
 var acquire = require('acquire')
   , logger = acquire('logger').forFile('Spidered.js')
   , links = acquire('links')
+  , util = require('util')  
   ;
 // TODO
 // depending on the type autopopulate constructLink's link with the
@@ -40,12 +41,6 @@ Spidered.prototype.init = function(entityType, name, genre, topLink, initialStat
   self.currentState = initialState;
   self.lastStageReached = initialState;
   self.date = null; // when it was published (if available)
-  self.fileSize = null; //if applicable
-  // Bittorrent related -- TODO maybe imported as part of a module
-  self.fileData = [];
-  self.magnet;
-  self.directLink; // ?
-  self.hash_ID;
 }
 
 Spidered.prototype.moveToNextLink = function(){
@@ -137,3 +132,20 @@ Spidered.prototype.wranglerFinished = function(spider, done, items){
   spider.wrangler.removeAllListeners();
   done();
 }
+
+var TorrentDescriptor = module.exports.TorrentDescriptor = function(name, genre, topLink){
+  var self = this;
+  self.constructor.super_.call(self,
+                               'torrent',
+                               name,
+                               genre,
+                               topLink,
+                               SpideredStates.ENTITY_PAGE_PARSING);
+  self.fileSize;
+  self.fileData = [];
+  self.magnet;
+  self.directLink; 
+  self.hash_ID;  
+}
+
+util.inherits(TorrentDescriptor, Spidered);

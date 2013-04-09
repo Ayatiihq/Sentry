@@ -1,10 +1,10 @@
 require('sugar');
 var acquire = require('acquire')
-  , Spidered = acquire('spidered').Spidered 
+  , TorrentDescriptor = acquire('spidered').TorrentDescriptor 
+  , SpideredStates = acquire('spidered').SpideredStates    
   , cheerio = require('cheerio')
   , logger = acquire('logger').forFile('kat-parser.js')
   , URI = require('URIjs')  
-  , SpideredStates = acquire('spidered').SpideredStates    
 ;
 
 var KatParser = module.exports;
@@ -83,11 +83,9 @@ KatParser.resultsPage = function(source, releaseDate){
 
       if(magnet && entityLink && torrentName && relevant){
         
-        var torrent =  new Spidered('torrent',
-                                     torrentName,
-                                     null,
-                                     entityLink,
-                                     SpideredStates.ENTITY_PAGE_PARSING);              
+        var torrent =  new TorrentDescriptor(torrentName,
+                                             null,
+                                             entityLink);              
         torrent.magnet = magnet;
         torrent.fileSize = size;
         torrent.date = roughDate;
@@ -128,8 +126,8 @@ KatParser.paginationDetails = function(source){
 
 /*
  * Scrape the hash ID and any file data from the torrent page.
- * @param  {string}     source   The source of the given page
- * @param {Spidered}   torrent  Instance of Spidered
+ * @param  {string}              source   The source of the given page
+ * @param {TorrentDescriptor}    torrent  Instance of Spidered
  */
 KatParser.torrentPage = function(source, torrent){
   var $ = cheerio.load(source);
