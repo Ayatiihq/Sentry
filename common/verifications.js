@@ -228,7 +228,7 @@ Verifications.prototype.submit = function(infringement, verification, callback) 
     var updates = {
       $set: {
         state: verification.state,
-        verification: Date.now()
+        verified: Date.now()
       }
     };
 
