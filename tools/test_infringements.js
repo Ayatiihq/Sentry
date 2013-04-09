@@ -52,14 +52,14 @@ function main() {
   }
 
   if (action === 'addRelation') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     var source = argv[4];
     var target = argv[5];
     infringements.addRelation(campaign, source, target, log);
   }
 
   if (action === 'addMetaRelation') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     var uri = argv[4];
     infringements.addMetaRelation(campaign, uri, 'test-meta', log);
   }

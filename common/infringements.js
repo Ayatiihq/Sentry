@@ -208,9 +208,15 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
   child = utilities.normalizeURI(child);
   callback = callback ? callback : defaultCallback;
 
-  // Set the forward link
+  if (parent === child)
+    return callback();
+
+  // Set the forward link, only find documents that don't have the child already in
   var query = {
-        _id: self.generateKey(campaign, parent)
+        _id: self.generateKey(campaign, parent),
+        'children.uris': {
+          $nin: [ child ]
+        }
       }
     , updates = {
         $inc: { 'children.count': 1 },
@@ -222,7 +228,10 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
 
   // Set the reverse link
   query = {
-    _id: self.generateKey(campaign, child)
+    _id: self.generateKey(campaign, child),
+    'parents.uris': {
+       $nin: [ parent ]
+    }
   };
   updates = {
     $inc: { 'parents.count': 1 },
@@ -253,7 +262,10 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
 
   // Set the forward link
   var query = {
-        _id: self.generateKey(campaign, uri, owner)
+        _id: self.generateKey(campaign, uri, owner),
+        'children.uris': {
+          $nin: [ uri ]
+        }
       }
     , updates = {
         $inc: { 'children.count': 1 },
@@ -266,7 +278,10 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   // Set the reverse link
   var parent = 'meta+' + owner + ':' + self.generateKey(campaign, uri, owner);
   query = {
-    _id: self.generateKey(campaign, uri)
+    _id: self.generateKey(campaign, uri),
+    'parents.uris': {
+      $nin: [ parent ]
+    }
   };
   updates = {
     $inc: { 'parents.count': 1 },
