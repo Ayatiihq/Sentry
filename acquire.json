@@ -12,6 +12,7 @@
   "iframe-exploder": "common/iframe-exploder.js",
   "infringements": "common/infringements.js",
   "jobs": "common/jobs.js",
+  "kat-parser": "common/kat-parser.js",  
   "links": "common/links.js",
   "logger": "common/logger.js",
   "role": "common/role.js",
@@ -27,6 +28,5 @@
   "utilities": "common/utilities.js",
   "spidered": "common/spidered.js",
   "verifications": "common/verifications.js",
-  "wrangler-rules": "common/wrangler-rules.js",
-  "kat-parser": "common/kat-parser.js"
+  "wrangler-rules": "common/wrangler-rules.js"
 }
