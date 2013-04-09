@@ -54,6 +54,11 @@ function main() {
     var campaign = require(argv[3]);
     verifications.getCountForCampaign(campaign, log);
   }
+
+  if (action === 'pop') {
+    var campaign = require(argv[3]);
+    verifications.pop(campaign, log);
+  }
 }
 
 main()

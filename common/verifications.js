@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , database = acquire('database')
   , logger = acquire('logger').forFile('verifications.js')
   , sugar = require('sugar')
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -118,8 +119,8 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
  * Get infringements count for a campaign at the specified points.
  *
  * @param {object}                 campaign         The campaign which we want unverified links for
-  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
-*/
+ * @param {function(err,list)}     callback         A callback to receive the infringements, or an error;
+ */
 Verifications.prototype.getCountForCampaign = function(campaign, callback)
 {
   var self = this;
@@ -136,4 +137,43 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
   };
 
   self.infringements_.find(query).count(callback);
+}
+
+/**
+ * Pop a infringement off the queue for verification.
+ *
+ * @param  {object}                       campaign    The campaign to find an infringement for to verify.
+ * @param  {function(err,infringement)}   callback    A callback to receive the infringment, or null;
+ * @return {undefined}
+ */
+Verifications.prototype.pop = function(campaign, callback) {
+  var self = this
+    , then = Date.create('30 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.UNVERIFIED,
+    'children.count': 0,
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [ ['points.total', -1], ['created', 1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
 }
