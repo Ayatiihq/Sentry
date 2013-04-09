@@ -27,7 +27,7 @@ var BittorrentPortal = function (campaign) {
   var self = this;
   self.results = [];
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 10000ms before erroring, gives pages enough time to load
 
@@ -58,7 +58,7 @@ BittorrentPortal.prototype.handleResults = function () {
         }, randomTime * 1000);
       }
       else {
-        console.log('managed to scrape ' + self.results.length + ' results');
+        logger.info('managed to scrape ' + self.results.length + ' torrents');
         self.getTorrentsDetails();
       }
     }
@@ -90,8 +90,8 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   var albumTitle = self.campaign.metadata.albumTitle;
-  var query = albumTitle.replace(/\s/, '%20') + '%20category%3Amusic/';
-  return query;
+  var query = albumTitle.escapeURL(true) + '%20category%3Amusic/';
+  return query
 };
 
 BittorrentPortal.prototype.buildSearchQueryTrack = function () {
