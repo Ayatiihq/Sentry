@@ -15,15 +15,15 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var MinerDispatcher = require('./miner-dispatcher')
-  , ScraperDispatcher = require('./scraper-dispatcher')
+var ScraperDispatcher = require('./scraper-dispatcher')
   , SpiderDispatcher = require('./spider-dispatcher')
+  , StandardDispatcher = require('./standard-dispatcher')
   ;
 
 var QuarterMaster = module.exports = function() {
-  this.minerDispatcher_ = null;
   this.scraperDispatcher_ = null;
   this.spiderDispatcher_ = null;
+  this.standardDispatcher_ = null;
 
   this.init();
 }
@@ -34,7 +34,7 @@ QuarterMaster.prototype.init = function() {
   if (config.HUB_NO_TASKS)
     return;
 
-  self.minerDispatcher_ = new MinerDispatcher();
   self.scraperDispatcher_ = new ScraperDispatcher();
   self.spiderDispatcher_ = new SpiderDispatcher();
+  self.standardDispatcher_ = new StandardDispatcher();
 }

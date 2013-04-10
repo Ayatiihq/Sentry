@@ -92,7 +92,7 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
  */
 Jobs.prototype.listActiveJobs = function(owner, callback) {
   var self = this
-    , then = Date.utc.create('6 hours ago').getTime()
+    , then = Date.utc.create('3 hours ago').getTime()
     ;
 
   callback = callback ? callback : defaultCallback;
