@@ -221,6 +221,7 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
       }
     , updates = {
         $inc: { 'children.count': 1 },
+        $set: { 'children.modified': Date.now() },
         $addToSet: { 'children.uris': child }
       }
     ;
@@ -236,6 +237,7 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
   };
   updates = {
     $inc: { 'parents.count': 1 },
+    $set: { 'parents.modified': Date.now() },
     $addToSet: { 'parents.uris': parent }
   };
   
@@ -270,6 +272,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
       }
     , updates = {
         $inc: { 'children.count': 1 },
+        $set: { 'children.modified': Date.now() },
         $addToSet: { 'children.uris': uri }
       }
     ;
@@ -286,6 +289,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   };
   updates = {
     $inc: { 'parents.count': 1 },
+    $set: { 'parents.modified': Date.now() },
     $addToSet: { 'parents.uris': parent }
   };
   

@@ -274,6 +274,45 @@ Verifications.prototype.getVerifications = function(campaign, from, limit, callb
 }
 
 /**
+ * Get unverified parents for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {date}                  from             The time from which the verifications should be gotten.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Verifications.prototype.getAdoptedEndpoints = function(campaign, from, limit, callback)
+{
+  var self = this
+    , iStates = states.infringements.state
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getAdoptedEndpoints, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    'parents.modified': { 
+      $gte: from.getTime()
+    },
+    state: {
+      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE]
+    }
+  };
+
+  var options = { 
+    limit: limit,
+    sort: { created: 1 }
+  };
+
+  console.log(query);
+  self.infringements_.find(query, options).toArray(callback); 
+}
+
+
+/**
  * Verify a parent infringement.
  *
  * @param  {object}                       infringement    The infringement that has been verified.
@@ -329,5 +368,6 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
     }
   };
 
-  self.infringements_.update(query, updates, callback);
+  //self.infringements_.update(query, updates, callback);
+  callback();
 }

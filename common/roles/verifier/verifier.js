@@ -39,6 +39,8 @@ var Verifier = module.exports = function() {
   this.lastTimestamp_ = 0;
   this.touchId_ = 0;
 
+  this.timestampIsVerified_ = true;
+
   this.init();
 }
 
@@ -86,7 +88,7 @@ Verifier.prototype.getCampaignKey = function(campaign) {
 
 Verifier.prototype.verifyRTL = function(campaign, job) {
   var self = this
-    , key = self.getCampaignKey(campaign)
+    , key = self.getCampaignKey(campaign) + ".rtl"
     ;
 
   self.touchId_ = setInterval(function() {
@@ -177,7 +179,10 @@ Verifier.prototype.dominoEndpoint = function(campaign, endpoint, done) {
       self.updateParentState(campaign, endpoint, parent, this);
     })
     .seq(function() {
-      self.lastTimestamp_ = endpoint.verified;
+      if (self.timestampIsVerified_)
+        self.lastTimestamp_ = endpoint.verified;
+      else
+        self.lastTimestamp_ = endpoint.parents.modified;
       done();
     })
     .catch(done)
@@ -203,10 +208,76 @@ Verifier.prototype.updateParentState = function(campaign, endpoint, parentUri, d
 //
 
 Verifier.prototype.verifyLTR = function(campaign, job) {
-  var self = this;
+  var self = this
+    , key = self.getCampaignKey(campaign) + ".ltr"
+    ;
 
-  console.log('LTR');
+  self.timestampIsVerified_ = false;
+
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, 
+  config.MINER_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+  Seq()
+    .seq('Get last ltr verify timestamp', function() {
+      var that = this;
+      
+      logger.info('Key %s', key);
+      self.settings_.get(key, function(err, value) {
+        if (err) console.warn(err);
+        
+        if (!value)
+          value = 0;
+
+        that(null, value);
+      });
+    })
+    .seq('Process all new verifications', function(from) {
+      self.lastTimestamp_ = from ? from : 0;
+      self.processAllLTRVerifications(campaign, this);
+    })
+    .seq('Finish up', function(){
+      var timestamp = self.lastTimestamp_;
+      
+      logger.info('Finishing up verification for campaign %j on timestamp %d', campaign._id, timestamp);
+      
+      self.settings_.set(key, timestamp);
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to mine links for %j: %s', campaign._id, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
 }
+
+Verifier.prototype.processAllLTRVerifications = function(campaign, done, lastId) {
+  var self = this
+    , from = self.lastTimestamp_
+    ;
+
+  logger.info('Verifying ltr links for %j from timestamp %s', campaign._id, from);
+
+  self.verifications_.getAdoptedEndpoints(campaign, Date.create(from), MAX_LINKS, function(err, endpoints) {
+    if (err || endpoints.length == 0 || endpoints.last()._id == lastId)
+      return done(err);
+
+    logger.info('Got %d endpoints to process on this round', endpoints.length);
+    self.verifyLinks(campaign, endpoints, function(err) {     
+      if (err)
+        return done(err);
+
+      // Try to get more endpoints to processs
+      self.processAllLTRVerifications(campaign, done, endpoints.last()._id);
+    });
+  });
+}
+
 
 //
 // Overrides
