@@ -38,7 +38,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
@@ -222,13 +222,16 @@ KatScraper.prototype.searchQuery = function(pageNumber){
 KatScraper.prototype.getTorrentsDetails = function(){
   var self = this;
   function torrentDetails(torrent){
+    function goGetIt(prom){
+      self.remoteClient.get(torrent.activeLink.uri);
+      self.remoteClient.getPageSource().then(function(source){
+        katparser.torrentPage(source, torrent);
+        prom.resolve();
+      });
+    }
     var promise = new Promise.Promise;
-    self.remoteClient.sleep(1000 * Number.random(1,5));
-    self.remoteClient.get(torrent.activeLink.uri);
-    self.remoteClient.getPageSource().then(function(source){
-      katparser.torrentPage(source, torrent);
-      promise.resolve();
-    });
+    var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
+    setTimeout(function(){ goGetIt(promise);}, randomTime * 1000);
     return promise;
   }
   var promiseArray;
@@ -330,7 +333,7 @@ IsoHuntScraper.prototype.nextPage = function (source) {
 IsoHuntScraper.prototype.checkHasNextPage = function (source) {
   var self = this;
   var result = isohuntparser.paginationDetails(source);
-  if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
+  if(result.otherPages.isEmpty() || (result.otherPages.max() <= result.currentPage))
     return false;
   return true;  
 };
