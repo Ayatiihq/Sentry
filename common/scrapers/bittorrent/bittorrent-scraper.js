@@ -19,8 +19,13 @@ var acquire = require('acquire')
 ;
 
 //TODO
-//Align the various genres with our own campaign types so as automatic 
+//1. Align the various genres with our own campaign types so as automatic 
 //query sorting can be determined from campaign type.
+//2. Get rid of the unnecessary inheritance on BittorrentPortal and use a
+//factory type pattern to create instances for KAT and isohunt assigning parsing methods
+//to this instance.
+
+
 var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -33,7 +38,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
@@ -308,7 +313,6 @@ IsoHuntScraper.prototype.getTorrentsDetails = function(){
   promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
   Promise.seq(promiseArray).then(function(){
     self.emitInfringements();
-    //self.cleanup();
   }); 
 }
 
@@ -328,7 +332,7 @@ IsoHuntScraper.prototype.checkHasNextPage = function (source) {
   var result = isohuntparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return true; // TODO 
+  return true;  
 };
 
 /* Scraper Interface */

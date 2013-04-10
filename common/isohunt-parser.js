@@ -69,7 +69,7 @@ IsoHuntParser.resultsPage = function(source, campaign){
                                              campaign.type,
                                              entityLink);              
         torrent.date = roughDate;
-        logger.info("Just created : " + JSON.stringify(torrent));
+        //logger.info("Just created : " + JSON.stringify(torrent));
         links.push(torrent);			
 				
 				torrentName = null;
@@ -115,7 +115,6 @@ IsoHuntParser.torrentPage = function(source, torrent){
     torrent.directLink = fileLink;
   });
 
-  // scrape the file info data
   $('td.fileRows').each(function(){
     torrent.fileData.push($(this).text());
   });
