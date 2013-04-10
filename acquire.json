@@ -13,7 +13,7 @@
   "infringements": "common/infringements.js",
   "isohunt-parser": "common/isohunt-parser",
   "jobs": "common/jobs.js",
-  "kat-parser": "common/kat-parser.js",  
+  "kat-parser": "common/kat-parser.js",
   "links": "common/links.js",
   "logger": "common/logger.js",
   "role": "common/role.js",

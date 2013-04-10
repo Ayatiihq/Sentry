@@ -65,8 +65,7 @@ BittorrentPortal.prototype.handleResults = function () {
       }
       else {
         logger.info('managed to scrape ' + self.results.length + ' torrents');
-        self.cleanup();
-        //self.getTorrentsDetails();
+        self.getTorrentsDetails();
       }
     }
   });
@@ -130,15 +129,18 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 message: 'Link to actual Torrent file from ' + self.engineName,
                 fileSize: torrent.fileSize,
                 type: torrent.genre});
-    self.emit('torrent',
-               torrent.magnet,
-               MAX_SCRAPER_POINTS / 1.25,
-               {source: 'scraper.bittorrent.' + self.engineName,
-                message: 'Torrent page at ' + self.engineName,
-                fileSize: torrent.fileSize,
-                type: torrent.genre});
-    self.emit('relation', torrent.activeLink.uri, torrent.magnet);
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
+    if(torrent.magnet){
+      self.emit('torrent',
+                 torrent.magnet,
+                 MAX_SCRAPER_POINTS / 1.25,
+                 {source: 'scraper.bittorrent.' + self.engineName,
+                  message: 'Torrent page at ' + self.engineName,
+                  fileSize: torrent.fileSize,
+                  type: torrent.genre});
+      self.emit('relation', torrent.activeLink.uri, torrent.magnet);
+      self.emit('relation', torrent.magnet, torrent.hash_ID);
+    }
     self.emit('torrent',
                torrent.hash_ID,
                MAX_SCRAPER_POINTS,
@@ -146,7 +148,6 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 message: 'Torrent hash scraped from ' + self.engineName,
                 fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
                 type: torrent.genre});
-    self.emit('relation', torrent.magnet, torrent.hash_ID);
     self.emit('relation', torrent.directLink, torrent.hash_ID);
     self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
   });
@@ -307,6 +308,7 @@ IsoHuntScraper.prototype.getTorrentsDetails = function(){
   promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
   Promise.seq(promiseArray).then(function(){
     self.emitInfringements();
+    //self.cleanup();
   }); 
 }
 
@@ -326,7 +328,7 @@ IsoHuntScraper.prototype.checkHasNextPage = function (source) {
   var result = isohuntparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return false; // TODO 
+  return true; // TODO 
 };
 
 /* Scraper Interface */

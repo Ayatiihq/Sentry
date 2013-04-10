@@ -39,10 +39,15 @@ IsoHuntParser.resultsPage = function(source, campaign){
 	var torrentName = null;
 	var entityLink = null;;
 	var roughDate = null;
+	var relevant = true;
+	var cutoff = Date.create(campaign.metadata.releaseDate);
+	cutoff.addWeeks(-2);
 
 	$("td").each(function(){
 		if(testAttr.call(this, $, 'id', /row_[0-9]_[0-9]+/)){
 			roughDate = makeRoughDate($(this).text());
+			if(roughDate.isBefore(cutoff))
+				relevant = false;
 		}
 		if(testAttr.call(this, $, 'class', /row3/) &&
 			testAttr.call(this, $, 'id', /name[0-9]+/)){			
@@ -59,7 +64,7 @@ IsoHuntParser.resultsPage = function(source, campaign){
 				}
 			});
 		}
-		if(torrentName && entityLink && roughDate){
+		if(torrentName && entityLink && roughDate && relevant){
         var torrent =  new TorrentDescriptor(torrentName,
                                              campaign.type,
                                              entityLink);              
@@ -98,13 +103,35 @@ IsoHuntParser.paginationDetails = function(source){
   return results;
 }
 
-
 /*
  * Scrape the hash ID and any file data from the torrent page.
  * @param  {string}              source   The source of the given page
  * @param  {TorrentDescriptor}   torrent  Instance of Spidered
  */
 IsoHuntParser.torrentPage = function(source, torrent){
+  var $ = cheerio.load(source);
+  $('a#_tlink').each(function(){
+    var fileLink = $(this).attr('href');
+    torrent.directLink = fileLink;
+  });
+
+  // scrape the file info data
+  $('td.fileRows').each(function(){
+    torrent.fileData.push($(this).text());
+  });
+
+  $('p i b').each(function(){
+  	if($(this).text().match(/MB|KB|GB/))
+  		torrent.fileSize = $(this).text();
+  })
+
+  $('span#SL_desc').each(function(){
+    var tmp = $(this).text().split(' ');
+    if(tmp.length > 1){
+      var infoHash = 'torrent://' + tmp[1];
+      torrent.hash_ID = infoHash;
+    }
+  });	
 }
 
 
