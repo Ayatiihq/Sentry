@@ -224,7 +224,7 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
       }
     ;
   
-  self.infringements_.update(query, updates, callback);
+  self.infringements_.update(query, updates, defaultCallback);
 
   // Set the reverse link
   query = {
@@ -273,7 +273,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
       }
     ;
   
-  self.infringements_.update(query, updates, callback);
+  self.infringements_.update(query, updates, defaultCallback);
 
   // Set the reverse link
   var parent = 'meta+' + owner + ':' + self.generateKey(campaign, uri, owner);
