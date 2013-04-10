@@ -1,0 +1,10 @@
+{
+  "name": "verifier",
+  "main": "./verifier.js",
+  "dependencies": {
+  },
+  "engines": [
+    "rtl",
+    "ltr"
+  ]
+}

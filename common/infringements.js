@@ -78,7 +78,7 @@ function normalizeCampaign(campaign) {
 //
 
 /**
- * Generates a unique key for the campaign, uri and optional metdata.
+ * Generates a unique key for the campaign, uri and optional metadata.
  *
  * @param {stringOrObject}     campaign    The campaign the uri infringement belongs to.
  * @param {string}             uri         The uri to add.
@@ -86,6 +86,7 @@ function normalizeCampaign(campaign) {
  * @return {string}                        The unique key.
  */
 Infringements.prototype.generateKey = function(campaign, uri, metadata) {
+  campaign = normalizeCampaign(campaign);
   return utilities.genLinkKey(JSON.stringify(campaign), uri, metadata);
 }
 
@@ -220,11 +221,12 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
       }
     , updates = {
         $inc: { 'children.count': 1 },
+        $set: { 'children.modified': Date.now() },
         $addToSet: { 'children.uris': child }
       }
     ;
   
-  self.infringements_.update(query, updates, callback);
+  self.infringements_.update(query, updates, defaultCallback);
 
   // Set the reverse link
   query = {
@@ -235,6 +237,7 @@ Infringements.prototype.addRelation = function(campaign, parent, child, callback
   };
   updates = {
     $inc: { 'parents.count': 1 },
+    $set: { 'parents.modified': Date.now() },
     $addToSet: { 'parents.uris': parent }
   };
   
@@ -269,11 +272,12 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
       }
     , updates = {
         $inc: { 'children.count': 1 },
+        $set: { 'children.modified': Date.now() },
         $addToSet: { 'children.uris': uri }
       }
     ;
   
-  self.infringements_.update(query, updates, callback);
+  self.infringements_.update(query, updates, defaultCallback);
 
   // Set the reverse link
   var parent = 'meta+' + owner + ':' + self.generateKey(campaign, uri, owner);
@@ -285,6 +289,7 @@ Infringements.prototype.addMetaRelation = function(campaign, uri, owner, callbac
   };
   updates = {
     $inc: { 'parents.count': 1 },
+    $set: { 'parents.modified': Date.now() },
     $addToSet: { 'parents.uris': parent }
   };
   

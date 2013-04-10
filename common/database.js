@@ -37,6 +37,10 @@ Database.connect = function(callback) {
 
   callback = callback ? callback : function() {};
 
+  if (!DATABASE && CONNECTING) {
+    return WAITING.push([Database.connect, Object.values(arguments)]);
+  }
+
   if (DATABASE) {
     callback(null, DATABASE);
   } else {
@@ -105,10 +109,6 @@ Database.connect = function(callback) {
  */
  Database.connectAndEnsureCollection = function(collectionName, callback) {
   callback = callback ? callback : function() {};
-
-  if (!DATABASE && CONNECTING) {
-    return WAITING.push([Database.connectAndEnsureCollection, Object.values(arguments)]);
-  }
 
   Seq()
     .seq('Get database', function() {

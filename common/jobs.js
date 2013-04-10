@@ -92,7 +92,7 @@ Jobs.prototype.flatten = function(callback, err, jobs) {
  */
 Jobs.prototype.listActiveJobs = function(owner, callback) {
   var self = this
-    , then = Date.utc.create('6 hours ago').getTime()
+    , then = Date.utc.create('3 hours ago').getTime()
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -165,7 +165,7 @@ Jobs.prototype.push = function(owner, consumer, metadata, callback) {
   callback = callback ? callback : defaultCallback;
 
   if (!self.jobs_)
-    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.push, Object.values(arguments)]);
 
   var job = {};
   job._id = {

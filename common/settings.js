@@ -92,9 +92,9 @@ Settings.prototype.get = function(key, callback) {
   if (!self.settings_)
     return self.cachedCalls_.push([self.get, Object.values(arguments)]);
 
-  self.settings_.findOne({ _id: { domain: self.domain_, key: key } }, function(err, value) {
-    if (Object.values(arguments).length === 3)
-      callback(null, value);
+  self.settings_.findOne({ _id: { domain: self.domain_, key: key } }, function(err, doc) {
+    if (doc && doc.value != undefined)
+      callback(null, doc.value);
     else
       callback(err);
   });

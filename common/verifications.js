@@ -108,7 +108,7 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
       $exists: true
     },
     state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
     }
   };
 
@@ -144,7 +144,7 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
       $exists: true
     },
     state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
     }
   };
 
@@ -234,6 +234,139 @@ Verifications.prototype.submit = function(infringement, verification, callback) 
 
     self.infringements_.update(query, updates, callback);
   });
+}
+
+/**
+ * Get verifications for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {date}                  from             The time from which the verifications should be gotten.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Verifications.prototype.getVerifications = function(campaign, from, limit, callback)
+{
+  var self = this
+    , iStates = states.infringements.state
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getVerifications, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    verified: { 
+      $gte: from.getTime()
+    },
+    state: {
+      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE]
+    }
+  };
+
+  var options = { 
+    limit: limit,
+    sort: { created: 1 }
+  };
+
+  self.infringements_.find(query, options).toArray(callback); 
+}
+
+/**
+ * Get unverified parents for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {date}                  from             The time from which the verifications should be gotten.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Verifications.prototype.getAdoptedEndpoints = function(campaign, from, limit, callback)
+{
+  var self = this
+    , iStates = states.infringements.state
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getAdoptedEndpoints, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    'parents.modified': { 
+      $gte: from.getTime()
+    },
+    state: {
+      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE]
+    }
+  };
+
+  var options = { 
+    limit: limit,
+    sort: { created: 1 }
+  };
+
+  console.log(query);
+  self.infringements_.find(query, options).toArray(callback); 
+}
 
 
+/**
+ * Verify a parent infringement.
+ *
+ * @param  {object}                       infringement    The infringement that has been verified.
+ * @param  {number}                       state           The new state of the infringement.
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
+ * @return {undefined}
+ */
+Verifications.prototype.verifyParent = function(infringement, state, callback) {
+  var self = this
+    , iStates = states.infringements.state
+    , stateNot = []
+    ;
+
+  if (!self.infringements_ || !self.verifications_)
+    return self.cachedCalls_.push([self.verifyParent, Object.values(arguments)]);
+
+  // Parent states should only be changed depending on certain conditions, so we 
+  // have to build our tests for these conditions
+  switch(state) {
+    case iStates.UNAVAILABLE:
+      // Don't change state if something has a important tag against it
+      stateNot.push[iStates.VERIFIED, iStates.FALSE_POSITIVE];
+      break;
+
+    case iStates.FALSE_POSITIVE:
+      stateNot.push[iStates.VERIFIED];
+      break;
+
+    case iStates.VERIFIED:
+      // Verified trumps everything
+      break;
+
+    default:
+      callback(new Error(util.format('State %d not supported for parent states', state)));
+      break;
+  }
+
+   // Now update the infringement
+  var query = {
+    _id: infringement._id
+  };
+
+  if (stateNot.length) {
+    query.state = { 
+      $nin: stateNot
+    }
+  }
+
+  var updates = {
+    $set: {
+      state: state,
+      verified: Date.now()
+    }
+  };
+
+  self.infringements_.update(query, updates, callback);
 }

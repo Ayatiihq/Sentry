@@ -27,20 +27,20 @@ function main() {
 
   setupSignals();
 
-  var settings = new Settings('foo.bar');
+  var settings = new Settings(argv[3]);
   var action = argv[2];
 
   if (action === 'get')
-    settings.get(argv[3], console.log);
+    settings.get(argv[4], console.log);
 
   if (action === 'getAll')
     settings.getAll(console.log);
 
   if (action === 'set')
-    settings.set(argv[3], JSON.parse(argv[4]));
+    settings.set(argv[4], JSON.parse(argv[5]).value, console.log);
 
   if (action === 'delete')
-    settings.delete(argv[3]);
+    settings.delete(argv[4]);
 }
 
 main();
