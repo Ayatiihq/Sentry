@@ -24,12 +24,6 @@ function main() {
 
   setupSignals();
 
-  if (process.argv.length !== 3)
-  {
-    logger.warn("Usage: node test_role.js <name_of_role>");
-    process.exit(1);
-  }
-
   var rolename = process.argv[2];
   var Role = require('../common/roles/' + rolename);
   var instance = new Role();

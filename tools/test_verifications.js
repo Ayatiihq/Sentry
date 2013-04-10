@@ -65,6 +65,13 @@ function main() {
     var verification = require(argv[4]);
     verifications.submit(infringement, verification, log);
   }
+
+  if (action === 'getVerifications') {
+    var campaign = require(argv[3]);
+    var from = Date.create(argv[4]);
+    var limit = Number(argv[5]);
+    verifications.getVerifications(campaign, from, limit, log);
+  }
 }
 
 main()

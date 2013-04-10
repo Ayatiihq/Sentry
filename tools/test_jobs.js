@@ -25,6 +25,8 @@ function log(err) {
     console.warn(err);
   else
     console.log.apply(null, Object.values(arguments).slice(1));
+
+  process.exit();
 }
 
 function main() {
@@ -35,11 +37,11 @@ function main() {
 
   setupSignals();
 
-  var jobs = new Jobs('scraper');
+  var jobs = new Jobs('verifier');
   var action = argv[2];
   var id;
   try {
-    id = JSON.parse(argv[3]);
+    id = require(argv[3])._id;
   } catch(err) {
     id = null;
   }

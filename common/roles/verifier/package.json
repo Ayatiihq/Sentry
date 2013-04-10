@@ -1,0 +1,6 @@
+{
+  "name": "verifier",
+  "main": "./verifier.js",
+  "dependencies": {
+  }
+}

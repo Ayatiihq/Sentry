@@ -165,7 +165,7 @@ Jobs.prototype.push = function(owner, consumer, metadata, callback) {
   callback = callback ? callback : defaultCallback;
 
   if (!self.jobs_)
-    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.push, Object.values(arguments)]);
 
   var job = {};
   job._id = {
