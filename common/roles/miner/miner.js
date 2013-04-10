@@ -88,7 +88,7 @@ Miner.prototype.mine = function(campaign, job) {
   self.touchId_ = setInterval(function() {
     self.jobs_.touch(job);
   }, 
-  config.MINER_JOB_TIMEOUT_MINUTES * 60 * 1000);
+  config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
 
   Seq()
     .seq('Get last mine timestamp', function() {

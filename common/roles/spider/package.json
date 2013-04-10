@@ -3,5 +3,6 @@
   "main": "./index.js",
   "dependencies": {
     "selenium": 1
-  }
+  },
+  "dispatcher": "spider"
 }

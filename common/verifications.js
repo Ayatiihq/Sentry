@@ -368,6 +368,5 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
     }
   };
 
-  //self.infringements_.update(query, updates, callback);
-  callback();
+  self.infringements_.update(query, updates, callback);
 }
