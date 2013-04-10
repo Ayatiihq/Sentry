@@ -65,7 +65,7 @@ BittorrentPortal.prototype.handleResults = function () {
       }
       else {
         logger.info('managed to scrape ' + self.results.length + ' torrents');
-        //self.cleanup();
+        self.cleanup();
         //self.getTorrentsDetails();
       }
     }
@@ -322,7 +322,6 @@ IsoHuntScraper.prototype.nextPage = function (source) {
 };
 
 IsoHuntScraper.prototype.checkHasNextPage = function (source) {
-  return false;
   var self = this;
   var result = isohuntparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))

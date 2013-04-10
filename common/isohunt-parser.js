@@ -1,4 +1,5 @@
 require('sugar');
+
 var acquire = require('acquire')
   , TorrentDescriptor = acquire('spidered').TorrentDescriptor 
   , SpideredStates = acquire('spidered').SpideredStates    
@@ -13,7 +14,7 @@ var ISOHUNT_ROOT = 'http://www.isohunt.com';
 /*
  * Scrape the results page and create TorrentDescriptor instance per result
  * @param  {string}   source   The source of the given page
- * @return {array}             Populated or not with instances of Spidereds.
+ * @return {array}             Populated with instances of Spidereds.
  */
 IsoHuntParser.resultsPage = function(source, campaign){
   var links = [];
@@ -40,7 +41,6 @@ IsoHuntParser.resultsPage = function(source, campaign){
 	var roughDate = null;
 
 	$("td").each(function(){
-
 		if(testAttr.call(this, $, 'id', /row_[0-9]_[0-9]+/)){
 			roughDate = makeRoughDate($(this).text());
 		}
@@ -63,21 +63,19 @@ IsoHuntParser.resultsPage = function(source, campaign){
         var torrent =  new TorrentDescriptor(torrentName,
                                              campaign.type,
                                              entityLink);              
-        torrent.fileSize = fileSize;
         torrent.date = roughDate;
         logger.info("Just created : " + JSON.stringify(torrent));
         links.push(torrent);			
 				
 				torrentName = null;
-				entityLink = null;;
+				entityLink = null;
 				roughDate = null;
 				age = null;
 		}		
 		else{
-        logger.warn('fail to create : ' + JSON.stringify({fileSize: fileSize,
-                                                          date: roughDate,
+        /*logger.warn('fail to create : ' + JSON.stringify({date: roughDate,
                                                           name: torrentName,
-                                                          link: entityLink}));
+                                                          link: entityLink}));*/
 		}
 	});
   return links;
@@ -88,6 +86,16 @@ IsoHuntParser.resultsPage = function(source, campaign){
  * @return {dictionary}          With keys 'currentPage' (null or int)  and 'otherPages' (an array).
  */
 IsoHuntParser.paginationDetails = function(source){
+  var $ = cheerio.load(source);
+  var numbers = [];
+  results = {currentPage : null, otherPages: []};
+  $("table.pager td u").text().words(function(word){
+  	if(parseInt(word))
+    	numbers.push(parseInt(word)); 
+  });
+	results.currentPage = numbers.min();
+	results.otherPages.push(numbers.max());
+  return results;
 }
 
 
