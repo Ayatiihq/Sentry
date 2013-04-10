@@ -11,6 +11,7 @@
   "endpoint-wrangler": "common/endpoint-wrangler.js",
   "iframe-exploder": "common/iframe-exploder.js",
   "infringements": "common/infringements.js",
+  "isohunt-parser": "common/isohunt-parser",
   "jobs": "common/jobs.js",
   "kat-parser": "common/kat-parser.js",  
   "links": "common/links.js",
