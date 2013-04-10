@@ -313,7 +313,7 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
 
    // Now update the infringement
   var query = {
-    _id: infringement._id,
+    _id: infringement._id
   };
 
   if (stateNot.length) {

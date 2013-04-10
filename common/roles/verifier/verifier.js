@@ -72,7 +72,11 @@ Verifier.prototype.processJob = function(err, job) {
       self.emit('error', err);
       return;
     }
-    self.verify(campaign, job);
+
+    if (job._id.consumer.endsWith('rtl'))
+      self.verifyRTL(campaign, job);
+    else
+      self.verifyLTR(campaign, job);
   });
 }
 
@@ -80,7 +84,7 @@ Verifier.prototype.getCampaignKey = function(campaign) {
   return util.format('%s.%s.%s', campaign.name, campaign.created, 'timestamp');
 }
 
-Verifier.prototype.verify = function(campaign, job) {
+Verifier.prototype.verifyRTL = function(campaign, job) {
   var self = this
     , key = self.getCampaignKey(campaign)
     ;
@@ -166,6 +170,8 @@ Verifier.prototype.verifyLinks = function(campaign, endpoints, done) {
 Verifier.prototype.dominoEndpoint = function(campaign, endpoint, done) {
   var self = this;
 
+  logger.info('%s has %d parents', endpoint._id, endpoint.parents.uris.length);
+
   Seq(endpoint.parents.uris)
     .seqEach(function(parent) {
       self.updateParentState(campaign, endpoint, parent, this);
@@ -190,6 +196,16 @@ Verifier.prototype.updateParentState = function(campaign, endpoint, parentUri, d
   }
   logger.info('Setting %s to %d for %s', infringement._id, endpoint.state, endpoint._id);
   self.verifications_.verifyParent(infringement, endpoint.state, done);
+}
+
+//
+// LTR
+//
+
+Verifier.prototype.verifyLTR = function(campaign, job) {
+  var self = this;
+
+  console.log('LTR');
 }
 
 //
