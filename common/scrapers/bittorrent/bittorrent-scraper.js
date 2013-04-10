@@ -19,11 +19,13 @@ var acquire = require('acquire')
 ;
 
 //TODO
-//1. Align the various genres with our own campaign types so as automatic 
+//1: Align the various genres with our own campaign types so as automatic 
 //query sorting can be determined from campaign type.
-//2. Get rid of the unnecessary inheritance on BittorrentPortal and use a
+//2: Get rid of the unnecessary inheritance on BittorrentPortal and use a
 //factory type pattern to create instances for KAT and isohunt assigning parsing methods
 //to this instance.
+//3: Properly construct query strings based on the campaign type, some translation table needed.
+//Right now its hardcoded to audio. 
 
 
 var Scraper = acquire('scraper');
@@ -38,7 +40,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
