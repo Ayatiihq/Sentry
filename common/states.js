@@ -24,7 +24,8 @@ exports.infringements = {
     TAKE_DOWN_SENT: 3,
     TAKEN_DOWN: 4,
     NEEDS_SCRAPE: 5,
-    DEFERRED: 6
+    DEFERRED: 6,
+    UNAVAILABLE: 7
   }
 };
 

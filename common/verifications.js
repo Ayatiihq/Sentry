@@ -108,7 +108,7 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
       $exists: true
     },
     state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
     }
   };
 
@@ -144,7 +144,7 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
       $exists: true
     },
     state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED ]
+      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
     }
   };
 
