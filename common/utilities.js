@@ -237,28 +237,36 @@ Utilities.followRedirects = function(links, promise) {
 
   function onHeadResponse(results, thePromise, err, resp, html){
     if(err){
-      logger.info('error onHeadResponse ! : ' + err.message);
+      logger.warn('error onHeadResponse ! : ' + err.message);
       thePromise.resolve(results);
       return;      
     }
 
-    var circularCheck = results.some(resp.headers.location); 
+    var redirect = null;
+    if(resp.headers.location){
+      redirect = URI(resp.headers.location.replace(/\s/g, ""));
+      if(redirect.is("relative"))
+        redirect = redirect.absoluteTo(results.last());      
+    }
+
+    if(!redirect){
+      thePromise.resolve(results);      
+      return;      
+    }
+    // Make sure to check infinite looping against the 
+    // full uri and not just the headers.location
+    var circularCheck = results.some(redirect.toString()); 
 
     if(circularCheck){
       logger.info('clocked a circular reference - finish up');
       thePromise.resolve(results);
     }
-    else if(resp.headers.location){
-      var redirect = URI(resp.headers.location.replace(/\s/g, ""));
-      if(redirect.is("relative"))
-        redirect = redirect.absoluteTo(links.last());
+    else{
       // push this link into our results  
       results.push(redirect.toString());
       logger.info('request redirect location : ' + redirect.toString());
-      Utilities.followRedirects(results, thePromise);
-    }
-    else{
-      thePromise.resolve(results);      
+      // go again.
+      followRedirects(results, thePromise);
     }
   }
   // Request just the headers with a long timeout
