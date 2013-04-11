@@ -151,6 +151,7 @@ Master.prototype.loop = function() {
       logger.info('Going down for update');
       process.exit(0);
     }
+    logger.info('Waiting for %s more workers to finish before exiting for update', workerCount);
     return;
   }
 

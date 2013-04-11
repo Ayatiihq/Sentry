@@ -35,7 +35,7 @@ StandardDispatcher.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.roles_ = new Roles();
 
-  setTimeout(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
+  setInterval(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
   
   self.roles_.on('ready', self.iterateCampaigns.bind(self));
 }
@@ -85,7 +85,7 @@ StandardDispatcher.prototype.checkCampaign = function(campaign, jobs, role, cons
       return logger.warn('Unable to get active jobs for campaign %s, %s', consumer, err);
     }
 
-    if (self.doesCampaignNeedJob(campaign, jobs, existingJobs[consumer])) {
+    if (self.doesCampaignNeedJob(campaign, role, jobs, existingJobs[consumer])) {
       self.createJob(campaign, jobs, role, consumer);
     } else {
       logger.info('Existing job for %s', consumer);
@@ -93,7 +93,7 @@ StandardDispatcher.prototype.checkCampaign = function(campaign, jobs, role, cons
   });
 }
 
-StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, jobs, lastJob) {
+StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, role, jobs, lastJob) {
   var self = this;
 
   if (!lastJob)
@@ -109,6 +109,11 @@ StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, jobs, last
       if (tooLong)
         jobs.close(lastJob, states.ERRORED, new Error('Timed out'));
       return tooLong;
+
+    case states.COMPLETED:
+      var waitBeforeNextRun = role.intervalMinutes ? role.intervalMinutes : campaign.sweepIntervalMinutes;
+      var waitedLongEnough = Date.create(lastJob.finished).isBefore(waitBeforeNextRun + ' minutes ago');
+      return waitedLongEnough;
 
     default:
       return true;

@@ -6,5 +6,6 @@
   "engines": [
     "rtl",
     "ltr"
-  ]
+  ],
+  "intervalMinutes": 5
 }
