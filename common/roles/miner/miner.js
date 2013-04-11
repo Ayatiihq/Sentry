@@ -50,7 +50,7 @@ Miner.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.infringements_ = new Infringements();
   self.links_ = new Links();
-  self.settings_ = new Settings('miner');
+  self.settings_ = new Settings('role.miner');
   self.jobs_ = new Jobs('miner');
 }
 
