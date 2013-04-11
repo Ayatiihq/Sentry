@@ -35,7 +35,7 @@ StandardDispatcher.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.roles_ = new Roles();
 
-  setTimeout(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
+  setInterval(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
   
   self.roles_.on('ready', self.iterateCampaigns.bind(self));
 }
