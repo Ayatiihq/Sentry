@@ -13,9 +13,20 @@ var acquire = require('acquire')
   , URI = require('URIjs')  
   , Settings = acquire('settings')  
   , katparser = acquire('kat-parser')
+  , isohuntparser = acquire('isohunt-parser')  
   , Storage = acquire('storage')
   , Promise = require('node-promise')
 ;
+
+//TODO
+//1: Align the various genres with our own campaign types so as automatic 
+//query sorting can be determined from campaign type.
+//2: Get rid of the unnecessary inheritance on BittorrentPortal and use a
+//factory type pattern to create instances for KAT and isohunt assigning parsing methods
+//to this instance.
+//3: Properly construct query strings based on the campaign type, some translation table needed.
+//Right now its hardcoded to audio. 
+
 
 var Scraper = acquire('scraper');
 
@@ -92,8 +103,8 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   var albumTitle = self.campaign.metadata.albumTitle;
-  var query = albumTitle.escapeURL(true) + '%20category%3Amusic/';
-  return query
+  var query = albumTitle.escapeURL(true);
+  return query;
 };
 
 BittorrentPortal.prototype.buildSearchQueryTrack = function () {
@@ -125,15 +136,18 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 message: 'Link to actual Torrent file from ' + self.engineName,
                 fileSize: torrent.fileSize,
                 type: torrent.genre});
-    self.emit('torrent',
-               torrent.magnet,
-               MAX_SCRAPER_POINTS / 1.25,
-               {source: 'scraper.bittorrent.' + self.engineName,
-                message: 'Torrent page at ' + self.engineName,
-                fileSize: torrent.fileSize,
-                type: torrent.genre});
-    self.emit('relation', torrent.activeLink.uri, torrent.magnet);
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
+    if(torrent.magnet){
+      self.emit('torrent',
+                 torrent.magnet,
+                 MAX_SCRAPER_POINTS / 1.25,
+                 {source: 'scraper.bittorrent.' + self.engineName,
+                  message: 'Torrent page at ' + self.engineName,
+                  fileSize: torrent.fileSize,
+                  type: torrent.genre});
+      self.emit('relation', torrent.activeLink.uri, torrent.magnet);
+      self.emit('relation', torrent.magnet, torrent.hash_ID);
+    }
     self.emit('torrent',
                torrent.hash_ID,
                MAX_SCRAPER_POINTS,
@@ -141,7 +155,6 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 message: 'Torrent hash scraped from ' + self.engineName,
                 fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
                 type: torrent.genre});
-    self.emit('relation', torrent.magnet, torrent.hash_ID);
     self.emit('relation', torrent.directLink, torrent.hash_ID);
     self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
   });
@@ -190,7 +203,12 @@ KatScraper.prototype.beginSearch = function () {
 
 KatScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
-  var queryString = self.root + '/usearch/' + self.searchTerm + pageNumber + '/' + "?field=time_add&sorder=desc";
+  var queryString = self.root +
+                    '/usearch/' + 
+                    self.searchTerm +  
+                    '%20category%3Amusic/' + 
+                    pageNumber + '/' + 
+                    "?field=time_add&sorder=desc";
   self.remoteClient.get(queryString);
   self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
     if (element) {
@@ -206,13 +224,16 @@ KatScraper.prototype.searchQuery = function(pageNumber){
 KatScraper.prototype.getTorrentsDetails = function(){
   var self = this;
   function torrentDetails(torrent){
+    function goGetIt(prom){
+      self.remoteClient.get(torrent.activeLink.uri);
+      self.remoteClient.getPageSource().then(function(source){
+        katparser.torrentPage(source, torrent);
+        prom.resolve();
+      });
+    }
     var promise = new Promise.Promise;
-    self.remoteClient.sleep(1000 * Number.random(1,5));
-    self.remoteClient.get(torrent.activeLink.uri);
-    self.remoteClient.getPageSource().then(function(source){
-      katparser.torrentPage(source, torrent);
-      promise.resolve();
-    });
+    var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
+    setTimeout(function(){ goGetIt(promise);}, randomTime * 1000);
     return promise;
   }
   var promiseArray;
@@ -237,6 +258,84 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var self = this;
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
+    return false;
+  return true; 
+};
+
+/* -- ISOHunt Scraper */
+var IsoHuntScraper = function (campaign) {
+  var self = this;
+  self.constructor.super_.call(self, campaign);
+  self.engineName = 'isohunt';
+  self.root = 'http://www.isohunt.com';
+};
+
+util.inherits(IsoHuntScraper, BittorrentPortal);
+
+IsoHuntScraper.prototype.beginSearch = function () {
+  var self = this;
+  self.resultsCount = 0;
+  self.emit('started');
+  self.remoteClient.get(self.root); 
+  self.remoteClient.sleep(2000);
+  self.searchQuery(1);//pageNumber
+};
+
+IsoHuntScraper.prototype.searchQuery = function(pageNumber){
+  var self = this;
+  var categoryID = 2;
+  var queryString = self.root + 
+                    '/torrents/' + 
+                    self.searchTerm + '?' +
+                    'iht=' + categoryID +
+                    '&ihp=' + pageNumber +
+                    '&ihs1=5&iho1=d';
+  self.remoteClient.get(queryString);
+  self.remoteClient.findElement(webdriver.By.css('table#serps')).then(function gotSearchResults(element) {
+    if (element) {
+      self.handleResults();
+    }
+    else {
+      self.emit('error', ERROR_NORESULTS);
+      self.cleanup();
+    }
+  });
+}
+
+IsoHuntScraper.prototype.getTorrentsDetails = function(){
+  var self = this;
+  function torrentDetails(torrent){
+    var promise = new Promise.Promise;
+    self.remoteClient.sleep(1000 * Number.random(1,5));
+    self.remoteClient.get(torrent.activeLink.uri);
+    self.remoteClient.getPageSource().then(function(source){
+      isohuntparser.torrentPage(source, torrent);
+      promise.resolve();
+    });
+    return promise;
+  }
+  var promiseArray;
+  promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
+  Promise.seq(promiseArray).then(function(){
+    self.emitInfringements();
+  }); 
+}
+
+IsoHuntScraper.prototype.getTorrentsFromResults = function (source) {
+  var self = this;
+  return isohuntparser.resultsPage(source, self.campaign);
+};
+
+IsoHuntScraper.prototype.nextPage = function (source) {
+  var self = this;
+  var result = isohuntparser.paginationDetails(source);
+  self.searchQuery(result.currentPage + 1);
+};
+
+IsoHuntScraper.prototype.checkHasNextPage = function (source) {
+  var self = this;
+  var result = isohuntparser.paginationDetails(source);
+  if(result.otherPages.isEmpty() || (result.otherPages.max() <= result.currentPage))
     return false;
   return true;  
 };
@@ -264,6 +363,7 @@ Bittorrent.prototype.start = function (campaign, job) {
   logger.info('started for %s', campaign.name);
   var scraperMap = {
     'kat': KatScraper,
+    'isohunt' : IsoHuntScraper
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
