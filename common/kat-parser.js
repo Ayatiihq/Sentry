@@ -19,6 +19,8 @@ KatParser.resultsPage = function(source, campaign){
 
   var links = [];
   var $ = cheerio.load(source);
+  var releaseDateCuttoff = Date.create(campaign.metadata.releaseDate);
+  releaseDateCuttoff.addWeeks(-2);
 
   function testAttr($$, attrK, test){
     return $$(this).attr(attrK) && $$(this).attr(attrK).match(test);
@@ -39,13 +41,10 @@ KatParser.resultsPage = function(source, campaign){
           magnet = $(this).attr('href');
         if(testAttr.call(this, $, 'title', /Download torrent file/))
           fileLink = $(this).attr('href');
-        // TODO there are other types which i have yet to capture - 1 in 50 or so fails.
-        if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music)Type$/)){
+        if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music|zip)Type$/)){
           try{
             var inst = URI($(this).attr('href'));
             entityLink = inst.absoluteTo(KAT_ROOT).toString();
-            //logger.info('entityLink ' + entityLink + ' Kat root ' + KAT_ROOT);
-
           }
           catch(err){
             logger.warn('failed to create valid entity link : ' + err);
@@ -75,9 +74,7 @@ KatParser.resultsPage = function(source, campaign){
           })            
           roughDate = Date.create()['add' + offsetLiteral](-offset);
           if(campaign && campaign.metadata.releaseDate){
-            var relDate = Date.create(campaign.metadata.releaseDate);
-            relDate.addWeeks(-2);
-            relevant = relDate.isBefore(roughDate);
+            relevant = releaseDateCuttoff.isBefore(roughDate);
           }
         }
       });
@@ -95,13 +92,20 @@ KatParser.resultsPage = function(source, campaign){
         //logger.info('just created : ' + JSON.stringify(torrent));
       }
       else{
-        logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
-                                                          fileSize: size,
-                                                          date: roughDate,
-                                                          file: fileLink,
-                                                          name: torrentName,
-                                                          link: entityLink}));
-      }
+        if(!relevant){
+          logger.info('Ignored ' + torrentName + 
+                      ' relDate cutoff : ' + releaseDateCuttoff +
+                      ' rough torrent date : ' + roughDate);
+        }
+        else{
+          logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
+                                                            fileSize: size,
+                                                            date: roughDate,
+                                                            file: fileLink,
+                                                            name: torrentName,
+                                                            link: entityLink}));
+        }
+      } 
     }
   });  
   return links;  

@@ -46,8 +46,7 @@ IsoHuntParser.resultsPage = function(source, campaign){
 	$("td").each(function(){
 		if(testAttr.call(this, $, 'id', /row_[0-9]_[0-9]+/)){
 			roughDate = makeRoughDate($(this).text());
-			if(roughDate.isBefore(cutoff))
-				relevant = false;
+			relevant = cutoff.isBefore(roughDate);
 		}
 		if(testAttr.call(this, $, 'class', /row3/) &&
 			testAttr.call(this, $, 'id', /name[0-9]+/)){			
@@ -65,23 +64,18 @@ IsoHuntParser.resultsPage = function(source, campaign){
 			});
 		}
 		if(torrentName && entityLink && roughDate && relevant){
-        var torrent =  new TorrentDescriptor(torrentName,
-                                             campaign.type,
-                                             entityLink);              
-        torrent.date = roughDate;
-        //logger.info("Just created : " + JSON.stringify(torrent));
-        links.push(torrent);			
-				
-				torrentName = null;
-				entityLink = null;
-				roughDate = null;
-				age = null;
+      var torrent =  new TorrentDescriptor(torrentName,
+                                           campaign.type,
+                                           entityLink);              
+      torrent.date = roughDate;
+      //logger.info("Just created : " + JSON.stringify(torrent));
+      links.push(torrent);			
+			
+			torrentName = null;
+			entityLink = null;
+			roughDate = null;
+			age = null;
 		}		
-		else{
-        /*logger.warn('fail to create : ' + JSON.stringify({date: roughDate,
-                                                          name: torrentName,
-                                                          link: entityLink}));*/
-		}
 	});
   return links;
 }
