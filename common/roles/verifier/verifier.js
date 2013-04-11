@@ -51,7 +51,7 @@ Verifier.prototype.init = function() {
 
   self.campaigns_ = new Campaigns();
   self.infringements_ = new Infringements();
-  self.settings_ = new Settings('role.verifier');
+  self.settings_ = new Settings('verifier');
   self.jobs_ = new Jobs('verifier');
   self.verifications_ = new Verifications();
 }
