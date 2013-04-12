@@ -266,7 +266,7 @@ Utilities.followRedirects = function(links, promise) {
       results.push(redirect.toString());
       logger.info('request redirect location : ' + redirect.toString());
       // go again.
-      followRedirects(results, thePromise);
+      Utilities.followRedirects(results, thePromise);
     }
   }
   // Request just the headers with a long timeout
