@@ -123,7 +123,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.state = state;
   entity.created = Date.now();
   entity.points = {
-    total: pointsEntry.score,
+    total: pointsEntry.score ? pointsEntry.score : 0,
     modified: Date.now(),
     entries: [ pointsEntry ]
   };
