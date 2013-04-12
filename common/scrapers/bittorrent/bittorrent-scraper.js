@@ -125,35 +125,35 @@ BittorrentPortal.prototype.emitInfringements = function () {
   self.results.each(function (torrent){
     self.emit('torrent',
                torrent.activeLink.uri,
-               MAX_SCRAPER_POINTS / 2,
-               {source: 'scraper.bittorrent' + self.engineName,
-                message: 'Torrent page at ' + self.engineName,
-                type: torrent.genre});
+               {score: MAX_SCRAPER_POINTS / 2,
+                source: 'scraper.bittorrent.' + self.engineName,
+                message: 'Torrent page at ' + self.engineName},
+               {type: torrent.genre});
     self.emit('torrent',
                torrent.directLink,
-               MAX_SCRAPER_POINTS / 1.5,
-               {source: 'scraper.bittorrent.' + self.engineName,
-                message: 'Link to actual Torrent file from ' + self.engineName,
-                fileSize: torrent.fileSize,
+               {score: MAX_SCRAPER_POINTS / 1.5,
+                source: 'scraper.bittorrent.' + self.engineName,
+                message: 'Link to actual Torrent file from ' + self.engineName},
+               {fileSize: torrent.fileSize,
                 type: torrent.genre});
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
     if(torrent.magnet){
       self.emit('torrent',
                  torrent.magnet,
-                 MAX_SCRAPER_POINTS / 1.25,
-                 {source: 'scraper.bittorrent.' + self.engineName,
-                  message: 'Torrent page at ' + self.engineName,
-                  fileSize: torrent.fileSize,
+                 {score: MAX_SCRAPER_POINTS / 1.25,
+                  source: 'scraper.bittorrent.' + self.engineName,
+                  message: 'Torrent page at ' + self.engineName},
+                 {fileSize: torrent.fileSize,
                   type: torrent.genre});
       self.emit('relation', torrent.activeLink.uri, torrent.magnet);
       self.emit('relation', torrent.magnet, torrent.hash_ID);
     }
     self.emit('torrent',
                torrent.hash_ID,
-               MAX_SCRAPER_POINTS,
-               {source: 'scraper.bittorrent' + self.engineName,
-                message: 'Torrent hash scraped from ' + self.engineName,
-                fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
+               {score: MAX_SCRAPER_POINTS, 
+                source: 'scraper.bittorrent' + self.engineName,
+                message: 'Torrent hash scraped from ' + self.engineName},
+               {fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
                 type: torrent.genre});
     self.emit('relation', torrent.directLink, torrent.hash_ID);
     self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
