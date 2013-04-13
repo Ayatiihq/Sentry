@@ -12,7 +12,6 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('noticesender.js')
-  , Seq = require('seq')
   , states = acquire('states')
   , util = require('util')
   , URI = require('URIjs')
@@ -24,8 +23,11 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Notices = acquire('notices')
   , Role = acquire('role')
+  , Settings = acquire('settings')
   , Seq = require('seq')
   ;
+
+var EmailEngine = require('./email-engine');
 
 var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
@@ -33,6 +35,9 @@ var NoticeSender = module.exports = function() {
   this.infringements_ = null;
   this.jobs_ = null;
   this.notices_ = null;
+  this.settings_ = null;
+
+  this.engines_ = {};
 
   this.started_ = false;
 
@@ -40,6 +45,7 @@ var NoticeSender = module.exports = function() {
   this.timestampIsVerified_ = true;
 
   this.job_ = null;
+  this.campaign_ = null;
 
   this.init();
 }
@@ -54,6 +60,7 @@ NoticeSender.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('noticesender');
   self.notices_ = new Notices();
+  self.settings_ = new Settings('role.noticesender');
 }
 
 NoticeSender.prototype.processJob = function(err, job) {
@@ -181,9 +188,8 @@ NoticeSender.prototype.processBatch = function(batch, done) {
         logger.warn('Host "%s" does not exist', batch.key);
         return done();
       }
-
       batch.host = host;
-      this();
+      self.checkAndSend(host, batch.infringements, done);
     })
     .seq(function() {
       done();
@@ -193,6 +199,98 @@ NoticeSender.prototype.processBatch = function(batch, done) {
       done();
     })
     ;
+}
+
+NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
+  var self = this
+    , settingsKey = self.campaigns_.hash(self.campaign_)
+    ;
+
+  Seq()
+    .seq(function() {
+      self.settings_.get(settingsKey, this);
+    })
+    .seq(function(settings) {
+      host.settings = settings ? settings : {};
+
+      if (!self.hostTriggered(host, infringements)) {
+        logger.info('None of the triggers are met for %s, moving on', host._id);
+        return done();
+      }
+      self.sendNotice(host, infringements, this);
+    })
+    .seq(function() {
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Error processing batch for %s: %s', host, err);
+      done();
+    })
+    ;
+}
+
+//
+// Checks that any of the hosts triggers have been, er, triggered.
+//
+NoticeSender.prototype.hostTriggered = function(host, infringements) {
+  var self = this
+    , triggered = false
+    , triggers = host.noticeDetails.triggers
+    , lastTriggered = host.settings.lastTriggered
+    ;
+
+  lastTriggered = lastTriggered ? lastTriggered : 0;
+
+  Object.keys(triggers).forEach(function(trigger) {
+    var value = triggers[trigger];
+
+    switch(trigger) {
+      case 'minutesSinceLast':
+        if (Date.create(lastTriggered).isBefore(value + ' minutes ago'))
+          triggered = true;
+        break;
+
+      case 'pendingNotices':
+        if (infringements.length > value)
+          triggered = true;
+
+      default:
+        console.warn('%s is an unsupported trigger', trigger);
+    }
+  });
+
+  return triggered;
+}
+
+NoticeSender.prototype.sendNotice = function(host, infringements, done) {
+  var self =  this
+    , noticeDetails = host.noticeDetails
+    ;
+
+  var engine = self.loadEngineForHost(host);
+  if (!engine) {
+    var err = util.format('No engine available of type %s for %s',
+                          noticeDetails.type, host._id);
+    return done(new Error(err));
+  }
+
+  engine.on('notice', function(notice) {
+    console.log(notice);
+    // Add notice to db
+  });
+  engine.goPostal(done);
+}
+
+NoticeSender.prototype.loadEngineForHost = function(host, infringements) {
+  var self = this;
+
+  switch (host.noticeDetails.type) {
+    case 'email':
+      return new EmailEngine(self.campaign_, host, infringements);
+
+    default:
+      return null;
+  }
 }
 
 
