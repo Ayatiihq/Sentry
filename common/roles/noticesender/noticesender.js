@@ -19,22 +19,20 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Notices = acquire('notices')
   , Role = acquire('role')
-  , Settings = acquire('settings')
   , Seq = require('seq')
   ;
 
-var MAX_LINKS = 100;
-
 var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
+  this.hosts_ = null;
   this.infringements_ = null;
-  this.settings_ = null;
   this.jobs_ = null;
-  this.verifications_ = null;
+  this.notices_ = null;
 
   this.started_ = false;
 
@@ -52,8 +50,8 @@ NoticeSender.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.hosts_ = new Hosts();
   self.infringements_ = new Infringements();
-  self.settings_ = new Settings('role.noticesender');
   self.jobs_ = new Jobs('noticesender');
   self.notices_ = new Notices();
 }
@@ -73,6 +71,13 @@ NoticeSender.prototype.processJob = function(err, job) {
   self.touchId_ = setInterval(function() {
     self.jobs_.touch(job);
   }, config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+  process.on('uncaughtException', onError);
 
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
@@ -95,21 +100,21 @@ NoticeSender.prototype.getInfringements = function() {
       self.notices_.getReadyForNotice(self.campaign_, this);
     })
     .seq(function(infringements) {
-      self.collectInfringements(infringements, this);
+      self.batchInfringements(infringements, this);
     })
-    .seq(function(collected) {
-      self.goPostal(collected, this);
+    .seq(function(batched) {
+      self.processBatches(batched, this);
     })
     .seq(function() {
-      console.log('Done');
+      logger.info('Done');
     })
     .catch(function(err) {
-      console.error(err);
+      console.warn(err);
     })
     ;
 }
 
-NoticeSender.prototype.collectInfringements = function(infringements, done) {
+NoticeSender.prototype.batchInfringements = function(infringements, done) {
   var self = this
     , map = {}
     ;
@@ -128,7 +133,7 @@ NoticeSender.prototype.collectInfringements = function(infringements, done) {
         key = uri.domain();
 
       } catch (err) { 
-        console.warn('Error processing %s: %s', link.uri, err);
+        logger.warn('Error processing %s: %s', link.uri, err);
       }
     }
 
@@ -136,7 +141,7 @@ NoticeSender.prototype.collectInfringements = function(infringements, done) {
       map[key].infringements.push(link);
     } else {
       map[key] = {
-        domain: key,
+        key: key,
         infringements: [link]
       };
     }
@@ -145,22 +150,46 @@ NoticeSender.prototype.collectInfringements = function(infringements, done) {
  done(null, Object.values(map));
 }
 
-NoticeSender.prototype.goPostal = function(collected, done) {
+NoticeSender.prototype.processBatches = function(batches, done) {
   var self = this
     ;
 
-  Seq(collected)
-    .seqEach(function(host) {
-      console.log('%s has %d links', host.domain, host.infringements.length);
-      if (host.domain.length < 1)
-        console.log(JSON.stringify(host, null, '\t'));
+  Seq(batches)
+    .seqEach(function(batch) {
+      logger.info('%s has %d infringements', batch.key, batch.infringements.length);
+      self.processBatch(batch, this);
+    })
+    .seq(function() {
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Error processing batches %j: %s', batches, err);
+      done(err);
+    })
+    ;
+}
+
+NoticeSender.prototype.processBatch = function(batch, done) {
+  var self = this;
+
+  Seq()
+    .seq(function() {
+      self.hosts_.get(batch.key, this);
+    })
+    .seq(function(host) {
+      if (!host || !host.noticeDetails) {
+        logger.warn('Host "%s" does not exist', batch.key);
+        return done();
+      }
+
+      batch.host = host;
       this();
     })
     .seq(function() {
       done();
     })
     .catch(function(err) {
-      console.error(err);
+      logger.warn('Error processing batch %j: %s', batch, err);
       done();
     })
     ;

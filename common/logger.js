@@ -8,6 +8,8 @@
  *
  */
 
+// var __LINE__ = (new Error).stack.split("\n")[1].match(/:([0-9]+):/)[1];
+
 var cluster = require('cluster')
   , os = require('os')
   , util = require('util')

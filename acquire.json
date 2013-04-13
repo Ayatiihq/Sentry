@@ -1,5 +1,6 @@
 {
   "analytics": "common/analytics.js",
+  "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
   "blacklist": "common/blacklist.js",
   "campaigns": "common/campaigns.js",
   "clients": "common/clients.js",
@@ -7,8 +8,8 @@
   "config": "common/config.js",
   "cyberlockers": "common/cyberlockers.js",
   "database": "common/database.js",
-  "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
+  "hosts": "common/hosts.js",
   "iframe-exploder": "common/iframe-exploder.js",
   "infringements": "common/infringements.js",
   "isohunt-parser": "common/isohunt-parser",

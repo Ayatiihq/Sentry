@@ -67,6 +67,13 @@ Miner.prototype.processJob = function(err, job) {
     return;
   }
 
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+  process.on('uncaughtException', onError);
+
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
       self.emit('error', err);
