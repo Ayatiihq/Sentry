@@ -22,27 +22,27 @@ var Logger = function(filename) {
     id += '::' + cluster.worker.id;
   }
 
-  this.prefix_ = id + ':' + filename + ': ';
+  this.prefix_ = id + ':' + filename + ':';
 }
 
 Logger.prototype.info = function() {
   var string = util.format.apply(null, arguments);
-  winston.info(this.prefix_ +  string);
+  winston.info(this.prefix_ + ':' + string);
 }
 
 Logger.prototype.debug = function() {
   var string = util.format.apply(null, arguments);
-  winston.debug(this.prefix_ +  string);
+  winston.debug(this.prefix_ + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.warn = function() {
   var string = util.format.apply(null, arguments);
-  winston.warn(this.prefix_ +  string);
+  winston.warn(this.prefix_ + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.error = function() {
   var string = util.format.apply(null, arguments);
-  winston.error(this.prefix_ +  string);
+  winston.error(this.prefix_ + lineNumber() + ': ' +  string);
 }
 
 exports.forFile = function(filename) {
@@ -52,4 +52,8 @@ exports.forFile = function(filename) {
 exports.init = function() {
   winston.remove(winston.transports.Console);
   winston.add(winston.transports.Console, { colorize: true, timestamp: true });
+}
+
+function lineNumber() {
+  return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
 }
