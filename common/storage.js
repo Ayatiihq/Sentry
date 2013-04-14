@@ -125,3 +125,23 @@ Storage.prototype.createFromURL = function(name, url, options, callback) {
     self.createFromText(name, body, options, callback);
   });
 }
+
+/*
+ * Create a new file in storage from a URL, optionally overwrite an existing one.
+ *
+ * @param  {string}           name                 The content's name.
+ * @param  {object}           options              The options object.
+ * @param  {function(err)}    callback             A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Storage.prototype.getToText = function(name, options, callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.blobService_)
+    return self.cachedCalls_.push([self.getToText, Object.values(arguments)]);
+
+  self.blobService_.getBlobToText(self.container_, name, options, function(err, text) {
+    callback(err, text);
+  });
+}

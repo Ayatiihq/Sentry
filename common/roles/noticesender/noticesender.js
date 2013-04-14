@@ -18,6 +18,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Clients = acquire('clients')
   , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
@@ -31,6 +32,7 @@ var EmailEngine = require('./email-engine');
 
 var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
+  this.clients_ = null;
   this.hosts_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
@@ -56,6 +58,7 @@ NoticeSender.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.clients_ = new Clients();
   self.hosts_ = new Hosts();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('noticesender');
@@ -86,20 +89,29 @@ NoticeSender.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
-  self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
-    if (err) {
-      self.emit('error', err);
-      return;
-    }
-
-    self.job_ = job;
-    self.campaign_ = campaign;
-    
-    self.getInfringements();
-  });
+  Seq()
+    .seq(function() {
+      self.job_ = job;
+      self.campaigns_.getDetails(job._id.owner, this);
+    })
+    .seq(function(campaign) {
+      self.campaign_ = campaign;
+      self.clients_.get(campaign._id.client, this);
+    })
+    .seq(function(client) {
+      self.client_ = client;
+      self.getInfringements(this);
+    })
+    .seq(function() {
+      logger.info('Done');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job %j: %s', job, err);
+    })
+    ;
 }
 
-NoticeSender.prototype.getInfringements = function() {
+NoticeSender.prototype.getInfringements = function(done) {
   var self = this;
 
   Seq()
@@ -113,10 +125,10 @@ NoticeSender.prototype.getInfringements = function() {
       self.processBatches(batched, this);
     })
     .seq(function() {
-      logger.info('Done');
+      done()
     })
     .catch(function(err) {
-      console.warn(err);
+      done(err)
     })
     ;
 }
@@ -286,7 +298,7 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements) {
 
   switch (host.noticeDetails.type) {
     case 'email':
-      return new EmailEngine(self.campaign_, host, infringements);
+      return new EmailEngine(self.client_, self.campaign_, host, infringements);
 
     default:
       return null;

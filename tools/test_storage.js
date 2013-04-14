@@ -55,6 +55,10 @@ function main() {
   if (action === 'createFromURL') {
     storage.createFromURL(arg0, arg1, false, log);
   }
+
+  if (action === 'getToText') {
+    storage.getToText(arg0, {}, log);
+  }
 }
 
 main();
