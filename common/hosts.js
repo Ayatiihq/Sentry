@@ -82,3 +82,21 @@ Hosts.prototype.get = function(host, callback)
 
   self.hosts_.findOne({ _id: host }, callback);
 }
+
+/**
+ * Add a host's details
+ *
+ * @param {object}                   host             The host object to add
+ * @param {function(err,details)}    callback         A callback to receive the details, or an error;
+*/
+Hosts.prototype.add = function(host, callback)
+{
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.hosts_.insert(host, callback);
+}

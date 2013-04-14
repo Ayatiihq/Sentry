@@ -268,6 +268,7 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
       case 'pendingNotices':
         if (infringements.length > value)
           triggered = true;
+        break;
 
       default:
         console.warn('%s is an unsupported trigger', trigger);
@@ -280,6 +281,7 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
     , noticeDetails = host.noticeDetails
+    , settingsKey = self.campaigns_.hash(self.campaign_)
     ;
 
   var engine = self.loadEngineForHost(host, infringements);
@@ -300,6 +302,9 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       else
         logger.info('Successfully added notice %s', notice._id);
     });
+
+    host.settings.lastTriggered = Date.now();
+    self.settings_.set(settingsKey, host.settings);
   });
   engine.goPostal(done);
 }
