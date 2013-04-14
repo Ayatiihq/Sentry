@@ -48,8 +48,11 @@ config.AZURE_CORE_KEY = getEnv(process.env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQ
 
 config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
 
-// Mongo
+config.SENDGRID_USER = getEnv(process.SENTRY_SENDGRID_USER, 'medic');
 
+config.SENDGRID_KEY = getEnv(process.SENTRY_SENDGRID_KEY, 'H1uUh83AN49313U');
+
+// Mongo
 config.MONGODB_URL = getEnv(process.env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@168.61.5.194:6001,168.61.5.194:6002,168.61.5.194:6003/goldrush?replicaSet=hydros');
 
 config.MONGODB_SERVERS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['hydros.cloudapp.net', 'hydros.cloudapp.net', 'hydros.cloudapp.net']);

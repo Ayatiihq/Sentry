@@ -235,7 +235,7 @@ NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
       done();
     })
     .catch(function(err) {
-      logger.warn('Error processing batch for %s: %s', host, err);
+      logger.warn('Error processing batch for %j: %s', host, err.stack);
       done();
     })
     ;
@@ -252,6 +252,9 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
     ;
 
   lastTriggered = lastTriggered ? lastTriggered : 0;
+
+  if (!triggers)
+    return false;
 
   Object.keys(triggers).forEach(function(trigger) {
     var value = triggers[trigger];
@@ -279,7 +282,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     , noticeDetails = host.noticeDetails
     ;
 
-  var engine = self.loadEngineForHost(host);
+  var engine = self.loadEngineForHost(host, infringements);
   if (!engine) {
     var err = util.format('No engine available of type %s for %s',
                           noticeDetails.type, host._id);

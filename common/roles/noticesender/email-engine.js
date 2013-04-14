@@ -18,6 +18,7 @@ var acquire = require('acquire')
   ;
 
 var Handlebars = require('handlebars')
+  , SendGrid = require('sendgrid').SendGrid
   , Seq = require('seq')
   , Storage = acquire('storage')
   ;
@@ -29,6 +30,8 @@ var EmailEngine = module.exports = function(client, campaign, host, infringement
   this.infringements_ = infringements;
   this.storage_ = null;
 
+  this.sendgrid_ = null;
+
   this.init();
 }
 
@@ -38,10 +41,12 @@ EmailEngine.prototype.init = function() {
   var self = this;
 
   self.storage_ = new Storage('notices');
+  self.sendgrid_ = new SendGrid(config.SENDGRID_USER, config.SENDGRID_KEY);
 }
 
-EmailEngine.createHash = function() {
-  return utilities.genLinkKey(JSON.stringify(self.campaign._id),
+EmailEngine.prototype.createHash = function() {
+  var self = this;
+  return utilities.genLinkKey(JSON.stringify(self.campaign_._id),
                               Date.now());
 }
 
@@ -55,7 +60,7 @@ EmailEngine.prototype.goPostal = function(done) {
      ;
 
   self.done_ = done;
-  self.hash_ = createHash();
+  self.hash_ = self.createHash();
 
   Seq()
     .seq('getTemplate', function() {
@@ -78,7 +83,7 @@ EmailEngine.prototype.goPostal = function(done) {
       message = message_;
       self.post(message, this);
     })
-    .seq('prepareNoticeForDB', function(hash) {
+    .seq('prepareNoticeForDB', function() {
       self.prepareNotice(message, this);
     })
     .seq('done', function(notice) {
@@ -120,10 +125,22 @@ EmailEngine.prototype.prepareMusicAlbumContext = function(done) {
 }
 
 EmailEngine.prototype.post = function(message, done) {
-  var self = this;
+  var self = this
+    , details = self.host_.noticeDetails
+    ;
 
-  console.log(message);
-  done(null, '1');
+  self.sendgrid_.send({
+    to: details.metadata.to,
+    from: 'neilpatel@ayatii.com',
+    fromname: 'Neil Patel',
+    subject: 'DMCA & EUCD Notice of Copyright Infringements',
+    text: message,
+    replyto: 'neilpatel@ayatii.com',
+    date: new Date()
+  },
+  function(success, msg) {
+    done(success ? msg : null);
+  });
 }
 
 EmailEngine.prototype.prepareNotice = function(message, done) {
@@ -136,8 +153,7 @@ EmailEngine.prototype.prepareNotice = function(message, done) {
   notice.created = Date.now();
   notice.metadata = {};
   notice.message = {
-    to: self.host_.noticeDetails.metadata.to,
-    message: message
+    to: self.host_.noticeDetails.metadata.to
   };
   notice.infringements = [];
 
@@ -145,5 +161,16 @@ EmailEngine.prototype.prepareNotice = function(message, done) {
     notice.infringements.push(infringement._id);
   });
 
-  done(null, notice);
+  self.storage_.createFromText(self.hash_, message, {}, function(err) {
+    if (err) {
+      logger.warn('Unable to save message, trying again: %s', err);
+      self.storage_.createFromText(self.hash_, message, {}, logErr);
+    }
+    done(null, notice);
+  });
+}
+
+function logErr(err) {
+  if (err)
+    console.warn(err);
 }
