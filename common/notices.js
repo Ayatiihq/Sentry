@@ -137,3 +137,66 @@ Notices.prototype.getReadyForNotice = function(campaign, callback)
 
   getNotices();
 }
+
+/**
+ * Adds a new notice.
+ *
+ * @param {object}               campaign   The campaign that the notice belongs to.
+ * @param {object}               notice     The notice .
+ * @param {function(err, doc)}   callback   A callback to receive an error, if one occurs, otherwise the inserted documents.
+ * @return {undefined}
+ */
+Notices.prototype.add = function(campaign, notice, callback) {
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+  callback = callback ? callback : defaultCallback;
+
+  notice.campaign = campaign;
+  notice.created = Date.now();
+
+  Seq(notice.infringements)
+    .seqEach(function(infringement) {
+      self.updateInfringement(notice, infringement, this.ok);
+    })
+    .seq(function() {
+      self.notices_.insert(notice, this);
+    })
+    .seq(function() {
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
+}
+
+/**
+ * Updates an infringement with notice details.
+ *
+ * @param {object}          notices        The notice this infringement is referenced in.
+ * @param {object}          infringement   The infringement to update.
+ * @param {function(err)}   callback       A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Notices.prototype.updateInfringement = function(notice, infringement, callback) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.updateInfringement, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $set: {
+      noticed: notice.created,
+      noticeId: notice._id,
+      state: states.infringements.state.SENT_NOTICE
+    }
+  };
+
+  self.infringements_.update({ _id: infringement }, updates, callback);
+}

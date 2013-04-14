@@ -290,8 +290,16 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   }
 
   engine.on('notice', function(notice) {
-    console.log(notice);
-    // Add notice to db
+    if (noticeDetails.testing)
+      return logger.info('Ignoring notice %s, this is a test run', notice._id);
+
+    // Updates the effected infringement states too
+    self.notices_.add(self.campaign_, notice, function(err) {
+      if (err)
+        logger.warn('Unable to add notice %j: %s', notice, err);
+      else
+        logger.info('Successfully added notice %s', notice._id);
+    });
   });
   engine.goPostal(done);
 }
@@ -307,7 +315,6 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements) {
       return null;
   }
 }
-
 
 //
 // Overrides

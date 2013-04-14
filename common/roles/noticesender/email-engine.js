@@ -149,10 +149,7 @@ EmailEngine.prototype.prepareNotice = function(message, done) {
     ;
 
   notice._id = self.hash_;
-  notice.campaign = self.campaign_._id;
-  notice.created = Date.now();
-  notice.metadata = {};
-  notice.message = {
+  notice.metadata = {
     to: self.host_.noticeDetails.metadata.to
   };
   notice.infringements = [];

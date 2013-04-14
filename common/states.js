@@ -21,7 +21,7 @@ exports.infringements = {
     UNVERIFIED: 0,
     VERIFIED: 1,
     FALSE_POSITIVE: 2,
-    TAKE_DOWN_SENT: 3,
+    SENT_NOTICE: 3,
     TAKEN_DOWN: 4,
     NEEDS_SCRAPE: 5,
     DEFERRED: 6,
