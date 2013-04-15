@@ -165,6 +165,16 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
         that(err);
       });
     })
+    .par(function() {
+      var that = this
+        , query = { 'campaign' : campaign._id, 'state': states.infringements.state.SENT_NOTICE }
+        ,
+
+      self.infringements_.find(query).count(function(err, count) {
+        stats.nNotices = count ? count : 0;
+        that(err);
+      });
+    })
     .seq(function() {
       callback(null, stats);
     })
