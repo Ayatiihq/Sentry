@@ -114,7 +114,14 @@ Analytics.prototype.getClientStats = function(client, callback) {
       });
     })
     .par(function() {
-      this();
+      var that = this
+        , query = { 'campaign.client': client._id, 'state': states.infringements.state.SENT_NOTICE }
+        ,
+
+      self.infringements_.find(query).count(function(err, count) {
+        stats.nNotices = count ? count : 0;
+        that(err);
+      });
     })
     .seq(function() {
       callback(null, stats);
@@ -162,6 +169,16 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
         ;
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this
+        , query = { 'campaign' : campaign._id, 'state': states.infringements.state.SENT_NOTICE }
+        ,
+
+      self.infringements_.find(query).count(function(err, count) {
+        stats.nNotices = count ? count : 0;
         that(err);
       });
     })

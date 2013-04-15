@@ -37,7 +37,7 @@ function main() {
 
   setupSignals();
 
-  var jobs = new Jobs('verifier');
+  var jobs = new Jobs('noticesender');
   var action = argv[2];
   var id;
   try {

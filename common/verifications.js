@@ -104,12 +104,7 @@ Verifications.prototype.getForCampaign = function(campaign, skip, limit, callbac
 
   var query = {
     campaign: campaign,
-    verified: { 
-      $exists: true
-    },
-    state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
-    }
+    state: iStates.VERIFIED
   };
 
   var options = { 
@@ -143,9 +138,7 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
     verified: { 
       $exists: true
     },
-    state: {
-      $nin: [iStates.UNVERIFIED, iStates.FALSE_POSITIVE, iStates.DEFERRED, iStates.UNAVAILABLE ]
-    }
+    state: iStates.VERIFIED
   };
 
   self.infringements_.find(query).count(callback);
@@ -177,7 +170,7 @@ Verifications.prototype.pop = function(campaign, callback) {
     }
   };
 
-  var sort = [ ['points.total', -1], ['created', 1 ] ];
+  var sort = [ ['parents.count', -1], ['points.total', -1], ['created', 1 ] ];
 
   var updates = {
     $set: {

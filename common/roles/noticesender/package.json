@@ -1,0 +1,7 @@
+{
+  "name": "noticesender",
+  "main": "./noticesender.js",
+  "dependencies": {
+  },
+  "intervalMinutes": 5
+}

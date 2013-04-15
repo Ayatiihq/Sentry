@@ -40,6 +40,10 @@ Utilities.normalizeURI = function(uri) {
   try {
     uri = URI(uri)
 
+    // Protect against gord's amazing regex sk1llz
+    if (uri.domain().length < 1)
+      uri = URI(link.uri.unescapeURL());
+
     // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
     uri.normalize();
 
