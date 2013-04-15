@@ -51,6 +51,7 @@ EmailEngine.prototype.post = function(done) {
     to: details.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
+    bcc: ['neil@ayatii.com'],
     subject: 'DMCA & EUCD Notice of Copyright Infringements',
     text: self.message_,
     replyto: 'neilpatel@ayatii.com',
