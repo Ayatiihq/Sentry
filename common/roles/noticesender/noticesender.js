@@ -28,7 +28,9 @@ var Campaigns = acquire('campaigns')
   , Seq = require('seq')
   ;
 
-var EmailEngine = require('./email-engine');
+var EmailEngine = require('./email-engine')
+  , NoticeBuilder = require('./notice-builder')
+  ;
 
 var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
@@ -261,11 +263,15 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 
     switch(trigger) {
       case 'minutesSinceLast':
-        if (Date.create(lastTriggered).isBefore(value + ' minutes ago'))
+        logger.info('Checking if %s\'s last notice (%s) was sent before %s minutes ago',
+                     host._id, Date.utc.create(lastTriggered), value);
+        if (Date.utc.create(lastTriggered).isBefore(value + ' minutes ago'))
           triggered = true;
         break;
 
       case 'pendingNotices':
+        logger.info('Checking if %s\'s pending notices (%d) are greater than threshold %d',
+                    host._id, infringements.length, value);
         if (infringements.length > value)
           triggered = true;
         break;
@@ -280,45 +286,77 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 
 NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
-    , noticeDetails = host.noticeDetails
-    , settingsKey = self.campaigns_.hash(self.campaign_)
+    , details = host.noticeDetails
+    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
     ;
 
-  var engine = self.loadEngineForHost(host, infringements);
-  if (!engine) {
-    var err = util.format('No engine available of type %s for %s',
-                          noticeDetails.type, host._id);
-    return done(new Error(err));
-  }
+  logger.info('Sending notice to %s', host._id);
 
-  engine.on('notice', function(notice) {
-    if (noticeDetails.testing)
-      return logger.info('Ignoring notice %s, this is a test run', notice._id);
-
-    // Updates the effected infringement states too
-    self.notices_.add(self.campaign_, notice, function(err) {
-      if (err)
-        logger.warn('Unable to add notice %j: %s', notice, err);
-      else
-        logger.info('Successfully added notice %s', notice._id);
-    });
-
-    host.settings.lastTriggered = Date.now();
-    self.settings_.set(settingsKey, host.settings);
-  });
-  engine.goPostal(done);
+  Seq()
+    .seq(function() {
+      var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
+      builder.build(this);
+    })
+    .seq(function(hash, message) {
+      self.loadEngineForHost(host, infringements, hash, message, this);
+    })
+    .seq(function(engine) {
+      engine.post(this);
+    })
+    .seq(function(notice) {
+      self.processNotice(host, notice, this);
+    })
+    .seq(function() {
+      if (!details.testing) {
+        host.settings.lastTriggered = Date.now();
+        self.settings_.set(settingsKey, host.settings);
+      }
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to send notice to %s: %s', host._id, err);
+      done(err);
+    })
+    ;
 }
 
-NoticeSender.prototype.loadEngineForHost = function(host, infringements) {
-  var self = this;
+NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, message, done) {
+  var self = this
+    , engine = null
+    , err = null
+    ;
 
   switch (host.noticeDetails.type) {
     case 'email':
-      return new EmailEngine(self.client_, self.campaign_, host, infringements);
+      engine = new EmailEngine(self.client_, self.campaign_, host, infringements, hash, message);
+      break;
 
     default:
-      return null;
+      var msg = util.format('No engine available of type %s for %s',
+                             host.noticeDetails.type, host._id);
+      err = new Error(msg);
   }
+
+  done(err, engine);
+}
+
+
+NoticeSender.prototype.processNotice = function(host, notice, done) {
+  var self = this;
+
+  if (host.noticeDetails.testing) {
+    logger.info('Ignoring notice %s, this is a test run', notice._id);
+    return done();
+  }
+
+  self.notices_.add(self.campaign_, notice, function(err) {       
+    if (err) {
+      logger.warn('Unable to add notice %j: %s', notice, err);
+    } else {
+      logger.info('Successfully added notice %s', notice._id);
+    }
+    done();
+  });
 }
 
 //
