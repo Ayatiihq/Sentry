@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , database = acquire('database')
   , logger = acquire('logger').forFile('analytics.js')
   , sugar = require('sugar')
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -116,7 +117,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
     .par(function() {
       var that = this
         , query = { 'campaign.client': client._id, 'state': states.infringements.state.SENT_NOTICE }
-        ,
+        ;
 
       self.infringements_.find(query).count(function(err, count) {
         stats.nNotices = count ? count : 0;
@@ -175,7 +176,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     .par(function() {
       var that = this
         , query = { 'campaign' : campaign._id, 'state': states.infringements.state.SENT_NOTICE }
-        ,
+        ;
 
       self.infringements_.find(query).count(function(err, count) {
         stats.nNotices = count ? count : 0;
