@@ -48,7 +48,7 @@ Logger.prototype.error = function() {
 }
 
 Logger.prototype.setRole = function(role) {
-  ROLE = role + ':';
+  //ROLE = role + ':';
 }
 
 exports.forFile = function(filename) {

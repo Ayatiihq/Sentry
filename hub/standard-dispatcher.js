@@ -80,7 +80,7 @@ StandardDispatcher.prototype.checkCampaign = function(campaign, jobs, role, cons
   var self = this
     ;
 
-  jobs.listActiveJobs(campaign._id, function(err, existingJobs) {
+  jobs.listActiveJobs(campaign._id, function(err, array, existingJobs) {
     if (err) {
       return logger.warn('Unable to get active jobs for campaign %s, %s', consumer, err);
     }
