@@ -45,7 +45,7 @@ EmailEngine.prototype.post = function(done) {
   var self = this
     , details = self.host_.noticeDetails
     , notice = self.prepareNotice()
-    , subject = 'DMCA & EUCD Notice of Copyright Infringements',
+    , subject = 'DMCA & EUCD Notice of Copyright Infringements'
     ;
 
   if (details.manual)
