@@ -131,8 +131,10 @@ Jobs.prototype.nAvailableJobs = function(callback) {
   self.jobs_.find(query).count(callback);
 }
 
-Jobs.prototype.zeroOtherJobs = function(owner, consumer, metadata) {
+Jobs.prototype.zeroOtherJobs = function(owner, consumer, metadata, callback) {
   var self = this;
+
+  callback = callback ? callback : defaultCallback;
 
   var query = {
     '_id.role': self.role_,
@@ -153,7 +155,7 @@ Jobs.prototype.zeroOtherJobs = function(owner, consumer, metadata) {
   var options = {
     multi: true
   };
-  self.jobs_.update(query, updates, options, defaultCallback);
+  self.jobs_.update(query, updates, options, callback);
 }
 
 /**
@@ -192,26 +194,26 @@ Jobs.prototype.push = function(owner, consumer, metadata, callback) {
   if (!self.jobs_)
     return self.cachedCalls_.push([self.push, Object.values(arguments)]);
 
-  self.zeroOtherJobs(owner, consumer, metadata);
+  self.zeroOtherJobs(owner, consumer, metadata, function() {
+    var job = {};
+    job._id = {
+      owner: owner,
+      role: self.role_,
+      consumer: consumer,
+      created: Date.now()
+    };
+    job.popped = 0;
+    job.priority = 0;
+    job.started = 0;
+    job.finished = 0;
+    job.state = ifUndefined(job.state, states.QUEUED);
+    job.log = [];
+    job.snapshot = {};
+    job.metadata = ifUndefined(metadata, {});
 
-  var job = {};
-  job._id = {
-    owner: owner,
-    role: self.role_,
-    consumer: consumer,
-    created: Date.now()
-  };
-  job.popped = 0;
-  job.priority = 0;
-  job.started = 0;
-  job.finished = 0;
-  job.state = ifUndefined(job.state, states.QUEUED);
-  job.log = [];
-  job.snapshot = {};
-  job.metadata = ifUndefined(metadata, {});
-
-  self.jobs_.insert(job, function(err) {
-    callback(err, err ? undefined : JSON.stringify(job._id));
+    self.jobs_.insert(job, function(err) {
+      callback(err, err ? undefined : JSON.stringify(job._id));
+    });
   });
 }
 
