@@ -30,7 +30,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
@@ -249,7 +249,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return true; 
+  return false; 
 };
 
 /* -- ISOHunt Scraper */
