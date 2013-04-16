@@ -18,16 +18,6 @@ var acquire = require('acquire')
   , Promise = require('node-promise')
 ;
 
-//TODO
-//1: Align the various genres with our own campaign types so as automatic 
-//query sorting can be determined from campaign type.
-//2: Get rid of the unnecessary inheritance on BittorrentPortal and use a
-//factory type pattern to create instances for KAT and isohunt assigning parsing methods
-//to this instance.
-//3: Properly construct query strings based on the campaign type, some translation table needed.
-//Right now its hardcoded to audio. 
-
-
 var Scraper = acquire('scraper');
 
 var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
@@ -116,8 +106,8 @@ BittorrentPortal.prototype.buildSearchQueryTrack = function () {
 };
 
 BittorrentPortal.prototype.cleanup = function () {
-  this.emit('finished');
   this.remoteClient.quit();
+  this.emit('finished');
 };
 
 BittorrentPortal.prototype.emitInfringements = function () {
@@ -374,7 +364,7 @@ Bittorrent.prototype.start = function (campaign, job) {
   });
 
   self.scraper.on('error', function onError(err) {
-    // do nuffink right now, handled elsewhere
+    logger.warn('err : ' + err);
   });
 
   self.scraper.on('torrent', function onFoundTorrent(uri, points, metadata){
