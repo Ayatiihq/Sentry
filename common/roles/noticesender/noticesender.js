@@ -105,10 +105,16 @@ NoticeSender.prototype.processJob = function(err, job) {
       self.getInfringements(this);
     })
     .seq(function() {
-      logger.info('Done');
+      logger.info('Finished sending notices');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
     })
     .catch(function(err) {
       logger.warn('Unable to process job %j: %s', job, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
     })
     ;
 }
