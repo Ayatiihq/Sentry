@@ -15,6 +15,8 @@ var cluster = require('cluster')
   , util = require('util')
   , winston = require('winston');
 
+var ROLE = "";
+
 var Logger = function(filename) {
   var id = os.hostname()  + '::' + process.pid;
 
@@ -27,22 +29,26 @@ var Logger = function(filename) {
 
 Logger.prototype.info = function() {
   var string = util.format.apply(null, arguments);
-  winston.info(this.prefix_ + ':' + string);
+  winston.info(this.prefix_ + ':' + ROLE + string);
 }
 
 Logger.prototype.debug = function() {
   var string = util.format.apply(null, arguments);
-  winston.debug(this.prefix_ + lineNumber() + ': ' + string);
+  winston.debug(this.prefix_ + ROLE + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.warn = function() {
   var string = util.format.apply(null, arguments);
-  winston.warn(this.prefix_ + lineNumber() + ': ' + string);
+  winston.warn(this.prefix_ + ROLE + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.error = function() {
   var string = util.format.apply(null, arguments);
-  winston.error(this.prefix_ + lineNumber() + ': ' +  string);
+  winston.error(this.prefix_ + ROLE + lineNumber() + ': ' +  string);
+}
+
+Logger.prototype.setRole = function(role) {
+  ROLE = role + ':';
 }
 
 exports.forFile = function(filename) {
