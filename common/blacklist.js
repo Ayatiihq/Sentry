@@ -16,6 +16,7 @@ Whitelist.safeDomains = [
   , 'imdb.'
   , 'saavn.'
   , 'spotify.'
+  , 'music.ovi.com'
   , 'store.ovi.'
   , 'rdio.'
   , 'wikipedia.'
