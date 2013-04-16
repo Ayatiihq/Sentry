@@ -131,6 +131,31 @@ Jobs.prototype.nAvailableJobs = function(callback) {
   self.jobs_.find(query).count(callback);
 }
 
+Jobs.prototype.zeroOtherJobs = function(owner, consumer, metadata) {
+  var self = this;
+
+  var query = {
+    '_id.role': self.role_,
+    '_id.owner': owner,
+    '_id.consumer': consumer,
+    'state': states.QUEUED,
+  };
+
+  if (metadata.engine)
+    query['metadata.engine'] = metadata.engine;
+
+  var updates = {
+    $set: {
+      state: states.CANCELLED
+    }
+  };
+
+  var options = {
+    multi: true
+  };
+  self.jobs_.update(query, updates, options, defaultCallback);
+}
+
 /**
  * Get details of a job.
  *
@@ -166,6 +191,8 @@ Jobs.prototype.push = function(owner, consumer, metadata, callback) {
 
   if (!self.jobs_)
     return self.cachedCalls_.push([self.push, Object.values(arguments)]);
+
+  self.zeroOtherJobs(owner, consumer, metadata);
 
   var job = {};
   job._id = {
