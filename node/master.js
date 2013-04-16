@@ -47,7 +47,7 @@ Master.prototype.init = function() {
     self.initHubConnection();
   });
 
-  self.mainInterval_ = setInterval(self.loop.bind(self), 1000 * 60);
+  self.mainInterval_ = setInterval(self.loop.bind(self), 1000 * 60 * 5);
 
   cluster.on('exit', self.onWorkerExit.bind(self));
 }
@@ -152,6 +152,7 @@ Master.prototype.loop = function() {
       process.exit(0);
     }
     logger.info('Waiting for %s more workers to finish before exiting for update', workerCount);
+    self.printWorkers();
     return;
   }
 
@@ -174,7 +175,8 @@ Master.prototype.loop = function() {
   }
 
   if (workerCount >= self.nPossibleWorkers_) {
-    logger.info('No available workers');
+    logger.info('No available workers, not asking for work');
+    self.printWorkers();
     return;
   }
 
@@ -203,6 +205,7 @@ Master.prototype.getSomeWork = function() {
 
       if (Object.size(cluster.workers) >= self.nPossibleWorkers_) {
         logger.info('No available workers');
+        self.printWorkers();
         return;
       }
 
@@ -218,12 +221,13 @@ Master.prototype.launchWorker = function(work) {
     ;
 
   worker.work = work;
+  worker.created = Date.utc.create();
   worker.on('message', self.onWorkerMessage.bind(self, worker));
   worker.killId = 0;
 
   worker.send({ type: 'doWork', work: work });
 
-  logger.info('Created worker %s: %s ', worker.id, JSON.stringify(work));
+  logger.info('Created worker %s: %j ', worker.id, work);
 
   self.announce();
 }
@@ -238,8 +242,18 @@ Master.prototype.onWorkerExit = function(worker, code, signal) {
   var self = this;
 
   if (worker.suicide === true) {
-    logger.info('Worker %s finished doing work', worker.id);
+    logger.info('Worker %s (%j) finished doing work', worker.id, worker.work);
   } else {
-    logger.warn('Worker %s died unexpectedly: code=%s signal=%s', worker.id, code, signal);
+    logger.warn('Worker %s (%j) died unexpectedly: code=%s signal=%s', worker.id, worker.work, code, signal);
   }
+  self.loop();
+}
+
+Master.prototype.printWorkers = function() {
+  var self = this;
+  
+  Object.values(cluster.workers).forEach(function(worker) {
+    logger.info('Worker %s is a %j. Running for %s minutes',
+                worker.id, worker.work, worker.created.minutesSince());
+  });
 }
