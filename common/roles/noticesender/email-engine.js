@@ -45,14 +45,18 @@ EmailEngine.prototype.post = function(done) {
   var self = this
     , details = self.host_.noticeDetails
     , notice = self.prepareNotice()
+    , subject = 'DMCA & EUCD Notice of Copyright Infringements',
     ;
+
+  if (details.manual)
+    subject = 'TODO: ' + subject;
 
   self.sendgrid_.send({
     to: details.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
     bcc: ['neil@ayatii.com'],
-    subject: 'DMCA & EUCD Notice of Copyright Infringements',
+    subject: subject,
     text: self.message_,
     replyto: 'neilpatel@ayatii.com',
     date: new Date()

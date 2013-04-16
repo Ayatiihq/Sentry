@@ -14,10 +14,10 @@ Whitelist.safeDomains = [
   , 'answers.yahoo.com'
   , 'flipkart.'
   , 'imdb.'
+  , 'melodytracks.com'
+  , 'ovi.com'
   , 'saavn.'
   , 'spotify.'
-  , 'music.ovi.com'
-  , 'store.ovi.'
   , 'rdio.'
   , 'wikipedia.'
 ];
