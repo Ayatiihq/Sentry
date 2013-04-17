@@ -10,6 +10,13 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , states = acquire('states')
   , util = require('util')
+  , fs = require('fs')
+  , os = require('os')
+  , Promise = require('node-promise').Promise
+  , path = require('path')
+  , unzip = require('unzip')
+  , request = require('request')
+  , rimraf = require('rimraf')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -39,6 +46,7 @@ AutoVerifier.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.settings_ = new Settings('role.autoverifier');
   self.jobs_ = new Jobs('autoverifier');
+  self.records = {};
 }
 
 AutoVerifier.prototype.processJob = function(err, job) {
@@ -90,7 +98,6 @@ AutoVerifier.prototype.checkJobValidity = function(job, callback) {
 
 AutoVerifier.prototype.startJob = function(job, done) {
   var self = this;
-  console.log('campaign = ' + JSON.stringify(job));  
 }
 
 //
@@ -103,12 +110,70 @@ AutoVerifier.prototype.getName = function() {
 AutoVerifier.prototype.start = function(campaign) {
   var self = this;
   self.started_ = true;
-  console.log('campaign = ' + JSON.stringify(campaign));  
   self.emit('started');
+  var promise = self.createParentFolder(campaign);
+  promise.then(function(err){
+    if(err){
+      self.end();
+      return;
+    }
+    self.fetchFiles(campaign).then(function(success){
+      if(!success)
+        self.end();
+    });
+  });
+}
+
+AutoVerifier.prototype.createParentFolder = function(campaign) {
+  var self = this;
+  var promise = new Promise();
+  var now = Date.now();
+  var name = [campaign.name.replace(/\s/,""),
+              '-',
+              now,
+              '-',
+              process.pid,
+              '-',
+              (Math.random() * 0x100000000 + 1).toString(36)].join('');
+  self.records.parent = path.join(os.tmpDir(), name); 
+  fs.mkdir(self.records.parent, function(err){
+    if(err)
+      logger.error('Error creating parenting folder called ' + self.records.parent);
+    promise.resolve(err);
+  });
+  return promise;
+}
+
+/*
+ * Assumption files are in a zip
+ */
+AutoVerifier.prototype.fetchFiles = function(campaign) {
+  var self = this;
+  var promise = new Promise();
+  if(!campaign.uri.endsWith('.zip')){
+    logger.error('files should be in a zip !');
+    promise.resolve(false);
+    return;
+  }
+  try{
+    target = campaign.name.replace(/\s/, '').toLowerCase();
+    target += '.zip';
+    request(campaign.uri).pipe(unzip.Extract({path: self.records.parent}));//fs.createWriteStream(path.join(self.records.parent, target)));
+    promise.resolve(true);
+  }
+  catch(err){
+    logger.error('Unable to fetch files for ' + campaign.uri + ' error : ' + err);
+    promise.resolve(false);
+  }
+  return promise;
 }
 
 AutoVerifier.prototype.end = function() {
   var self = this;
   self.started_ = false;
-  self.emit('ended');
+  /*rimraf(self.records.parent, function(err){
+    if(err)
+      logger.error('Unable to rmdir ' + self.records.parent + ' error : ' + err);
+    self.emit('ended');
+  });*/
 }
