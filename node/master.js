@@ -47,7 +47,7 @@ Master.prototype.init = function() {
     self.initHubConnection();
   });
 
-  self.mainInterval_ = setInterval(self.loop.bind(self), 1000 * 60 * 5);
+  self.mainInterval_ = setInterval(self.loop.bind(self), 1000 * 60);
 
   cluster.on('exit', self.onWorkerExit.bind(self));
 }
@@ -246,7 +246,6 @@ Master.prototype.onWorkerExit = function(worker, code, signal) {
   } else {
     logger.warn('Worker %s (%j) died unexpectedly: code=%s signal=%s', worker.id, worker.work, code, signal);
   }
-  self.loop();
 }
 
 Master.prototype.printWorkers = function() {
