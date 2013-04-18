@@ -80,8 +80,8 @@ EmailEngine.prototype.prepareNotice = function() {
   notice.metadata = {
     to: self.host_.noticeDetails.metadata.to
   };
+  notice.host = self.host_._id;
   notice.infringements = [];
-
   self.infringements_.forEach(function(infringement) {
     notice.infringements.push(infringement._id);
   });

@@ -268,7 +268,7 @@ Notices.prototype.getForCampaign = function(campaign, skip, limit, callback)
   var options = { 
     skip: skip, 
     limit: limit,
-    sort: { created: 1 }
+    sort: { created: -1 }
   };
 
   self.notices_.find(query, options).toArray(callback); 
