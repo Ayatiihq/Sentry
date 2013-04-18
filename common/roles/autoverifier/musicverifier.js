@@ -7,11 +7,13 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , events = require('events')
   , util = require('util')
-  , fs = require('fs')
+  , fs = require('fs-extra')
   , os = require('os')
   , Promise = require('node-promise')
   , path = require('path')
   , request = require('request')
+  , rimraf = require('rimraf')
+  , exec = require('child_process').execFile;  
   ;
 
 var logger = acquire('logger').forFile('musicverifier.js')
@@ -27,12 +29,12 @@ util.inherits(MusicVerifier, events.EventEmitter);
 
 MusicVerifier.prototype.init = function() {
   var self = this;
-  self.records = {};
+  self.tmpDirectory = null;
 }
 
 
 MusicVerifier.prototype.createRandomName = function(handle) {
-  return [handle.replace(/\s|(|)|:/,"").toLowerCase(),
+  return [handle.replace(/\s/,"").toLowerCase(),
           '-',
           Date.now(),
           '-',
@@ -44,10 +46,10 @@ MusicVerifier.prototype.createRandomName = function(handle) {
 MusicVerifier.prototype.createParentFolder = function(campaign) {
   var self = this;
   var promise = new Promise.Promise();
-  self.records.parent = path.join(os.tmpDir(), self.createRandomName(campaign.name)); 
-  fs.mkdir(self.records.parent, function(err){
+  self.tmpDirectory = path.join(os.tmpDir(), self.createRandomName(campaign.name)); 
+  fs.mkdir(self.tmpDirectory, function(err){
     if(err)
-      logger.error('Error creating parenting folder called ' + self.records.parent);
+      logger.error('Error creating parenting folder called ' + self.tmpDirectory);
     promise.resolve(err);
   });
   return promise;
@@ -63,7 +65,7 @@ MusicVerifier.prototype.fetchFiles = function() {
     var self = this;
     var promise = new Promise.Promise();
     var folderName = self.createRandomName("");
-    var trackPath = path.join(self.records.parent, folderName);
+    var trackPath = path.join(self.tmpDirectory, folderName);
     try{
       fs.mkdirSync(trackPath);
       request(track.uri).pipe(fs.createWriteStream(path.join(trackPath, "original.mp3")));
@@ -80,15 +82,67 @@ MusicVerifier.prototype.fetchFiles = function() {
   var promiseArray;
   promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
   Promise.seq(promiseArray).then(function(){
-    self.goFingerprint();
+    self.fetchInfringement().then(function(success){
+      if(!success)
+        self.cleanup();
+      else
+        self.goFingerprint();
+    });
   }); 
+}
+
+MusicVerifier.prototype.fetchInfringement = function(){
+  var self = this;
+  var promise = new Promise.Promise();
+  try{
+    request(self.infringement.uri).pipe(fs.createWriteStream(path.join(self.tmpDirectory, "infringement")));    
+    promise.resolve(true);
+  }
+  catch(err){
+    logger.warn('Problem fetching infringing file : err : ' + err);
+    promise.resolve(false);
+  }
+  return promise;
 }
 
 MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
   logger.info("Begin comparing files");
-  self.end();
+  self.campaign.metadata.tracks.each(function compare(track){
+    fs.copy (path.join(self.tmpDirectory,  'infringement'),
+             path.join(track.folderPath, 'infringement'),
+             function(err){
+               if(err){
+                 logger.error('Problem copying infringement audio file to track folder : ' + err);
+                 return;
+               }
+               exec('fpeval', [track.folderPath],
+                function (error, stdout, stderr){
+                  if(stderr){
+                    logger.error("Fpeval standard error : " + stderr);
+                  }
+                  if(error){
+                    logger.error("Error running Fpeval: " + error);                    
+                  }
+                  if(stderr | error)
+                    self.cleanup();
+                  logger.info('fpeval : ' + stdout);
+                }); 
+             });
+  });
+
 }
+
+MusicVerifier.prototype.cleanup = function() {
+  var self = this;
+  logger.info('cleanup');  
+  /*rimraf(self.tmpDirectory, function(err){
+    if(err)
+      logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+    self.emit('ended');
+  });*/
+}
+
 
 //
 // Public
@@ -118,7 +172,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   var promise = self.createParentFolder(campaign);
   promise.then(function(err){
     if(err){
-      self.end();
+      self.cleanup();
       return;
     }
     self.fetchFiles();
