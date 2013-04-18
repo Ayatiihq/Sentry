@@ -45,3 +45,10 @@ exports.node = {
     NEEDS_UPDATE: 3
   }
 };
+
+exports.notices = {
+  state: {
+    PENDING: 0,
+    PROCESSED: 1
+  }
+};

@@ -116,7 +116,12 @@ Analytics.prototype.getClientStats = function(client, callback) {
     })
     .par(function() {
       var that = this
-        , query = { 'campaign.client': client._id, 'state': states.infringements.state.SENT_NOTICE }
+        , iStates = states.infringements.state
+        , query = { 'campaign.client': client._id, 
+                    'state': {
+                      $in: [ iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]
+                    }
+                  }
         ;
 
       self.infringements_.find(query).count(function(err, count) {
@@ -175,7 +180,12 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     .par(function() {
       var that = this
-        , query = { 'campaign' : campaign._id, 'state': states.infringements.state.SENT_NOTICE }
+        , iStates = states.infringements.state
+        , query = { 'campaign' : campaign._id, 
+                    'state': {
+                      $in: [ iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]
+                    }
+                  }
         ;
 
       self.infringements_.find(query).count(function(err, count) {

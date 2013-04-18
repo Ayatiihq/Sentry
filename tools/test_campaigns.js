@@ -62,6 +62,9 @@ function main() {
     campaigns.remove(id, log);
   }
 
+  if (action === 'save')
+    campaigns.save(require(argv[3]), log);
+
   if (action === 'export') {
     var dir = argv[3];
 
@@ -72,7 +75,7 @@ function main() {
       console.log('Exporting %d campaigns', campaigns.length);
       campaigns.forEach(function(campaign) {
         var filename = path.join(dir, campaign.name.dasherize().toLowerCase() + '.json');
-        var buffer = JSON.stringify(campaign);
+        var buffer = JSON.stringify(campaign, null, '\t');
         console.log('Exporting %s', filename);
         fs.writeFileSync(filename, buffer);
       });

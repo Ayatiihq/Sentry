@@ -157,6 +157,7 @@ Notices.prototype.add = function(campaign, notice, callback) {
 
   notice.campaign = campaign;
   notice.created = Date.now();
+  notice.state = states.notices.state.PENDING;
 
   Seq(notice.infringements)
     .seqEach(function(infringement) {
@@ -199,4 +200,46 @@ Notices.prototype.updateInfringement = function(notice, infringement, callback) 
   };
 
   self.infringements_.update({ _id: infringement }, updates, callback);
+}
+
+/**
+ * Sets a notice and it's infringements to the 'taken down' state
+ *
+ * @param  {object}          notice      A valid notice
+ * @param  {function(err)}   callback    A callback to receive an error, if one occurs
+ * @return {undefined}
+ */
+Notices.prototype.setTakenDown = function(notice, callback) {
+  var self = this;
+
+  if (!self.infringements_ || !self.notices_)
+    return self.cachedCalls_.push([self.setTakenDown, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.notices_.findOne(notice, function(err, notice) {
+    Seq(notice.infringements)
+      .seqEach(function(infringementId) {
+        logger.info('Setting %s to taken-down', infringementId);
+        self.infringements_.update({ _id: infringementId },
+                                   { $set: { state: states.infringements.state.TAKEN_DOWN } },
+                                    this.ok);
+      })
+      .seq(function() {
+        logger.info('Setting notice %s to accepted', notice._id);
+        self.notices_.update({ _id: notice._id },
+                            {
+                              $set: {
+                                state: states.notices.state.PROCESSED
+                              }
+                            },
+                            this);
+      })
+      .seq(function() {
+        callback();
+      })
+      .catch(function(err) {
+        callback(err);
+      });
+  });
 }
