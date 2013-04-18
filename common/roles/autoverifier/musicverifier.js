@@ -136,11 +136,11 @@ MusicVerifier.prototype.goFingerprint = function(){
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
   logger.info('cleanup');  
-  /*rimraf(self.tmpDirectory, function(err){
+  rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
     self.emit('ended');
-  });*/
+  });
 }
 
 
@@ -161,7 +161,6 @@ MusicVerifier.getSupportedTypes = function() {
 
 MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   var self = this;
-
   logger.info('Trying autoverification for %s', infringement.uri);
 
   // Call this as (err, verificationObject) when either is ready
