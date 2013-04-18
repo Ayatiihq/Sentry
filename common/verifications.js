@@ -184,6 +184,49 @@ Verifications.prototype.pop = function(campaign, callback) {
 }
 
 /**
+ * Pop a specific type of infringement off the queue for verification.
+ *
+ * @param  {object}                       campaign    The campaign to find an infringement for to verify.
+ * @param  {array}                        types       Supported mimetypes.
+ * @param  {function(err,infringement)}   callback    A callback to receive the infringment, or null;
+ * @return {undefined}
+ */
+Verifications.prototype.popType = function(campaign, types, callback) {
+  var self = this
+    , then = Date.create('30 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.popType, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.UNVERIFIED,
+    'metadata.mimetype' : {
+      $in: types
+    },
+    'children.count': 0,
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [ ['parents.count', -1], ['points.total', -1], ['created', 1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
+}
+
+/**
  * Submit a verification for an infringement.
  *
  * @param  {object}                       infringement    The infringement that has been verified.
@@ -300,7 +343,6 @@ Verifications.prototype.getAdoptedEndpoints = function(campaign, from, limit, ca
     sort: { created: 1 }
   };
 
-  console.log(query);
   self.infringements_.find(query, options).toArray(callback); 
 }
 

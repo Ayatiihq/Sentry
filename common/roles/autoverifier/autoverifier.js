@@ -1,40 +1,38 @@
 /*
- * Autoverifier.js: the awesome AutoVerifier
- * (C) 2013 Ayatii Limited
- * AutoVerifier processes infringements that need downloading and attempts to autoverify them depending on the campaign type. 
+ * autoverifier.js: the autoverifier
+ *
+ * (C) 2012 Ayatii Limited
+ *
+ * AutoVerifier processes the results of spider crawls and converts (mines) them into
+ * infringements for a specific campaign.
+ *
  */
+
 var acquire = require('acquire')
-  , Seq = require('seq')
+  , config = acquire('config')
   , events = require('events')
+  , logger = acquire('logger').forFile('autoverifier.js')
+  , states = acquire('states')
   , util = require('util')
-  , fs = require('fs')
-  , os = require('os')
-  , Promise = require('node-promise')
-  , path = require('path')
-  , unzip = require('unzip')
-  , request = require('request')
-  , rimraf = require('rimraf')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
-  , Settings = acquire('settings')
-  , logger = acquire('logger').forFile('verifier.js')
-  , config = acquire('config')
-  , states = acquire('states')  
+  , Seq = require('seq')
+  , Verifications = acquire('verifications')
   ;
-
-var MAX_LINKS = 100;
 
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
-  this.infringements_ = null;
-  this.settings_ = null;
   this.jobs_ = null;
-  this.started_ = false;
-  this.lastTimestamp_ = 0;
+  this.verifications_ = null;
+
+  this.campaign_ = null;
+
+  this.started_ = 0;
+  this.touchId_ = 0;
+
   this.init();
 }
 
@@ -42,12 +40,133 @@ util.inherits(AutoVerifier, Role);
 
 AutoVerifier.prototype.init = function() {
   var self = this;
+
   self.campaigns_ = new Campaigns();
-  self.infringements_ = new Infringements();
-  self.settings_ = new Settings('role.autoverifier');
   self.jobs_ = new Jobs('autoverifier');
-  self.records = {};
-  self.campaign = null;
+  self.verifications_ = new Verifications();
+
+  self.loadVerifiers();
+}
+
+AutoVerifier.prototype.loadVerifiers = function() {
+  var self = this
+    , supportedTypes = []
+    , supportedMap = {}
+    , verifiers = ['musicverifier']
+    ;
+
+  verifiers.forEach(function(verifier) {
+    var klass = require('./' + verifier)
+      , types = klass.getSupportedTypes()
+      ;
+
+    types.forEach(function(type) {
+      supportedTypes.push(type);
+      supportedMap[type] = klass;
+    });
+  });
+
+  self.supportedTypes_ = supportedTypes;
+  self.supportedMap_ = supportedMap;
+}
+
+AutoVerifier.prototype.processJob = function(err, job) {
+  var self = this;
+
+  if (err) {
+    self.emit('error', err);
+    return;
+  } else if (!job) {
+    logger.info('No job to process');
+    self.emit('finished');
+    return;
+  }
+
+  // Keep job alive
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+
+  // Error out nicely, closing the job too
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+  process.on('uncaughtException', onError);
+
+  // Now we process jobs
+  Seq()
+    .seq(function() {
+      self.job_ = job;
+      self.campaigns_.getDetails(job._id.owner, this);
+    })
+    .seq(function(campaign) {
+      self.campaign_ = campaign;
+      self.processVerifications(this);
+    })
+    .seq(function() {
+      logger.info('Finished autoverification session');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job %j: %s', job, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+AutoVerifier.prototype.processVerifications = function(done) {
+  var self = this;
+
+  if (self.started_.isBefore('60 minutes ago')) {
+    logger.info('Been running for around an hour, quitting');
+    done();
+  }
+
+  self.verifications_.popType(self.campaign_, self.supportedTypes_, function(err, infringement) {
+    if (err)
+      return done(err);
+
+    if (!infringement || !infringement.uri)
+      return done();
+
+    self.processVerification(infringement, function(err) {
+      if (err) {
+        logger.warn(err);
+        // FIXME: Should we set something on the infringement so we don't see it again?
+      }
+
+      self.processVerifications(done);
+    });
+  });
+}
+
+AutoVerifier.prototype.processVerification = function(infringement, done) {
+  var self = this
+    , Verifier = self.supportedMap_[infringement.metadata.mimetype]
+    ;
+
+  if (!Verifier) {
+    var err = util.format('Mimetype %s is not supported for infringement %s',
+                           infringement.metadata.mimetype, infringement._id);
+    return done(new Error(err));
+  }
+
+  var verifier = new Verifier();
+  verifier.verify(self.campaign_, infringement, function(err, verification) {
+    if (err)
+      return done(err);
+
+    // FIXME: Record the verification
+    logger.info('%s verified: %j', infringement._id, verification);
+    done();
+  });
 }
 
 //
@@ -57,86 +176,19 @@ AutoVerifier.prototype.getName = function() {
   return "autoverifier";
 }
 
-AutoVerifier.prototype.start = function(campaign) {
+AutoVerifier.prototype.start = function() {
   var self = this;
-  self.started_ = true;
-  self.emit('started');
-  self.campaign = campaign;
-  var promise = self.createParentFolder(campaign);
-  promise.then(function(err){
-    if(err){
-      self.end();
-      return;
-    }
-    self.fetchFiles();
-  });
-}
+
+  self.started_ = Date.create();
+  self.jobs_.pop(self.processJob.bind(self));
   
-AutoVerifier.prototype.createRandomName = function(handle) {
-  return [handle.replace(/\s|(|)|:/,"").toLowerCase(),
-          '-',
-          Date.now(),
-          '-',
-          process.pid,
-          '-',
-          (Math.random() * 0x100000000 + 1).toString(36)].join('');
-}
-
-AutoVerifier.prototype.createParentFolder = function(campaign) {
-  var self = this;
-  var promise = new Promise.Promise();
-  self.records.parent = path.join(os.tmpDir(), self.createRandomName(campaign.name)); 
-  fs.mkdir(self.records.parent, function(err){
-    if(err)
-      logger.error('Error creating parenting folder called ' + self.records.parent);
-    promise.resolve(err);
-  });
-  return promise;
-}
-
-/*
- * Assumption files are in a zip
- */
-AutoVerifier.prototype.fetchFiles = function() {
-  var self = this;
-
-  function fetchTrack(track){
-    var self = this;
-    var promise = new Promise.Promise();
-    var folderName = self.createRandomName("");
-    var trackPath = path.join(self.records.parent, folderName);
-    try{
-      fs.mkdirSync(trackPath);
-      request(track.uri).pipe(fs.createWriteStream(path.join(trackPath, "original.mp3")));
-      track.folderPath = trackPath;
-      promise.resolve(true);
-    }
-    catch(err){
-      logger.error('Unable to fetch file for ' + track.title + ' error : ' + err);
-      promise.resolve(false);
-    }
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
-  Promise.seq(promiseArray).then(function(){
-    self.goFingerprint();
-  }); 
-}
-
-AutoVerifier.prototype.goFingerprint = function(){
-  var self = this;
-  logger.info("Begin comparing files");
-  self.end();
+  self.emit('started');
 }
 
 AutoVerifier.prototype.end = function() {
   var self = this;
+
   self.started_ = false;
-  /*rimraf(self.records.parent, function(err){
-    if(err)
-      logger.error('Unable to rmdir ' + self.records.parent + ' error : ' + err);
-    self.emit('ended');
-  });*/
+
+  self.emit('ended');
 }

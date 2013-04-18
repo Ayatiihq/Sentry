@@ -23,8 +23,7 @@ var acquire = require('acquire')
   , util = require('util')
   , zlib = require('zlib')
   , fs = require('fs')
-  , async = require('async')
-;
+  ;
 
 var Promise = require('node-promise').Promise
   , Seq = require('seq')
