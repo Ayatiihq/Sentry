@@ -45,6 +45,8 @@ function main() {
   if (action === 'getReadyForNotice')
     notices.getReadyForNotice(require(arg0), log);
 
+  if (action === 'setTakenDown')
+    notices.setTakenDown({ _id: arg0 }, log);
 }
 
 main()

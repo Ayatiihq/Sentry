@@ -226,3 +226,14 @@ Campaigns.prototype.remove = function(id, callback) {
 
   self.campaigns_.remove({ _id: id }, callback);
 }
+
+Campaigns.prototype.save = function(campaign, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+  
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.save, Object.values(arguments)]);
+
+  self.campaigns_.save(campaign, callback);
+}

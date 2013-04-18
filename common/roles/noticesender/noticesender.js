@@ -223,7 +223,7 @@ NoticeSender.prototype.processBatch = function(batch, done) {
 
 NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
   var self = this
-    , settingsKey = self.campaigns_.hash(self.campaign_)
+    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
     ;
 
   Seq()
