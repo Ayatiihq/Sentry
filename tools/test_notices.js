@@ -47,6 +47,12 @@ function main() {
 
   if (action === 'setTakenDown')
     notices.setTakenDown({ _id: arg0 }, log);
+
+  if (action === 'getForCampaign')
+    notices.getForCampaign(require(arg0), argv[4], argv[5], log);
+
+  if (action === 'getCountForCampaign')
+    notices.getCountForCampaign(require(arg0), log);
 }
 
 main()
