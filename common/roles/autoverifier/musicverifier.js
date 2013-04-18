@@ -116,7 +116,8 @@ MusicVerifier.prototype.goFingerprint = function(){
                  logger.error('Problem copying infringement audio file to track folder : ' + err);
                  return;
                }
-               exec('fpeval', [track.folderPath],
+               logger.info('About to attempt a match in ' + track.folderPath);
+               exec(path.join(__dirname, 'bin', 'fpeval'), [track.folderPath],
                 function (error, stdout, stderr){
                   if(stderr){
                     logger.error("Fpeval standard error : " + stderr);
@@ -127,10 +128,9 @@ MusicVerifier.prototype.goFingerprint = function(){
                   if(stderr | error)
                     self.cleanup();
                   logger.info('fpeval : ' + stdout);
-                }); 
-             });
-  });
-
+                }); // exec callback 
+             });  //fs copy callback
+  }); //tracks.each callback
 }
 
 MusicVerifier.prototype.cleanup = function() {
