@@ -243,3 +243,55 @@ Notices.prototype.setTakenDown = function(notice, callback) {
       });
   });
 }
+
+/**
+ * Get notices for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {number}                skip             The number of documents to skip, for pagenation.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+*/
+Notices.prototype.getForCampaign = function(campaign, skip, limit, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign
+  };
+
+  var options = { 
+    skip: skip, 
+    limit: limit,
+    sort: { created: -1 }
+  };
+
+  self.notices_.find(query, options).toArray(callback); 
+}
+
+/**
+ * Get notices count for a campaign at the specified points.
+ *
+ * @param {object}                 campaign         The campaign which we want unverified links for
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+ */
+Notices.prototype.getCountForCampaign = function(campaign, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getCountForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign
+  };
+
+  self.notices_.find(query).count(callback);
+}

@@ -75,7 +75,13 @@ NoticeBuilder.prototype.build = function(done) {
       }
     })
     .seq('done', function(message) {
-      done(null, self.hash_, message);
+      self.storage_.createFromText(self.hash_, message, {}, function(err) {
+        if (err) {
+         logger.warn('Unable to save message, trying again: %s', err);
+          self.storage_.createFromText(self.hash_, message, {}, logErr);
+        }
+        done(null, self.hash_, message);
+      });
     })
     .catch(function(err) {
       done(err);
@@ -109,30 +115,6 @@ NoticeBuilder.prototype.prepareMusicAlbumContext = function(done) {
   };
 
   done(null, context);
-}
-
-NoticeBuilder.prototype.prepareNotice = function(message, done) {
-  var self = this
-    , notice = {}
-    ;
-
-  notice._id = self.hash_;
-  notice.metadata = {
-    to: self.host_.noticeDetails.metadata.to
-  };
-  notice.infringements = [];
-
-  self.infringements_.forEach(function(infringement) {
-    notice.infringements.push(infringement._id);
-  });
-
-  self.storage_.createFromText(self.hash_, message, {}, function(err) {
-    if (err) {
-      logger.warn('Unable to save message, trying again: %s', err);
-      self.storage_.createFromText(self.hash_, message, {}, logErr);
-    }
-    done(null, notice);
-  });
 }
 
 function logErr(err) {
