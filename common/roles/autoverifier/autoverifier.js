@@ -4,15 +4,12 @@
  * AutoVerifier processes infringements that need downloading and attempts to autoverify them depending on the campaign type. 
  */
 var acquire = require('acquire')
-  , config = acquire('config')
-  , events = require('events')
-  , logger = acquire('logger').forFile('verifier.js')
   , Seq = require('seq')
-  , states = acquire('states')
+  , events = require('events')
   , util = require('util')
   , fs = require('fs')
   , os = require('os')
-  , Promise = require('node-promise').Promise
+  , Promise = require('node-promise')
   , path = require('path')
   , unzip = require('unzip')
   , request = require('request')
@@ -24,6 +21,9 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Settings = acquire('settings')
+  , logger = acquire('logger').forFile('verifier.js')
+  , config = acquire('config')
+  , states = acquire('states')  
   ;
 
 var MAX_LINKS = 100;
@@ -47,57 +47,7 @@ AutoVerifier.prototype.init = function() {
   self.settings_ = new Settings('role.autoverifier');
   self.jobs_ = new Jobs('autoverifier');
   self.records = {};
-}
-
-AutoVerifier.prototype.processJob = function(err, job) {
-  var self = this;
-
-  if (err) {
-    self.emit('error', err);
-    return;
-  
-  } else if (!job) {
-    logger.info('No job to process');
-    self.emit('finished');
-    return;
-  }
-
-  logger.info('Processing %j', job._id);
-
-  function onError(err) {
-    logger.warn('Unable to process job: %s', err);
-    self.jobs_.close(job, states.jobs.state.ERRORED, err);
-    self.emit('error', err);
-  }
-
-  Seq()
-    .seq('Job has details', function() {
-      self.campaigns_.getDetails(job._id.owner, this);
-    })
-    .seq('Job is valid', function(campaign) {
-      job.campaign = campaign;
-      // We'll need this !
-      //self.checkJobValidity(job, this);
-    })
-    .seq('Start job', function() {
-      self.startJob(job, this);
-    })
-    .seq('Done', function() {
-      logger.info('Finished all work');
-      self.emit('finished');
-    })
-    .catch(onError)
-    ;
-
-  process.on('uncaughtException', onError);
-}
-
-AutoVerifier.prototype.checkJobValidity = function(job, callback) {
-  var self = this;
-}
-
-AutoVerifier.prototype.startJob = function(job, done) {
-  var self = this;
+  self.campaign = null;
 }
 
 //
@@ -111,31 +61,31 @@ AutoVerifier.prototype.start = function(campaign) {
   var self = this;
   self.started_ = true;
   self.emit('started');
+  self.campaign = campaign;
   var promise = self.createParentFolder(campaign);
   promise.then(function(err){
     if(err){
       self.end();
       return;
     }
-    self.fetchFiles(campaign).then(function(success){
-      if(!success)
-        self.end();
-    });
+    self.fetchFiles();
   });
+}
+  
+AutoVerifier.prototype.createRandomName = function(handle) {
+  return [handle.replace(/\s|(|)|:/,"").toLowerCase(),
+          '-',
+          Date.now(),
+          '-',
+          process.pid,
+          '-',
+          (Math.random() * 0x100000000 + 1).toString(36)].join('');
 }
 
 AutoVerifier.prototype.createParentFolder = function(campaign) {
   var self = this;
-  var promise = new Promise();
-  var now = Date.now();
-  var name = [campaign.name.replace(/\s/,""),
-              '-',
-              now,
-              '-',
-              process.pid,
-              '-',
-              (Math.random() * 0x100000000 + 1).toString(36)].join('');
-  self.records.parent = path.join(os.tmpDir(), name); 
+  var promise = new Promise.Promise();
+  self.records.parent = path.join(os.tmpDir(), self.createRandomName(campaign.name)); 
   fs.mkdir(self.records.parent, function(err){
     if(err)
       logger.error('Error creating parenting folder called ' + self.records.parent);
@@ -147,25 +97,38 @@ AutoVerifier.prototype.createParentFolder = function(campaign) {
 /*
  * Assumption files are in a zip
  */
-AutoVerifier.prototype.fetchFiles = function(campaign) {
+AutoVerifier.prototype.fetchFiles = function() {
   var self = this;
-  var promise = new Promise();
-  if(!campaign.uri.endsWith('.zip')){
-    logger.error('files should be in a zip !');
-    promise.resolve(false);
-    return;
+
+  function fetchTrack(track){
+    var self = this;
+    var promise = new Promise.Promise();
+    var folderName = self.createRandomName("");
+    var trackPath = path.join(self.records.parent, folderName);
+    try{
+      fs.mkdirSync(trackPath);
+      request(track.uri).pipe(fs.createWriteStream(path.join(trackPath, "original.mp3")));
+      track.folderPath = trackPath;
+      promise.resolve(true);
+    }
+    catch(err){
+      logger.error('Unable to fetch file for ' + track.title + ' error : ' + err);
+      promise.resolve(false);
+    }
+    return promise;
   }
-  try{
-    target = campaign.name.replace(/\s/, '').toLowerCase();
-    target += '.zip';
-    request(campaign.uri).pipe(unzip.Extract({path: self.records.parent}));//fs.createWriteStream(path.join(self.records.parent, target)));
-    promise.resolve(true);
-  }
-  catch(err){
-    logger.error('Unable to fetch files for ' + campaign.uri + ' error : ' + err);
-    promise.resolve(false);
-  }
-  return promise;
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
+  Promise.seq(promiseArray).then(function(){
+    self.goFingerprint();
+  }); 
+}
+
+AutoVerifier.prototype.goFingerprint = function(){
+  var self = this;
+  logger.info("Begin comparing files");
+  self.end();
 }
 
 AutoVerifier.prototype.end = function() {
