@@ -140,7 +140,7 @@ MusicVerifier.prototype.goFingerprint = function(){
   };
   
   var evaluate = function(track){
-    exec(path.join(__dirname, 'bin', 'fpeval'), track.folderPath,
+    exec(path.join(__dirname, 'bin', 'fpeval'), [track.folderPath],
       function (error, stdout, stderr){
         if(stderr)
           logger.error("Fpeval standard error : " + stderr);
@@ -177,11 +177,11 @@ MusicVerifier.prototype.goFingerprint = function(){
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
   logger.info('cleanup');  
-  rimraf(self.tmpDirectory, function(err){
+  /*rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
     self.emit('ended');
-  });
+  });*/
 }
 
 
