@@ -7,6 +7,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , events = require('events')
   , util = require('util')
+  , filed = require('filed')  
   , fs = require('fs')
   , os = require('os')
   , Promise = require('node-promise')
@@ -32,7 +33,6 @@ MusicVerifier.prototype.init = function() {
   self.tmpDirectory = null;
 }
 
-
 MusicVerifier.prototype.createRandomName = function(handle) {
   return [handle.replace(/\s/,"").toLowerCase(),
           Date.now(),
@@ -54,9 +54,6 @@ MusicVerifier.prototype.createParentFolder = function(campaign) {
   return promise;
 }
 
-/*
- * Assumption files are in a zip
- */
 MusicVerifier.prototype.fetchFiles = function() {
   var self = this;
 
@@ -67,9 +64,8 @@ MusicVerifier.prototype.fetchFiles = function() {
     var trackPath = path.join(self.tmpDirectory, folderName);
     try{
       fs.mkdirSync(trackPath);
-      request(track.uri).pipe(fs.createWriteStream(path.join(trackPath, "original.mp3")));
+      self.downloadThing(track.uri, path.join(trackPath, "original"), promise);
       track.folderPath = trackPath;
-      promise.resolve(true);
     }
     catch(err){
       logger.error('Unable to fetch file for ' + track.title + ' error : ' + err);
@@ -90,13 +86,25 @@ MusicVerifier.prototype.fetchFiles = function() {
   }); 
 }
 
+MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
+  var self = this;
+  var downloadFile = filed(target);  
+  var r = request(downloadURL).pipe(downloadFile);  
+  downloadFile.on('end', function () {
+    logger.info("Download of " + downloadURL + " complete.")
+    promise.resolve(true);
+  });  
+  downloadFile.on('error', function (err) {
+    logger.warn(err, 'error downloading ' + downloadURL);
+    promise.resolve(false);
+  });  
+}
+
 MusicVerifier.prototype.fetchInfringement = function(){
   var self = this;
   var promise = new Promise.Promise();
   try{
-    //logger.info('fetching infringement : ' + JSON.stringify(self.infringement));
-    request(self.infringement.uri).pipe(fs.createWriteStream(path.join(self.tmpDirectory, "infringement")));    
-    promise.resolve(true);
+    self.downloadThing(self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
@@ -107,9 +115,9 @@ MusicVerifier.prototype.fetchInfringement = function(){
 
 MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
-  logger.info("Begin comparing files");
 
   var copyfile = function (source, target, cb) {
+    logger.info("Begin copying files : " + source + " to " + target);
     var cbCalled = false;
     var rd = fs.createReadStream(source);
     rd.on("error", function(err) {
@@ -169,11 +177,11 @@ MusicVerifier.prototype.goFingerprint = function(){
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
   logger.info('cleanup');  
-  /*rimraf(self.tmpDirectory, function(err){
+  rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
     self.emit('ended');
-  });*/
+  });
 }
 
 

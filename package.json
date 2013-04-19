@@ -9,7 +9,7 @@
     "bcrypt": "*",
     "cheerio": "0.10.x",
     "enum": "0.2.x",
-    "fs-extra": "1.2.0",
+    "filed": "*",
     "handlebars": "1.0.x",
     "mongodb": "1.2.x",
     "node-promise": "0.5.x",
