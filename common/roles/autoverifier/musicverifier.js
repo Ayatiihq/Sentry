@@ -129,22 +129,28 @@ MusicVerifier.prototype.goFingerprint = function(){
         cbCalled = true;
       }
     }
-  }
+  };
   
   var evaluate = function(track){
     exec(path.join(__dirname, 'bin', 'fpeval'), track.folderPath,
       function (error, stdout, stderr){
-        if(stderr){
+        if(stderr)
           logger.error("Fpeval standard error : " + stderr);
-        }
-        if(error){
+        if(error)
           logger.error("Error running Fpeval: " + error);                    
-        }
-        if(stderr | error)
+        if(stderr || error){
           self.cleanup();
-        logger.info('fpeval : ' + stdout);
-    }); // exec callback     
-  }
+          return;
+        }
+        try{
+          var result = JSON.parse(stdout);
+          logger.info('fpeval : ' + stdout + ' result : ' + JSON.stringify(result));
+        }
+        catch(err){
+          logger.error("Error parsing FPEval output");
+        }
+      });
+    };
 
   self.campaign.metadata.tracks.each(function compare(track){
     copyfile(path.join(self.tmpDirectory,  'infringement'),
@@ -157,9 +163,8 @@ MusicVerifier.prototype.goFingerprint = function(){
               logger.info('About to attempt a match in ' + track.folderPath);
               evaluate(track);
              });
-  }); //tracks.each callback
+  });
 }
-
 
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
