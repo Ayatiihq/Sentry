@@ -7,7 +7,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , events = require('events')
   , util = require('util')
-  , fs = require('fs-extra')
+  , fs = require('fs')
   , os = require('os')
   , Promise = require('node-promise')
   , path = require('path')
@@ -35,7 +35,6 @@ MusicVerifier.prototype.init = function() {
 
 MusicVerifier.prototype.createRandomName = function(handle) {
   return [handle.replace(/\s/,"").toLowerCase(),
-          '-',
           Date.now(),
           '-',
           process.pid,
@@ -95,6 +94,7 @@ MusicVerifier.prototype.fetchInfringement = function(){
   var self = this;
   var promise = new Promise.Promise();
   try{
+    //logger.info('fetching infringement : ' + JSON.stringify(self.infringement));
     request(self.infringement.uri).pipe(fs.createWriteStream(path.join(self.tmpDirectory, "infringement")));    
     promise.resolve(true);
   }
@@ -108,39 +108,67 @@ MusicVerifier.prototype.fetchInfringement = function(){
 MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
   logger.info("Begin comparing files");
+
+  var copyfile = function (source, target, cb) {
+    var cbCalled = false;
+    var rd = fs.createReadStream(source);
+    rd.on("error", function(err) {
+      done(err);
+    });
+    var wr = fs.createWriteStream(target);
+    wr.on("error", function(err) {
+      done(err);
+    });
+    wr.on("close", function(ex) {
+      done();
+    });
+    rd.pipe(wr);
+    function done(err) {
+      if (!cbCalled) {
+        cb(err);
+        cbCalled = true;
+      }
+    }
+  }
+  
+  var evaluate = function(track){
+    exec(path.join(__dirname, 'bin', 'fpeval'), track.folderPath,
+      function (error, stdout, stderr){
+        if(stderr){
+          logger.error("Fpeval standard error : " + stderr);
+        }
+        if(error){
+          logger.error("Error running Fpeval: " + error);                    
+        }
+        if(stderr | error)
+          self.cleanup();
+        logger.info('fpeval : ' + stdout);
+    }); // exec callback     
+  }
+
   self.campaign.metadata.tracks.each(function compare(track){
-    fs.copy (path.join(self.tmpDirectory,  'infringement'),
+    copyfile(path.join(self.tmpDirectory,  'infringement'),
              path.join(track.folderPath, 'infringement'),
              function(err){
-               if(err){
-                 logger.error('Problem copying infringement audio file to track folder : ' + err);
-                 return;
-               }
-               logger.info('About to attempt a match in ' + track.folderPath);
-               exec(path.join(__dirname, 'bin', 'fpeval'), [track.folderPath],
-                function (error, stdout, stderr){
-                  if(stderr){
-                    logger.error("Fpeval standard error : " + stderr);
-                  }
-                  if(error){
-                    logger.error("Error running Fpeval: " + error);                    
-                  }
-                  if(stderr | error)
-                    self.cleanup();
-                  logger.info('fpeval : ' + stdout);
-                }); // exec callback 
-             });  //fs copy callback
+              if(err){
+                logger.error('Error copying file : ' + err);
+                return;
+              }
+              logger.info('About to attempt a match in ' + track.folderPath);
+              evaluate(track);
+             });
   }); //tracks.each callback
 }
+
 
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
   logger.info('cleanup');  
-  rimraf(self.tmpDirectory, function(err){
+  /*rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
     self.emit('ended');
-  });
+  });*/
 }
 
 
