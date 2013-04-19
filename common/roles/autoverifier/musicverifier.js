@@ -36,9 +36,7 @@ MusicVerifier.prototype.init = function() {
 MusicVerifier.prototype.createRandomName = function(handle) {
   return [handle.replace(/\s/,"").toLowerCase(),
           Date.now(),
-          '-',
           process.pid,
-          '-',
           (Math.random() * 0x100000000 + 1).toString(36)].join('');
 }
 
@@ -139,27 +137,6 @@ MusicVerifier.prototype.goFingerprint = function(){
     }
   };
   
-  var evaluate = function(track){
-    exec(path.join(__dirname, 'bin', 'fpeval'), [track.folderPath],
-      function (error, stdout, stderr){
-        if(stderr)
-          logger.error("Fpeval standard error : " + stderr);
-        if(error)
-          logger.error("Error running Fpeval: " + error);                    
-        if(stderr || error){
-          self.cleanup();
-          return;
-        }
-        try{
-          var result = JSON.parse(stdout);
-          logger.info('fpeval : ' + stdout + ' result : ' + JSON.stringify(result));
-        }
-        catch(err){
-          logger.error("Error parsing FPEval output");
-        }
-      });
-    };
-
   self.campaign.metadata.tracks.each(function compare(track){
     copyfile(path.join(self.tmpDirectory,  'infringement'),
              path.join(track.folderPath, 'infringement'),
@@ -169,10 +146,36 @@ MusicVerifier.prototype.goFingerprint = function(){
                 return;
               }
               logger.info('About to attempt a match in ' + track.folderPath);
-              evaluate(track);
+              self.evaluate(track);
              });
   });
 }
+
+MusicVerifier.prototype.evaluate = function(track){
+  var self = this;
+  console.log('Contents of our target are : ' + JSON.stringify(fs.readdirSync(track.folderPath)));
+  console.log('path to our binary : ' + path.join(process.cwd(), 'bin', 'fpeval'));
+  exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
+    function (error, stdout, stderr){
+      if(stderr)
+        logger.error("Fpeval standard error : " + stderr);
+      if(error)
+        logger.error("Error running Fpeval: " + error);                    
+      if(stderr || error){
+        self.cleanup();
+        return;
+      }
+      try{
+        logger.info('fpeval : ' + stdout);
+        var result = JSON.parse(stdout);
+        logger.info('fpeval : ' + stdout + ' result : ' + JSON.stringify(result));
+      }
+      catch(err){
+        logger.error("Error parsing FPEval output" + err);
+      }
+    });
+}  
+
 
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
