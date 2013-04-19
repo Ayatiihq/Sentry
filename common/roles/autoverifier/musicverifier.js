@@ -136,25 +136,33 @@ MusicVerifier.prototype.goFingerprint = function(){
       }
     }
   };
-  
-  self.campaign.metadata.tracks.each(function compare(track){
+
+  var compare = function(track){
+    var self = this;
+    var promise = new Promise.Promise();
     copyfile(path.join(self.tmpDirectory,  'infringement'),
              path.join(track.folderPath, 'infringement'),
              function(err){
               if(err){
                 logger.error('Error copying file : ' + err);
+                promise.resolve();
                 return;
               }
-              logger.info('About to attempt a match in ' + track.folderPath);
-              self.evaluate(track);
+              self.evaluate(track, promise);
              });
-  });
+    return promise;
+  }
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){compare.bind(self, track)});
+
+  Promise.seq(promiseArray).then(function(){
+    self.examineResults();
+  });  
 }
 
-MusicVerifier.prototype.evaluate = function(track){
+MusicVerifier.prototype.evaluate = function(track, promise){
   var self = this;
-  console.log('Contents of our target are : ' + JSON.stringify(fs.readdirSync(track.folderPath)));
-  console.log('path to our binary : ' + path.join(process.cwd(), 'bin', 'fpeval'));
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
       if(stderr)
@@ -162,29 +170,55 @@ MusicVerifier.prototype.evaluate = function(track){
       if(error)
         logger.error("Error running Fpeval: " + error);                    
       if(stderr || error){
-        self.cleanup();
+        promise.resolve();
         return;
       }
       try{
-        logger.info('fpeval : ' + stdout);
         var result = JSON.parse(stdout);
-        logger.info('fpeval : ' + stdout + ' result : ' + JSON.stringify(result));
+        logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
+        track.score = result.score;
       }
       catch(err){
         logger.error("Error parsing FPEval output" + err);
       }
+      promise.resolve();
     });
 }  
 
+MusicVerifier.prototype.examineResults = function(){
+  var matchedTracks = [];
+  self.campaign.metadata.tracks.each(function(track){
+    if(track.score > 0.6){ //Re-evaluate this threshold I think it could be higher
+      if(!matchedTracks.isEmpty()){
+        logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + matchedTrack.score + ' and this score : ' + track.score);
+      }
+      else{
+        matchedTracks.push(track);
+      }
+    }
+  });
+
+  if(matchedTracks.length == 1){
+    // TODO emit
+    /*{
+      "state" : 2,
+      "notes" : "Harry Caul is happy to report that this is verified.",
+      "who" : "MusicVerifer AKA Harry Caul",
+      "started" : Date.now(),
+      "finished" : Date.now(),
+      "created" : Date.now()
+    }*/    
+  }
+}
 
 MusicVerifier.prototype.cleanup = function() {
   var self = this;
   logger.info('cleanup');  
-  /*rimraf(self.tmpDirectory, function(err){
+  rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
     self.emit('ended');
-  });*/
+  });
 }
 
 
