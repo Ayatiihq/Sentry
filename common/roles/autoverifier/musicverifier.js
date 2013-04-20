@@ -64,6 +64,7 @@ MusicVerifier.prototype.fetchFiles = function() {
       fs.mkdirSync(trackPath);
       self.downloadThing(track.uri, path.join(trackPath, "original"), promise);
       track.folderPath = trackPath;
+      track.score = 0.0;
     }
     catch(err){
       logger.error('Unable to fetch file for ' + track.title + ' error : ' + err);
@@ -154,7 +155,7 @@ MusicVerifier.prototype.goFingerprint = function(){
   }
 
   var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){compare.bind(self, track)});
+  promiseArray = self.campaign.metadata.tracks.map(function(track){return compare.bind(self, track)});
 
   Promise.seq(promiseArray).then(function(){
     self.examineResults();
@@ -169,11 +170,7 @@ MusicVerifier.prototype.evaluate = function(track, promise){
         logger.error("Fpeval standard error : " + stderr);
       if(error)
         logger.error("Error running Fpeval: " + error);                    
-      if(stderr || error){
-        promise.resolve();
-        return;
-      }
-      try{
+      try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
         var result = JSON.parse(stdout);
         logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
         track.score = result.score;
@@ -183,9 +180,10 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       }
       promise.resolve();
     });
-}  
+}
 
 MusicVerifier.prototype.examineResults = function(){
+  var self = this;
   var matchedTracks = [];
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > 0.6){ //Re-evaluate this threshold I think it could be higher
@@ -198,7 +196,8 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
 
-  if(matchedTracks.length == 1){
+  if(matchedTracks.length === 1){
+    console.log('here is the match ' + matchedTracks[0].folderPath);
     // TODO emit
     /*{
       "state" : 2,
@@ -208,6 +207,14 @@ MusicVerifier.prototype.examineResults = function(){
       "finished" : Date.now(),
       "created" : Date.now()
     }*/    
+  }
+  else{
+    if(matchedTracks.length > 1){
+      logger.error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));
+    }
+    else{ //matchedTracks.length === 0
+      logger.info('Not successfull in matching ' + self.infringement.uri);
+    }
   }
 }
 
