@@ -59,12 +59,11 @@ MusicVerifier.prototype.fetchFiles = function() {
     var self = this;
     var promise = new Promise.Promise();
     var folderName = self.createRandomName("");
-    var trackPath = path.join(self.tmpDirectory, folderName);
+    track.folderPath = path.join(self.tmpDirectory, folderName);
+    track.score = 0.0;
     try{
       fs.mkdirSync(trackPath);
-      self.downloadThing(track.uri, path.join(trackPath, "original"), promise);
-      track.folderPath = trackPath;
-      track.score = 0.0;
+      self.downloadThing(track.uri, path.join(track.folderPath, "original"), promise);
     }
     catch(err){
       logger.error('Unable to fetch file for ' + track.title + ' error : ' + err);
@@ -77,10 +76,8 @@ MusicVerifier.prototype.fetchFiles = function() {
   promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
   Promise.seq(promiseArray).then(function(){
     self.fetchInfringement().then(function(success){
-      if(!success)
-        self.cleanup();
-      else
-        self.goFingerprint();
+      if(success)
+        self.goFingerprint(); // got everything in place, lets match.
     });
   }); 
 }
@@ -107,6 +104,7 @@ MusicVerifier.prototype.fetchInfringement = function(){
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
+    self.cleanup(err);
     promise.resolve(false);
   }
   return promise;
@@ -116,7 +114,6 @@ MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
 
   var copyfile = function (source, target, cb) {
-    logger.info("Begin copying files : " + source + " to " + target);
     var cbCalled = false;
     var rd = fs.createReadStream(source);
     rd.on("error", function(err) {
@@ -195,37 +192,48 @@ MusicVerifier.prototype.examineResults = function(){
       }
     }
   });
+  
+  var verificationObject;
 
   if(matchedTracks.length === 1){
-    console.log('here is the match ' + matchedTracks[0].folderPath);
-    // TODO emit
-    /*{
-      "state" : 2,
-      "notes" : "Harry Caul is happy to report that this is verified.",
-      "who" : "MusicVerifer AKA Harry Caul",
-      "started" : Date.now(),
-      "finished" : Date.now(),
-      "created" : Date.now()
-    }*/    
+    verificationObject = {"state" : 1,//verified
+                          "notes" : "Harry Caul is happy to report that this is verified.",
+                          "who" : "MusicVerifer AKA Harry Caul",
+                          "started" : Date.now(),
+                          "finished" : Date.now(),
+                          "created" : Date.now()}
+       
   }
   else{
+    verificationObject = {"state" : 2,// False positive
+                          "who" : "MusicVerifer AKA Harry Caul",
+                          "started" : Date.now(),
+                          "finished" : Date.now(),
+                          "created" : Date.now()}
+
     if(matchedTracks.length > 1){
+      verificationObject.notes = "Harry Caul found more than one match here, please examine infringement",
       logger.error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));
     }
     else{ //matchedTracks.length === 0
+      verificationObject.notes = "Harry Caul did not find any match, again please examine.",
       logger.info('Not successfull in matching ' + self.infringement.uri);
     }
   }
+  self.cleanup();// remove the directory
+  self.done_(null, verificationObject);
 }
 
-MusicVerifier.prototype.cleanup = function() {
+MusicVerifier.prototype.cleanup = function(err) {
   var self = this;
   logger.info('cleanup');  
   rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
-    self.emit('ended');
   });
+  // Only call in this context if we pass an error.
+  if(err)
+    self.done(err,{});
 }
 
 
@@ -256,7 +264,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   var promise = self.createParentFolder(campaign);
   promise.then(function(err){
     if(err){
-      self.cleanup();
+      self.cleanup(err);
       return;
     }
     self.fetchFiles();
