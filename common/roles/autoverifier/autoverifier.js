@@ -161,18 +161,24 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
 
   logger.info('Verifying %s', infringement.uri);
 
-  var verifier = new Verifier();
-  verifier.verify(self.campaign_, infringement, function(err, verification) {
-    if (err)
-      return done(err);
+  try {
 
-    if (!verification || !verification.state)
-      return done(new Error('Invalid verification generated'));
+    var verifier = new Verifier();
+    verifier.verify(self.campaign_, infringement, function(err, verification) {
+      if (err)
+        return done(err);
 
-    // FIXME: Record the verification in the db
-    logger.info('%s verified: %j', infringement._id, verification);
-    done();
-  });
+      if (!verification || !verification.state)
+        return done(new Error('Invalid verification generated'));
+
+      // FIXME: Record the verification in the db
+      logger.info('%s verified: %j', infringement._id, verification);
+      done();
+    });
+
+  } catch (err) {
+    done(err);
+  }
 }
 
 //
