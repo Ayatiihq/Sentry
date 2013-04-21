@@ -163,7 +163,10 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
     if (err)
       return done(err);
 
-    // FIXME: Record the verification
+    if (!verification || !verification.state)
+      return done(new Error('Invalid verification generated'));
+
+    // FIXME: Record the verification in the db
     logger.info('%s verified: %j', infringement._id, verification);
     done();
   });

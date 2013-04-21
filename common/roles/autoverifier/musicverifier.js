@@ -62,7 +62,7 @@ MusicVerifier.prototype.fetchFiles = function() {
     track.folderPath = path.join(self.tmpDirectory, folderName);
     track.score = 0.0;
     try{
-      fs.mkdirSync(trackPath);
+      fs.mkdirSync(track.folderPath);
       self.downloadThing(track.uri, path.join(track.folderPath, "original"), promise);
     }
     catch(err){
