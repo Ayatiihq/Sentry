@@ -222,7 +222,7 @@ MusicVerifier.prototype.examineResults = function(){
     }
   }
   self.cleanup();// remove the directory
-  self.done_(null, verificationObject);
+  self.done(null, verificationObject);
 }
 
 MusicVerifier.prototype.cleanup = function(err) {
@@ -234,7 +234,7 @@ MusicVerifier.prototype.cleanup = function(err) {
   });
   // Only call in this context if we pass an error.
   if(err)
-    self.done(err,{});
+    self.done(err);
 }
 
 
@@ -258,7 +258,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   logger.info('Trying autoverification for %s', infringement.uri);
 
   // Call this as (err, verificationObject) when either is ready
-  self.done_ = done;
+  self.done = done;
   self.campaign = campaign;
   self.infringement = infringement;
 
