@@ -166,7 +166,7 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       if(stderr)
         logger.error("Fpeval standard error : " + stderr);
       if(error)
-        logger.error("Error running Fpeval: " + error);                    
+        logger.warn("Error running Fpeval: " + error);                    
       try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
         var result = JSON.parse(stdout);
         logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
@@ -200,7 +200,7 @@ MusicVerifier.prototype.examineResults = function(){
     verificationObject = {"state" : 1,//verified
                           "notes" : "Harry Caul is happy to report that this is verified.",
                           "who" : "MusicVerifer AKA Harry Caul",
-                          "started" : Date.now(),
+                          "started" : self.startedAt,
                           "finished" : Date.now(),
                           "created" : Date.now()}
        
@@ -208,7 +208,7 @@ MusicVerifier.prototype.examineResults = function(){
   else{
     verificationObject = {"state" : 2,// False positive
                           "who" : "MusicVerifer AKA Harry Caul",
-                          "started" : Date.now(),
+                          "started" : self.startedAt,
                           "finished" : Date.now(),
                           "created" : Date.now()}
 
@@ -233,8 +233,10 @@ MusicVerifier.prototype.cleanup = function(err) {
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
   });
   // Only call in this context if we pass an error.
-  if(err)
+  if(err){
+    logger.warn('musicverifier ending with an error : ' + err);
     self.done(err);
+  }
 }
 
 
@@ -261,6 +263,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   self.done = done;
   self.campaign = campaign;
   self.infringement = infringement;
+  self.startedAt = Date.now();
 
   var promise = self.createParentFolder(campaign);
   promise.then(function(err){
