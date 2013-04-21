@@ -185,7 +185,8 @@ MusicVerifier.prototype.examineResults = function(){
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > 0.6){ //Re-evaluate this threshold I think it could be higher
       if(!matchedTracks.isEmpty()){
-        logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + matchedTrack.score + ' and this score : ' + track.score);
+        var score =  matchedTracks[0].score;
+        logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + score + ' and this score : ' + track.score);
       }
       else{
         matchedTracks.push(track);
