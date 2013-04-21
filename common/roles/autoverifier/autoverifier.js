@@ -91,6 +91,7 @@ AutoVerifier.prototype.processJob = function(err, job) {
   // Error out nicely, closing the job too
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
+    logger.warn(err.stack);
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -157,6 +158,8 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
                            infringement.metadata.mimetype, infringement._id);
     return done(new Error(err));
   }
+
+  logger.info('Verifying %s', infringement.uri);
 
   var verifier = new Verifier();
   verifier.verify(self.campaign_, infringement, function(err, verification) {
