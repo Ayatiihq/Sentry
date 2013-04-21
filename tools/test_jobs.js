@@ -37,11 +37,11 @@ function main() {
 
   setupSignals();
 
-  var jobs = new Jobs('noticesender');
-  var action = argv[2];
+  var jobs = new Jobs(argv[2]);
+  var action = argv[3];
   var id;
   try {
-    id = require(argv[3])._id;
+    id = require(argv[4])._id;
   } catch(err) {
     id = null;
   }
@@ -56,7 +56,7 @@ function main() {
     jobs.nAvailableJobs(log);
 
   if (action === 'push')
-    jobs.push(id, argv[4], {}, log);
+    jobs.push(id, argv[5], {}, log);
 
   if (action === 'pop')
     jobs.pop(log);

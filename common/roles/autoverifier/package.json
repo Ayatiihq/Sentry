@@ -1,0 +1,9 @@
+{
+  "name": "autoverifier",
+  "main": "./autoverifier.js",
+  "dependencies": {
+  },
+  "engines": [
+  ],
+  "intervalMinutes": 5
+}
