@@ -37,23 +37,23 @@ function parseObject(arg) {
 }
 
 function gatherInfringements(urisList){
+  var infringements = [];
   fs.readFile(path.join(process.cwd(), urisList), function (err, data) {
     if (err) {
       throw err; 
     }
-    var infringements = [];
     data.toString().words(function(singular){
       // bad javascript bad bad!
       isState = parseInt(singular) || parseInt(singular) === 0;
       if(isState){
         // make a new infringement when a new state is detected.
-        infringements.push({state: parseInt(singular)});
+        infringements.push({state: parseInt(singular), uri:null});
       } 
       else{
         var link = null;
         try{
           link = URI(singular);
-          //logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
+          logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last());
           infringements.last().uri = link.toString();
         }
         catch(err){
@@ -63,6 +63,7 @@ function gatherInfringements(urisList){
     });
     logger.info('infringements size : ' + infringements.length);
   });
+  return infringements;  
 }
 
 var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready', 'infringement-ready'];

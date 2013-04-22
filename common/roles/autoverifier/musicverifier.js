@@ -247,7 +247,19 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
 }
 
 MusicVerifier.prototype.cleanupInfringement = function() {
-
+  var self = this;
+  var walker = fs.walk(self.tmpDirectory);
+  var promise = new Promise.Promise();
+  // file, files, directory, directories
+  walker.on("file", function (root, stat, next) {
+    if(stat.name.match(/infringement/g)){
+      fs.removeSync(path.join(root, stat.name))
+      logger.info('Just deleted', path.join(root, stat.name));
+    }
+    if(!next)
+      promise.resolve();
+  });
+  return promise;
 }
 //
 // Public
@@ -310,13 +322,13 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
     self.fetchCampaignAudio();
   });  
 
-  function goCompare(){
+  function goCompare(infrgs){
     var that = this;
-    infringementList.each(function(infrg){
+    infrgs.each(function(infrg){
       that.fetchInfringement(infrg.uri).then(function(success){
         if(success) that.goFingerprint();   
       });
     });
   }
-  self.on('campaign-audio-ready', goCompare.bind(self));
+  self.on('campaign-audio-ready', goCompare.bind(self, infringementList));
 }
