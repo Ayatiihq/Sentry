@@ -52,8 +52,7 @@ function gatherInfringements(urisList){
       else{
         var link = null;
         try{
-          var escaped = URI.decode(singular);
-          link = URI(escaped);
+          link = URI(singular);
           logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
           infringements.last().uri = link.toString();
         }
@@ -102,7 +101,13 @@ function main() {
   instance.verifyList(campaign, infringeURIs, function(err, details){
     if(err)
       logger.warn('unable to verify :' + err);
-    logger.info(JSON.parse(details));
+    else
+      try{
+        logger.info(JSON.stringify(details));
+      }
+      catch(err){
+        logger.warn('unable to parse results from verifyList - ' + err);
+      }
   });  
   //var promise = new Promise.Promise();
   //instance.evaluate({folderPath:'/home/ronoc/ayatii/test-mp3s/sentry-sandbox/'}, promise);

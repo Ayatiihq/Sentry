@@ -43,6 +43,7 @@ util.inherits(MusicVerifier, events.EventEmitter);
 MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
+  self.results = {complete: [], incomplete: []};
 }
 
 MusicVerifier.prototype.createRandomName = function(handle) {
@@ -94,15 +95,21 @@ MusicVerifier.prototype.fetchCampaignAudio = function() {
 MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   var self = this;
   var downloadFile = filed(target);  
-  var r = request(downloadURL).pipe(downloadFile);  
-  downloadFile.on('end', function () {
-    logger.info("Download of " + downloadURL + " complete.")
-    promise.resolve(true);
-  });  
-  downloadFile.on('error', function (err) {
-    logger.warn(err, 'error downloading ' + downloadURL);
+  try{
+    var r = request(downloadURL).pipe(downloadFile);  
+    downloadFile.on('end', function () {
+      logger.info("Download of " + downloadURL + " complete.")
+      promise.resolve(true);
+    });  
+    downloadFile.on('error', function (err) {
+      logger.warn(err, 'error downloading ' + downloadURL);
+      promise.resolve(false);
+    });
+  }
+  catch(err){
+    logger.warn('Error requesting ' + downloadURL + ' err : ' + err);
     promise.resolve(false);
-  });  
+  }  
 }
 
 MusicVerifier.prototype.fetchInfringement = function(infringement){
@@ -210,35 +217,68 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var verificationObject= {};
+  var verificationObject = {infringement: JSON.stringify(self.infringement),
+                            started : self.startedAt,
+                            who : "MusicVerifer AKA Harry Caul",
+                            finished : Date.now(),
+                            created : Date.now()};
 
-  if(matchedTracks.length === 1){
-    verificationObject = {"state" : 1,//verified
-                          "notes" : "Harry Caul is happy to report that this is verified.",
-                          "who" : "MusicVerifer AKA Harry Caul",
-                          "started" : self.startedAt,
-                          "finished" : Date.now(),
-                          "created" : Date.now()}
-       
+
+  var success = matchedTracks.length === 1;
+  if(success){
+    logger.info('Successfull matching ' + self.infringement.uri);
+    verificationObject = Object.merge (verificationObject, 
+                                      {"state" : 1,//verified
+                                       "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
+    self.results.complete.push(verificationObject);
   }
   else{
-    verificationObject = {"state" : 2,// False positive
-                          "who" : "MusicVerifer AKA Harry Caul",
-                          "started" : self.startedAt,
-                          "finished" : Date.now(),
-                          "created" : Date.now()}
+    
+    verificationObject = Object.merge (verificationObject, {"state" : 2});// False positive
 
     if(matchedTracks.length > 1){
-      verificationObject.notes = "Harry Caul found more than one match here, please examine infringement",
+      verificationObject.notes = "Harry Caul found more than one match here, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
       logger.error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));
     }
     else{ //matchedTracks.length === 0
       verificationObject.notes = "Harry Caul did not find any match, again please examine.",
       logger.info('Not successfull in matching ' + self.infringement.uri);
     }
+    self.results.incomplete.push(verificationObject);    
   }
+
   self.emit('finished');
   self.done(null, verificationObject);
+}
+
+MusicVerifier.prototype.oneAtaTime = function(infrg){
+  var self = this;
+  var promise = new Promise.Promise();
+  try{ // don't bother with uris that have not been completed.
+    var link = URI(infrg.uri);
+    if(link.is('relative')){
+      logger.info('uri is relative - dont go any further' + ' : ' + infrg.uri);
+      promise.resolve();
+      return promise;
+    }
+  } 
+  catch(err){
+    promise.resolve();
+    logger.info('error making uri from link' +  ' : ' + err );
+    return promise;
+  }
+  self.infringement = infrg;
+  self.fetchInfringement().then(function(success){
+    if(success) {
+      self.goFingerprint().then(function(){
+        promise.resolve();
+      });   
+    }
+    else{
+      promise.resolve();
+    }
+  });
+  return promise;
 }
 
 MusicVerifier.prototype.cleanupEverything = function(err) {
@@ -255,21 +295,6 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
   }
 }
 
-MusicVerifier.prototype.cleanupInfringement = function() {
-  var self = this;
-  var walker = fs.walk(self.tmpDirectory);
-  var promise = new Promise.Promise();
-  // file, files, directory, directories
-  walker.on("file", function (root, stat, next) {
-    if(stat.name.match(/infringement/g)){
-      fs.removeSync(path.join(root, stat.name))
-      logger.info('Just deleted', path.join(root, stat.name));
-    }
-    if(!next)
-      promise.resolve();
-  });
-  return promise;
-}
 //
 // Public
 //
@@ -316,35 +341,6 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   self.on('finished', self.cleanupEverything.bind(self, null));
 }
 
-MusicVerifier.prototype.oneAtaTime = function(infrg){
-  var self = this;
-  var promise = new Promise.Promise();
-  try{ // don't bother with uris that have not been completed.
-    var link = URI(infrg.uri);
-    if(link.is('relative')){
-      logger.info('uri is relative - dont go any further' + ' : ' + infrg.uri);
-      promise.resolve();
-      return promise;
-    }
-  } 
-  catch(err){
-    promise.resolve();
-    logger.info('error making uri from link' +  ' : ' + err );
-    return promise;
-  }
-  self.infringement = infrg;
-  self.fetchInfringement().then(function(success){
-    if(success) {
-      self.goFingerprint().then(function(){
-        promise.resolve();
-      });   
-    }
-    else{
-      promise.resolve();
-    }
-  });
-  return promise;
-}
 
 MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
   var self = this;
@@ -363,7 +359,10 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
     var that = this;
     var promiseArray = infrgs.map(function(infrg) { return that.oneAtaTime.bind(that, infrg)});
     Promise.seq(promiseArray).then(function(){
-      logger.info('Finished verifying list');
+      logger.info('Finished verifying list : matched successfully : ' + self.results.completed.length);
+      logger.info('Failed to match: ' + self.results.incomplete.length);
+      fs.writeFile(path.join(process.cwd(),'musicverifierResults'),
+                   JSON.stringify(self.results), function(err) {if(err)logger.warn('Couldnt write to results file')}); 
       self.cleanupEverything();
     }); 
   }
