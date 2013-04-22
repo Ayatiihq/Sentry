@@ -7,7 +7,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , logger = acquire('logger')
   , sugar = require('sugar')
-  , promise = require('node-promise')
+  , Promise = require('node-promise')
   , fs = require('fs')
   , path = require('path')
   , URI = require('URIjs')  
@@ -97,9 +97,9 @@ function main() {
     });
   });
 
-  //var promise = new promise.Promise();
-  //instance.evaluate(track, promise);
-  //promise.then(logger.info('finished'));
+  var promise = new Promise.Promise();
+  instance.evaluate({folderPath:'/home/ronoc/ayatii/test-mp3s/sentry-sandbox/'}, promise);
+  promise.then(logger.info('finished'));
 }
 
 main(); 

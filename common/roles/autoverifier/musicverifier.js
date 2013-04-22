@@ -24,6 +24,14 @@ var logger = acquire('logger').forFile('musicverifier.js')
 
 var MusicVerifier = module.exports = function() {
   this.init();
+
+  function onError(err) {
+    logger.warn('Unable to process job: %s', err);
+    logger.warn(err.stack);
+    self.jobs_.close(job, states.jobs.state.ERRORED, err);
+    self.emit('error', err);
+  }
+
 }
 
 util.inherits(MusicVerifier, events.EventEmitter);
@@ -52,7 +60,7 @@ MusicVerifier.prototype.createParentFolder = function(campaign) {
   return promise;
 }
 
-MusicVerifier.prototype.fetchFiles = function() {
+MusicVerifier.prototype.fetchCampaignAudio = function() {
   var self = this;
 
   function fetchTrack(track){
@@ -75,6 +83,7 @@ MusicVerifier.prototype.fetchFiles = function() {
   var promiseArray;
   promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
   Promise.seq(promiseArray).then(function(){
+    self.emit('campaign-audio-ready');
     self.fetchInfringement().then(function(success){
       if(success)
         self.goFingerprint(); // got everything in place, lets match.
@@ -183,7 +192,7 @@ MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
   self.campaign.metadata.tracks.each(function(track){
-    if(track.score > 0.6){ //Re-evaluate this threshold I think it could be higher
+    if(track.score > 0.3){ 
       if(!matchedTracks.isEmpty()){
         var score =  matchedTracks[0].score;
         logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + score + ' and this score : ' + track.score);
@@ -271,6 +280,18 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
       self.cleanup(err);
       return;
     }
-    self.fetchFiles();
+    self.fetchCampaignAudio();
   });
+}
+
+MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
+  var promise = self.createParentFolder(campaign);
+  promise.then(function(err){
+    if(err){
+      self.cleanup(err);
+      return;
+    }
+    self.fetchCampaignAudio();
+  });  
+
 }
