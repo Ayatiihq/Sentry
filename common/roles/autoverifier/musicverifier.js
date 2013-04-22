@@ -116,6 +116,7 @@ MusicVerifier.prototype.fetchInfringement = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
   try{
+    logger.info('Fetch infringement : ' + infringement.uri);
     self.downloadThing(infringement || self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
   }
   catch(err){
