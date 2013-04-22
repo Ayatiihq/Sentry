@@ -1,7 +1,9 @@
 /*
- * Autoverifier.js: the awesome MusicVerifier
+ * Musicverifier.js: 
  * (C) 2013 Ayatii Limited
- * MusicVerifier processes infringements that need downloading and attempts to autoverify them depending on the campaign type. 
+ * Uses AcousticID's chromaprint to generate two fingerprints and then simply compares both.
+ * Those to be seen to report a similarity score from .2->.9x are usually a match.
+ * Have yet to come across a high scoring match (i.e one with 1-9/10 score) which is not a match.
  */
 var acquire = require('acquire')
   , Seq = require('seq')
@@ -14,13 +16,16 @@ var acquire = require('acquire')
   , path = require('path')
   , request = require('request')
   , rimraf = require('rimraf')
-  , exec = require('child_process').execFile;  
+  , exec = require('child_process').execFile
+  , URI = require('URIjs')    
   ;
 
 var logger = acquire('logger').forFile('musicverifier.js')
   , config = acquire('config')
   , states = acquire('states')  
   ;
+
+var MATCHER_THRESHOLD = 0.3;
 
 var MusicVerifier = module.exports = function() {
   this.init();
@@ -31,7 +36,6 @@ var MusicVerifier = module.exports = function() {
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
-
 }
 
 util.inherits(MusicVerifier, events.EventEmitter);
@@ -92,8 +96,6 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   var downloadFile = filed(target);  
   var r = request(downloadURL).pipe(downloadFile);  
   downloadFile.on('end', function () {
-    if(target.has('infringement'))
-      self.emit('infringment-ready');
     logger.info("Download of " + downloadURL + " complete.")
     promise.resolve(true);
   });  
@@ -111,7 +113,6 @@ MusicVerifier.prototype.fetchInfringement = function(infringement){
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
-    self.cleanupEverything(err);
     promise.resolve(false);
   }
   return promise;
@@ -119,6 +120,7 @@ MusicVerifier.prototype.fetchInfringement = function(infringement){
 
 MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
+  var wrapperPromise = new Promise.Promise();
 
   var copyfile = function (source, target, cb) {
     var cbCalled = false;
@@ -163,17 +165,24 @@ MusicVerifier.prototype.goFingerprint = function(){
 
   Promise.seq(promiseArray).then(function(){
     self.examineResults();
-  });  
+    wrapperPromise.resolve();
+  }); 
+  return wrapperPromise; 
 }
 
 MusicVerifier.prototype.evaluate = function(track, promise){
   var self = this;
+  logger.info('about to evaluate ' + track.folderPath);
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
-      if(stderr)
+      if(stderr){
         logger.error("Fpeval standard error : " + stderr);
+        promise.resolve();
+        return;
+      }
       if(error)
-        logger.warn("Error running Fpeval: " + error);                    
+        logger.warn("warning running Fpeval: " + error);                    
+      
       try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
         var result = JSON.parse(stdout);
         logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
@@ -190,7 +199,7 @@ MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
   self.campaign.metadata.tracks.each(function(track){
-    if(track.score > 0.3){ 
+    if(track.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty()){
         var score =  matchedTracks[0].score;
         logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + score + ' and this score : ' + track.score);
@@ -201,7 +210,7 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var verificationObject;
+  var verificationObject= {};
 
   if(matchedTracks.length === 1){
     verificationObject = {"state" : 1,//verified
@@ -307,13 +316,41 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   self.on('finished', self.cleanupEverything.bind(self, null));
 }
 
+MusicVerifier.prototype.oneAtaTime = function(infrg){
+  var self = this;
+  var promise = new Promise.Promise();
+  try{ // don't bother with uris that have not been completed.
+    var link = URI(infrg.uri);
+    if(link.is('relative')){
+      logger.info('uri is relative - dont go any further' + ' : ' + infrg.uri);
+      promise.resolve();
+      return promise;
+    }
+  } 
+  catch(err){
+    promise.resolve();
+    logger.info('error making uri from link' +  ' : ' + err );
+    return promise;
+  }
+  self.infringement = infrg;
+  self.fetchInfringement().then(function(success){
+    if(success) {
+      self.goFingerprint().then(function(){
+        promise.resolve();
+      });   
+    }
+    else{
+      promise.resolve();
+    }
+  });
+  return promise;
+}
+
 MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
   var self = this;
-
   self.done = done;
   self.campaign = campaign;
   self.startedAt = Date.now();
-
   self.createParentFolder(campaign).then(function(err){
     if(err){
       self.cleanupEverything(err);
@@ -324,11 +361,11 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
 
   function goCompare(infrgs){
     var that = this;
-    infrgs.each(function(infrg){
-      that.fetchInfringement(infrg.uri).then(function(success){
-        if(success) that.goFingerprint();   
-      });
-    });
+    var promiseArray = infrgs.map(function(infrg) { return that.oneAtaTime.bind(that, infrg)});
+    Promise.seq(promiseArray).then(function(){
+      logger.info('Finished verifying list');
+      self.cleanupEverything();
+    }); 
   }
   self.on('campaign-audio-ready', goCompare.bind(self, infringementList));
 }

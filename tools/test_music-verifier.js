@@ -52,8 +52,9 @@ function gatherInfringements(urisList){
       else{
         var link = null;
         try{
-          link = URI(singular);
-          logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last());
+          var escaped = URI.decode(singular);
+          link = URI(escaped);
+          logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
           infringements.last().uri = link.toString();
         }
         catch(err){
@@ -66,7 +67,7 @@ function gatherInfringements(urisList){
   return infringements;  
 }
 
-var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready', 'infringement-ready'];
+var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready'];
 
 function main() {
   logger.init();
