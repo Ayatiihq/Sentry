@@ -53,7 +53,7 @@ function gatherInfringements(urisList){
         var link = null;
         try{
           link = URI(singular);
-          logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
+          //logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
           infringements.last().uri = link.toString();
         }
         catch(err){
@@ -61,11 +61,11 @@ function gatherInfringements(urisList){
         }
       }
     });
-    console.log('infringements size : ' + infringements.length);
+    logger.info('infringements size : ' + infringements.length);
   });
 }
 
-var SIGNALS = ['started', 'finished', 'error'];
+var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready', 'infringement-ready'];
 
 function main() {
   logger.init();
@@ -97,9 +97,14 @@ function main() {
     });
   });
 
-  var promise = new Promise.Promise();
-  instance.evaluate({folderPath:'/home/ronoc/ayatii/test-mp3s/sentry-sandbox/'}, promise);
-  promise.then(logger.info('finished'));
+  instance.verifyList(campaign, infringeURIs, function(err, details){
+    if(err)
+      logger.warn('unable to verify :' + err);
+    logger.info(JSON.parse(details));
+  });  
+  //var promise = new Promise.Promise();
+  //instance.evaluate({folderPath:'/home/ronoc/ayatii/test-mp3s/sentry-sandbox/'}, promise);
+  //promise.then(logger.info('finished'));
 }
 
 main(); 

@@ -8,7 +8,7 @@ var acquire = require('acquire')
   , events = require('events')
   , util = require('util')
   , filed = require('filed')  
-  , fs = require('fs')
+  , fs = require('fs-extra')
   , os = require('os')
   , Promise = require('node-promise')
   , path = require('path')
@@ -84,10 +84,6 @@ MusicVerifier.prototype.fetchCampaignAudio = function() {
   promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
   Promise.seq(promiseArray).then(function(){
     self.emit('campaign-audio-ready');
-    self.fetchInfringement().then(function(success){
-      if(success)
-        self.goFingerprint(); // got everything in place, lets match.
-    });
   }); 
 }
 
@@ -96,6 +92,8 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   var downloadFile = filed(target);  
   var r = request(downloadURL).pipe(downloadFile);  
   downloadFile.on('end', function () {
+    if(target.has('infringement'))
+      self.emit('infringment-ready');
     logger.info("Download of " + downloadURL + " complete.")
     promise.resolve(true);
   });  
@@ -105,15 +103,15 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   });  
 }
 
-MusicVerifier.prototype.fetchInfringement = function(){
+MusicVerifier.prototype.fetchInfringement = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
   try{
-    self.downloadThing(self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
+    self.downloadThing(infringement || self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
-    self.cleanup(err);
+    self.cleanupEverything(err);
     promise.resolve(false);
   }
   return promise;
@@ -230,13 +228,13 @@ MusicVerifier.prototype.examineResults = function(){
       logger.info('Not successfull in matching ' + self.infringement.uri);
     }
   }
-  self.cleanup();// remove the directory
+  self.emit('finished');
   self.done(null, verificationObject);
 }
 
-MusicVerifier.prototype.cleanup = function(err) {
+MusicVerifier.prototype.cleanupEverything = function(err) {
   var self = this;
-  logger.info('cleanup');  
+  logger.info('cleanupEverything');  
   rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
@@ -248,7 +246,9 @@ MusicVerifier.prototype.cleanup = function(err) {
   }
 }
 
+MusicVerifier.prototype.cleanupInfringement = function() {
 
+}
 //
 // Public
 //
@@ -277,21 +277,46 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   var promise = self.createParentFolder(campaign);
   promise.then(function(err){
     if(err){
-      self.cleanup(err);
+      self.cleanupEverything(err);
       return;
     }
     self.fetchCampaignAudio();
   });
+
+  function prepInfringement(){
+    var self = this;
+    self.fetchInfringement().then(function(success){
+      if(success)
+        self.goFingerprint(); // got everything in place, lets match.
+    });        
+  }
+
+  self.on('campaign-audio-ready', self.prepInfringement.bind(self));
+  self.on('finished', self.cleanupEverything.bind(self, null));
 }
 
 MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
-  var promise = self.createParentFolder(campaign);
-  promise.then(function(err){
+  var self = this;
+
+  self.done = done;
+  self.campaign = campaign;
+  self.startedAt = Date.now();
+
+  self.createParentFolder(campaign).then(function(err){
     if(err){
-      self.cleanup(err);
+      self.cleanupEverything(err);
       return;
     }
     self.fetchCampaignAudio();
   });  
 
+  function goCompare(){
+    var that = this;
+    infringementList.each(function(infrg){
+      that.fetchInfringement(infrg.uri).then(function(success){
+        if(success) that.goFingerprint();   
+      });
+    });
+  }
+  self.on('campaign-audio-ready', goCompare.bind(self));
 }
