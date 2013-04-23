@@ -183,9 +183,9 @@ MusicVerifier.prototype.evaluate = function(track, promise){
   logger.info('about to evaluate ' + track.folderPath);
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
-      if(stderr)
+      if(stderr && !stderr.match(/Header\smissing/g))
         logger.error("Fpeval standard error : " + stderr);
-      if(error)
+      if(error && !stderr.match(/Header\smissing/g))
         logger.warn("warning running Fpeval: " + error);                    
       
       try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
