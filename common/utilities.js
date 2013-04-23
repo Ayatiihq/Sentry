@@ -22,6 +22,7 @@ var acquire = require('acquire')
   , URL = require('url')
   , util = require('util')
   , zlib = require('zlib')
+  , fs = require('fs')
   ;
 
 var Promise = require('node-promise').Promise
@@ -396,7 +397,6 @@ Utilities.requestURL = function(url, options, callback) {
     callback(err);
   });
 }
-
 /**
  * Produces a string id for the machine and worker.
  * @return {object} the id of the worker.
