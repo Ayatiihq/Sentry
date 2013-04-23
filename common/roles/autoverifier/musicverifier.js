@@ -183,11 +183,8 @@ MusicVerifier.prototype.evaluate = function(track, promise){
   logger.info('about to evaluate ' + track.folderPath);
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
-      if(stderr){
+      if(stderr)
         logger.error("Fpeval standard error : " + stderr);
-        promise.resolve();
-        return;
-      }
       if(error)
         logger.warn("warning running Fpeval: " + error);                    
       
@@ -199,6 +196,7 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       catch(err){
         logger.error("Error parsing FPEval output" + err);
       }
+      
       promise.resolve();
     });
 }
