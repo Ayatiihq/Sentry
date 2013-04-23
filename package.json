@@ -10,6 +10,7 @@
     "cheerio": "0.10.x",
     "enum": "0.2.x",
     "filed": "*",
+    "fs-extra": "0.6.x",
     "handlebars": "1.0.x",
     "mongodb": "1.2.x",
     "node-promise": "0.5.x",
