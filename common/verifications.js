@@ -188,10 +188,11 @@ Verifications.prototype.pop = function(campaign, callback) {
  *
  * @param  {object}                       campaign    The campaign to find an infringement for to verify.
  * @param  {array}                        types       Supported mimetypes.
+ * @param  {string}                       [processor] Optionally restrict popping of an infringement if it's already been processed by processor.
  * @param  {function(err,infringement)}   callback    A callback to receive the infringment, or null;
  * @return {undefined}
  */
-Verifications.prototype.popType = function(campaign, types, callback) {
+Verifications.prototype.popType = function(campaign, types, processor, callback) {
   var self = this
     , then = Date.create('30 minutes ago').getTime()
     ;
@@ -220,6 +221,10 @@ Verifications.prototype.popType = function(campaign, types, callback) {
       popped: Date.now()
     }
   };
+
+  if (processor) {
+    query['metadata.processedBy'] = { $ne: processor };
+  }
 
   var options = { new: true };
 

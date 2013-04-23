@@ -23,6 +23,8 @@ var Campaigns = acquire('campaigns')
   , Verifications = acquire('verifications')
   ;
 
+var PROCESSOR = 'autoverifier';
+
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
   this.jobs_ = null;
@@ -140,7 +142,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     done();
   }
 
-  self.verifications_.popType(self.campaign_, self.supportedTypes_, function(err, infringement) {
+  self.verifications_.popType(self.campaign_, self.supportedTypes_, PROCESSOR, function(err, infringement) {
     if (err)
       return done(err);
 
