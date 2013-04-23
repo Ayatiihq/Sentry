@@ -44,6 +44,7 @@ MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
   self.results = {complete: [], incomplete: []};
+  self.on('campaign-audio-ready', self.prepInfringement.bind(self));
 }
 
 MusicVerifier.prototype.createRandomName = function(handle) {
@@ -104,6 +105,14 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
     downloadFile.on('error', function (err) {
       logger.warn(err, 'error downloading ' + downloadURL);
       promise.resolve(false);
+    });
+    downloadFile.on('close', function (err){
+      logger.warn(err, 'Connection closed ' + downloadURL);
+      promise.resolve(false);      
+    });
+    downloadFile.on('complete', function (err){
+      logger.warn(err, 'Connection completed ' + downloadURL);
+      promise.resolve(false);      
     });
   }
   catch(err){
@@ -248,6 +257,29 @@ MusicVerifier.prototype.examineResults = function(){
   self.done(null, verificationObject);
 }
 
+MusicVerifier.prototype.prepInfringementList = function (infrgs){
+  var self = this;
+  var promiseArray = infrgs.map(function(infrg) { return self.oneAtaTime.bind(self, infrg)});
+  Promise.seq(promiseArray).then(function(){
+    logger.info('Finished verifying list : matched successfully : ' + self.results.completed.length);
+    logger.info('Failed to match: ' + self.results.incomplete.length);
+    fs.writeFile(path.join(process.cwd(),'musicverifierResults'),
+                 JSON.stringify(self.results), function(err) {if(err)logger.warn('Couldnt write to results file')}); 
+    self.cleanupEverything();
+  }); 
+}
+
+MusicVerifier.prototype.prepInfringement = function (){
+  logger.info('campaign audio ready - get the infringement');
+  var self = this;
+  self.fetchInfringement().then(function(success){
+    if(success)
+      self.goFingerprint(); // got everything in place, lets match.
+    else
+      done('Problem fetching infringment');
+  });        
+}
+
 MusicVerifier.prototype.oneAtaTime = function(infrg){
   var self = this;
   var promise = new Promise.Promise();
@@ -320,18 +352,6 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
 
   logger.info('Trying autoverification for %s', infringement.uri);
 
-  function prepInfringement(){
-    var that = this;
-    that.fetchInfringement().then(function(success){
-      if(success)
-        that.goFingerprint(); // got everything in place, lets match.
-      else
-        done('Problem fetching infringment');
-    });        
-  }
-  self.on('campaign-audio-ready', prepInfringement.bind(self));
-
-
   if(!sameCampaignAsBefore){
     // if we had a different previous campaign, nuke it.
     if(self.campaign)self.cleanupEverything();
@@ -347,6 +367,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
     });
   }
   else{ // Same campaign as before
+    logger.info("we just processed that campaign, use what has already been downloaded.")
     self.emit('campaign-audio-ready');
   }
 }
@@ -364,19 +385,7 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
     }
     self.fetchCampaignAudio();
   });  
-
-  function goCompare(infrgs){
-    var that = this;
-    var promiseArray = infrgs.map(function(infrg) { return that.oneAtaTime.bind(that, infrg)});
-    Promise.seq(promiseArray).then(function(){
-      logger.info('Finished verifying list : matched successfully : ' + self.results.completed.length);
-      logger.info('Failed to match: ' + self.results.incomplete.length);
-      fs.writeFile(path.join(process.cwd(),'musicverifierResults'),
-                   JSON.stringify(self.results), function(err) {if(err)logger.warn('Couldnt write to results file')}); 
-      self.cleanupEverything();
-    }); 
-  }
-  self.on('campaign-audio-ready', goCompare.bind(self, infringementList));
+  self.on('campaign-audio-ready', self.prepInfringementList.bind(self, infringementList));
 }
 
 MusicVerifier.prototype.finish = function(){
