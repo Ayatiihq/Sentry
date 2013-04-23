@@ -382,6 +382,8 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
 }
 
 MusicVerifier.prototype.finish = function(){
-  if(self.tmpDirectory)
+  if(self.tmpDirectory) {
     self.cleanupEverything();
+    self.tmpDirectory = null;
+  }
 }

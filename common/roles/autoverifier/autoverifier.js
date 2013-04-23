@@ -58,16 +58,25 @@ AutoVerifier.prototype.loadVerifiers = function() {
   verifiers.forEach(function(verifier) {
     var klass = require('./' + verifier)
       , types = klass.getSupportedTypes()
+      , instance = new klass()
       ;
 
     types.forEach(function(type) {
       supportedTypes.push(type);
-      supportedMap[type] = klass;
+      supportedMap[type] = instance;
     });
   });
 
   self.supportedTypes_ = supportedTypes;
   self.supportedMap_ = supportedMap;
+}
+
+AutoVerifier.prototype.finishVerifiers = function() {
+  var self = this;
+
+  Object.values(self.supportedMap).forEach(function(verifier) {
+    verifier.finish();
+  });
 }
 
 AutoVerifier.prototype.processJob = function(err, job) {
@@ -109,6 +118,7 @@ AutoVerifier.prototype.processJob = function(err, job) {
     })
     .seq(function() {
       logger.info('Finished autoverification session');
+      self.finishVerifiers();
       self.jobs_.complete(job);
       clearInterval(self.touchId_);
       self.emit('finished');
@@ -150,10 +160,10 @@ AutoVerifier.prototype.processVerifications = function(done) {
 
 AutoVerifier.prototype.processVerification = function(infringement, done) {
   var self = this
-    , Verifier = self.supportedMap_[infringement.metadata.mimetype]
+    , verifier = self.supportedMap_[infringement.metadata.mimetype]
     ;
 
-  if (!Verifier) {
+  if (!verifier) {
     var err = util.format('Mimetype %s is not supported for infringement %s',
                            infringement.metadata.mimetype, infringement._id);
     return done(new Error(err));
@@ -163,7 +173,6 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
 
   try {
 
-    var verifier = new Verifier();
     verifier.verify(self.campaign_, infringement, function(err, verification) {
       if (err)
         return done(err);
