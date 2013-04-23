@@ -112,12 +112,12 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   }  
 }
 
-MusicVerifier.prototype.fetchInfringement = function(infringement){
+MusicVerifier.prototype.fetchInfringement = function(){
   var self = this;
   var promise = new Promise.Promise();
   try{
-    logger.info('Fetch infringement : ' + infringement.uri);
-    self.downloadThing(infringement || self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
+    logger.info('Fetch infringement : ' + self.infringement.uri);
+    self.downloadThing(self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
@@ -247,8 +247,6 @@ MusicVerifier.prototype.examineResults = function(){
     }
     self.results.incomplete.push(verificationObject);    
   }
-
-  self.emit('finished');
   self.done(null, verificationObject);
 }
 
@@ -313,33 +311,46 @@ MusicVerifier.getSupportedTypes = function() {
 
 MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   var self = this;
-  logger.info('Trying autoverification for %s', infringement.uri);
+  var sameCampaignAsBefore = self.campaign &&
+                             (self.campaign._id.client === campaign._id.client &&
+                             self.campaign._id.campaign === campaign._id.campaign);
 
   // Call this as (err, verificationObject) when either is ready
   self.done = done;
-  self.campaign = campaign;
   self.infringement = infringement;
   self.startedAt = Date.now();
 
-  var promise = self.createParentFolder(campaign);
-  promise.then(function(err){
-    if(err){
-      self.cleanupEverything(err);
-      return;
-    }
-    self.fetchCampaignAudio();
-  });
+  logger.info('Trying autoverification for %s', infringement.uri);
 
   function prepInfringement(){
-    var self = this;
-    self.fetchInfringement().then(function(success){
+    var that = this;
+    that.fetchInfringement().then(function(success){
       if(success)
-        self.goFingerprint(); // got everything in place, lets match.
+        that.goFingerprint(); // got everything in place, lets match.
+      else
+        done('Problem fetching infringment');
     });        
   }
+  self.on('campaign-audio-ready', prepInfringement.bind(self));
 
-  self.on('campaign-audio-ready', self.prepInfringement.bind(self));
-  self.on('finished', self.cleanupEverything.bind(self, null));
+
+  if(!sameCampaignAsBefore){
+    // if we had a different previous campaign, nuke it.
+    if(self.campaign)self.cleanupEverything();
+
+    self.campaign = campaign;
+    var promise = self.createParentFolder(campaign);
+    promise.then(function(err){
+      if(err){
+        self.cleanupEverything(err);
+        return;
+      }
+      self.fetchCampaignAudio();
+    });
+  }
+  else{ // Same campaign as before
+    self.emit('campaign-audio-ready');
+  }
 }
 
 
@@ -368,4 +379,9 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
     }); 
   }
   self.on('campaign-audio-ready', goCompare.bind(self, infringementList));
+}
+
+MusicVerifier.prototype.finish = function(){
+  if(self.tmpDirectory)
+    self.cleanupEverything();
 }
