@@ -90,7 +90,22 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
   var self = this;
   var downloadFile = filed(target);  
   try{
-    var r = request(downloadURL).pipe(downloadFile);  
+    var req = request(downloadURL);
+    req.pipe(downloadFile);  
+
+    req.on('error', function(err) {
+      logger.warn(err, 'error downloading ' + downloadURL);
+      promise.resolve(false);
+    });
+    req.on('close', function(err) {
+      logger.warn(err, 'Connection closed ' + downloadURL);
+      promise.resolve(false);
+    });
+    req.on('complete', function(err) {
+      logger.warn(err, 'Connection completed ' + downloadURL);
+      promise.resolve(false);
+    });
+
     downloadFile.on('end', function () {
       logger.info("Download of " + downloadURL + " complete.")
       promise.resolve(true);
