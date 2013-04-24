@@ -367,7 +367,7 @@ Infringements.prototype.addPointsBy = function(infringement, source, score, mess
         message: message,
         created: Date.now()
       },
-      'metadata.processedBy': processer
+      'metadata.processedBy': processor
     }
   };
 
@@ -412,7 +412,7 @@ Infringements.prototype.setStateBy = function(infringement, state, processor, ca
 
   var updates = {
     $set: {
-      state: state;
+      state: state
     },
     $push: {
       'metadata.processedBy': processor
