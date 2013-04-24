@@ -230,7 +230,7 @@ MusicVerifier.prototype.examineResults = function(){
   if(success){
     logger.info('Successfull matching ' + self.infringement.uri);
     verificationObject = Object.merge (verificationObject, 
-                                      {"state" : states.VERIFIED
+                                      {"state" : states.VERIFIED,
                                        "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
     self.results.complete.push(verificationObject);
   }
