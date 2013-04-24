@@ -249,9 +249,6 @@ MusicVerifier.prototype.examineResults = function(){
     self.results.incomplete.push(verificationObject);    
   }
 
-  // Reset infringements
-  self.results = {complete: [], incomplete: []};
-
   self.done(err, verificationObject);
 }
 
@@ -350,6 +347,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   self.done = done;
   self.infringement = infringement;
   self.startedAt = Date.now();
+  self.results = {complete: [], incomplete: []};
 
   logger.info('Trying autoverification for %s', infringement.uri);
 

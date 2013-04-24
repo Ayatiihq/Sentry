@@ -153,14 +153,23 @@ AutoVerifier.prototype.processVerifications = function(done) {
     if (!infringement || !infringement.uri)
       return done();
 
-    self.processVerification(infringement, function(err) {
-      if (err) {
-        logger.warn(err);
-        self.infringements_.processedBy(infringement, PROCESSOR);
-      }
-
-      self.processVerifications(done);
+    var domain = require('domain').create();
+    domain.on('error', function(err) {
+      logger.warn(err);
+      self.infringements_.processedBy(infringement, PROCESSOR);
     });
+
+    domain.run(function() {
+
+      self.processVerification(infringement, function(err) {
+        if (err) {
+          logger.warn(err);
+          self.infringements_.processedBy(infringement, PROCESSOR);
+        }
+
+        self.processVerifications(done);
+      });
+    })
   });
 }
 
