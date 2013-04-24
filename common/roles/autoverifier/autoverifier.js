@@ -63,6 +63,7 @@ AutoVerifier.prototype.loadVerifiers = function() {
       , instance = new klass()
       ;
 
+    instance.source = verifier;
     types.forEach(function(type) {
       supportedTypes.push(type);
       supportedMap[type] = instance;
@@ -152,7 +153,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     self.processVerification(infringement, function(err) {
       if (err) {
         logger.warn(err);
-        // FIXME: Should we set something on the infringement so we don't see it again?
+        self.infringements_.processedBy(infringement, PROCESSOR);
       }
 
       self.processVerifications(done);
@@ -176,14 +177,24 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
   try {
 
     verifier.verify(self.campaign_, infringement, function(err, verification) {
+      var iStates = states.infringements.state;
+
       if (err)
         return done(err);
 
       if (!verification || !verification.state)
         return done(new Error('Invalid verification generated'));
 
-      // FIXME: Record the verification in the db
-      logger.info('%s verified: %j', infringement._id, verification);
+      if (verification.state == iStates.VERIFIED) {
+        self.infringements_.addPointsBy(infringement,
+                                        verifier.source,
+                                        100,
+                                        'AutoVerifier points',
+                                        PROCESSOR);
+      } else {
+        self.infringements_.processedBy(infringement, PROCESSOR);
+      }
+
       done();
     });
 

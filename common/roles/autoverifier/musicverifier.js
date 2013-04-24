@@ -22,20 +22,13 @@ var acquire = require('acquire')
 
 var logger = acquire('logger').forFile('musicverifier.js')
   , config = acquire('config')
-  , states = acquire('states')  
+  , states = acquire('states').infringements.state  
   ;
 
 var MATCHER_THRESHOLD = 0.3;
 
 var MusicVerifier = module.exports = function() {
   this.init();
-
-  function onError(err) {
-    logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack);
-    self.jobs_.close(job, states.jobs.state.ERRORED, err);
-    self.emit('error', err);
-  }
 }
 
 util.inherits(MusicVerifier, events.EventEmitter);
@@ -213,6 +206,8 @@ MusicVerifier.prototype.evaluate = function(track, promise){
 MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
+  var err = null;
+
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty()){
@@ -225,36 +220,35 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var verificationObject = {infringement: JSON.stringify(self.infringement),
-                            started : self.startedAt,
+  var verificationObject = {started : self.startedAt,
                             who : "MusicVerifer AKA Harry Caul",
-                            finished : Date.now(),
-                            created : Date.now()};
+                            finished : Date.now()
+                           };
 
 
   var success = matchedTracks.length === 1;
   if(success){
     logger.info('Successfull matching ' + self.infringement.uri);
     verificationObject = Object.merge (verificationObject, 
-                                      {"state" : 1,//verified
+                                      {"state" : states.VERIFIED
                                        "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
     self.results.complete.push(verificationObject);
   }
   else{
     
-    verificationObject = Object.merge (verificationObject, {"state" : 2});// False positive
+    verificationObject.state = states.FALSE_POSITIVE
 
     if(matchedTracks.length > 1){
       verificationObject.notes = "Harry Caul found more than one match here, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
-      logger.error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));
+      err = 'Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks);
     }
     else{ //matchedTracks.length === 0
       verificationObject.notes = "Harry Caul did not find any match, again please examine.",
-      logger.info('Not successfull in matching ' + self.infringement.uri);
+      logger.info('Not successful in matching ' + self.infringement.uri);
     }
     self.results.incomplete.push(verificationObject);    
   }
-  self.done(null, verificationObject);
+  self.done(err, verificationObject);
 }
 
 MusicVerifier.prototype.prepInfringementList = function (infrgs){

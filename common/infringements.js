@@ -520,3 +520,27 @@ Infringements.prototype.getCountForCampaign = function(campaign, callback)
 
   self.infringements_.find(query).count(callback);
 }
+
+/**
+ * Mark this infringement as processedBy the processor
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          processor        Who has processed this infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.processedBy = function(infringement, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.processedBy, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $push: {
+      'metadata.processedBy': processor
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
+}
