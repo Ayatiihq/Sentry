@@ -114,14 +114,6 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
       logger.warn(err, 'error downloading ' + downloadURL);
       promise.resolve(false);
     });
-    downloadFile.on('close', function (err){
-      logger.warn(err, 'Connection closed ' + downloadURL);
-      promise.resolve(false);      
-    });
-    downloadFile.on('complete', function (err){
-      logger.warn(err, 'Connection completed ' + downloadURL);
-      promise.resolve(false);      
-    });
   }
   catch(err){
     logger.warn('Error requesting ' + downloadURL + ' err : ' + err);
@@ -213,7 +205,6 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       catch(err){
         logger.error("Error parsing FPEval output" + err);
       }
-      
       promise.resolve();
     });
 }
@@ -382,6 +373,9 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done) {
   }
   else{ // Same campaign as before
     logger.info("we just processed that campaign, use what has already been downloaded.")
+    self.campaign.metadata.tracks.each(function resetScore(track){
+      track.score = 0.0;
+    });
     self.emit('campaign-audio-ready');
   }
 }
