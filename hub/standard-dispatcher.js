@@ -58,7 +58,7 @@ StandardDispatcher.prototype.checkRoles = function(campaign) {
     if (role.dispatcher)
       return;
 
-    if (role.engines) {
+    if (role.engines && role.engines.length) {
       role.engines.forEach(function(engine) {
         self.checkRole(campaign, role, getRoleConsumerId(role.name, engine));
       });
