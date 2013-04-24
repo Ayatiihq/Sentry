@@ -18,6 +18,7 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
+  , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
   , Verifications = acquire('verifications')
@@ -27,6 +28,7 @@ var PROCESSOR = 'autoverifier';
 
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
+  this.infringements_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
 
@@ -44,6 +46,7 @@ AutoVerifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
 
