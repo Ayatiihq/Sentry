@@ -286,7 +286,7 @@ MusicVerifier.prototype.prepInfringement = function (){
     if(success)
       self.goFingerprint(); // got everything in place, lets match.
     else
-      done('Problem fetching infringment');
+      self.done('Problem fetching infringment');
   });        
 }
 
