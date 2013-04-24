@@ -46,6 +46,7 @@ MusicVerifier.prototype.createParentFolder = function() {
   var promise = new Promise.Promise();
 
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genURIKey(self.campaign.name)); 
+  self.cleanupEverything();// Call this just in case we have a hangover from some other failed run on the same campaign
   console.log('creating parent folder ' + self.tmpDirectory);
 
   fs.mkdir(self.tmpDirectory, function(err){
@@ -312,11 +313,9 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
   var self = this;
   logger.info('cleanupEverything');  
 
-  self.results = {complete: [], incomplete: []};
-
   rimraf(self.tmpDirectory, function(err){
     if(err)
-      logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+      logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
   });
   // Only call in this context if we pass an error.
   if(err){
