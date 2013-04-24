@@ -330,6 +330,8 @@ MusicVerifier.prototype.cleanupInfringement = function() {
 
   var deleteInfringement = function(dir) {
     var promise = new Promise.Promise();
+    if(!dir)
+      promise.resolve();
     fs.readdir(dir, function(err, files){
       if(err)
         promise.resolve();
@@ -383,32 +385,31 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done){
   self.startedAt = Date.now();
 
   logger.info('Trying music verification for %s', infringement.uri);
+  self.cleanupInfringement().then(function(){    
+    if(!sameCampaignAsBefore){
+      // if we had a different previous campaign, nuke it.
+      if(haveRunAlready)self.cleanupEverything();
+      // Only on a new campaign do we overwrite our instance variable
+      // (We want to still know about folderpaths etc.)
+      self.campaign = campaign; 
 
-  if(!sameCampaignAsBefore){
-    // if we had a different previous campaign, nuke it.
-    if(haveRunAlready)self.cleanupEverything();
-    // Only on a new campaign do we overwrite our instance variable
-    // (We want to still know about folderpaths etc.)
-    self.campaign = campaign; 
-
-    var promise = self.createParentFolder(self.campaign);
-    promise.then(function(err){
-      if(err){
-        self.cleanupEverything(err);
-        return;
-      }
-      self.fetchCampaignAudio();
-    });
-  }
-  else{ // Same campaign as before
-    self.cleanupInfringement().then(function(){    
+      var promise = self.createParentFolder(self.campaign);
+      promise.then(function(err){
+        if(err){
+          self.cleanupEverything(err);
+          return;
+        }
+        self.fetchCampaignAudio();
+      });
+    }
+    else{ // Same campaign as before, keep our one in memory
       logger.info("we just processed that campaign, use what has already been downloaded.")
       self.campaign.metadata.tracks.each(function resetScore(track){
         track.score = 0.0;
       });      
       self.emit('campaign-audio-ready');
-    });
-  }
+    }
+  });
 }
 
 
