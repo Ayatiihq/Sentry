@@ -334,6 +334,48 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
 }
 
 /**
+ * Adds points to the target infringement and sets that infringement as processed by the processer.
+ *
+ * @param {object}            infringement    The infringement the points belong to.
+ * @param {string}            source          The source of the points -> role.plugin
+ * @param {integer}           score           The new values to be added to the points {} on the infringements.
+ * @param {string}            message         Info about the context.
+ * @param {integer}           processor       The processor of the infringement.
+ * @param {function(err)}     callback        A callback to receive an error, if one occurs.
+ * @return {undefined}
+**/
+Infringements.prototype.addPointsBy = function(infringement, source, score, message, processor, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addPoints, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $inc: {
+      'points.total': score
+    },
+    $set: {
+      'points.modified': Date.now()
+    },
+    $push: {
+      'points.entries': {
+        score: score,
+        source: source,
+        message: message,
+        created: Date.now()
+      },
+      'metadata.processedBy': processor
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
+}
+
+
+/**
  * Change the state field on the given infringement with the given state
  *
  * @param {object}           infringement     The infringement which we want to work on
@@ -349,6 +391,35 @@ Infringements.prototype.setState = function(infringement, state, callback){
   callback = callback ? callback : defaultCallback;
 
   self.infringements_.update({ _id: infringement._id }, { $set: { state: state } }, callback);
+}
+
+/**
+ * Change the state field on the given infringement with the given state and mark the
+ * the infringement as processed by who.
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          state            The state to be to set on the infringement.
+ * @param {integer}          processor        The processor of the infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.setStateBy = function(infringement, state, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $set: {
+      state: state
+    },
+    $push: {
+      'metadata.processedBy': processor
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
 }
 
 /**
@@ -448,4 +519,28 @@ Infringements.prototype.getCountForCampaign = function(campaign, callback)
   };
 
   self.infringements_.find(query).count(callback);
+}
+
+/**
+ * Mark this infringement as processedBy the processor
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          processor        Who has processed this infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.processedBy = function(infringement, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.processedBy, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $push: {
+      'metadata.processedBy': processor
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
 }

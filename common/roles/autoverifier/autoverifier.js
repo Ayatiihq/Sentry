@@ -18,13 +18,17 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
+  , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
   , Verifications = acquire('verifications')
   ;
 
+var PROCESSOR = 'autoverifier';
+
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
+  this.infringements_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
 
@@ -42,6 +46,7 @@ AutoVerifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
 
@@ -58,16 +63,26 @@ AutoVerifier.prototype.loadVerifiers = function() {
   verifiers.forEach(function(verifier) {
     var klass = require('./' + verifier)
       , types = klass.getSupportedTypes()
+      , instance = new klass()
       ;
 
+    instance.source = verifier;
     types.forEach(function(type) {
       supportedTypes.push(type);
-      supportedMap[type] = klass;
+      supportedMap[type] = instance;
     });
   });
 
   self.supportedTypes_ = supportedTypes;
   self.supportedMap_ = supportedMap;
+}
+
+AutoVerifier.prototype.finishVerifiers = function() {
+  var self = this;
+
+  Object.values(self.supportedMap).forEach(function(verifier) {
+    verifier.finish();
+  });
 }
 
 AutoVerifier.prototype.processJob = function(err, job) {
@@ -109,6 +124,7 @@ AutoVerifier.prototype.processJob = function(err, job) {
     })
     .seq(function() {
       logger.info('Finished autoverification session');
+      self.finishVerifiers();
       self.jobs_.complete(job);
       clearInterval(self.touchId_);
       self.emit('finished');
@@ -130,7 +146,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     done();
   }
 
-  self.verifications_.popType(self.campaign_, self.supportedTypes_, function(err, infringement) {
+  self.verifications_.popType(self.campaign_, self.supportedTypes_, PROCESSOR, function(err, infringement) {
     if (err)
       return done(err);
 
@@ -140,7 +156,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     self.processVerification(infringement, function(err) {
       if (err) {
         logger.warn(err);
-        // FIXME: Should we set something on the infringement so we don't see it again?
+        self.infringements_.processedBy(infringement, PROCESSOR);
       }
 
       self.processVerifications(done);
@@ -150,10 +166,10 @@ AutoVerifier.prototype.processVerifications = function(done) {
 
 AutoVerifier.prototype.processVerification = function(infringement, done) {
   var self = this
-    , Verifier = self.supportedMap_[infringement.metadata.mimetype]
+    , verifier = self.supportedMap_[infringement.metadata.mimetype]
     ;
 
-  if (!Verifier) {
+  if (!verifier) {
     var err = util.format('Mimetype %s is not supported for infringement %s',
                            infringement.metadata.mimetype, infringement._id);
     return done(new Error(err));
@@ -163,16 +179,25 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
 
   try {
 
-    var verifier = new Verifier();
     verifier.verify(self.campaign_, infringement, function(err, verification) {
+      var iStates = states.infringements.state;
+
       if (err)
         return done(err);
 
       if (!verification || !verification.state)
         return done(new Error('Invalid verification generated'));
 
-      // FIXME: Record the verification in the db
-      logger.info('%s verified: %j', infringement._id, verification);
+      if (verification.state == iStates.VERIFIED) {
+        self.infringements_.addPointsBy(infringement,
+                                        verifier.source,
+                                        100,
+                                        'AutoVerifier points',
+                                        PROCESSOR);
+      } else {
+        self.infringements_.processedBy(infringement, PROCESSOR);
+      }
+
       done();
     });
 
