@@ -248,6 +248,10 @@ MusicVerifier.prototype.examineResults = function(){
     }
     self.results.incomplete.push(verificationObject);    
   }
+
+  // Reset infringements
+  self.results = {complete: [], incomplete: []};
+
   self.done(err, verificationObject);
 }
 
@@ -307,6 +311,9 @@ MusicVerifier.prototype.oneAtaTime = function(infrg){
 MusicVerifier.prototype.cleanupEverything = function(err) {
   var self = this;
   logger.info('cleanupEverything');  
+
+  self.results = {complete: [], incomplete: []};
+
   rimraf(self.tmpDirectory, function(err){
     if(err)
       logger.error('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
