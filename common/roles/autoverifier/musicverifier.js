@@ -200,6 +200,7 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       }
       catch(err){
         logger.error("Error parsing FPEval output" + err);
+        trace.score = -1;// -1 signifying fpeval failed for some reason.
       }
       promise.resolve();
     });
@@ -209,8 +210,15 @@ MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
   var err = null;
-
   var MATCHER_THRESHOLD = 0.3;
+
+  // First check that fpeval could carry out a match, if not end this check with an error
+  var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.score < 0}).unique();
+  if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
+    logger.warn('Failed to match with FPeval, more than likely an issue with downloading the infringment');
+    self.done({message: 'FpEval failed to carry out any match'})
+    return;
+  }
 
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > MATCHER_THRESHOLD){ 
