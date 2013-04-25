@@ -43,7 +43,7 @@ MusicVerifier.prototype.createParentFolder = function() {
   var self = this;
   var promise = new Promise.Promise();
 
-  self.tmpDirectory = path.join(os.tmpDir(), utilities.genURIKey(self.campaign.name)); 
+  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
   self.cleanupEverything().then(function(){
     logger.info('creating parent folder ' + self.tmpDirectory);
     fs.mkdir(self.tmpDirectory, function(err){
@@ -61,7 +61,7 @@ MusicVerifier.prototype.fetchCampaignAudio = function() {
   function fetchTrack(track){
     var self = this;
     var promise = new Promise.Promise();
-    var folderName = utilities.genURIKey(track.title);
+    var folderName = utilities.genLinkKey(track.title);
     track.folderPath = path.join(self.tmpDirectory, folderName);
     track.score = 0.0;
     try{
@@ -363,9 +363,8 @@ MusicVerifier.prototype.cleanupInfringement = function() {
           });
         }
       });
+      if(!matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
     });
-    
-    if(!matched)promise.resolve();
 
     return promise
   }
