@@ -345,22 +345,28 @@ MusicVerifier.prototype.cleanupInfringement = function() {
   var wrapperPromise = new Promise.Promise();
 
   var deleteInfringement = function(dir) {
+    var matched = false;
     var promise = new Promise.Promise();
     if(!dir)
       promise.resolve();
     fs.readdir(dir, function(err, files){
       if(err)
         promise.resolve();
+
       files.each(function(file){
         if(file.match(/infringement/g)){
           fs.unlink(path.join(dir, file), function (err) {
             if (err)
               logger.log('error deleting ' + err + path.join(dir, file));
+            matched = true;
             promise.resolve();        
           });
         }
       });
     });
+    
+    if(!matched)promise.resolve();
+
     return promise
   }
   if(self.campaign){
