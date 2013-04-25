@@ -166,9 +166,10 @@ MusicVerifier.prototype.goFingerprint = function(){
               if(err){
                 logger.error('Error copying file : ' + err);
                 promise.resolve();
-                return;
               }
-              self.evaluate(track, promise);
+              else{
+                self.evaluate(track, promise);
+              }
              });
     return promise;
   }
@@ -216,7 +217,7 @@ MusicVerifier.prototype.examineResults = function(){
   var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.score < 0}).unique();
   if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
     logger.warn('Failed to match with FPeval, more than likely an issue with downloading the infringment');
-    self.done({message: 'FpEval failed to carry out any match'})
+    self.done(new Error('FpEval failed to carry out any match'));
     return;
   }
 
@@ -244,7 +245,7 @@ MusicVerifier.prototype.examineResults = function(){
     success = delta > 0.2;
   }
   else{
-    success = matchedTracks.length === 1 
+    success = matchedTracks.length === 1 // this needs more testing.
   }
 
   if(success){
@@ -341,7 +342,7 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
 
 MusicVerifier.prototype.cleanupInfringement = function() {
   var self = this;
-  var promise = new Promise.Promise();
+  var wrapperPromise = new Promise.Promise();
 
   var deleteInfringement = function(dir) {
     var promise = new Promise.Promise();
@@ -369,13 +370,13 @@ MusicVerifier.prototype.cleanupInfringement = function() {
 
     Promise.seq(promiseArray).then(function(){
       self.emit('all infringements deleted');
-      promise.resolve()
+      wrapperPromise.resolve()
     }); 
   }
   else{
-    promise.resolve();
+    wrapperPromise.resolve();
   }
-  return promise;
+  return wrapperPromise;
 }
 //
 // Public
