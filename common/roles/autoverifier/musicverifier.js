@@ -26,8 +26,6 @@ var logger = acquire('logger').forFile('musicverifier.js')
   , states = acquire('states').infringements.state  
   ;
 
-var MATCHER_THRESHOLD = 0.3;
-
 var MusicVerifier = module.exports = function() {
   this.init();
 }
@@ -46,14 +44,14 @@ MusicVerifier.prototype.createParentFolder = function() {
   var promise = new Promise.Promise();
 
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genURIKey(self.campaign.name)); 
-  self.cleanupEverything();// Call this just in case we have a hangover from some other failed run on the same campaign
-  console.log('creating parent folder ' + self.tmpDirectory);
-
-  fs.mkdir(self.tmpDirectory, function(err){
-    if(err)
-      logger.error('Error creating parenting folder called ' + self.tmpDirectory);
-    promise.resolve(err);
-  });
+  self.cleanupEverything().then(function(){
+    logger.info('creating parent folder ' + self.tmpDirectory);
+    fs.mkdir(self.tmpDirectory, function(err){
+      if(err)
+        logger.error('Error creating parenting folder called ' + self.tmpDirectory);
+      promise.resolve(err);
+    });    
+  });// Call this just in case we have a hangover from some other failed run on the same campaign
   return promise;
 }
 
@@ -212,15 +210,14 @@ MusicVerifier.prototype.examineResults = function(){
   var matchedTracks = [];
   var err = null;
 
+  var MATCHER_THRESHOLD = 0.3;
+
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > MATCHER_THRESHOLD){ 
-      if(!matchedTracks.isEmpty()){
-        var score =  matchedTracks[0].score;
-        logger.error("Music Verifier has found two potential matches for one infringement in the same album - other score = " + score + ' and this score : ' + track.score);
-      }
-      else{
-        matchedTracks.push(track);
-      }
+      if(!matchedTracks.isEmpty())
+        logger.warn("Music Verifier has found two potential matches for one infringement in the same album - other score = " + 
+                     matchedTracks.last().score + ' and this score : ' + track.score + " for uri : " + infringment.uri);
+      matchedTracks.push(track);
     }
   });
   
@@ -228,9 +225,20 @@ MusicVerifier.prototype.examineResults = function(){
                             who : "MusicVerifer AKA Harry Caul",
                             finished : Date.now()
                            };
+  
+  var success;
 
+  if(matchedTracks.length > 1){
+    var delta = matchedTracks.reduce(function(a, b){
+      return a-b;
+    });
+    logger.warn('We found ' + matchedTracks.length + ' matches and the delta between them is ' + delta);
+    success = delta > 0.2;
+  }
+  else{
+    success = matchedTracks.length === 1 
+  }
 
-  var success = matchedTracks.length === 1;
   if(success){
     logger.info('Successfull matching ' + self.infringement.uri);
     verificationObject = Object.merge (verificationObject, 
@@ -311,19 +319,16 @@ MusicVerifier.prototype.oneAtaTime = function(infrg){
 
 MusicVerifier.prototype.cleanupEverything = function(err) {
   var self = this;
+  var promise = new Promise.Promise();
   logger.info('cleanupEverything');  
 
   rimraf(self.tmpDirectory, function(err){
     if(err){
       logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
-      self.done(err);
     }
+    promise.resolve();
   });
-  // Only call in this context if we pass an error.
-/*  if(err){
-    logger.warn('musicverifier ending with an error : ' + err);
-    self.done(err);
-  }*/
+  return promise;
 }
 
 MusicVerifier.prototype.cleanupInfringement = function() {
@@ -395,18 +400,33 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done){
   self.cleanupInfringement().then(function(){    
     if(!sameCampaignAsBefore){
       // if we had a different previous campaign, nuke it.
-      if(haveRunAlready)self.cleanupEverything();
-      // Only on a new campaign do we overwrite our instance variable
-      // (We want to still know about folderpaths etc.)
-      self.campaign = campaign; 
+      var cleansing;
 
-      var promise = self.createParentFolder(self.campaign);
-      promise.then(function(err){
-        if(err){
-          self.cleanupEverything(err);
-          return;
-        }
-        self.fetchCampaignAudio();
+      if(haveRunAlready){
+        cleansing = self.cleanupEverything();
+      }
+      else{
+        cleansing  = new Promise.Promise();
+        cleansing.resolve();
+      }
+
+      cleansing.then(function(){
+        // Only on a new campaign do we overwrite our instance variable
+        // (We want to still know about folderpaths etc.)
+        self.campaign = campaign; 
+
+        var promise = self.createParentFolder();
+        promise.then(function(err){
+          if(err){
+            self.cleanupEverything().then(function(){
+              self.done(err);
+              return;              
+            });
+          }
+          else{
+            self.fetchCampaignAudio();
+          }
+        });
       });
     }
     else{ // Same campaign as before, keep our one in memory
@@ -427,7 +447,8 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
   self.startedAt = Date.now();
   self.createParentFolder().then(function(err){
     if(err){
-      self.cleanupEverything(err);
+      self.cleanupEverything();
+      self.done(err);
       return;
     }
     self.fetchCampaignAudio();
@@ -437,7 +458,8 @@ MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) 
 
 MusicVerifier.prototype.finish = function(){
   if(self.tmpDirectory) {
-    self.cleanupEverything();
-    self.tmpDirectory = null;
+    self.cleanupEverything().then(function(){
+      self.tmpDirectory = null;
+    });
   }
 }
