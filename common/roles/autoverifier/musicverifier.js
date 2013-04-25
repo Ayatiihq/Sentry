@@ -10,7 +10,7 @@ var acquire = require('acquire')
   , events = require('events')
   , util = require('util')
   , filed = require('filed')  
-  , fs = require('fs')
+  , fs = require('fs-extra')
   , os = require('os')
   , Promise = require('node-promise')
   , path = require('path')
@@ -314,14 +314,16 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
   logger.info('cleanupEverything');  
 
   rimraf(self.tmpDirectory, function(err){
-    if(err)
+    if(err){
       logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+      self.done(err);
+    }
   });
   // Only call in this context if we pass an error.
-  if(err){
+/*  if(err){
     logger.warn('musicverifier ending with an error : ' + err);
     self.done(err);
-  }
+  }*/
 }
 
 MusicVerifier.prototype.cleanupInfringement = function() {
@@ -347,14 +349,19 @@ MusicVerifier.prototype.cleanupInfringement = function() {
     });
     return promise
   }
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ return deleteInfringement.bind(self, track.folderPath)});
-  promiseArray.push(deleteInfringement.bind(self, self.tmpDirectory));
+  if(self.campaign){
+    var promiseArray;
+    promiseArray = self.campaign.metadata.tracks.map(function(track){ return deleteInfringement.bind(self, track.folderPath)});
+    promiseArray.push(deleteInfringement.bind(self, self.tmpDirectory));
 
-  Promise.seq(promiseArray).then(function(){
-    self.emit('all infringements deleted');
-    promise.resolve()
-  }); 
+    Promise.seq(promiseArray).then(function(){
+      self.emit('all infringements deleted');
+      promise.resolve()
+    }); 
+  }
+  else{
+    promise.resolve();
+  }
   return promise;
 }
 //
