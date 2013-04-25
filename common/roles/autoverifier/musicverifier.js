@@ -201,7 +201,7 @@ MusicVerifier.prototype.evaluate = function(track, promise){
       }
       catch(err){
         logger.error("Error parsing FPEval output" + err);
-        trace.score = -1;// -1 signifying fpeval failed for some reason.
+        track.score = -1;// -1 signifying fpeval failed for some reason.
       }
       promise.resolve();
     });
