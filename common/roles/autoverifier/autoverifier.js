@@ -150,8 +150,10 @@ AutoVerifier.prototype.processVerifications = function(done) {
     if (err)
       return done(err);
 
-    if (!infringement || !infringement.uri)
+    if (!infringement || !infringement.uri) {
+      logger.info('No work to do');
       return done();
+    }
 
     self.processVerification(infringement, function(err) {
       if (err) {
@@ -188,13 +190,14 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
       if (!verification || !verification.state)
         return done(new Error('Invalid verification generated'));
 
-      if (verification.state == iStates.VERIFIED) {
-        self.infringements_.addPointsBy(infringement,
-                                        verifier.source,
-                                        100,
-                                        'AutoVerifier points',
-                                        PROCESSOR);
+      if (verification.state == iStates.VERIFIED ||
+          verification.state == iStates.FALSE_POSITIVE) {
+        logger.info('Verifying to state %s',
+                     verification.state == iStates.VERIFIED ? 'VERIFIED' : 'FALSE_POSITIVE');
+        return self.verifications_.submit(infringement, verification, done);
+
       } else {
+        // Just marking as processed so we don't see it again
         self.infringements_.processedBy(infringement, PROCESSOR);
       }
 
