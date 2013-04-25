@@ -43,7 +43,7 @@ Utilities.normalizeURI = function(uri) {
 
     // Protect against gord's amazing regex sk1llz
     if (uri.domain().length < 1)
-      uri = URI(link.uri.unescapeURL());
+      uri = URI(Utilities.unescapeURL(original));
 
     // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
     uri.normalize();
@@ -88,11 +88,21 @@ Utilities.normalizeURI = function(uri) {
     uri = uri.toString();
 
   } catch (err) {
-    logger.warn('Malformed URI %s', original);
-    uri = original;
+    logger.info('Malformed URI %s', original);
+    uri = Utilities.unescapeURL(original)
   }
 
   return uri;
+}
+
+Utilities.unescapeURL = function(uri) {
+  var ret = uri;
+  try {
+    ret = uri.unescapeURL();
+  } catch (err) {
+    logger.warn('Unable to unescape URI %s: %s', uri, err);
+  }
+  return ret;
 }
 
 /**
