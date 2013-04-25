@@ -345,29 +345,32 @@ MusicVerifier.prototype.cleanupInfringement = function() {
   var wrapperPromise = new Promise.Promise();
 
   var deleteInfringement = function(dir) {
-    var matched = false;
     var promise = new Promise.Promise();
-    if(!dir)
+    if(!dir){
       promise.resolve();
-    fs.readdir(dir, function(err, files){
-      if(err)
-        promise.resolve();
-      
-      files.each(function(file){
-        if(file.match(/infringement/g)){
-          fs.unlink(path.join(dir, file), function (err) {
-            if (err)
-              logger.log('error deleting ' + err + path.join(dir, file));
-            matched = true;
-            promise.resolve();        
-          });
-        }
+    }
+    else{
+      var matched = false;
+      fs.readdir(dir, function(err, files){
+        if(err)
+          promise.resolve();
+        
+        files.each(function(file){
+          if(file.match(/infringement/g)){
+            fs.unlink(path.join(dir, file), function (err) {
+              if (err)
+                logger.log('error deleting ' + err + path.join(dir, file));
+              matched = true;
+              promise.resolve();        
+            });
+          }
+        });
+        if(!err && !matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
       });
-      if(!err && !matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
-    });
-
+    }
     return promise
   }
+
   if(self.campaign){
     var promiseArray;
     promiseArray = self.campaign.metadata.tracks.map(function(track){ return deleteInfringement.bind(self, track.folderPath)});
