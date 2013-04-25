@@ -352,7 +352,7 @@ MusicVerifier.prototype.cleanupInfringement = function() {
     fs.readdir(dir, function(err, files){
       if(err)
         promise.resolve();
-
+      
       files.each(function(file){
         if(file.match(/infringement/g)){
           fs.unlink(path.join(dir, file), function (err) {
@@ -363,7 +363,7 @@ MusicVerifier.prototype.cleanupInfringement = function() {
           });
         }
       });
-      if(!matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
+      if(!err && !matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
     });
 
     return promise
