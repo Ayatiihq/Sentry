@@ -352,20 +352,22 @@ MusicVerifier.prototype.cleanupInfringement = function() {
     else{
       var matched = false;
       fs.readdir(dir, function(err, files){
-        if(err)
+        if(err){
           promise.resolve();
-        
+          return;
+        }
         files.each(function(file){
           if(file.match(/infringement/g)){
-            fs.unlink(path.join(dir, file), function (err) {
-              if (err)
-                logger.log('error deleting ' + err + path.join(dir, file));
-              matched = true;
-              promise.resolve();        
+            fs.unlink(path.join(dir, file), function (errr) {
+              if (errr)
+                logger.warn('error deleting ' + errr + path.join(dir, file));
             });
+            matched = true;
+            promise.resolve();                    
           }
         });
-        if(!err && !matched)promise.resolve();// Make sure to resolve the mother even it there isn't a match (failed download or whatever)
+        // Make sure to resolve the mother even it there isn't a match (failed download or whatever)
+        if(!matched) promise.resolve();
       });
     }
     return promise
@@ -377,7 +379,6 @@ MusicVerifier.prototype.cleanupInfringement = function() {
     promiseArray.push(deleteInfringement.bind(self, self.tmpDirectory));
 
     Promise.seq(promiseArray).then(function(){
-      self.emit('all infringements deleted');
       wrapperPromise.resolve()
     }); 
   }
