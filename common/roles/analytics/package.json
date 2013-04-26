@@ -1,0 +1,7 @@
+{
+  "name": "analytics",
+  "main": "./analytics.js",
+  "dependencies": {
+  },
+  "intervalMinutes": 30
+}

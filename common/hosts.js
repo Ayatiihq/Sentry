@@ -98,5 +98,7 @@ Hosts.prototype.add = function(host, callback)
 
   callback = callback ? callback : defaultCallback;
 
+  host.created = Date.now();
+
   self.hosts_.insert(host, callback);
 }

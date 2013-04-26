@@ -60,6 +60,13 @@ function main() {
     verifications.pop(campaign, log);
   }
 
+  if (action === 'popType') {
+    var campaign = require(argv[3]);
+    var type = argv[4];
+    var processor = argv[5];
+    verifications.popType(campaign, [type], processor, log);
+  }
+
   if (action === 'submit') {
     var infringement = require(argv[3]);
     var verification = require(argv[4]);
