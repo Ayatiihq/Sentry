@@ -147,18 +147,23 @@ Analytics.prototype.loadWork = function() {
     ;
 
   // Pre-MapReduce
-  //work.push(HostsInfo.serverInfo);
-  //work.push(HostsInfo.websiteInfo);
+  work.push(HostsInfo.serverInfo);
+  work.push(HostsInfo.websiteInfo);
 
   // Map Reduce
-  //work.push(HostsMR.hostBasicStats);
-  //work.push(HostsMR.hostLocationStats);
+  work.push(HostsMR.hostBasicStats);
+  work.push(HostsMR.hostLocationStats);
   
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenInfringementCountries);
+  work.push(HostsCrunchers.linksCount);
+  work.push(HostsCrunchers.infringementsCount);
+  work.push(HostsCrunchers.falsePositiveCount);
+  work.push(HostsCrunchers.unverifiedCount);
+  work.push(HostsCrunchers.unverifiedEndpointCount);
 
   return work;
 }
