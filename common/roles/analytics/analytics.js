@@ -76,25 +76,27 @@ Analytics.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
-  Seq()
+  var requiredCollections = ['campaigns', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
+
+  Seq(requiredCollections)
+    .seqEach(function(collectionName) {
+      var that = this;
+
+      database.connectAndEnsureCollection(collectionName, function(err, db, collection) {
+        if (err)
+          return that(err);
+
+        self.db_ = db;
+        self.collections_[collectionName] = collection;
+        that();
+      });
+    })
     .seq(function() {
       self.job_ = job;
       self.campaigns_.getDetails(job._id.owner, this);
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      database.connectAndEnsureCollection('infringements', this);
-    })
-    .seq(function(db, infringements) {
-      self.db_ = db;
-      self.collections_['infringements'] = infringements;
-      database.connectAndEnsureCollection('hosts', this);
-    })
-    .seq(function(db, hosts) {
-      self.collections_['hosts'] = hosts;
-      this();
-    })
-    .seq(function() {
       self.runAnalytics(this);
     })
     .seq(function() {
