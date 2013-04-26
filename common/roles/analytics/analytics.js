@@ -1,4 +1,4 @@
-/*
+  /*
  * analytics.js: the analytics
  *
  * (C) 2012 Ayatii Limited
@@ -9,6 +9,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('analytics.js')
   , states = acquire('states')
@@ -22,6 +23,10 @@ var Campaigns = acquire('campaigns')
   , Seq = require('seq')
   ;
 
+var HostsInfo = require('./hostsinfo')
+  , HostsMR = require('./hostsmr')
+  ;
+
 var Analytics = module.exports = function() {
   this.campaigns_ = null;
   this.jobs_ = null;
@@ -29,6 +34,7 @@ var Analytics = module.exports = function() {
 
   this.job_ = null;
   this.campaign_ = null;
+  this.collections_ = [];
 
 
   this.started_ = false;
@@ -77,6 +83,18 @@ Analytics.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      database.connectAndEnsureCollection('infringements', this);
+    })
+    .seq(function(db, infringements) {
+      self.db_ = db;
+      self.collections_['infringements'] = infringements;
+      database.connectAndEnsureCollection('hosts', this);
+    })
+    .seq(function(db, hosts) {
+      self.collections_['hosts'] = hosts;
+      this();
+    })
+    .seq(function() {
       self.runAnalytics(this);
     })
     .seq(function() {
@@ -97,10 +115,40 @@ Analytics.prototype.processJob = function(err, job) {
 Analytics.prototype.runAnalytics = function(done) {
   var self = this;
 
-  logger.info('Hello!');
-  done();
+  Seq(self.loadWork())
+    .seqEach(function(work) {
+      var that = this;
+
+      work(self.db_,
+           self.collections_,
+           self.campaign_, 
+           function(err) {
+        if (err)
+          logger.warn(err);
+
+        that();
+      });
+    })
+    .seq(function() {
+      done();
+    })
+    .catch(function(err) {
+      done(err);
+    })
+    ;
 }
 
+Analytics.prototype.loadWork = function() {
+  var self = this
+    , work = []
+    ;
+
+  work.push(HostsInfo.serverInfo);
+  work.push(HostsInfo.websiteInfo);
+  work.push(HostsMR.hostStats);
+
+  return work;
+}
 
 //
 // Overrides

@@ -157,7 +157,7 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
 
         if (uri.domain().length < 1)
           uri = URI(link.uri.unescapeURL());
-        key = uri.domain();
+        key = uri.domain().toLowerCase();
 
       } catch (err) { 
         logger.warn('Error processing %s: %s', link.uri, err);
@@ -204,8 +204,19 @@ NoticeSender.prototype.processBatch = function(batch, done) {
       self.hosts_.get(batch.key, this);
     })
     .seq(function(host) {
-      if (!host || !host.noticeDetails) {
+      if (!host) {
         logger.warn('Host "%s" does not exist', batch.key);
+        // We add it to the DB to be processed
+        host = {
+          _id: batch.key,
+          name: batch.key,
+          uri: batch.key
+        };
+        self.hosts_.add(host);
+        return done();
+      
+      } else if (!host.noticeDetails) {
+        logger.warn('Host "%s" does not have noticeDetails', batch.key);
         return done();
       }
       batch.host = host;

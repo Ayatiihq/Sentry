@@ -3,5 +3,5 @@
   "main": "./analytics.js",
   "dependencies": {
   },
-  "intervalMinutes": 5
+  "intervalMinutes": 30
 }
