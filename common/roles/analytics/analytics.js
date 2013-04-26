@@ -23,7 +23,8 @@ var Campaigns = acquire('campaigns')
   , Seq = require('seq')
   ;
 
-var HostsInfo = require('./hostsinfo')
+var HostsCrunchers = require('./hostscrunchers')
+  , HostsInfo = require('./hostsinfo')
   , HostsMR = require('./hostsmr')
   ;
 
@@ -76,7 +77,7 @@ Analytics.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
-  var requiredCollections = ['campaigns', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
+  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -145,10 +146,19 @@ Analytics.prototype.loadWork = function() {
     , work = []
     ;
 
-  work.push(HostsInfo.serverInfo);
-  work.push(HostsInfo.websiteInfo);
-  work.push(HostsMR.hostBasicStats);
-  work.push(HostsMR.hostLocationStats);
+  // Pre-MapReduce
+  //work.push(HostsInfo.serverInfo);
+  //work.push(HostsInfo.websiteInfo);
+
+  // Map Reduce
+  //work.push(HostsMR.hostBasicStats);
+  //work.push(HostsMR.hostLocationStats);
+  
+  // Post-MapReduce
+  work.push(HostsCrunchers.topTenLinkHosts);
+  work.push(HostsCrunchers.topTenInfringementHosts);
+  work.push(HostsCrunchers.topTenLinkCountries);
+  work.push(HostsCrunchers.topTenInfringementCountries);
 
   return work;
 }

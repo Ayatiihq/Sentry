@@ -287,10 +287,3 @@ HostsMR.hostBasicStats = function(db, collections, campaign, done) {
     var collection = collections['infringements'];
     collection.mapReduce(map, reduce, options, done);
 }
-
-//
-// Build the interesting datasets so clients are faster
-//
-HostsMR.hostBasicStatCruching = function(db, collections, campaign, done) {
-  ;
-}
