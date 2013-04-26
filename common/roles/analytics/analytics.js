@@ -164,6 +164,10 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.falsePositiveCount);
   work.push(HostsCrunchers.unverifiedCount);
   work.push(HostsCrunchers.unverifiedEndpointCount);
+  work.push(HostsCrunchers.noticedCount);
+  work.push(HostsCrunchers.takenDownCount);
+  work.push(HostsCrunchers.unavailableCount);
+  work.push(HostsCrunchers.deferredCount);
 
   return work;
 }

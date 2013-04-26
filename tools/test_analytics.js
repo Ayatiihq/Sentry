@@ -47,6 +47,9 @@ function main() {
 
   if (action === 'getCampaignStats')
     analytics.getCampaignStats(require(arg0), log);
+
+  if (action === 'getCampaignAnalytics')
+    analytics.getCampaignAnalytics(require(arg0), log);
 }
 
 main()

@@ -201,3 +201,35 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     ;
 }
+
+/**
+ * Get analytics for a campaign.
+ *
+ * @param  {object}              campaign      The campaign to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.analytics_)
+    return self.cachedCalls_.push([self.getCampaignAnalytics, Object.values(arguments)]);
+
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
+  self.analytics_.find({ '_id.campaign': campaign._id }).toArray(function(err, docs) {
+    if (err)
+      return callback(err);
+
+    var stats = {};
+
+    docs.forEach(function(doc) {
+      stats[doc._id.statistic] = doc.value;
+    });
+
+    callback(null, stats);
+  });
+}
