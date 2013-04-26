@@ -64,20 +64,36 @@ HostsCrunchers.topTenInfringementHosts = function(db, collections, campaign, don
   // Compile the top ten hosts carrying INFRINGEMENTS
   collection.find({ '_id.campaign': campaign._id, '_id.state': { $in: [ 1, 3, 4] }})
             .sort({ 'value.count': -1 })
-            .limit(10)
+            .limit(25)
             .toArray(function(err, docs) {
 
     if (err)
       return done('topTenInfringementHosts: Error compiling top ten infringement hosts: ' + err);
     
     var key = { campaign: campaign._id, statistic: 'topTenInfringementHosts' };
+    var map = {};
     var values = [];
 
     docs.forEach(function(doc) {
       var value = {};
-      value[doc._id.host] = doc.value;
-      values.push(value);
+
+      if (map[doc._id.host])
+        map[doc._id.host].count += doc.value.count;
+      else
+        map[doc._id.host] = doc.value;
     });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
   });
@@ -120,7 +136,7 @@ HostsCrunchers.topTenInfringementCountries = function(db, collections, campaign,
 
   collection.find({ '_id.campaign': campaign._id, '_id.regionName': { $exists: false }, '_id.cityName': { $exists: false }, '_id.state': { $in: [ 1, 3, 4] } })
             .sort({ 'value.count': -1 })
-            .limit(10)
+            .limit(25)
             .toArray(function(err, docs) {
 
     if (err)
@@ -128,12 +144,28 @@ HostsCrunchers.topTenInfringementCountries = function(db, collections, campaign,
     
     var key = { campaign: campaign._id, statistic: 'topTenInfringementCountries' };
     var values = [];
+    var map = {};
 
     docs.forEach(function(doc) {
       var value = {};
-      value[doc._id.countryCode] = doc.value;
-      values.push(value);
+
+      if (map[doc._id.countryCode])
+        map[doc._id.countryCode].count += doc.value.count;
+      else
+        map[doc._id.countryCode] = doc.value;
     });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
   });
