@@ -145,7 +145,8 @@ Analytics.prototype.loadWork = function() {
 
   work.push(HostsInfo.serverInfo);
   work.push(HostsInfo.websiteInfo);
-  work.push(HostsMR.hostStats);
+  work.push(HostsMR.hostBasicStats);
+  work.push(HostsMR.hostLocationStats);
 
   return work;
 }

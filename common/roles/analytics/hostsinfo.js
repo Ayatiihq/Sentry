@@ -30,12 +30,12 @@ HostsMR.serverInfo = function(db, collections, campaign, done) {
     , query = {
         $or: [
           {
-            serverDetails: {
+            serverInfo: {
               $exists: false
             }
           },
           {
-            'serverDetails.created': {
+            'serverInfo.created': {
               $lt: Date.create('1 month ago').getTime()
             }
           }
@@ -81,7 +81,7 @@ function getHostServerInfo(host, done) {
 
   Seq()
     .seq(function() {
-      dns.lookup(host.uri, this);
+      dns.lookup(host._id, this);
     })
     .seq(function(ip) {
       logger.info('Getting server information of %s', ip);
