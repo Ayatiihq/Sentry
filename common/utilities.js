@@ -414,3 +414,17 @@ Utilities.requestURL = function(url, options, callback) {
 Utilities.getWorkerId  = function() {
   return util.format('%s-%s', os.hostname(), process.pid);
 }
+
+/**
+ * Returns a domain for the uri if possible, or an empty stringify
+ *
+ */
+Utilities.getHostname = function(uri) {
+  try {
+    uri = URI(uri);
+    return uri.hostname();
+
+  } catch (err) {
+    return '';
+  }
+}

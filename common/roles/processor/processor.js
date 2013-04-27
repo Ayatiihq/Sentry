@@ -13,7 +13,9 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('processor.js')
   , states = acquire('states')
+  , URI = require('URIjs')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -21,6 +23,12 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
+  ;
+
+var Categories = states.infringements.category
+  , Cyberlockers = acquire('cyberlockers').knownDomains
+  , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
+  , State = states.infringements.state
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts'];
@@ -73,6 +81,31 @@ Processor.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  Seq()
+    .seq(function() {
+      self.preRun(job, this);
+    })
+    .seq(function() {
+      self.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running processor');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job %j: %s', job, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Processor.prototype.preRun = function(job, done) {
+  var self = this;
+
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
       var that = this;
@@ -92,25 +125,116 @@ Processor.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.run(this);
-    })
-    .seq(function() {
-      logger.info('Finished running processor');
-      self.jobs_.complete(job);
-      clearInterval(self.touchId_);
-      self.emit('finished');
+      done();
     })
     .catch(function(err) {
-      logger.warn('Unable to process job %j: %s', job, err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      clearInterval(self.touchId_);
-      self.emit('error', err);
+      done(err);
     })
     ;
 }
 
 Processor.prototype.run = function(done) {
-  done();
+  var self = this;
+
+  Seq()
+    .seq(function() {
+      self.getUnprocessedInfringement(this);
+    })
+    .seq(function(infringement) {
+      if (!infringement) {
+        logger.info('No more jobs to process');
+        return done();
+      }
+
+      self.categorizeInfringement(infringement, this);
+    })
+    .seq(function(infringement) {
+      console.log(infringement);
+      done();
+    })
+    .catch(function(err) {
+      logger.warn(err);
+      setTimeout(self.run.bind(self), 1000);
+    })
+    ;
+}
+
+Processor.prototype.getUnprocessedInfringement = function(done) {
+  var self = this
+    , infringements = self.collections_['infringements']
+    , query = {
+        state: states.infringements.state.NEEDS_PROCESSING,
+        created: {
+          $lt: Date.create('2 minutes ago').getTime()
+        },
+        $or: [
+          {
+            popped: {
+              $lt: Date.create('15 minutes ago').getTime()
+            }
+          },
+          {
+            popped: {
+              $exists: false
+            }
+          }
+        ]
+      }
+    , sort = [
+        ['created', 1]
+      ]
+    , updates = {
+        $set: {
+          popped: Date.now()
+        }
+      }
+    , options = {
+        new: true
+      }
+    ;
+
+  infringements.findAndModify(query, sort, updates, options, done);
+}
+
+Processor.prototype.categorizeInfringement = function(infringement, done) {
+  var self = this
+    , hostname = utilities.getHostname(infringement.uri)
+    , meta = infringement.meta
+    , uri = infringement.uri
+    , scheme = infringement.scheme
+    ;
+
+  if (meta) {
+    infringement.category = Categories.SEARCH_RESULT
+  } else if (scheme == 'torrent' || scheme == 'magnet') {
+    infringement.category = Categories.TORRENT;
+  } else if (self.isCyberlocker(uri, hostname)) {
+    infringement.category = Categories.CYBERLOCKER;
+  } else if (self.isSocialNetwork(uri, hostname)) {
+    infringement.category = Categories.SOCIAL;
+  } else {
+    infringement.category = Categories.WEBSITE;
+  }
+}
+
+Processor.prototype.isCyberlocker = function(uri, hostname) {
+  var ret = false;
+
+  Cyberlockers.forEach(function(domain) {
+    ret = ret || hostname.endsWith(domain);
+  });
+
+  return ret;
+}
+
+Processor.prototype.isSocialNetwork = function(uri, hostname) {
+  var ret = false;
+
+  SocialNetworks.forEach(function(domain) {
+    ret = ret || hostname.endsWith(domain);
+  });
+
+  return ret;
 }
 
 //
@@ -135,4 +259,23 @@ Processor.prototype.end = function() {
   self.started_ = false;
 
   self.emit('ended');
+}
+
+if (process.argv[1].endsWith('processor.js')) {
+  var processer = new Processor();
+ 
+  Seq()
+    .seq(function() {
+      processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+    })
+    .seq(function() {
+      processer.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running Processor');
+    })
+    .catch(function(err) {
+      logger.warn(err);
+    })
+    ;
 }
