@@ -406,6 +406,8 @@ BingScraper.prototype.buildSearchQueryAlbum = function () {
 /* Scraper Interface */
 
 var SearchEngine = module.exports = function () {
+  this.sourceName_ = 'searchengine';
+  
   this.init();
 };
 util.inherits(SearchEngine, Scraper);
@@ -421,18 +423,24 @@ SearchEngine.prototype.getName = function () {
   return "SearchEngine";
 };
 
+SearchEngine.prototype.getSourceName = function () {
+  return this.sourceName_;
+};
+
 SearchEngine.prototype.start = function (campaign, job) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
   var scraperMap = {
-    'google': GoogleScraper,
-    'yahoo': YahooScraper,
-    'bing': BingScraper
+    'google': { klass: GoogleScraper, sourceName: 'searchengine.google' },
+    'yahoo': { klass: YahooScraper, sourceName: 'searchengine.bing' }, // Results come from bing
+    'bing': { klass: BingScraper, sourceName: 'searchengine.bing' }
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
-  self.scraper = new scraperMap[job.metadata.engine](campaign);
+  self.scraper = new scraperMap[job.metadata.engine].klass(campaign);
+  self.sourceName_ = scraperMap[job.metadata.engine].sourceName;
+
 
   self.scraper.on('finished', function onFinished() {
     self.emit('finished');
