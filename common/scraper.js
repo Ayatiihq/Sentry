@@ -62,3 +62,7 @@ Scraper.prototype.stop = function() {
 Scraper.prototype.isAlive = function(callback) {
   callback(new Error('This method should be implemented'));
 }
+
+Scraper.prototype.getSourceName = function() {
+  return undefined;
+}

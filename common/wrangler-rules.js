@@ -275,6 +275,9 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
 
 var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls'];
 
+var p2pExtensions = ['.torrent'];
+
 module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
-                                      ruleFindExtensions(audioExtensions)];
+                                      ruleFindExtensions(audioExtensions),
+                                      ruleFindExtensions(p2pExtensions)];
 

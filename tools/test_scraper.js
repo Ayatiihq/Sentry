@@ -55,7 +55,7 @@ function main() {
   var scrapername = process.argv[2];
   var Scraper = require('../common/scrapers/' + scrapername);
   var instance = new Scraper();
-  
+
   SIGNALS.forEach(function (name) {
     instance.on(name, function () {
       console.log('\nreceived signal', name);

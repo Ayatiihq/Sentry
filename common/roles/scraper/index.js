@@ -255,8 +255,9 @@ Scraper.prototype.cleanup = function(scraper, job) {
 Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, points, metadata) {
   var self = this
     , state = states.infringements.state.UNVERIFIED
+    , owner = scraper.getSourceName() ? scraper.getSourceName() : scraper.job._id.consumer
     ;
-  self.infringements_.add(campaign, uri, campaign.type, scraper.job._id.consumer, state, points, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, owner, state, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
@@ -267,16 +268,18 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
   var self = this
     , scrapeState = states.infringements.state.NEEDS_SCRAPE
     , unverifiedState= states.infringements.state.UNVERIFIED
+    , owner = scraper.getSourceName() ? scraper.getSourceName() : scraper.job._id.consumer
     ;
+
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
-  self.infringements_.add(campaign, uri, campaign.type, scraper.job._id.consumer, scrapeState, points, metadata, function(err) {
+  self.infringements_.add(campaign, uri, campaign.type, owner, scrapeState, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
     }
   });
 
-  self.infringements_.addMeta(campaign, uri, campaign.type, scraper.job._id.consumer, unverifiedState, metadata, function(err, id) {
+  self.infringements_.addMeta(campaign, uri, campaign.type, owner, unverifiedState, metadata, function(err, id) {
     if (err) {
       logger.warn('Unable to add an meta infringement: %j %s %s %s', campaign._id, uri, metadata, err);
     }
