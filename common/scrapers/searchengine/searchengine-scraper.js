@@ -17,9 +17,11 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriver')
   , sugar = require('sugar')
   , cheerio = require('cheerio')
-;
+  ;
 
-var Scraper = acquire('scraper');
+var Scraper = acquire('scraper')
+  , Settings = acquire('settings')
+  ;
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
@@ -32,7 +34,7 @@ var GenericSearchEngine = function (campaign) {
   self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
-
+  self.settings = new Settings('scraper.searchengine');
   
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -46,9 +48,6 @@ var GenericSearchEngine = function (campaign) {
       self.keywords = [];
     }
   }
-
-  self.searchTerm = self.buildSearchQuery();
-
 };
 util.inherits(GenericSearchEngine, events.EventEmitter);
 
@@ -81,8 +80,9 @@ GenericSearchEngine.prototype.handleResults = function () {
   });
 };
 
-GenericSearchEngine.prototype.buildSearchQuery = function () {
+GenericSearchEngine.prototype.buildSearchQuery = function (done) {
   var self = this;
+  var searchTerm = "";
   var queryBuilder = {
     'tv.live': self.buildSearchQueryTV.bind(self),
     'music.album': self.buildSearchQueryAlbum.bind(self),
@@ -91,16 +91,16 @@ GenericSearchEngine.prototype.buildSearchQuery = function () {
 
   if (!Object.has(queryBuilder, self.campaign.type)) {
     self.emit('error', new Error('Campaign is of non excepted type: ' + self.campaign.type));
-    return self.campaign.name;
+    done(null, self.campaign.name);
   }
   else {
-    return queryBuilder[self.campaign.type]();
+    queryBuilder[self.campaign.type](done);
   }
 };
 
-GenericSearchEngine.prototype.buildSearchQueryTV = function () {
+GenericSearchEngine.prototype.buildSearchQueryTV = function (done) {
   var self = this;
-  return self.campaign.name;
+  done(null, self.campaign.name);
 };
 
 
@@ -126,34 +126,65 @@ GenericSearchEngine.prototype.removeRedundantTerms = function(terms) {
   return ret;
 }
 
-GenericSearchEngine.prototype.buildSearchQueryAlbum = function () {
-  var self = this;
-  function getVal(key, obj) { console.log(obj); return obj[key]; }
-
-  var albumTitle = self.campaign.metadata.albumTitle;
-  var artist = self.campaign.metadata.artist;
-  var tracks = self.campaign.metadata.tracks.map(getVal.bind(null, 'title'));
-
-  tracks = self.removeRedundantTerms(tracks);
-  var trackQuery = ''; // builds 'track 1' OR 'track 2' OR 'track 3'
-  tracks.each(function buildTrackQuery(track, index) {
-    if (index === tracks.length - 1) { trackQuery += util.format('"%s"', track); }
-    else { trackQuery += util.format('"%s" OR ', track); }
-  });
-
-  var query = util.format('"%s" "%s" %s %s', artist, albumTitle, trackQuery, self.keywords.join(' '));
-
-  return query;
-};
-
-GenericSearchEngine.prototype.buildSearchQueryTrack = function () {
+GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var self = this;
   var trackTitle = self.campaign.metadata.albumTitle;
   var artist = self.campaign.metadata.artist;
 
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
-  return query;
+  done(null, query);
 };
+
+GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
+  var self = this
+    , albumTitle = self.campaign.metadata.albumTitle
+    , artist = self.campaign.metadata.artist
+    , fmt = util.format
+    , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
+    , searchTerms = []
+    , searchTerms1 = []
+    , searchTerms2 = []
+    , soundtrack = self.campaign.metadata.soundtrack
+    , tracks = self.campaign.metadata.tracks.map(getValFromObj.bind(null, 'title'))
+    ;
+
+  // First is the basic album searches
+  if (soundtrack) {
+    searchTerms1.push(fmt('%s song download', albumTitle));
+    searchTerms2.push(fmt('%s mp3', albumTitle));
+  } else {
+    searchTerms1.push(fmt('%s %s download', artist, albumTitle));
+    searchTerms1.push(fmt('%s mp3', artist, albumTitle));
+  }
+
+  // Now the tracks
+  tracks.forEach(function(track) {
+    if (soundtrack) {
+      searchTerms1.push(fmt('%s song download', track));
+      searchTerms2.push(fmt('%s mp3', track));
+    } else {
+      searchTerms1.push(fmt('%s %s song download', artist, track));
+      searchTerms2.push(fmt('%s %s mp3', artist, track));
+    }
+  });
+
+  // Compile the list
+  searchTerms = searchTerms1.add(searchTerms2);
+
+  // Figure out the current run from settings
+  self.settings.get(key, function(err, run) {
+    if (err)
+      return done(err);
+
+    run = run ? run : 0; // Convert into number
+
+    // Update it for next run
+    self.settings.set(key, run + 1);
+
+    done(null, searchTerms[run % searchTerms.length]);
+  });
+};
+
 
 GenericSearchEngine.prototype.cleanup = function () {
   this.emit('finished');
@@ -214,24 +245,32 @@ GoogleScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
-  this.remoteClient.get('http://www.google.com'); // start at google.com
 
-  this.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
-  .sendKeys(self.searchTerm); // types out our search term into the input box
+  self.buildSearchQuery(function(err, searchTerm) {
+    if (err)
+      return self.emit('error', err);
 
-  // just submit the query for now
-  this.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
-  logger.info('searching google with search query: ' + self.searchTerm);
+    self.searchTerm = searchTerm;
 
-  // waits for a #search selector
-  this.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
-    if (element) {
-      self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
+    self.remoteClient.get('http://www.google.com'); // start at google.com
+
+    self.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
+    .sendKeys(self.searchTerm); // types out our search term into the input box
+
+    // just submit the query for now
+    self.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
+    logger.info('searching google with search query: ' + self.searchTerm);
+
+    // waits for a #search selector
+    self.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
+      if (element) {
+        self.handleResults();
+      }
+      else {
+        self.emit('error', ERROR_NORESULTS);
+        self.cleanup();
+      }
+    });
   });
 };
 
@@ -273,28 +312,34 @@ util.inherits(YahooScraper, GenericSearchEngine);
 YahooScraper.prototype.beginSearch = function () {
   var self = this;
   self.emit('started');
-  this.remoteClient.get('http://www.yahoo.com'); // start at yahoo.com
 
-  this.remoteClient.findElement(webdriver.By.css('input[name=p]')) //finds <input name='q'>
-  .sendKeys(self.searchTerm); // types out our search term into the input box
+  self.buildSearchQuery(function(err, searchTerm) {
+    if (err)
+      return self.emit('error', err);
 
-  // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-  this.remoteClient.findElement(webdriver.By.css('input[name=p]')).submit();
+    self.searchTerm = searchTerm;
+    self.remoteClient.get('http://www.yahoo.com'); // start at yahoo.com
 
-  logger.info('searching Yahoo with search query: ' + self.searchTerm);
+    self.remoteClient.findElement(webdriver.By.css('input[name=p]')) //finds <input name='q'>
+    .sendKeys(self.searchTerm); // types out our search term into the input box
 
-  // waits for a #search selector
-  this.remoteClient.findElement(webdriver.By.css('div#web')).then(function gotSearchResults(element) {
-    if (element) {
-      self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
+    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
+    self.remoteClient.findElement(webdriver.By.css('input[name=p]')).submit();
+
+    logger.info('searching Yahoo with search query: ' + self.searchTerm);
+
+    // waits for a #search selector
+    self.remoteClient.findElement(webdriver.By.css('div#web')).then(function gotSearchResults(element) {
+      if (element) {
+        self.handleResults();
+      }
+      else {
+        self.emit('error', ERROR_NORESULTS);
+        self.cleanup();
+      }
+    });
   });
 };
-
 
 YahooScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
@@ -318,19 +363,6 @@ YahooScraper.prototype.checkHasNextPage = function (source) {
   return true;
 };
 
-YahooScraper.prototype.buildSearchQueryAlbum = function () {
-  var self = this;
-  function getVal(key, obj) { console.log(obj); return obj[key]; }
-
-  // Need to keep it simple because, well, yahoo doesn't like complex searches
-  // also need to add 'song', otherwise it's just movie links
-  var albumTitle = self.campaign.metadata.albumTitle;
-  var query = util.format('"%s" song %s', albumTitle, self.keywords.join(' '));
-
-  return query;
-};
-
-
 /* -- Bing Scraper -- */
 var BingScraper = function (campaign) {
   var self = this;
@@ -345,25 +377,31 @@ util.inherits(BingScraper, GenericSearchEngine);
 BingScraper.prototype.beginSearch = function () {
   var self = this;
   self.emit('started');
-  this.remoteClient.get('http://www.bing.com'); // start at bing
+  self.buildSearchQuery(function(err, searchTerm) {
+    if (err)
+      return self.emit('error', err);
 
-  this.remoteClient.findElement(webdriver.By.css('input[id=sb_form_q]')) //finds <input name='q'>
-  .sendKeys(self.searchTerm); // types out our search term into the input box
+    self.searchTerm = searchTerm;
+    self.remoteClient.get('http://www.bing.com'); // start at bing
 
-  // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-  this.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
+    self.remoteClient.findElement(webdriver.By.css('input[id=sb_form_q]')) //finds <input name='q'>
+    .sendKeys(self.searchTerm); // types out our search term into the input box
 
-  logger.info('searching Bing with search query: ' + self.searchTerm);
+    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
+    self.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
 
-  // waits for a #search selector
-  this.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
-    if (element) {
-      self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
+    logger.info('searching Bing with search query: ' + self.searchTerm);
+
+    // waits for a #search selector
+    self.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
+      if (element) {
+        self.handleResults();
+      }
+      else {
+        self.emit('error', ERROR_NORESULTS);
+        self.cleanup();
+      }
+    });
   });
 };
 
@@ -389,19 +427,6 @@ BingScraper.prototype.checkHasNextPage = function (source) {
   if ($('a.sb_pagN').length < 1) { return false; }
   return true;
 };
-
-BingScraper.prototype.buildSearchQueryAlbum = function () {
-  var self = this;
-  function getVal(key, obj) { console.log(obj); return obj[key]; }
-
-  // Need to keep it simple because, well, bing doesn't like complex searches
-  // also need to add 'song', otherwise it's just movie links
-  var albumTitle = self.campaign.metadata.albumTitle;
-  var query = util.format('"%s" song %s', albumTitle, self.keywords.join(' '));
-
-  return query;
-};
-
 
 /* Scraper Interface */
 
@@ -467,3 +492,10 @@ SearchEngine.prototype.isAlive = function (cb) {
   var self = this;
   cb();
 };
+
+//
+// Utils
+//
+function getValFromObj(key, obj) {
+  return obj[key];
+}
