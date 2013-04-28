@@ -95,7 +95,16 @@ Processor.prototype.processJob = function(err, job) {
     .seq(function() {
       self.preRun(job, this);
     })
-    .seq(function() {
+    .par(function() {
+      self.run(this);
+    })
+    .par(function() {
+      self.run(this);
+    })
+    .par(function() {
+      self.run(this);
+    })
+    .par(function() {
       self.run(this);
     })
     .seq(function() {
@@ -334,7 +343,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       done(null, mimetype);
     })
     .catch(function(err) {
-      logger.warn('Problem downloading: %s: %s', infringement._id, err);
+      logger.warn('Problem downloading: %s: %s', infringement.uri, err);
 
       if (err.statusCode >= 400)
         infringement.state = State.UNAVAILABLE;

@@ -151,11 +151,11 @@ Downloads.prototype.add = function(infringement, name, mimetype, size, started, 
 
   Seq()
     .seq(function() {
-      logger.info('Recording download');
+      logger.info('Recording download %s', name);
       self.downloads_.update(docQuery, doc, { upsert: true }, this);
     })
     .seq(function() {
-      logger.info('Recording download against infringement');
+      logger.info('Recording download %s against %s', name, infringement._id);
       self.infringements_.update(infringementQuery, infringementUpdates, this);
     })
     .seq(function() {
