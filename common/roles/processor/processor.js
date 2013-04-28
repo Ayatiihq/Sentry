@@ -290,7 +290,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     , outPath = path.join(os.tmpDir(), TMPDIR, outName)
     , started = 0
     , finished = 0
-    , mimetype = ''
+    , mimetype = 'text/html'
     ;
 
   // We let something else deal with these for now
@@ -310,9 +310,9 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       stream.on('data', function(chunk) {
         totalSize += chunk.length;
         if (totalSize > MAX_LENGTH) {
-          var err = new Error('Download is too large (max: ' + MAX_LENGTH + ')');
-          err.statusCode = 600;
+          logger.warn('Download is too large (max: ' + MAX_LENGTH + '): ' + infringement.uri);
           req.abort();
+          done(null, mimetype);
         }
       });
 
@@ -334,15 +334,12 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       done(null, mimetype);
     })
     .catch(function(err) {
-      if (err.statusCode == 600) { // Too big
-        infringement.state = State.UNVERIFIED;
-        done(null, mimetype);
-      } else if (err.statusCode >= 400) {
+      logger.warn('Problem downloading: %s: %s', infringement._id, err);
+
+      if (err.statusCode >= 400)
         infringement.state = State.UNAVAILABLE;
-        done(null, mimetype);
-      } else {
-        done(err);
-      }
+      
+      done(null, mimetype);
     })
     ;
 }
@@ -394,6 +391,10 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
     case Categories.WEBSITE:
     case Categories.SOCIAL:
       infringement.state = infringement.children.count ? State.UNVERIFIED : State.NEEDS_SCRAPE;
+      break;
+
+    case Categories.FILE:
+      infringement.state = State.UNVERIFIED;
       break;
 
     default:
@@ -459,9 +460,6 @@ if (process.argv[1].endsWith('processor.js')) {
       processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
-      processer.run(this);
-      processer.run(this);
-      processer.run(this);
       processer.run(this);
     })
     .seq(function() {
