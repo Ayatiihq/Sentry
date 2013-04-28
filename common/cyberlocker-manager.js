@@ -14,39 +14,46 @@ var acquire = require('acquire')
   , cyberLockers = acquire('cyberlockers')
   ;
 
-/-------------------------------------------------------------------------/
+//-------------------------------------------------------------------------/
 // Base CyberLocker
-/-------------------------------------------------------------------------/
-var Cyberlocker = function () {
+//-------------------------------------------------------------------------/
+var Cyberlocker = function (handle) {
   events.EventEmitter.call(this);
   var self = this;
+  self.name = handle;
 };
 
 util.inherits(Cyberlocker, events.EventEmitter);
 
-/-------------------------------------------------------------------------/
+Cyberlocker.prototype.get = function(infringement){
+  throw new Error('Stub!');
+}
+//-------------------------------------------------------------------------/
 // Deriatives
-/-------------------------------------------------------------------------/
+//-------------------------------------------------------------------------/
 
 /* -- 4Shared */
-var FourShared = function (infringement) {
+var FourShared = function () {
   var creditionals = {user: 'conor@ayatii.com',
                       name: 'Conor Curran',
-                      password: ''};
+                      key: 'e4456725d56c3160ec18408d7e99f096'};
   var self = this;
-  self.constructor.super_.call(self, infringement);
-  self.name = '4Shared';
+  self.constructor.super_.call(self, '4shared.com');
 };
 
 util.inherits(FourShared, Cyberlocker);
 
-/-------------------------------------------------------------------------/
+FourShared.prototype.get = function(infringement){
+
+}
+
+//-------------------------------------------------------------------------/
 // CyberlockerManager
-/-------------------------------------------------------------------------/
+//-------------------------------------------------------------------------/
 var CyberlockerManager= module.exports = function () {
   events.EventEmitter.call(this);
   var self = this;
-  self.plugins = ['4shared.com'];
+  self.plugins = [new FourShared()];
 };
 
 util.inherits(CyberlockerManager, events.EventEmitter);
@@ -66,8 +73,10 @@ CyberlockerManager.prototype.canProcess = function(infringement){
     return false;
   }
 
-  if (cyberLockers.knownDomains.some(URIInfrg.domain()) && self.plugins.some(URIInfrg.domain()))
+  if (cyberLockers.knownDomains.some(URIInfrg.domain()) &&
+      self.plugins.map(function(plugin){ return plugin.name }).some(URIInfrg.domain())){
     return true;
+  }
 
   logger.info('failed to find cyberlocker plugin for ' + URIInfrg.domain())
   return false;
