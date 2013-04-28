@@ -6,7 +6,7 @@ if (process.argv[2] === 'requestStream') {
   var url = process.argv[3];
   var out = fs.createWriteStream(process.argv[4]);
 
-  utilities.requestStream(url, {}, function(err, res, stream) {
+  utilities.requestStream(url, {}, function(err, req, res, stream) {
     if (err)
       return console.warn(err);
 

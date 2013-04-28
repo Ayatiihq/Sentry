@@ -11,7 +11,11 @@ var acquire = require('acquire')
   , config = acquire('config')
   , database = acquire('database')
   , events = require('events')
+  , fs = require('fs')
   , logger = acquire('logger').forFile('processor.js')
+  , os = require('os')
+  , path = require('path')
+  , rimraf = require('rimraf')
   , states = acquire('states')
   , URI = require('URIjs')
   , util = require('util')
@@ -19,6 +23,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -31,10 +36,14 @@ var Categories = states.infringements.category
   , State = states.infringements.state
   ;
 
-var requiredCollections = ['campaigns', 'infringements', 'hosts'];
+var requiredCollections = ['campaigns', 'infringements', 'hosts']
+  , MAX_LENGTH = 1e9 // ~953MB
+  , TMPDIR = 'processor'
+  ;
 
 var Processor = module.exports = function() {
   this.campaigns_ = null;
+  this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
 
@@ -54,6 +63,7 @@ Processor.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
 }
@@ -87,6 +97,9 @@ Processor.prototype.processJob = function(err, job) {
     })
     .seq(function() {
       self.run(this);
+    })
+    .seq(function() {
+       rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
     })
     .seq(function() {
       logger.info('Finished running processor');
@@ -125,7 +138,13 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      done();
+      rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
+    })
+    .seq(function() {
+      fs.mkdir(path.join(os.tmpDir(), TMPDIR), this);
+    })
+    .seq(function() {
+      done();  
     })
     .catch(function(err) {
       done(err);
@@ -134,33 +153,45 @@ Processor.prototype.preRun = function(job, done) {
 }
 
 Processor.prototype.run = function(done) {
-  var self = this;
+  var self = this
+    , infringement = null
+    , mimetype = null
+    ;
 
   Seq()
     .seq(function() {
       self.getUnprocessedInfringement(this);
     })
-    .seq(function(infringement) {
+    .seq(function(infringement_) {
+      infringement = infringement_;
+
       if (!infringement) {
         logger.info('No more jobs to process');
         return done();
       }
-
+      logger.info('Processing %s', infringement._id);
       self.categorizeInfringement(infringement, this);
     })
-    .seq(function(infringement) {
+    .seq(function() {
       self.downloadInfringement(infringement, this);
     })
-    .seq(function(infringement) {
-      this();
+    .seq(function(mimetype_) {
+      mimetype = mimetype_;
+      self.reCategorizeInfringement(infringement, mimetype, this);
     })
-    .seq(function(infringement) {
-      console.log(infringement);
-      done();
+    .seq(function() {
+      self.updateInfringementState(infringement, mimetype, this);
+    })
+    .seq(function() {
+      console.log('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
+      self.updateInfringement(infringement, this);
+    })
+    .seq(function() {
+      setTimeout(self.run.bind(self), 50);
     })
     .catch(function(err) {
       logger.warn(err);
-      setTimeout(self.run.bind(self), 1000);
+      setTimeout(self.run.bind(self), 50);
     })
     ;
 }
@@ -169,7 +200,9 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   var self = this
     , infringements = self.collections_['infringements']
     , query = {
-        state: states.infringements.state.NEEDS_PROCESSING,
+        processed: {
+          $exists: false
+        },
         created: {
           $lt: Date.create('2 minutes ago').getTime()
         },
@@ -226,7 +259,9 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     infringement.category = Categories.WEBSITE;
   }
 
-  done(null, infringement);
+  logger.info('Putting infringement into initial category of %d', infringement.category);
+
+  done(null);
 }
 
 Processor.prototype.isCyberlocker = function(uri, hostname) {
@@ -250,15 +285,142 @@ Processor.prototype.isSocialNetwork = function(uri, hostname) {
 }
 
 Processor.prototype.downloadInfringement = function(infringement, done) {
-  var self;
+  var self = this
+    , outName = self.downloads_.generateName(infringement, 'initialDownload')
+    , outPath = path.join(os.tmpDir(), TMPDIR, outName)
+    , started = 0
+    , finished = 0
+    , mimetype = ''
+    ;
 
   // We let something else deal with these for now
-  if (infringement.category == Categories.CYBERLOCKER ||
-    infringement.category == Categories.TORRENT) {
-    return this();
+  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER, Categories.TORRENT].some(infringement.category))
+    return done(null, mimetype);
+
+  logger.info('Downloading %s to %s', infringement.uri, outPath);
+  var outStream = fs.createWriteStream(outPath);
+
+  Seq()
+    .seq(function() {
+      utilities.requestStream(infringement.uri, {}, this);
+      started = Date.now();
+    })
+    .seq(function(req, res, stream) {
+      var totalSize = 0;
+      stream.on('data', function(chunk) {
+        totalSize += chunk.length;
+        if (totalSize > MAX_LENGTH) {
+          done('Download is too large (max: ' + MAX_LENGTH + ')');
+          req.abort();
+        }
+      });
+
+      stream.pipe(outStream);
+      stream.on('end', this);
+      stream.on('error', this);
+    })
+    .seq(function() {
+      logger.info('Download finished for %s', outPath);
+      finished = Date.now();
+      self.downloads_.getFileMimeType(outPath, this);
+    })
+    .seq(function(mimetype_) {
+      mimetype = mimetype_;
+      self.downloads_.addLocalFile(infringement, outPath, started, finished, this);
+    })
+    .seq(function() {
+      rimraf(outPath, function(err) { if (err) logger.warn(err); });
+      done(null, mimetype);
+    })
+    .catch(function(err) {
+      if (err.statusCode >= 400) {
+        infringement.state = State.UNAVAILABLE;
+        done(null, mimetype);
+      } else {
+        done(err);
+      }
+    })
+    ;
+}
+
+Processor.prototype.reCategorizeInfringement = function(infringement, mimetype, done) {
+  var self = this
+    , mimetype = mimetype ? mimetype : ''
+    , first = mimetype.split('/')[0]
+    , last = mimetype.split('/')[1]
+    ;
+
+  first = first ? first : '';
+  last = last ? last : '';
+
+  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER, Categories.TORRENT].some(infringement.category)) {
+    ;
+  
+  } else if (first == 'text' || last.has('xml') || last.has('html') || last.has('script')) {
+    if (![Categories.WEBSITE, Categories.SOCIAL].some(infringement.category))
+      infringement.category = Categories.WEBSITE;          
+  
+  } else if (last.has('torrent')) {
+    infringement.category = Categories.TORRENT;
+
+  } else {
+    infringement.category = Categories.FILE;
   }
 
-  
+  logger.info('Recategorising infringement to category %d', infringement.category);
+
+  done();
+}
+
+Processor.prototype.updateInfringementState = function(infringement, mimetype, done) {
+  var self = this;
+
+  logger.info('Updating infringement state');
+
+  if (infringement.verified || infringement.state == State.UNVERIFIED)
+    return done();
+
+  switch (infringement.category) {
+    case Categories.CYBERLOCKER:
+    case Categories.TORRENT:
+      infringement.state = State.NEEDS_DOWNLOAD;
+      break;
+
+    case Categories.SEARCH_RESULT:
+    case Categories.WEBSITE:
+    case Categories.SOCIAL:
+      infringement.state = infringement.children.count ? State.UNVERIFIED : State.NEEDS_SCRAPE;
+      break;
+
+    default:
+      logger.warn('Category state %d is unknown', infringement.category);
+      return done('Unknown category ' + infringement.category);
+  }
+
+  done();
+}
+
+Processor.prototype.updateInfringement = function(infringement, done) {
+  var self = this
+    , collection = self.collections_['infringements']
+    , query = {
+        _id: infringement._id
+      }
+    , updates = {
+        $set: {
+          category: infringement.category,
+          state: infringement.state,
+          processed: Date.now()
+        }
+      }
+    ;
+
+  if (infringement.verified)
+    updates.$set = Object.reject(updates.$set, 'state');
+
+  logger.info('Updating infringement with %d changes', Object.keys(updates.$set).length);
+
+  collection.update(query, updates, done);
 }
 
 //
@@ -287,8 +449,8 @@ Processor.prototype.end = function() {
 
 if (process.argv[1].endsWith('processor.js')) {
   var processer = new Processor();
- 
-  Seq()
+
+   Seq()
     .seq(function() {
       processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })

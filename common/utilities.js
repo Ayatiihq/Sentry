@@ -456,7 +456,7 @@ Utilities.requestStream = function(url, options, callback) {
  *
  * @param  {string}                         url                       The URL to get.
  * @param  {object}                         options                   Options for the request. Sent to http[s].request as well.
- * @param  {function(err,response,stream)}  callback                  The callback to receive the stream of the URL, or an error.
+ * @param  {function(err,req,response,stream)}  callback                  The callback to receive the stream of the URL, or an error.
  * @return {undefined}
  */
 Utilities.requestURLStream = function(url, options, callback) {
@@ -491,8 +491,9 @@ Utilities.requestURLStream = function(url, options, callback) {
       ;
 
     if (response.statusCode >= 400) {
-      var error = 'Server returned error status code: ' + response.statusCode;
-      return callback(error, response);
+      var err = new Error ('Server returned error status code: ' + response.statusCode);
+      err.statusCode = response.statusCode;
+      return callback(err, response);
     }
 
     switch(response.headers['content-encoding']) {
@@ -510,7 +511,7 @@ Utilities.requestURLStream = function(url, options, callback) {
         stream = response;
     }
 
-    callback(err, response, stream);
+    callback(err, req, response, stream);
   });
 
   req.on('error', function(err) {
