@@ -310,7 +310,8 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       stream.on('data', function(chunk) {
         totalSize += chunk.length;
         if (totalSize > MAX_LENGTH) {
-          done('Download is too large (max: ' + MAX_LENGTH + ')');
+          var err = new Error('Download is too large (max: ' + MAX_LENGTH + ')');
+          err.statusCode = 600;
           req.abort();
         }
       });
@@ -333,7 +334,10 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       done(null, mimetype);
     })
     .catch(function(err) {
-      if (err.statusCode >= 400) {
+      if (err.statusCode == 600) { // Too big
+        infringement.state = State.UNVERIFIED;
+        done(null, mimetype);
+      } else if (err.statusCode >= 400) {
         infringement.state = State.UNAVAILABLE;
         done(null, mimetype);
       } else {
@@ -455,6 +459,9 @@ if (process.argv[1].endsWith('processor.js')) {
       processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
+      processer.run(this);
+      processer.run(this);
+      processer.run(this);
       processer.run(this);
     })
     .seq(function() {
