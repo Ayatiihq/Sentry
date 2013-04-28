@@ -149,6 +149,12 @@ Processor.prototype.run = function(done) {
       self.categorizeInfringement(infringement, this);
     })
     .seq(function(infringement) {
+      self.downloadInfringement(infringement, this);
+    })
+    .seq(function(infringement) {
+      this();
+    })
+    .seq(function(infringement) {
       console.log(infringement);
       done();
     })
@@ -206,15 +212,21 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
   if (meta) {
     infringement.category = Categories.SEARCH_RESULT
+  
   } else if (scheme == 'torrent' || scheme == 'magnet') {
     infringement.category = Categories.TORRENT;
+  
   } else if (self.isCyberlocker(uri, hostname)) {
     infringement.category = Categories.CYBERLOCKER;
+  
   } else if (self.isSocialNetwork(uri, hostname)) {
     infringement.category = Categories.SOCIAL;
+  
   } else {
     infringement.category = Categories.WEBSITE;
   }
+
+  done(null, infringement);
 }
 
 Processor.prototype.isCyberlocker = function(uri, hostname) {
@@ -235,6 +247,18 @@ Processor.prototype.isSocialNetwork = function(uri, hostname) {
   });
 
   return ret;
+}
+
+Processor.prototype.downloadInfringement = function(infringement, done) {
+  var self;
+
+  // We let something else deal with these for now
+  if (infringement.category == Categories.CYBERLOCKER ||
+    infringement.category == Categories.TORRENT) {
+    return this();
+  }
+
+  
 }
 
 //

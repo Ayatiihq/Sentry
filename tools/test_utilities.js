@@ -1,5 +1,24 @@
 var acquire = require('acquire')
+  , fs = require('fs')
   , utilities = acquire('utilities')
+
+if (process.argv[2] === 'requestStream') {
+  var url = process.argv[3];
+  var out = fs.createWriteStream(process.argv[4]);
+
+  utilities.requestStream(url, {}, function(err, res, stream) {
+    if (err)
+      return console.warn(err);
+
+    stream.pipe(out);
+
+    stream.on('end', function() {
+      process.exit();
+    });
+  });
+
+  return;
+}
 
 var uris = [
   'http://example.com/bar/foo.xml?foo=bar&hello=world&hello=mars',
