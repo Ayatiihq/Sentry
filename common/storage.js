@@ -33,6 +33,7 @@ var Storage = module.exports = function(container) {
 Storage.prototype.init = function() {
   var self = this;
 
+
   var service = azure.createBlobService(config.AZURE_CORE_ACCOUNT,
                                               config.AZURE_CORE_KEY);
   service.createContainerIfNotExists(self.container_, { publicAccessLevel: 'blob' }, function(err) {
@@ -56,6 +57,15 @@ function defaultCallback(err) {
 //
 // Public Methods
 //
+/*
+ * Get's the container name for this storage instance
+ *
+ * @return {string}   container name.
+ */
+Storage.prototype.getContainerName = function() {
+  return this.container_;
+}
+
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already exists.
  *

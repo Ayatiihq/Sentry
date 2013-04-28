@@ -120,7 +120,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
-  entity.state = state;
+  entity.state = states.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
     total: pointsEntry.score ? pointsEntry.score : 0,
@@ -168,7 +168,7 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
   entity.type = type;
   entity.meta = true;
   entity.source = source;
-  entity.state = state;
+  entity.state = states.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
     total: 0,

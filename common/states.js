@@ -18,6 +18,7 @@ exports.jobs = {
 
 exports.infringements = {
   state: {
+    NEEDS_PROCESSING: -1,
     UNVERIFIED: 0,
     VERIFIED: 1,
     FALSE_POSITIVE: 2,
@@ -25,7 +26,17 @@ exports.infringements = {
     TAKEN_DOWN: 4,
     NEEDS_SCRAPE: 5,
     DEFERRED: 6,
-    UNAVAILABLE: 7
+    UNAVAILABLE: 7,
+    NEEDS_DOWNLOAD: 8
+  },
+
+  category: {
+    WEBSITE: 0,
+    SEARCH_RESULT: 1,
+    CYBERLOCKER: 2,
+    FILE: 3,
+    TORRENT: 4,
+    SOCIAL: 5
   }
 };
 

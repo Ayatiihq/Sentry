@@ -8,6 +8,7 @@
   "config": "common/config.js",
   "cyberlockers": "common/cyberlockers.js",
   "database": "common/database.js",
+  "downloads": "common/downloads.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
   "hosts": "common/hosts.js",
   "iframe-exploder": "common/iframe-exploder.js",

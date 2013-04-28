@@ -1,0 +1,7 @@
+{
+  "name": "processor",
+  "main": "./processor.js",
+  "dependencies": {
+  },
+  "intervalMinutes": 5
+}

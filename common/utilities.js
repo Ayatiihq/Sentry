@@ -414,3 +414,107 @@ Utilities.requestURL = function(url, options, callback) {
 Utilities.getWorkerId  = function() {
   return util.format('%s-%s', os.hostname(), process.pid);
 }
+
+/**
+ * Returns a domain for the uri if possible, or an empty stringify
+ *
+ */
+Utilities.getHostname = function(uri) {
+  try {
+    uri = URI(uri);
+    return uri.hostname();
+
+  } catch (err) {
+    return '';
+  }
+}
+
+/**
+ * Requests to a stream for piping elsewhere
+ *
+ * @param {string}      url                      The URL to get.
+ * @param {object}      options                  Options for the request.
+ * @param {boolean}     options.followRedirects  Whether to follow redirects (default: true).
+ * @param {funtion(err,res,stream)}              
+ */
+Utilities.requestStream = function(url, options, callback) {
+  if (Object.has(options, 'followRedirects') && !options.followRedirects) {
+    Utilities.requestURLStream(url, options, callback);
+  } else {
+    var promise = new Promise();
+
+    Utilities.followRedirects([url], promise);
+    promise.then(function(links) {
+      Utilities.requestURLStream(links.last(), options, callback);
+    },
+    callback);
+  }
+}
+
+/**
+ * Gets the content of a URL via a stream. Unlike normal request, we error on http error codes.
+ *
+ * @param  {string}                         url                       The URL to get.
+ * @param  {object}                         options                   Options for the request. Sent to http[s].request as well.
+ * @param  {function(err,req,response,stream)}  callback                  The callback to receive the stream of the URL, or an error.
+ * @return {undefined}
+ */
+Utilities.requestURLStream = function(url, options, callback) {
+  var parsed = null
+    , err = null
+    ;
+
+  try {
+    parsed = URL.parse(url);
+  } catch (err) {
+    return callback(err);
+  }
+
+  var requestOptions = {
+    host: parsed.host,
+    path: parsed.path,
+    port: parsed.port,
+    headers: {
+      'accept-encoding': 'gzip,deflate'
+    }
+  };
+
+  var req;
+  if (url.startsWith('https'))
+    req = https.get(requestOptions);
+  else
+    req = http.get(requestOptions);
+
+  req.on('response', function(response) {
+    var body = ''
+      , stream = null
+      ;
+
+    if (response.statusCode >= 400) {
+      var err = new Error ('Server returned error status code: ' + response.statusCode);
+      err.statusCode = response.statusCode;
+      return callback(err, response);
+    }
+
+    switch(response.headers['content-encoding']) {
+      case 'gzip':
+        var decompresser = zlib.createGunzip();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
+        break;
+      case 'deflate':
+        var decompresser = zlib.createInflate();
+        decompresser.on('error', function (err) { req.abort(); req.emit('error', err); });
+        stream = response.pipe(decompresser);
+        break;
+      default:
+        stream = response;
+    }
+
+    callback(err, req, response, stream);
+  });
+
+  req.on('error', function(err) {
+    callback(err);
+  });
+}
