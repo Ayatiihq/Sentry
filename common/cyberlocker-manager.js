@@ -1,6 +1,9 @@
 
 require('sugar');
 var acquire = require('acquire')
+  , util = require('util')
+  , config = acquire('config')
+  , events = require('events')  
 	, fs = require('fs-extra')
   , logger = acquire('logger').forFile('test4Shared.js')
   , os = require('os')
@@ -11,6 +14,9 @@ var acquire = require('acquire')
   , cyberLockers = acquire('cyberlockers')
   ;
 
+/-------------------------------------------------------------------------/
+// Base CyberLocker
+/-------------------------------------------------------------------------/
 var Cyberlocker = function () {
   events.EventEmitter.call(this);
   var self = this;
@@ -18,8 +24,12 @@ var Cyberlocker = function () {
 
 util.inherits(Cyberlocker, events.EventEmitter);
 
+/-------------------------------------------------------------------------/
+// Deriatives
+/-------------------------------------------------------------------------/
+
 /* -- 4Shared */
-var 4Shared = function (infringement) {
+var FourShared = function (infringement) {
   var creditionals = {user: 'conor@ayatii.com',
                       name: 'Conor Curran',
                       password: ''};
@@ -28,23 +38,24 @@ var 4Shared = function (infringement) {
   self.name = '4Shared';
 };
 
-util.inherits(4Shared, Cyberlocker);
+util.inherits(FourShared, Cyberlocker);
 
-
-var CyberlockerManager = function () {
+/-------------------------------------------------------------------------/
+// CyberlockerManager
+/-------------------------------------------------------------------------/
+var CyberlockerManager= module.exports = function () {
   events.EventEmitter.call(this);
   var self = this;
-  var plugins = ['4shared.com'];
+  self.plugins = ['4shared.com'];
 };
 
 util.inherits(CyberlockerManager, events.EventEmitter);
 
-CyberlockerManager.prototype.dealWith = function(infringement, done){
+CyberlockerManager.prototype.process = function(infringement){
   logger.info('process cyberlocker link for ' + infringement.uri);
-
 }
 
-CyberlockerManager.prototype.canDeadWith = function(infringement, done){
+CyberlockerManager.prototype.canProcess = function(infringement){
   var self = this;
   var URIInfrg;
   try {

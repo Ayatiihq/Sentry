@@ -7,6 +7,7 @@
   "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",
   "cyberlockers": "common/cyberlockers.js",
+  "cyberlocker-manager": "common/cyberlocker-manager.js",
   "database": "common/database.js",
   "downloads": "common/downloads.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
