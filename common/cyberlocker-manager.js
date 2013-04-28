@@ -14,13 +14,24 @@ var acquire = require('acquire')
   , cyberLockers = acquire('cyberlockers')
   ;
 
+var createURI = function(infringement){
+  var result = null;
+  try {
+    result = URI(infringement.uri);
+  }
+  catch (error) {
+    logger.error("Can't create uri from " + infringement.uri); // some dodgy link => move on.
+  }
+  return result;
+}
+
 //-------------------------------------------------------------------------/
 // Base CyberLocker
 //-------------------------------------------------------------------------/
-var Cyberlocker = function (handle) {
+var Cyberlocker = function (domain) {
   events.EventEmitter.call(this);
   var self = this;
-  self.name = handle;
+  self.domain = domain;
 };
 
 util.inherits(Cyberlocker, events.EventEmitter);
@@ -53,28 +64,37 @@ FourShared.prototype.get = function(infringement){
 var CyberlockerManager= module.exports = function () {
   events.EventEmitter.call(this);
   var self = this;
+  // populate plugins
   self.plugins = [new FourShared()];
 };
 
 util.inherits(CyberlockerManager, events.EventEmitter);
 
 CyberlockerManager.prototype.process = function(infringement){
+  var self = this;
   logger.info('process cyberlocker link for ' + infringement.uri);
+  var URIInfrg = createURI(infringement);
+  var relevantPlugin = null;
+
+  if(!URIInfrg)return;
+
+  self.plugins.each(function(plugin){
+    if(plugin.domain === URIInfrg.domain())
+      relevantPlugin = plugin;
+  });
+
+  if(!relevantPlugin)return;
+  logger.info('found the relevant plugin');
 }
 
 CyberlockerManager.prototype.canProcess = function(infringement){
   var self = this;
-  var URIInfrg;
-  try {
-    URIInfrg = URI(infringement.uri);
-  }
-  catch (error) {
-    logger.error("Can't create uri from " + infringement.uri); // some dodgy link => move on.
-    return false;
-  }
+  var URIInfrg = createURI(infringement);
+
+  if(!URIInfrg)return;
 
   if (cyberLockers.knownDomains.some(URIInfrg.domain()) &&
-      self.plugins.map(function(plugin){ return plugin.name }).some(URIInfrg.domain())){
+      self.plugins.map(function(plugin){ return plugin.domain }).some(URIInfrg.domain())){
     return true;
   }
 

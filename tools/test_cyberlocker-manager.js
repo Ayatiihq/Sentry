@@ -27,6 +27,7 @@ function main() {
 
   var mgr = new CyberlockerManager();
   console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement));
+  mgr.process(mockInfringement);
 }
 
 main(); 
