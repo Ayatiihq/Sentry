@@ -23,7 +23,7 @@ function main() {
   logger = logger.forFile('test_cyberlocker-manager.js');
 
   setupSignals();
-  var mockInfringement = {uri: "http://dc363.4shared.com/img/315036078/50ab8815/dlink__2Fdownload_2FdNj3AwbI_3Ftsid_3D20120304-124534-773d60d0/preview.mp3"};
+  var mockInfringement = {uri: "http://mediafire.com/file/4e1qyjrnznx/Race%20Theme.mp3"};
 
   var mgr = new CyberlockerManager();
   console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement));

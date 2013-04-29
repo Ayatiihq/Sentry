@@ -5,7 +5,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')  
 	, fs = require('fs-extra')
-  , logger = acquire('logger').forFile('test4Shared.js')
+  , logger = acquire('logger').forFile('test-cyberlocker-manager.js')
   , os = require('os')
   , Promise = require('node-promise')
   , path = require('path')
@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , URI = require('URIjs')    
   , cyberLockers = acquire('cyberlockers')
   , oauth = require("oauth-lite")
+  , crypto = require('crypto')
   ;
 
 var createURI = function(infringement){
@@ -37,9 +38,14 @@ var Cyberlocker = function (domain) {
 
 util.inherits(Cyberlocker, events.EventEmitter);
 
-Cyberlocker.prototype.get = function(infringement){
-  throw new Error('Stub!');
+Cyberlocker.prototype.authenticate = function(){
+  throw new Error('Stub!');  
 }
+
+Cyberlocker.prototype.investigate = function(){
+  throw new Error('Stub!');  
+}
+
 //-------------------------------------------------------------------------/
 // Deriatives
 //-------------------------------------------------------------------------/
@@ -58,9 +64,9 @@ util.inherits(FourShared, Cyberlocker);
 FourShared.prototype.authenticate = function(){
   var promise = new Promise.Promise();
 
-  var initiateLocation = 'http://www.4shared.com/v0/oauth/initiate';
-  var tokenLocation = 'http://www.4shared.com/v0/oauth/token';
-  var authorizeLocation = 'http://www.4shared.com/v0/oauth/authorize';
+  var initiateLocation = 'http://www.4sync.com/v0/oauth/initiate';
+  var tokenLocation = 'http://www.4sync.com/v0/oauth/token';
+  var authorizeLocation = 'http://www.4sync.com/v0/oauth/authorize';
 
   var state = {oauth_consumer_key: 'e4456725d56c3160ec18408d7e99f096',
                oauth_consumer_secret: '7feceb0b18a2b3f856550e5f1ea1e979fa35d310'}
@@ -90,6 +96,55 @@ FourShared.prototype.get = function(infringement){
   });
 }
 
+/* -- MediaFire */
+
+var MediaFire = function () {
+  var self = this;
+  self.constructor.super_.call(self, 'mediafire.com', '');
+  self.credentials = {user: 'conor@ayatii.com',
+                      password: '3HFTB47i',
+                      appID: '34352',
+                      appKey: 'y6n9weeu2wel1iincalue23wrxv6ae6e7y14e44i'};
+};
+
+util.inherits(MediaFire, Cyberlocker);
+
+MediaFire.prototype.authenticate = function(){
+  var self = this;
+  var promise = new Promise.Promise();
+  var shasum = crypto.createHash('sha1');
+  shasum.update(self.credentials.user+self.credentials.password+self.credentials.appID+self.credentials.appKey);  
+
+  var mediafireTokenUrl = "https://www.mediafire.com/api/user/get_session_token.php?email=" + self.credentials.user +
+                   "&password=" + self.credentials.password + "&application_id=" + self.credentials.appID + "&signature=" + shasum.digest('hex') +
+                    "&response_format=json&version=1";
+  
+  logger.info('about to request : ' + mediafireTokenUrl);                    
+  
+  request({uri: mediafireTokenUrl, json:true},
+          function(err, resp, body){
+            if(err){
+              logger.error('unable to request session token from mediaFire ' + err);
+              promise.reject(err);
+              return;
+            }
+            logger.info('token json : ' + JSON.stringify(body));
+
+            if(body.response && body.response.result === 'Success'){
+              self.authToken = body.response.session_token;
+            }
+            promise.resolve();
+          }
+        );
+  return promise;
+}
+
+MediaFire.prototype.investigate = function(infringement){
+  function determineFileID(uri){
+    var segments = uri.split('/');
+  }
+}
+
 //-------------------------------------------------------------------------/
 // CyberlockerManager
 //-------------------------------------------------------------------------/
@@ -97,7 +152,7 @@ var CyberlockerManager= module.exports = function () {
   events.EventEmitter.call(this);
   var self = this;
   // populate plugins
-  self.plugins = [new FourShared()];
+  self.plugins = [new MediaFire()];
 };
 
 util.inherits(CyberlockerManager, events.EventEmitter);
@@ -117,7 +172,14 @@ CyberlockerManager.prototype.process = function(infringement){
   });
 
   if(!relevantPlugin)return;
+
   logger.info('found the relevant plugin');
+  relevantPlugin.authenticate().then(function(){
+    relevantPlugin.investigate(infringement);
+  },
+  function(err){
+    logger.err('Problems authenticating : ' + err);  
+  });
 }
 
 CyberlockerManager.prototype.canProcess = function(infringement){
