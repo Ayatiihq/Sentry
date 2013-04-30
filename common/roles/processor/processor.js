@@ -381,7 +381,7 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
 
   logger.info('Updating infringement state');
 
-  if (infringement.verified || infringement.state == State.UNVERIFIED || infringement.state == UNAVAILABLE)
+  if (infringement.verified || infringement.state == State.UNVERIFIED || infringement.state == State.UNAVAILABLE)
     return done();
 
   switch (infringement.category) {

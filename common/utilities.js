@@ -100,7 +100,7 @@ Utilities.unescapeURL = function(uri) {
   try {
     ret = uri.unescapeURL();
   } catch (err) {
-    logger.warn('Unable to unescape URI %s: %s', uri, err);
+    //logger.warn('Unable to unescape URI %s: %s', uri, err);
   }
   return ret;
 }
