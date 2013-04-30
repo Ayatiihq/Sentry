@@ -86,7 +86,8 @@ Analytics.prototype.getClientStats = function(client, callback) {
       nInfringements: 0,
       nEndpoints: 0,
       nNotices: 0
-    } 
+    }
+    , iStates = states.infringements.state 
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -100,14 +101,14 @@ Analytics.prototype.getClientStats = function(client, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.infringements_.find({ 'campaign.client': client._id }).count(function(err, count) {
+      self.infringements_.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
     })
     .par(function() {
       var that = this
-        , query = { 'campaign.client': client._id, 'children.count': 0 }
+        , query = { 'campaign.client': client._id, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
         ;
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
@@ -116,7 +117,6 @@ Analytics.prototype.getClientStats = function(client, callback) {
     })
     .par(function() {
       var that = this
-        , iStates = states.infringements.state
         , query = { 'campaign.client': client._id, 
                     'state': {
                       $in: [ iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]
@@ -151,7 +151,8 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
       nInfringements: 0,
       nEndpoints: 0,
       nNotices: 0
-    } 
+    }
+    , iStates = states.infringements.state 
     ;
   callback = callback ? callback : defaultCallback;
 
@@ -164,14 +165,14 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.infringements_.find({ 'campaign': campaign._id }).count(function(err, count) {
+      self.infringements_.find({ 'campaign': campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
     })
     .par(function() {
       var that = this
-        , query = { 'campaign': campaign._id, 'children.count': 0 }
+        , query = { 'campaign': campaign._id, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
         ;
       self.infringements_.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
@@ -180,7 +181,6 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     .par(function() {
       var that = this
-        , iStates = states.infringements.state
         , query = { 'campaign' : campaign._id, 
                     'state': {
                       $in: [ iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]

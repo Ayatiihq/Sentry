@@ -6,9 +6,9 @@
  */
 
 
-Whitelist = module.exports;
+Blacklist = module.exports;
 
-Whitelist.safeDomains = [
+Blacklist.safeDomains = [
   , 'amazon.'
   , 'apple.'
   , 'answers.yahoo.com'

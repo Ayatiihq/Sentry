@@ -49,7 +49,6 @@ Generic.prototype.init = function () {
   self.checkURLS = [];
 };
 
-
 Generic.prototype.emitInfringementUpdates = function (infringement, parents, extradata) {
   var self = this;
 
