@@ -101,12 +101,6 @@ Processor.prototype.processJob = function(err, job) {
     .par(function() {
       self.run(this);
     })
-    .par(function() {
-      self.run(this);
-    })
-    .par(function() {
-      self.run(this);
-    })
     .seq(function() {
        rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
     })
