@@ -24,9 +24,12 @@ function main() {
 
   setupSignals();
   var mockInfringement = {uri: "http://mediafire.com/file/4e1qyjrnznx/Race%20Theme.mp3"};
+  var mockInfringement2 = {uri: "http://www.mediafire.com/?ivvcaz3cchjqj3ei3e3274lci072d1j"};
+  
+  
   var mgr = new CyberlockerManager();
-  console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement));
-  mgr.process(mockInfringement);
+  console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement2));
+  mgr.process(mockInfringement2);
 }
 
 main(); 

@@ -126,7 +126,6 @@ MediaFire.prototype.authenticate = function(){
                    "&password=" + self.credentials.password + "&application_id=" + self.credentials.appID + "&signature=" + shasum.digest('hex') +
                     "&response_format=json&version=1";
   
-  
   request({uri: mediafireTokenUrl, json:true},
           function(err, resp, body){
             if(err){
