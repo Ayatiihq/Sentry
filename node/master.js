@@ -221,7 +221,7 @@ Master.prototype.launchWorker = function(work) {
     ;
 
   worker.work = work;
-  worker.created = Date.utc.create();
+  worker.created = Date.now();
   worker.on('message', self.onWorkerMessage.bind(self, worker));
   worker.killId = 0;
 
@@ -253,6 +253,6 @@ Master.prototype.printWorkers = function() {
   
   Object.values(cluster.workers).forEach(function(worker) {
     logger.info('Worker %s is a %j. Running for %s minutes',
-                worker.id, worker.work, worker.created.minutesSince());
+                worker.id, worker.work, Date.create().minutesSince(woker.created));
   });
 }
