@@ -47,6 +47,7 @@ function main() {
   }
 
   if (action === 'createFromFile') {
+
     storage.createFromFile(arg0, arg1, false, log);
   }
 
@@ -58,6 +59,10 @@ function main() {
 
   if (action === 'getToText') {
     storage.getToText(arg0, {}, log);
+  }
+
+  if (action === 'test') {
+    storage.test(log);
   }
 }
 
