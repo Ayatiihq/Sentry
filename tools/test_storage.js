@@ -60,10 +60,6 @@ function main() {
   if (action === 'getToText') {
     storage.getToText(arg0, {}, log);
   }
-
-  if (action === 'test') {
-    storage.test(log);
-  }
 }
 
 main();
