@@ -118,21 +118,28 @@ Jobs.prototype.listActiveJobs = function(owner, callback) {
 Jobs.prototype.nAvailableJobs = function(callback) {
   var self = this;
 
-  callback = callback ? callback : defaultCallback;
-
   if (!self.jobs_)
     return self.cachedCalls_.push([self.nAvailableJobs, Object.values(arguments)]);
 
+  callback = callback ? callback : defaultCallback;
+
   var query = {
     '_id.role': self.role_,
-    popped: 0
+    popped: 0,
+    state: states.QUEUED
   };
 
-  self.jobs_.find(query).count(callback);
+  self.jobs_.find(query).count(function(err, count) {
+    count = count ? count : 0;
+    callback(err, count);
+  });
 }
 
 Jobs.prototype.zeroOtherJobs = function(owner, consumer, metadata, callback) {
   var self = this;
+
+  if (!self.jobs_)
+    return self.cachedCalls_.push([self.zeroOtherJobs, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
