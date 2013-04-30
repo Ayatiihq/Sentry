@@ -34,12 +34,12 @@ var Cyberlocker = function (domain) {
   events.EventEmitter.call(this);
   var self = this;
   self.domain = domain;
-  self.verificationObject = {started : Date.now(),
+  /*self.verificationObject = {started : Date.now(),
                              who : "Cyberlocker " + self.domain,
                              finished : null,
                              state : null,
                              notes: null};
-
+  */
 };
 
 util.inherits(Cyberlocker, events.EventEmitter);
@@ -49,6 +49,10 @@ Cyberlocker.prototype.authenticate = function(){
 }
 
 Cyberlocker.prototype.investigate = function(){
+  throw new Error('Stub!');  
+}
+
+Cyberlocker.prototype.getDownloadLink = function(){
   throw new Error('Stub!');  
 }
 
@@ -144,11 +148,18 @@ MediaFire.prototype.authenticate = function(){
 
 MediaFire.prototype.investigate = function(infringement){
   var self = this;
+  var promise = new Promise.Promise();
   var uriInstance = createURI(infringement);
-  if(!uriInstance)return null;
+  if(!uriInstance){
+    promise.reject(new Error('cant create a URI instance')); 
+    return null;
+  }
   var fileID = uriInstance.segment(1);
   console.log('investigate : ' + fileID);
-  if(!fileID)return; // promise or done or whatever
+  if(!fileID){
+    promise.reject(new Error('cant determine the file id')); // promise or done or whatever
+    return;
+  }
   var fileInfoRequest = "http://www.mediafire.com/api/file/get_info.php?session_token=" + self.credentials.authToken +
                         "&quick_key=" + fileID + "&response_format=json&version=1"
 
@@ -156,18 +167,46 @@ MediaFire.prototype.investigate = function(infringement){
           function(err, resp, body){
             if(err){
               logger.error('unable to request file info from mediaFire ' + err);
+              promise.reject(err);
               return;
             }
             if(body.response && body.response.result === 'Error' && 
               body.response.message === 'Unknown or Invalid QuickKey'){
-              self.verificationObject.notes = "Seems like this file is not valid";
-              self.verificationObject.state = 7;// UNAVAILABLE
+              infringement.state = 7
+              //self.verificationObject.notes = "Seems like this file is not valid";
+              //self.verificationObject.state = 7;// UNAVAILABLE // are we using verification 
               logger.info("Couldn't find : " + infringement.uri + ' mark as unavailable');              
             }
             else if(body.response && body.response.result === 'Success'){
               console.log('WE FOUND IT !');
+              logger.info(JSON.stringify(body));
+              infringement.fileID = body.response.file_info.quickkey;
             }
+            promise.resolve();
           });
+  return promise;
+}
+
+MediaFire.prototype.getDownloadLink = function(infringement){
+  var self = this;
+  var promise = new Promise.Promise();
+  var linksRequest = "http://www.mediafire.com/api/file/get_links.php?session_token=" + self.credentials.authToken +
+                     "&quick_key=" + infringement.fileID + "&response_format=json";
+
+  console.log('\n request with ' + linksRequest);
+
+  request({uri: linksRequest, json:true}, 
+          function(err, resp, body){
+            if(err){
+              promise.reject(err);
+              return;
+            }
+            console.log('body : ' + JSON.stringify(body));
+            if(body.response && body.response.result === 'Error'){
+              logger.info('error for some reason')  
+            }
+          }
+  );
 }
 
 //-------------------------------------------------------------------------/
@@ -198,9 +237,17 @@ CyberlockerManager.prototype.process = function(infringement){
 
   if(!relevantPlugin)return;
 
+  infringement.fileID = null;
+
   logger.info('found the relevant plugin');
   relevantPlugin.authenticate().then(function(){
-    relevantPlugin.investigate(infringement);
+    relevantPlugin.investigate(infringement).then(function(){
+      if(infringement.fileID != null)
+        relevantPlugin.getDownloadLink(infringement);
+    },
+    function(err){
+      logger.err('Problems investigating : ' + err);  
+    });
   },
   function(err){
     logger.err('Problems authenticating : ' + err);  

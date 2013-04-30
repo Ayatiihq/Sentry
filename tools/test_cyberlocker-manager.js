@@ -25,11 +25,12 @@ function main() {
   setupSignals();
   var mockInfringement = {uri: "http://mediafire.com/file/4e1qyjrnznx/Race%20Theme.mp3"};
   var mockInfringement2 = {uri: "http://www.mediafire.com/?ivvcaz3cchjqj3ei3e3274lci072d1j"};
+  var mockInfringement3 = {uri: "http://mediafire.com/file/wyyyznmzjq4/ajabpremkighazabkahani13%28www.mp3songspk.blogspot.com%29.mp3"};
   
   
   var mgr = new CyberlockerManager();
-  console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement2));
-  mgr.process(mockInfringement2);
+  console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement3));
+  mgr.process(mockInfringement3);
 }
 
 main(); 
