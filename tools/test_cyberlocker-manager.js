@@ -24,7 +24,6 @@ function main() {
 
   setupSignals();
   var mockInfringement = {uri: "http://mediafire.com/file/4e1qyjrnznx/Race%20Theme.mp3"};
-
   var mgr = new CyberlockerManager();
   console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(mockInfringement));
   mgr.process(mockInfringement);

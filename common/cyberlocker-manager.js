@@ -34,6 +34,12 @@ var Cyberlocker = function (domain) {
   events.EventEmitter.call(this);
   var self = this;
   self.domain = domain;
+  self.verificationObject = {started : Date.now(),
+                             who : "Cyberlocker " + self.domain,
+                             finished : null,
+                             state : null,
+                             notes: null};
+
 };
 
 util.inherits(Cyberlocker, events.EventEmitter);
@@ -104,7 +110,8 @@ var MediaFire = function () {
   self.credentials = {user: 'conor@ayatii.com',
                       password: '3HFTB47i',
                       appID: '34352',
-                      appKey: 'y6n9weeu2wel1iincalue23wrxv6ae6e7y14e44i'};
+                      appKey: 'y6n9weeu2wel1iincalue23wrxv6ae6e7y14e44i',
+                      authToken: null};
 };
 
 util.inherits(MediaFire, Cyberlocker);
@@ -119,7 +126,6 @@ MediaFire.prototype.authenticate = function(){
                    "&password=" + self.credentials.password + "&application_id=" + self.credentials.appID + "&signature=" + shasum.digest('hex') +
                     "&response_format=json&version=1";
   
-  logger.info('about to request : ' + mediafireTokenUrl);                    
   
   request({uri: mediafireTokenUrl, json:true},
           function(err, resp, body){
@@ -128,10 +134,8 @@ MediaFire.prototype.authenticate = function(){
               promise.reject(err);
               return;
             }
-            logger.info('token json : ' + JSON.stringify(body));
-
             if(body.response && body.response.result === 'Success'){
-              self.authToken = body.response.session_token;
+              self.credentials.authToken = body.response.session_token;
             }
             promise.resolve();
           }
@@ -140,9 +144,31 @@ MediaFire.prototype.authenticate = function(){
 }
 
 MediaFire.prototype.investigate = function(infringement){
-  function determineFileID(uri){
-    var segments = uri.split('/');
-  }
+  var self = this;
+  var uriInstance = createURI(infringement);
+  if(!uriInstance)return null;
+  var fileID = uriInstance.segment(1);
+  console.log('investigate : ' + fileID);
+  if(!fileID)return; // promise or done or whatever
+  var fileInfoRequest = "http://www.mediafire.com/api/file/get_info.php?session_token=" + self.credentials.authToken +
+                        "&quick_key=" + fileID + "&response_format=json&version=1"
+
+  request({uri: fileInfoRequest, json:true},
+          function(err, resp, body){
+            if(err){
+              logger.error('unable to request file info from mediaFire ' + err);
+              return;
+            }
+            if(body.response && body.response.result === 'Error' && 
+              body.response.message === 'Unknown or Invalid QuickKey'){
+              self.verificationObject.notes = "Seems like this file is not valid";
+              self.verificationObject.state = 7;// UNAVAILABLE
+              logger.info("Couldn't find : " + infringement.uri + ' mark as unavailable');              
+            }
+            else if(body.response && body.response.result === 'Success'){
+              console.log('WE FOUND IT !');
+            }
+          });
 }
 
 //-------------------------------------------------------------------------/
