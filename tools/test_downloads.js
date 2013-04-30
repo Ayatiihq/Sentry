@@ -43,6 +43,9 @@ function main() {
 
   if (action === 'getFileMimeType')
     downloads.getFileMimeType(arg0, log);
+
+  if (action === 'getInfringementDownloads')
+    downloads.getInfringementDownloads(require(arg0), log);
 }
 
 main();

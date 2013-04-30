@@ -17,6 +17,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Downloads = acquire('downloads')
   , Jobs = acquire('jobs')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
@@ -28,6 +29,7 @@ var PROCESSOR = 'autoverifier';
 
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
+  this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
@@ -46,6 +48,7 @@ AutoVerifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
@@ -155,25 +158,34 @@ AutoVerifier.prototype.processVerifications = function(done) {
       return done();
     }
 
-    self.processVerification(infringement, function(err) {
-      if (err) {
+    Seq()
+      .seq(function() {
+        self.downloads_.getInfringementDownloads(infringement, this);
+      })
+      .seq(function(downloads) {
+        self.processVerification(infringement, downloads, this);
+      })
+      .seq(function() {
+        setTimeout(self.processVerifications.bind(self, done), 100);
+      })
+      .catch(function(err) {
         logger.warn(err);
         self.infringements_.processedBy(infringement, PROCESSOR);
-      }
-
-      self.processVerifications(done);
-    });
+        setTimeout(self.processVerifications.bind(self, done), 100);
+      })
+      ;
   });
 }
 
-AutoVerifier.prototype.processVerification = function(infringement, done) {
-  var self = this
-    , verifier = self.supportedMap_[infringement.metadata.mimetype]
-    ;
+AutoVerifier.prototype.processVerification = function(infringement, downloads, done) {
+  var self = this;
+
+  var types = self.supportedTypes_.intersect(infringement.mimetypes);
+  var verifier = self.supportedMap_[types[0]]; // FIXME: Should be more clever
 
   if (!verifier) {
     var err = util.format('Mimetype %s is not supported for infringement %s',
-                           infringement.metadata.mimetype, infringement._id);
+                           infringement.mimetypes[0], infringement._id);
     return done(new Error(err));
   }
 
@@ -181,7 +193,7 @@ AutoVerifier.prototype.processVerification = function(infringement, done) {
 
   try {
 
-    verifier.verify(self.campaign_, infringement, function(err, verification) {
+    verifier.verify(self.campaign_, infringement, downloads, function(err, verification) {
       var iStates = states.infringements.state;
 
       if (err)

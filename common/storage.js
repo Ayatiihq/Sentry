@@ -10,10 +10,18 @@
 var acquire = require('acquire')
   , azure = require('azure')
   , config = acquire('config')
+  , execFile = require('child_process').execFile
+  , fs = require('fs')
   , logger = acquire('logger').forFile('storage.js')
+  , path = require('path')
   , sugar = require('sugar')
+  , util = require('util')
   , utilities = acquire('utilities')
   ;
+
+var Seq = require('seq');
+
+var MAX_SINGLE_UPLOAD_SIZE = 17 * 1024 * 1024; // As per my tests
 
 /**
  * Wraps the blob storage.
@@ -66,6 +74,25 @@ Storage.prototype.getContainerName = function() {
   return this.container_;
 }
 
+Storage.prototype.uploadLargeFile = function(name, filename, options, callback) {
+  var self = this
+    , child
+    , cmd = path.join(process.cwd(), './bin/upload-large-file-to-azure.py')
+    , args = [self.container_, name, filename]
+    ;
+
+  child = execFile(cmd, args, function(err, stdout, stderr) {
+    var success = false;
+    try {
+      success = JSON.parse(stdout).success;
+    } catch(e) {
+      success = false;
+    }
+
+    callback(success ? null : err || stderr || stdout || 'unknown issue with upload script');
+  });
+}
+
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already exists.
  *
@@ -107,7 +134,14 @@ Storage.prototype.createFromFile = function(name, filename, options, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  self.blobService_.createBlockBlobFromFile(self.container_, name, filename, callback);
+
+  fs.stat(filename, function(err, stat) {
+    if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {
+      self.uploadLargeFile(name, filename, options, callback);    
+    } else {
+      self.blobService_.createBlockBlobFromFile(self.container_, name, filename, callback);
+    }
+  });
 }
 
 /*
@@ -154,4 +188,19 @@ Storage.prototype.getToText = function(name, options, callback) {
   self.blobService_.getBlobToText(self.container_, name, options, function(err, text) {
     callback(err, text);
   });
+}
+
+
+/*
+ * Gets a download url for a name
+ *
+ * @param  {string}        name          The content's name.
+ * @return {string}       A url to download the content.
+ */
+Storage.prototype.getURL = function(name) {
+  var self = this
+    , template = 'http://goldrush.blob.core.windows.net/%s/%s'
+    ;
+
+  return util.format(template, self.container_, name);
 }

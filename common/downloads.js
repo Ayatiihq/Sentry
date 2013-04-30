@@ -149,6 +149,9 @@ Downloads.prototype.add = function(infringement, name, mimetype, size, started, 
     }
   ;
 
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+
   Seq()
     .seq(function() {
       logger.info('Recording download %s', name);
@@ -188,6 +191,9 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
     , filename = path.basename(filepath)
     , size = 0
     ;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.addLocalFile, Object.values(arguments)]);
 
   Seq()
     .seq(function() {
@@ -244,3 +250,23 @@ Downloads.prototype.getFileMimeType = function(filepath, callback) {
     })
     ;
 }
+
+/**
+ * Get all downloads associated with an infringement.
+ *
+ * @param {object}                    infringement    The infringmeent to get downloads for.
+ * @param {object}                    [options]       An optional options object.
+ * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
+ * @return {undefined}
+ */
+Downloads.prototype.getInfringementDownloads = function(infringement, options, callback) {
+  var self = this;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.getInfringementDownloads, Object.values(arguments)]);
+
+  callback = callback ? callback : options;
+  callback = callback ? callback : defaultCallback;
+  
+  self.downloads_.find({ infringement: infringement._id }).toArray(callback);
+}   

@@ -53,7 +53,7 @@ function main() {
     jobs.getDetails(id, log);
 
   if (action === 'nAvailableJobs')
-    jobs.nAvailableJobs(log);
+    jobs.nAvailableJobs(console.log);
 
   if (action === 'push')
     jobs.push(id, argv[5], {}, log);

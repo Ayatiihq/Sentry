@@ -205,7 +205,7 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
   var query = {
     campaign: campaign,
     state: states.infringements.state.UNVERIFIED,
-    'metadata.mimetype' : {
+    'mimetypes' : {
       $in: types
     },
     'children.count': 0,

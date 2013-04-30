@@ -23,8 +23,10 @@ var acquire = require('acquire')
 
 var logger = acquire('logger').forFile('musicverifier.js')
   , config = acquire('config')
-  , states = acquire('states').infringements.state  
+  , states = acquire('states').infringements.state
   ;
+
+var Storage = acquire('storage');
 
 var MusicVerifier = module.exports = function() {
   this.init();
@@ -35,6 +37,7 @@ util.inherits(MusicVerifier, events.EventEmitter);
 MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
+  self.storage = new Storage('downloads');
   self.results = {complete: [], incomplete: []};
   self.on('campaign-audio-ready', self.prepInfringement.bind(self));
 }
@@ -121,8 +124,8 @@ MusicVerifier.prototype.fetchInfringement = function(){
   var self = this;
   var promise = new Promise.Promise();
   try{
-    logger.info('Fetch infringement : ' + self.infringement.uri);
-    self.downloadThing(self.infringement.uri, path.join(self.tmpDirectory, "infringement"), promise);
+    logger.info('Fetch infringement : ' + self.infringementURI);
+    self.downloadThing(self.infringementURI, path.join(self.tmpDirectory, "infringement"), promise);
   }
   catch(err){
     logger.warn('Problem fetching infringing file : err : ' + err);
@@ -249,7 +252,7 @@ MusicVerifier.prototype.examineResults = function(){
   }
 
   if(success){
-    logger.info('Successfull matching ' + self.infringement.uri);
+    logger.info('Successfull matching ' + self.infringementURI);
     verificationObject = Object.merge (verificationObject, 
                                       {"state" : states.VERIFIED,
                                        "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
@@ -265,7 +268,7 @@ MusicVerifier.prototype.examineResults = function(){
     }
     else{ //matchedTracks.length === 0
       verificationObject.notes = "Harry Caul did not find any match, again please examine.",
-      logger.info('Not successful in matching ' + self.infringement.uri);
+      logger.info('Not successful in matching ' + self.infringementURI);
     }
     self.results.incomplete.push(verificationObject);    
   }
@@ -402,7 +405,7 @@ MusicVerifier.getSupportedTypes = function() {
   ];
 }
 
-MusicVerifier.prototype.verify = function(campaign, infringement, done){
+MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
   var self = this;
   var haveRunAlready = !!self.campaign;
 
@@ -412,6 +415,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, done){
 
   self.done = done;
   self.infringement = infringement;
+  self.infringementURI = self.storage.getURL(downloads[0].name);
   self.startedAt = Date.now();
 
   logger.info('Trying music verification for %s', infringement.uri);

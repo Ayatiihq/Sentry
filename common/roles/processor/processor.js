@@ -101,12 +101,6 @@ Processor.prototype.processJob = function(err, job) {
     .par(function() {
       self.run(this);
     })
-    .par(function() {
-      self.run(this);
-    })
-    .par(function() {
-      self.run(this);
-    })
     .seq(function() {
        rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
     })
@@ -387,7 +381,7 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
 
   logger.info('Updating infringement state');
 
-  if (infringement.verified || infringement.state == State.UNVERIFIED)
+  if (infringement.verified || infringement.state == State.UNVERIFIED || infringement.state == UNAVAILABLE)
     return done();
 
   switch (infringement.category) {
@@ -469,6 +463,9 @@ if (process.argv[1].endsWith('processor.js')) {
       processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
+      processer.run(this);
+      processer.run(this);
+      processer.run(this);
       processer.run(this);
     })
     .seq(function() {
