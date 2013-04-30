@@ -189,3 +189,18 @@ Storage.prototype.getToText = function(name, options, callback) {
     callback(err, text);
   });
 }
+
+
+/*
+ * Gets a download url for a name
+ *
+ * @param  {string}        name          The content's name.
+ * @return {string}       A url to download the content.
+ */
+Storage.prototype.getURL = function(name) {
+  var self = this
+    , template = 'http://goldrush.blob.core.windows.net/%s/%s'
+    ;
+
+  return util.format(template, self.container_, name);
+}
