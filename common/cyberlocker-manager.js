@@ -14,6 +14,8 @@ var acquire = require('acquire')
   , cyberLockers = acquire('cyberlockers')
   , oauth = require("oauth-lite")
   , crypto = require('crypto')
+  , webdriver = require('selenium-webdriver')
+  , cheerio = require('cheerio')  
   ;
 
 var createURI = function(infringement){
@@ -64,19 +66,36 @@ Cyberlocker.prototype.getDownloadLink = function(){
 var FourShared = function () {
   var self = this;
   self.constructor.super_.call(self, '4shared.com');
-  self.authenticate();
-  //self.root = 'http://api.4shared.com/v0/files.json?oauth_consumer_key=e4456725d56c3160ec18408d7e99f096/file/50ab8815/';
-  //http://www.4shared.com/photo/q0_Jyejr/FWDP12_blog.html
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
+  //self.authenticate();
 };
 
 util.inherits(FourShared, Cyberlocker);
 
 FourShared.prototype.authenticate = function(){
+  var self  = this;
+  self.remoteClient.get('http://www.4shared.com/login.jsp');
+  self.remoteClient.findElement(webdriver.By.css('#loginfield'))
+    .sendKeys('conor@ayatii.com');
+  self.remoteClient.findElement(webdriver.By.css('#passfield'))
+    .sendKeys('ayatiian');
+  // xpath generated from firebug (note to self use click and not submit for such forms, submit was not able to
+  // highlight the correct input element)
+  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
+}
+
+FourShared.prototype.investigate = function(){
+  var self  = this;
+}
+// REST API - lets see if they can shed some light on the why the authentication fails.
+/*FourShared.prototype.authenticate = function(){
   var promise = new Promise.Promise();
 
-  var initiateLocation = 'http://www.4sync.com/v0/oauth/initiate';
-  var tokenLocation = 'http://www.4sync.com/v0/oauth/token';
-  var authorizeLocation = 'http://www.4sync.com/v0/oauth/authorize';
+  var initiateLocation = 'http://www.4shared.com/v0/oauth/initiate';
+  var tokenLocation = 'http://www.4shared.com/v0/oauth/token';
+  var authorizeLocation = 'http://www.4shared.com/v0/oauth/authorize';
 
   var state = {oauth_consumer_key: 'e4456725d56c3160ec18408d7e99f096',
                oauth_consumer_secret: '7feceb0b18a2b3f856550e5f1ea1e979fa35d310'}
@@ -104,7 +123,7 @@ FourShared.prototype.get = function(infringement){
   self.authenticate().then(function(){
     console.log ('finished authenticating !');
   });
-}
+}*/
 
 /* -- MediaFire */
 
@@ -216,7 +235,7 @@ var CyberlockerManager= module.exports = function () {
   events.EventEmitter.call(this);
   var self = this;
   // populate plugins
-  self.plugins = [new MediaFire()];
+  self.plugins = [new MediaFire(), new FourShared()];
 };
 
 util.inherits(CyberlockerManager, events.EventEmitter);
