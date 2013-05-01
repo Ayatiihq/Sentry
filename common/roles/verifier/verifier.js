@@ -132,7 +132,7 @@ Verifier.prototype.verifyRTL = function(campaign, job) {
       self.emit('finished');
     })
     .catch(function(err) {
-      logger.warn('Unable to mine links for %j: %s', campaign._id, err);
+      logger.warn('Unable to verify links for %j: %j', campaign._id, err);
       self.jobs_.close(job, states.jobs.state.ERRORED, err);
       clearInterval(self.touchId_);
       self.emit('error', err);

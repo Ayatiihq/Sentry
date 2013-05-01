@@ -39,19 +39,20 @@ var Analytics = module.exports = function() {
 Analytics.prototype.init = function() {
   var self = this;
 
-  Seq()
-    .seq(function() {
-      database.connectAndEnsureCollection('analytics', this);
-    })
-    .seq(function(db, analytics) {
-      self.db_ = db;
-      self.analytics_ = analytics;
+  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats'];
 
-      database.connectAndEnsureCollection('infringements', this);
-    })
-    .seq(function(db, infringements) {
-      self.infringements_ = infringements;
-      this();
+  Seq(requiredCollections)
+    .seqEach(function(collectionName) {
+      var that = this;
+
+      database.connectAndEnsureCollection(collectionName, function(err, db, collection) {
+        if (err)
+          return that(err);
+
+        self.db_ = db;
+        self.collections_[collectionName] = collection;
+        that();
+      });
     })
     .seq(function() {
       self.cachedCalls_.forEach(function(call) {
@@ -232,4 +233,25 @@ Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
 
     callback(null, stats);
   });
+}
+
+/**
+ * Get country data for a campaign.
+ *
+ * @param  {object}              campaign      The campaign to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getCampaignCountryData = function(campaign, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.analytics_)
+    return self.cachedCalls_.push([self.getCampaignCountryData, Object.values(arguments)]);
+
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
+  self.hostLocationStats.find({ '_id.campaign': campaign._id }).toArray(callback);
 }

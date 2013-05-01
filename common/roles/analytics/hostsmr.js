@@ -21,6 +21,24 @@ var Settings = acquire('settings')
 
 var HostsMR = module.exports;
 
+//
+// Clean up the db of the old campaign
+//
+HostsMR.preRun = function(db, collections, campaign, done) {
+  var cols = [collections.hostBasicStats, collections.hostLocationStats];
+
+  Seq(cols)
+    .seqEach(function(collection) {
+      collection.remove({ '_id.campaign': campaign._id }, done);
+    }) 
+    .seq(function() {
+      done();
+    })
+    .catch(function(err) {
+      done(err);
+    })
+}
+
 HostsMR.hostLocationStats = function(db, collections, campaign, reallyDone) {
   function runMapReduceJob(hosts) {
 
@@ -150,7 +168,9 @@ HostsMR.hostLocationStats = function(db, collections, campaign, reallyDone) {
     }
 
     var options = {
-      out: 'hostLocationStats',
+      out: {
+        merge: 'hostLocationStats'
+      },
       query: {
         campaign: campaign._id
       },
@@ -277,7 +297,9 @@ HostsMR.hostBasicStats = function(db, collections, campaign, done) {
     }
 
     var options = {
-      out: 'hostBasicStats',
+      out: {
+        merge: 'hostBasicStats'
+      },
       query: {
         campaign: campaign._id
       }

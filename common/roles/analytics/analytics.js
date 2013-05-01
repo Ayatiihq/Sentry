@@ -151,6 +151,8 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsInfo.websiteInfo);
 
   // Map Reduce
+  work.push(HostsMR.preRun);
+  
   work.push(HostsMR.hostBasicStats);
   work.push(HostsMR.hostLocationStats);
   

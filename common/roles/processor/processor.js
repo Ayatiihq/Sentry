@@ -189,11 +189,13 @@ Processor.prototype.run = function(done) {
       console.log('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
       self.updateInfringement(infringement, this);
     })
-    .seq(function() {
-      setTimeout(self.run.bind(self), 50);
-    })
     .catch(function(err) {
       logger.warn(err);
+      infringement.state = State.UNVERIFIED;
+      infringement.category = Categories.WEBSITE;
+      self.updateInfringement(infringement, this);
+    })
+    .seq(function() {
       setTimeout(self.run.bind(self), 50);
     })
     ;
