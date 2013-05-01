@@ -43,13 +43,16 @@ function main() {
   var arg0 = argv[3];
 
   if (action === 'getClientStats')
-    analytics.getClientStats(require(arg0), log);
+    analytics.getClientStats(require(arg0), console.log);
 
   if (action === 'getCampaignStats')
     analytics.getCampaignStats(require(arg0), log);
 
   if (action === 'getCampaignAnalytics')
     analytics.getCampaignAnalytics(require(arg0), log);
+
+  if (action === 'getCampaignCountryData')
+    analytics.getCampaignCountryData(require(arg0), log);
 }
 
 main()
