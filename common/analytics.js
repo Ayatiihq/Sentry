@@ -28,8 +28,10 @@ var COLLECTION = 'analytics';
  */
 var Analytics = module.exports = function() {
   this.db_ = null;
-  this.analytics_ = null;
-  this.infringements_ = null;
+  this.analytics = null;
+  this.infringements = null;
+
+  this.collections_ = [];
 
   this.cachedCalls_ = [];
 
@@ -39,19 +41,20 @@ var Analytics = module.exports = function() {
 Analytics.prototype.init = function() {
   var self = this;
 
-  Seq()
-    .seq(function() {
-      database.connectAndEnsureCollection('analytics', this);
-    })
-    .seq(function(db, analytics) {
-      self.db_ = db;
-      self.analytics_ = analytics;
+  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats'];
 
-      database.connectAndEnsureCollection('infringements', this);
-    })
-    .seq(function(db, infringements) {
-      self.infringements_ = infringements;
-      this();
+  Seq(requiredCollections)
+    .seqEach(function(collectionName) {
+      var that = this;
+
+      database.connectAndEnsureCollection(collectionName, function(err, db, collection) {
+        if (err)
+          return that(err);
+
+        self.db_ = db;
+        self.collections_[collectionName] = collection;
+        that();
+      });
     })
     .seq(function() {
       self.cachedCalls_.forEach(function(call) {
@@ -92,7 +95,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  if (!self.analytics_)
+  if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getClientStats, Object.values(arguments)]);
 
   if (!client || !client._id)
@@ -101,7 +104,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.infringements_.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -110,7 +113,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
       var that = this
         , query = { 'campaign.client': client._id, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
         ;
-      self.infringements_.find(query).count(function(err, count) {
+      self.collections_.infringements.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
         that(err);
       });
@@ -124,7 +127,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
                   }
         ;
 
-      self.infringements_.find(query).count(function(err, count) {
+      self.collections_.infringements.find(query).count(function(err, count) {
         stats.nNotices = count ? count : 0;
         that(err);
       });
@@ -156,7 +159,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     ;
   callback = callback ? callback : defaultCallback;
 
-  if (!self.analytics_)
+  if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getCampaignStats, Object.values(arguments)]);
 
   if (!campaign || !campaign._id)
@@ -165,7 +168,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.infringements_.find({ 'campaign': campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign': campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -174,7 +177,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
       var that = this
         , query = { 'campaign': campaign._id, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
         ;
-      self.infringements_.find(query).count(function(err, count) {
+      self.collections_.infringements.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
         that(err);
       });
@@ -188,7 +191,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
                   }
         ;
 
-      self.infringements_.find(query).count(function(err, count) {
+      self.collections_.infringements.find(query).count(function(err, count) {
         stats.nNotices = count ? count : 0;
         that(err);
       });
@@ -214,13 +217,13 @@ Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  if (!self.analytics_)
+  if (!self.collections_.analytics)
     return self.cachedCalls_.push([self.getCampaignAnalytics, Object.values(arguments)]);
 
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
-  self.analytics_.find({ '_id.campaign': campaign._id }).toArray(function(err, docs) {
+  self.collections_.analytics.find({ '_id.campaign': campaign._id }).toArray(function(err, docs) {
     if (err)
       return callback(err);
 
@@ -232,4 +235,25 @@ Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
 
     callback(null, stats);
   });
+}
+
+/**
+ * Get country data for a campaign.
+ *
+ * @param  {object}              campaign      The campaign to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getCampaignCountryData = function(campaign, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.analytics)
+    return self.cachedCalls_.push([self.getCampaignCountryData, Object.values(arguments)]);
+
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
+  self.collections_.hostLocationStats.find({ '_id.campaign': campaign._id, '_id.regionName': { $exists: false } }).toArray(callback);
 }
