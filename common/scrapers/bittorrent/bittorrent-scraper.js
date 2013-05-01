@@ -9,7 +9,6 @@ var acquire = require('acquire')
   , util = require('util')
   , webdriver = require('selenium-webdriver')
   , sugar = require('sugar')
-  , cheerio = require('cheerio')
   , URI = require('URIjs')  
   , Settings = acquire('settings')  
   , katparser = acquire('kat-parser')
@@ -235,7 +234,7 @@ KatScraper.prototype.getTorrentsDetails = function(){
 
 KatScraper.prototype.getTorrentsFromResults = function (source) {
   var self = this;
-  return katparser.resultsPage(source, self.campaign);
+  return katparser.resultsPage(source, self.campaign)
 };
 
 KatScraper.prototype.nextPage = function (source) {

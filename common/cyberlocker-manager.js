@@ -10,12 +10,13 @@ var acquire = require('acquire')
   , Promise = require('node-promise')
   , path = require('path')
   , request = require('request')
-  , URI = require('URIjs')    
+  , cheerio = require('cheerio')
+  , URI = require('URIjs')
   , cyberLockers = acquire('cyberlockers')
   , oauth = require("oauth-lite")
   , crypto = require('crypto')
   , webdriver = require('selenium-webdriver')
-  , cheerio = require('cheerio')  
+  , utilities = acquire('utilities')   
   ;
 
 var createURI = function(infringement){
@@ -36,25 +37,29 @@ var Cyberlocker = function (domain) {
   events.EventEmitter.call(this);
   var self = this;
   self.domain = domain;
-  /*self.verificationObject = {started : Date.now(),
-                             who : "Cyberlocker " + self.domain,
-                             finished : null,
-                             state : null,
-                             notes: null};
-  */
 };
 
 util.inherits(Cyberlocker, events.EventEmitter);
 
-Cyberlocker.prototype.authenticate = function(){
-  throw new Error('Stub!');  
+Cyberlocker.prototype.fetchDirectDownload = function(infringement, pathToUse, done){
+  var self = this;
+  var target = path.join(pathToUse, utilities.genLinkKey());
+  var out = fs.createWriteStream(target);
+  utilities.requestStream(infringement.uri, {}, function(err, req, res, stream){
+    if (err){
+      logger.error('unable to fetch direct link ' + infringement.uri + ' error : ' + err);
+      done([]);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + infringement.uri);
+      done([target]);
+    });
+  });
 }
 
-Cyberlocker.prototype.investigate = function(){
-  throw new Error('Stub!');  
-}
-
-Cyberlocker.prototype.getDownloadLink = function(){
+Cyberlocker.prototype.download = function(){
   throw new Error('Stub!');  
 }
 
@@ -66,16 +71,15 @@ Cyberlocker.prototype.getDownloadLink = function(){
 var FourShared = function () {
   var self = this;
   self.constructor.super_.call(self, '4shared.com');
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
-  //self.authenticate();
 };
 
 util.inherits(FourShared, Cyberlocker);
 
 FourShared.prototype.authenticate = function(){
   var self  = this;
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
   self.remoteClient.get('http://www.4shared.com/login.jsp');
   self.remoteClient.findElement(webdriver.By.css('#loginfield'))
     .sendKeys('conor@ayatii.com');
@@ -86,9 +90,48 @@ FourShared.prototype.authenticate = function(){
   return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
 }
 
-FourShared.prototype.investigate = function(){
+FourShared.prototype.investigate = function(infringement, pathToUse, done){
   var self  = this;
+  self.remoteClient.get(infringement.uri).then(function(){
+    self.remoteClient.getPageSource().then(function(source){
+      var $ = cheerio.load(source);
+      var uriInstance = createURI($('a#btnLink').attr('href'));
+      if(!URIInfrg){
+        logger.error('unable to create an instance from that uri');
+        done([]);
+        return;
+      }
+      self.fetchDirectDownload(infringement.uri, pathToUse, done);
+    });
+  });
 }
+
+FourShared.prototype.download = function(infringement, pathToUse, done){
+  var self  = this;
+  var URIInfrg = createURI(infringement);
+
+  if(!URIInfrg){
+    logger.error('unable to create an instance from that uri');
+    done([]);
+    return;
+  }
+
+  var isDirectLink = URIInfrg.suffix().match(/mp3/i) !== null;
+  // Handle the easy case of downloading the MP3.
+  if(isDirectLink){
+    self.fetchDirectDownload(infringement.uri, pathToUse, done);
+  }
+  else{
+    logger.info('We think this is an indirect link - go forth and authenticate');
+    self.authenticate().then(function(){
+      self.investigate(infringement, pathToUse, done);
+    },
+    function(err){
+      done([]);
+    });
+  }
+}
+
 // REST API - lets see if they can shed some light on the why the authentication fails.
 /*FourShared.prototype.authenticate = function(){
   var promise = new Promise.Promise();
@@ -146,8 +189,8 @@ MediaFire.prototype.authenticate = function(){
   shasum.update(self.credentials.user+self.credentials.password+self.credentials.appID+self.credentials.appKey);  
 
   var mediafireTokenUrl = "https://www.mediafire.com/api/user/get_session_token.php?email=" + self.credentials.user +
-                   "&password=" + self.credentials.password + "&application_id=" + self.credentials.appID + "&signature=" + shasum.digest('hex') +
-                    "&response_format=json&version=1";
+                          "&password=" + self.credentials.password + "&application_id=" + self.credentials.appID + "&signature=" + shasum.digest('hex') +
+                          "&response_format=json&version=1";
   
   request({uri: mediafireTokenUrl, json:true},
           function(err, resp, body){
@@ -240,7 +283,7 @@ var CyberlockerManager= module.exports = function () {
 
 util.inherits(CyberlockerManager, events.EventEmitter);
 
-CyberlockerManager.prototype.process = function(infringement){
+CyberlockerManager.prototype.process = function(infringement, path, done){
   var self = this;
   logger.info('process cyberlocker link for ' + infringement.uri);
   var relevantPlugin = null;
@@ -258,8 +301,10 @@ CyberlockerManager.prototype.process = function(infringement){
 
   infringement.fileID = null;
 
-  logger.info('found the relevant plugin');
-  relevantPlugin.authenticate().then(function(){
+  relevantPlugin.download(infringement, path, done);
+
+  //logger.info('found the relevant plugin');
+  /*relevantPlugin.authenticate().then(function(){
     relevantPlugin.investigate(infringement).then(function(){
       if(infringement.fileID != null)
         relevantPlugin.getDownloadLink(infringement);
@@ -270,7 +315,7 @@ CyberlockerManager.prototype.process = function(infringement){
   },
   function(err){
     logger.err('Problems authenticating : ' + err);  
-  });
+  });*/
 }
 
 CyberlockerManager.prototype.canProcess = function(infringement){
