@@ -19,13 +19,13 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')   
   ;
 
-var createURI = function(infringement){
+var createURI = function(uri){
   var result = null;
   try {
-    result = URI(infringement.uri);
+    result = URI(uri);
   }
   catch (error) {
-    logger.error("Can't create uri from " + infringement.uri); // some dodgy link => move on.
+    logger.error("Can't create uri from " + uri); // some dodgy link => move on.
   }
   return result;
 }
@@ -41,19 +41,19 @@ var Cyberlocker = function (domain) {
 
 util.inherits(Cyberlocker, events.EventEmitter);
 
-Cyberlocker.prototype.fetchDirectDownload = function(infringement, pathToUse, done){
+Cyberlocker.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   var self = this;
   var target = path.join(pathToUse, utilities.genLinkKey());
   var out = fs.createWriteStream(target);
-  utilities.requestStream(infringement.uri, {}, function(err, req, res, stream){
+  utilities.requestStream(uri, {}, function(err, req, res, stream){
     if (err){
-      logger.error('unable to fetch direct link ' + infringement.uri + ' error : ' + err);
+      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
       done([]);
       return;
     }
     stream.pipe(out);
     stream.on('end', function() {
-      logger.info('successfully downloaded ' + infringement.uri);
+      logger.info('successfully downloaded ' + uri);
       done([target]);
     });
   });
@@ -96,19 +96,22 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
       var uriInstance = createURI($('a#btnLink').attr('href'));
-      if(!URIInfrg){
-        logger.error('unable to create an instance from that uri');
+      if(!uriInstance){
+        logger.warn('unable to scrape the directlink');
         done([]);
-        return;
       }
-      self.fetchDirectDownload(infringement.uri, pathToUse, done);
+      else{
+        self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
+      }
+      self.remoteClient.quit();// Always close the browser
     });
   });
 }
 
+// Public API
 FourShared.prototype.download = function(infringement, pathToUse, done){
   var self  = this;
-  var URIInfrg = createURI(infringement);
+  var URIInfrg = createURI(infringement.uri);
 
   if(!URIInfrg){
     logger.error('unable to create an instance from that uri');
@@ -161,7 +164,7 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
 
 FourShared.prototype.get = function(infringement){
   var self = this;
-  var URIInfrg = createURI(infringement);
+  var URIInfrg = createURI(infringement.uri);
   if(!URIInfrg)return;
   self.authenticate().then(function(){
     console.log ('finished authenticating !');
@@ -211,7 +214,7 @@ MediaFire.prototype.authenticate = function(){
 MediaFire.prototype.investigate = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
-  var uriInstance = createURI(infringement);
+  var uriInstance = createURI(infringement.uri);
   if(!uriInstance){
     promise.reject(new Error('cant create a URI instance')); 
     return null;
@@ -288,7 +291,7 @@ CyberlockerManager.prototype.process = function(infringement, path, done){
   logger.info('process cyberlocker link for ' + infringement.uri);
   var relevantPlugin = null;
 
-  var URIInfrg = createURI(infringement);
+  var URIInfrg = createURI(infringement.uri);
 
   if(!URIInfrg)return;
 
@@ -320,7 +323,7 @@ CyberlockerManager.prototype.process = function(infringement, path, done){
 
 CyberlockerManager.prototype.canProcess = function(infringement){
   var self = this;
-  var URIInfrg = createURI(infringement);
+  var URIInfrg = createURI(infringement.uri);
 
   if(!URIInfrg)return;
 

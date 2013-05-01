@@ -28,7 +28,10 @@ function main() {
   var fourshared = [{uri:'http://dc173.4shared.com/img/391611692/3c948755/dlink__2Fdownload_2FbYaREw1H_3Ftsid_3D20121219-108374-c84a037a/preview.mp3'}];
   var mgr = new CyberlockerManager();
   console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(fourshared[0]));
-  mgr.process({uri: 'http://www.4shared.com/mp3/bvyNnbKI/Race2_-_Party_On_My_Mind.htm'}, '/home/ronoc/Desktop/testCBLs');
+  mgr.process({uri: 'http://www.4shared.com/mp3/bvyNnbKI/Race2_-_Party_On_My_Mind.htm'},
+              '/home/ronoc/Desktop/testCBLs', function(results){
+                console.log('results are ' + JSON.stringify(results));
+              });
 }
 
 main(); 
