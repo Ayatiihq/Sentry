@@ -24,6 +24,10 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   ;
 
+var PLUGINS = [
+  '4shared'
+];
+
 var Downloader = module.exports = function() {
   this.campaigns_ = null;
   this.downloads_ = null;
@@ -127,15 +131,15 @@ Downloader.prototype.preRun = function(job, done) {
 
 Downloader.prototype.loadDownloaders = function(done) {
   var self = this;
-/*
-  plugins.forEach(function(pluginName) {
-    var plugin = require('./' + plugin)
+
+  PLUGINS.forEach(function(pluginName) {
+    var plugin = require('./' + pluginName)
     var domains = plugin.getDomains();
     domains.forEach(function(domain) {
       self.downloadersMap_[domain]  = pluginName;
     });
   });
-*/
+
   done();
 }
 
@@ -159,7 +163,12 @@ Downloader.prototype.createInfringementMap = function(done) {
 
     var list = [];
     Object.keys(map).forEach(function (key) {
-      list.push({ domain: key, infringements: map[key] });
+      // This is why sugarjs is like God orgasmed into a .js file
+      map[key].inGroupsOf(250).forEach(function(group) {
+        var infringements = [];
+        group.forEach(function(i) { if (i) infringements.push(i);  });
+        list.push({ domain: key, infringements: infringements });
+      });
     });
 
     done(null, list);
@@ -182,15 +191,17 @@ Downloader.prototype.run = function(done) {
 
   var plugin = null;
 
-  Seq(work.infringements)
+  logger.info('Running downloader for %s with %d infringements', work.domain, work.infringements.length);
+
+  Seq()
     .seq(function() {
       self.getPluginForDomain(work.domain, this);
     })
     .seq(function(plugin_) {
       plugin = plugin_;
-      console.log(plugin);
-      this();
+      this(null, work.infringements);
     })
+    .set(work.infringements)
     .seqEach(function(infringement) {
       self.downloadOne(infringement, plugin, this);
     })
@@ -202,7 +213,7 @@ Downloader.prototype.run = function(done) {
       logger.warn(err);
     })
     .seq(function(){ 
-      setTimeout(self.run.bind(self), 100);
+      setTimeout(self.run.bind(self, done), 1000);
     })
     ;
 }
@@ -218,13 +229,13 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
     err = 'Cyberlocker ' + domain + ' is not support for auto-download';
   } else {
     try {
-      plugin = new (require('./' + plugin));
+      plugin = new (require('./' + pluginName))(self.campaign_);
     } catch(error) {
       err = error;
     }
   }
 
-  if (!plugin)
+  if (!plugin && !err)
     err = 'Unable to load plugin for domain ' + domain + ': unknown';
 
   done(err, plugin);

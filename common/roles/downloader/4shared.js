@@ -1,25 +1,35 @@
+/*
+ * 4shared.js: the 4shared downloader
+ *
+ * (C) 2013 Ayatii Limited
+ *
+ * Downloads direct and 'hidden' (links leading to pages with download links) links
+ * from 4shared
+ *
+ */
+
 require('sugar');
 var acquire = require('acquire')
-  , util = require('util')
+  , cheerio = require('cheerio')
+  , crypto = require('crypto')
+  , events = require('events')
   , fs = require('fs-extra')
   , logger = acquire('logger').forFile('4shared.js')
+  , oauth = require("oauth-lite")
   , os = require('os')
-  , Promise = require('node-promise')
   , path = require('path')
   , request = require('request')
-  , cheerio = require('cheerio')
   , URI = require('URIjs')
-  , oauth = require("oauth-lite")
-  , crypto = require('crypto')
+  , utilities = acquire('utilities')
+  , util = require('util')
   , webdriver = require('selenium-webdriver')
-  , utilities = acquire('utilities')   
   ;
 
-/* -- 4Shared */
-var FourShared = function (campaign) {
+var Promise = require('node-promise')
+
+var FourShared = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
-  self.domains = ['4shared.com'];
   self.remoteClient = null;
 };
 
@@ -115,8 +125,15 @@ FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
 }
 
 FourShared.prototype.finish = function(){
+  var self = this;
+
   if(self.remoteClient)
     self.remoteClient.finish(); 
+}
+
+// No prototype so we can access without creating instance of module
+FourShared.getDomains = function() {
+  return ['4shared.com'];
 }
 
 // REST API - lets see if they can shed some light on the why the authentication fails.
