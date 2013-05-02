@@ -277,9 +277,10 @@ MediaFire.prototype.getDownloadLink = function(infringement){
 //-------------------------------------------------------------------------/
 // CyberlockerManager
 //-------------------------------------------------------------------------/
-var CyberlockerManager= module.exports = function () {
+var CyberlockerManager= module.exports = function (campaign) {
   events.EventEmitter.call(this);
   var self = this;
+  self.campaign = campaign;
   // populate plugins
   self.plugins = [new MediaFire(), new FourShared()];
 };
