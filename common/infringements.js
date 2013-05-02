@@ -544,3 +544,38 @@ Infringements.prototype.processedBy = function(infringement, processor, callback
 
   self.infringements_.update({ _id: infringement._id }, updates, callback);
 }
+
+/**
+ * Get all infringements that have a needs-download state for the campaign and category.
+ *
+ * @param {object}                        campaign    The campaign to search.
+ * @param {number}                        category    The category of infringement to find.
+ * @param {function(err,infringments)}    callback      A callback to receive the infringmeents, or an err
+ * @return {undefined}
+ */
+Infringements.prototype.getNeedsDownloadForCampaign = function(campaign, category, callback) {
+  var self = this
+    , query = {
+        meta: {
+          $exists: false
+        },
+        campaign: campaign._id,
+        category: category,
+        state: states.infringements.state.NEEDS_DOWNLOAD
+      }
+    , project = {
+        _id: 1,
+        state: 1,
+        metadata: 1,
+        type: 1,
+        uri: 1
+      }
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getNeedsDownloadForCampaign, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.infringements_.find(query, project).toArray(callback);
+} 

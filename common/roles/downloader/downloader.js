@@ -14,9 +14,11 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -24,12 +26,16 @@ var Campaigns = acquire('campaigns')
 
 var Downloader = module.exports = function() {
   this.campaigns_ = null;
+  this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
 
-  this.started_ = false;
+  this.started_ = 0;
 
   this.touchId_ = 0;
+
+  this.downloadersMap_ = {};
+  this.workList_ = {};
 
   this.init();
 }
@@ -40,6 +46,7 @@ Downloader.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('downloader');
 }
@@ -100,6 +107,16 @@ Downloader.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.loadDownloaders(this);
+    })
+    .seq(function() {
+      self.createInfringementMap(this);
+    })
+    .seq(function(workList) {
+      self.workList_ = workList;
+      this();
+    })
+    .seq(function() {
       done();
     })
     .catch(function(err) {
@@ -108,10 +125,116 @@ Downloader.prototype.preRun = function(job, done) {
     ;
 }
 
+Downloader.prototype.loadDownloaders = function(done) {
+  var self = this;
+/*
+  plugins.forEach(function(pluginName) {
+    var plugin = require('./' + plugin)
+    var domains = plugin.getDomains();
+    domains.forEach(function(domain) {
+      self.downloadersMap_[domain]  = pluginName;
+    });
+  });
+*/
+  done();
+}
+
+Downloader.prototype.createInfringementMap = function(done) {
+  var self = this
+    , category = states.infringements.category.CYBERLOCKER
+    ;
+
+  self.infringements_.getNeedsDownloadForCampaign(self.campaign_, category, function(err, infringements) {
+    if (err)
+      return done(err);
+
+    var map = {};
+    infringements.forEach(function(infringement) {
+      var domain = utilities.getDomain(infringement.uri);
+      if (map[domain])
+        map[domain].push(infringement);
+      else
+        map[domain] = [infringement];
+    });
+
+    var list = [];
+    Object.keys(map).forEach(function (key) {
+      list.push({ domain: key, infringements: map[key] });
+    });
+
+    done(null, list);
+  });
+}
+
 Downloader.prototype.run = function(done) {
   var self = this;
 
-  console.log('Hello %j', self.campaign_);
+  if (Date.create(self.started_).isBefore('1 hour ago')) {
+    logger.info('Running for too long, stopping');
+    return done();
+  }
+
+  var work = self.workList_.pop();
+  if (!work) {
+    logger.info('No work to do');
+    return done();
+  }
+
+  var plugin = null;
+
+  Seq(work.infringements)
+    .seq(function() {
+      self.getPluginForDomain(work.domain, this);
+    })
+    .seq(function(plugin_) {
+      plugin = plugin_;
+      console.log(plugin);
+      this();
+    })
+    .seqEach(function(infringement) {
+      self.downloadOne(infringement, plugin, this);
+    })
+    .seq(function() {
+      plugin.finish();
+      this();
+    })
+    .catch(function(err) {
+      logger.warn(err);
+    })
+    .seq(function(){ 
+      setTimeout(self.run.bind(self), 100);
+    })
+    ;
+}
+
+Downloader.prototype.getPluginForDomain = function(domain, done) {
+  var self = this
+    , err = null
+    , pluginName = self.downloadersMap_[domain]
+    , plugin = null
+    ;
+
+  if (!pluginName) {
+    err = 'Cyberlocker ' + domain + ' is not support for auto-download';
+  } else {
+    try {
+      plugin = new (require('./' + plugin));
+    } catch(error) {
+      err = error;
+    }
+  }
+
+  if (!plugin)
+    err = 'Unable to load plugin for domain ' + domain + ': unknown';
+
+  done(err, plugin);
+}
+
+Downloader.prototype.downloadOne = function(infringement, plugin, done) {
+  var self = this;
+
+  console.log('Downloading %s', infringement.uri);
+  done();
 }
 
 //
@@ -124,7 +247,7 @@ Downloader.prototype.getName = function() {
 Downloader.prototype.start = function() {
   var self = this;
 
-  self.started_ = true;
+  self.started_ = Date.now();
   self.jobs_.pop(self.processJob.bind(self));
   
   self.emit('started');
@@ -140,6 +263,7 @@ Downloader.prototype.end = function() {
 
 if (process.argv[1].endsWith('downloader.js')) {
   var downloader = new Downloader();
+  downloader.started_ = Date.now();
 
    Seq()
     .seq(function() {
@@ -149,7 +273,7 @@ if (process.argv[1].endsWith('downloader.js')) {
       downloader.run(this);
     })
     .seq(function() {
-      logger.info('Finished running Processor');
+      logger.info('Finished running Downloader');
     })
     .catch(function(err) {
       logger.warn(err);

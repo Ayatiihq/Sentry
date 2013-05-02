@@ -425,6 +425,18 @@ Utilities.getHostname = function(uri) {
     return uri.hostname();
 
   } catch (err) {
+    logger.warn('Unable tp get hostname for %s', uri);
+    return '';
+  }
+}
+
+Utilities.getDomain = function(uri) {
+  try {
+    uri = URI(uri);
+    return uri.domain();
+
+  } catch (err) {
+    logger.warn('Unable tp get domain for %s', uri);
     return '';
   }
 }
