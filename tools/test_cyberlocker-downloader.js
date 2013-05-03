@@ -8,7 +8,8 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   , database = acquire('database')
   , Promise = require('node-promise')  
-  , CyberlockerManager = acquire('cyberlocker-manager');
+  , CyberlockerManager = acquire('cyberlocker-manager')
+  , states = acquire('states');
   ;
 
 function setupSignals() {
@@ -78,17 +79,31 @@ function main() {
   logger = logger.forFile('test_cyberlocker-manager.js');
   setupSignals();
 
-  var campaign = parseObject(process.argv[2]);
+  if (process.argv.length < 3)
+  {
+    logger.warn("Usage: node test_cyberlocker-downloader.js <campaignId> <cyberlocker-domain>");
+    process.exit(1);
+  }
 
-  //var mgr = new CyberlockerManager();
-  findCollection('infringements', 
-                 {'campaign': { "client" : "Tips Industries Limited", "campaign" : "Ajab Prem Ki Ghazab Kahani" },
-                  'category': 2,
-                  'uri': /4shared/g,
-                  'state' : 8}).then(function(payload){oneAtATime(payload)},
-  function(err){
-    console.log('Error querying database ' + err);
-  });
+  var campaign = parseObject(process.argv[2]);  
+  // update with new cyberlockers as they we get to support 'em.
+  cyberlockerSupported = ['4shared.com'].some(process.argv[3]);
+  if(!cyberlockerSupported){
+    logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
+    process.exit(1);
+  }
+  var cyberlocker = require('../common/roles/downloader/' + process.argv[3].split('.')[0]);
+
+  var searchPromise = findCollection('infringements', 
+                                     {'campaign': campaign._id,
+                                      'category': states.infringements.category.CYBERLOCKER,
+                                      'uri': /4shared/g, // todo insert cyberlocker using regex object.
+                                      'state' : states.infringements.state.NEEDS_DOWNLOAD});
+  
+  searchPromise.then(function(payload){ oneAtATime(payload)},
+                  function(err){
+                    console.log('Error querying database ' + err);
+                  });
 }
 
 main(); 
