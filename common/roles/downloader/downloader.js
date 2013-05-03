@@ -269,7 +269,11 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
       plugin.download(infringement, tmpDir, this);
     })
     .seq(function() { // FIXME:  WHEN YOU WANT TO ACTUALLY CHANGE DB, REMOVE THIS SEQ
-      done();
+      utilities.readAllFiles(tmpDir, function(err, files) {
+        logger.info('We would have uploaded: %s', files);
+        rimraf(tmpDir);
+        done();
+      });
     })
     .seq(function() {
       self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
