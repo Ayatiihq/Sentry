@@ -11,10 +11,12 @@ var acquire = require('acquire')
   , config = acquire('config')
   , crypto = require('crypto')
   , exec = require('child_process').exec
+  , fs = require('fs')
   , http = require('http')
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
   , os = require('os')
+  , path = require('path')
   , querystring = require('querystring')
   , sugar = require('sugar')
   , request = require('request')
@@ -22,7 +24,6 @@ var acquire = require('acquire')
   , URL = require('url')
   , util = require('util')
   , zlib = require('zlib')
-  , fs = require('fs')
   ;
 
 var Promise = require('node-promise').Promise

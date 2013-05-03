@@ -251,7 +251,7 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
 
 Downloader.prototype.downloadOne = function(infringement, plugin, done) {
   var self = this
-    , tmpDir = path.join(os.tmpDir, 'downloader-' + Date.now() + '-' + infringement._id)
+    , tmpDir = path.join(os.tmpDir(), 'downloader-' + Date.now() + '-' + infringement._id)
     , started = Date.now()
     , newState = states.infringements.state.UNVERIFIED
     ;

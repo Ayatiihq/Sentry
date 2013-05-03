@@ -46,6 +46,9 @@ function main() {
 
   if (action === 'getInfringementDownloads')
     downloads.getInfringementDownloads(require(arg0), log);
+
+  if (action === 'addLocalDirectory')
+    downloads.addLocalDirectory(require(argv[3]), argv[4], argv[5], argv[6], log);
 }
 
 main();
