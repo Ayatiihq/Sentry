@@ -262,8 +262,7 @@ Verifications.prototype.submit = function(infringement, verification, callback) 
 
     // Now update the infringement
     var query = {
-      _id: infringement._id,
-      state: states.infringements.state.UNVERIFIED
+      _id: infringement._id
     };
 
     var updates = {

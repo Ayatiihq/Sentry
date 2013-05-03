@@ -8,6 +8,7 @@
  */
 
 var acquire = require('acquire')
+  , blacklist = acquire('blacklist')
   , config = acquire('config')
   , database = acquire('database')
   , events = require('events')
@@ -35,6 +36,7 @@ var Categories = states.infringements.category
   , Cyberlockers = acquire('cyberlockers').knownDomains
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
+  , Verifications = acquire('verifications')
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts']
@@ -51,6 +53,7 @@ var Processor = module.exports = function() {
   this.job_ = null;
   this.campaign_ = null;
   this.collections_ = [];
+  this.verifications_ = null
 
   this.started_ = false;
   this.touchId_ = 0;
@@ -67,6 +70,7 @@ Processor.prototype.init = function() {
   self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
+  self.verifications_ = new Verifications();
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -190,14 +194,17 @@ Processor.prototype.run = function(done) {
       console.log('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
       self.updateInfringement(infringement, this);
     })
-    .seq(function() {
-      self.addInfringementRelations(infringement, mimetype, this);
-    })
     .catch(function(err) {
       logger.warn(err);
       infringement.state = State.UNVERIFIED;
       infringement.category = Categories.WEBSITE;
       self.updateInfringement(infringement, this);
+    })
+    .seq(function() {
+      self.addInfringementRelations(infringement, mimetype, this);
+    })
+    .seq(function() {
+      self.checkBlacklisted(infringement, mimetype, this);
     })
     .seq(function() {
       setTimeout(self.run.bind(self), 50);
@@ -439,6 +446,32 @@ Processor.prototype.updateInfringement = function(infringement, done) {
   logger.info('Updating infringement with %d changes', Object.keys(updates.$set).length);
 
   collection.update(query, updates, done);
+}
+
+Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
+  var self = this
+    , blacklisted = false
+    ;
+
+  if (infringement.category == Categories.CYBERLOCKER || infringement.verified)
+    return done();
+
+  blacklist.safeDomains.forEach(function(domain) {
+    if (infringement.uri.has(domain)) {
+      blacklisted = true;
+    }
+  });
+
+  if (blacklisted) {
+    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
+    self.verifications_.submit(infringement, verification, function(err) {
+      if (err)
+        logger.warn('Error verifiying %s to FALSE POSITIVE: %s', infringement.uri, err);
+      done();
+    });
+  } else {
+    done();
+  }
 }
 
 //
