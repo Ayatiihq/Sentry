@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('processor.js')
   , os = require('os')
   , path = require('path')
+  , readTorrent = require('read-torrent')
   , rimraf = require('rimraf')
   , states = acquire('states')
   , URI = require('URIjs')
@@ -188,6 +189,9 @@ Processor.prototype.run = function(done) {
     .seq(function() {
       console.log('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
       self.updateInfringement(infringement, this);
+    })
+    .seq(function() {
+      self.addInfringementRelations(infringement, mimetype, this);
     })
     .catch(function(err) {
       logger.warn(err);
@@ -383,13 +387,17 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
 
   logger.info('Updating infringement state');
 
-  if (infringement.verified || infringement.state == State.UNVERIFIED || infringement.state == State.UNAVAILABLE)
+  if (infringement.verified || infringement.state == State.UNAVAILABLE)
     return done();
 
   switch (infringement.category) {
     case Categories.CYBERLOCKER:
-    case Categories.TORRENT:
       infringement.state = State.NEEDS_DOWNLOAD;
+      break;
+
+    case Categories.TORRENT:
+      // We only want to download the endpoint for torrents, which is the torrent://$infohash
+      infringement.state = infringement.scheme == 'torrent' ? State.NEEDS_DOWNLOAD : State.UNVERIFIED;
       break;
 
     case Categories.SEARCH_RESULT:
@@ -431,6 +439,67 @@ Processor.prototype.updateInfringement = function(infringement, done) {
   logger.info('Updating infringement with %d changes', Object.keys(updates.$set).length);
 
   collection.update(query, updates, done);
+}
+
+//
+// Some types of file are special and therefore we want to add any useful relations
+// i.e. torrent files all point to torrent://$INFO_HASH
+//
+Processor.prototype.addInfringementRelations = function(infringement, mimetype, done) {
+  var self = this;
+
+  // Check for new torrent files
+  if (mimetype.has('torrent') && infringement.scheme != 'torrent' && infringement.scheme != 'magnet') {
+    self.addTorrentRelation(infringement, done);
+  } else {
+    done();
+  }
+}
+
+Processor.prototype.addTorrentRelation = function(infringement, done) {
+  var self = this
+    , tmpFile = path.join(os.tmpDir(), infringement._id + '.download.torrent')
+    , torrentURI = null
+    ;
+
+  Seq()
+    .seq(function() {
+      utilities.requestStream(infringement.uri, this);
+    })
+    .seq(function(req, res, stream) {
+      stream.pipe(fs.createWriteStream(tmpFile));
+      stream.on('end', this);
+      stream.on('error', this);
+    })
+    .seq(function() {
+      readTorrent(tmpFile, this);
+    })
+    .seq(function(torrent) {
+      torrentURI = 'torrent://' + torrent.infoHash;
+      logger.info('Creating %s',torrentURI);
+      
+      self.infringements_.add(infringement.campaign,
+                              torrentURI,
+                              infringement.type,
+                              'processor',
+                              State.NEEDS_PROCESSING,
+                              { score: 10 },
+                              {},
+                              this);
+    })
+    .seq(function() {
+      logger.info('Creating relation between %s and %s', infringement.uri, torrentURI);
+      self.infringements_.addRelation(infringement.campaign, infringement.uri, torrentURI, this);
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process torrent for new relation: %s', err);
+      this();
+    })
+    .seq(function() {
+      rimraf(tmpFile, function(e) { if (e) console.log(e); });
+      done();
+    })
+    ;
 }
 
 //

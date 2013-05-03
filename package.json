@@ -15,6 +15,7 @@
     "mongodb": "1.2.x",
     "node-promise": "0.5.x",
     "parseq": "0.2.x",
+    "read-torrent": "0.0.x",
     "request": "2.12.x",
     "rimraf": "2.1.x",
     "selenium-webdriver": "2.31.x",
