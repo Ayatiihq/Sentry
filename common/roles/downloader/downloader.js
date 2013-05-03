@@ -283,11 +283,13 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
         state = states.infringements.state.UNAVAILABLE;
       this();
     })
-    .catch(function(error) {
-      logger.warn('Unable to download %s: %s', infringement.uri, err);
-    })
     .seq(function() {
       self.infringements_.setState(infringement, newState, this);
+    })
+    .catch(function(error) {
+      // We don't set a state if the download errored right now
+      logger.warn('Unable to download %s: %s', infringement.uri, err);
+      this();
     })
     .seq(function() {
       rimraf(tmpDir);
