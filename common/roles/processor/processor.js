@@ -3,7 +3,8 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Processor runs processor jobs on the database.
+ * Processor runs on every new link produced in the db, categorising it, adding a state
+ * downloading it and some other bits-and-bobs.
  *
  */
 
