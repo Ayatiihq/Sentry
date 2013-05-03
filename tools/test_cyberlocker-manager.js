@@ -17,6 +17,23 @@ function setupSignals() {
   });
 }
 
+function parseObject(arg) {
+  var ret = arg;
+
+  try {
+    ret = require(arg);
+  } catch (err) {
+    if (arg.endsWith('.json'))
+      console.error(err);
+    try {
+      ret = JSON.parse(arg);
+    } catch (err) { 
+      console.log(err); 
+    }
+  }
+  return ret;
+}
+
 function findCollection(collectionName, args){
   var searchPromise = new Promise.Promise;
   database.connect(function(err, db) {
@@ -60,7 +77,10 @@ function main() {
   logger.init();
   logger = logger.forFile('test_cyberlocker-manager.js');
   setupSignals();
-  var mgr = new CyberlockerManager();
+
+  var campaign = parseObject(process.argv[2]);
+
+  //var mgr = new CyberlockerManager();
   findCollection('infringements', 
                  {'campaign': { "client" : "Tips Industries Limited", "campaign" : "Ajab Prem Ki Ghazab Kahani" },
                   'category': 2,

@@ -66,7 +66,7 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
   self.remoteClient.get(infringement.uri).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
-      var uriInstance = createURI($('a#btnLink').attr('href'));
+      var uriInstance = self.createURI($('a#btnLink').attr('href'));
       if(!uriInstance){
         logger.warn('unable to scrape the directlink');
         done();
@@ -81,7 +81,7 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
 // Public API
 FourShared.prototype.download = function(infringement, pathToUse, done){
   var self  = this;
-  var URIInfrg = createURI(infringement.uri);
+  var URIInfrg = self.createURI(infringement.uri);
 
   if(!URIInfrg){
     logger.error('unable to create an instance from that uri');

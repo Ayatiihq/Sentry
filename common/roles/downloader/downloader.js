@@ -271,7 +271,10 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
     .seq(function() { // FIXME:  WHEN YOU WANT TO ACTUALLY CHANGE DB, REMOVE THIS SEQ
       utilities.readAllFiles(tmpDir, function(err, files) {
         logger.info('We would have uploaded: %s', files);
-        rimraf(tmpDir);
+        rimraf(tmpDir,function(err){
+          if(err)
+            logger.error('Error deleting tmp directory - ' + err);
+        });
         done();
       });
     })
