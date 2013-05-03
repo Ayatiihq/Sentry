@@ -8,7 +8,6 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   , database = acquire('database')
   , Promise = require('node-promise')  
-  , CyberlockerManager = acquire('cyberlocker-manager')
   , states = acquire('states');
   ;
 
