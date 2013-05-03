@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Seq = require('seq')
@@ -113,6 +114,7 @@ Downloads.prototype.generateName = function(infringement) {
  *
  * @param  {object}          infringement     The infringement that the file belongs to.
  * @param  {string}          name             The name of the file in that container.
+ * @param  {string}          origName         The name of the file when downloaded.
  * @param  {string}          mimetype         The mimetype of the file.
  * @param  {number}          size             The size of the file in bytes.
  * @param  {number}          started          When the download started.
@@ -120,7 +122,7 @@ Downloads.prototype.generateName = function(infringement) {
  * @param  {function(err)}   callback         A callback to be called on success, or if there is an error.
  * @return {undefined}
  */
-Downloads.prototype.add = function(infringement, name, mimetype, size, started, finished, callback) {
+Downloads.prototype.add = function(infringement, name, origName, mimetype, size, started, finished, callback) {
   var self = this
     , docQuery = {
         _id: name
@@ -130,6 +132,7 @@ Downloads.prototype.add = function(infringement, name, mimetype, size, started, 
       campaign: infringement.campaign,
       infringement: infringement._id,
       name: name,
+      origName: origName,
       mimetype: mimetype,
       size: size,
       created: Date.now(),
@@ -189,6 +192,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
   var self = this
     , mimetype = null
     , filename = path.basename(filepath)
+    , uniqueName = utilities.genLinkKey(filepath, filename, Date.now())
     , size = 0
     ;
 
@@ -205,12 +209,12 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
     })
     .seq(function(stats_) {
       size = stats_.size;
-      logger.info('Uploading %s to blob storage', filename);
-      self.storage_.createFromFile(filename, filepath, {}, this);
+      logger.info('Uploading %s to blob storage as %s', filepath, uniqueName);
+      self.storage_.createFromFile(uniqueName, filepath, {}, this);
     })
     .seq(function() {
-      logger.info('Uploaded %s (%s, %s). Adding to the downloads table', filename, mimetype, size);
-      self.add(infringement, filename, mimetype, size, started, finished, this);
+      logger.info('Uploaded %s (%s, %s). Adding to the downloads table', uniqueName, mimetype, size);
+      self.add(infringement, uniqueName, filename, mimetype, size, started, finished, this);
     })
     .seq(function() {
       callback();
@@ -219,6 +223,53 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
       callback(err);
     })
     ;
+}
+
+/**
+ * This'll upload and register the contents of a directory against an infringement. It does
+ * not keep directory structure, rather it flattens out the files into the db.
+ *
+ * @param  {object}                    infringement            The infringement that the file belongs to.
+ * @param  {string}                    dir                     Path to the directory to add.
+ * @param  {number}                    started                 When the downloads were started.
+ * @param  {number}                    finished                When the downloads finished.
+ * @param  {function(err,nUploaded)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+ Downloads.prototype.addLocalDirectory = function(infringement, dir, started, finished, callback) {
+  var self = this;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.addLocalDirectory, Object.values(arguments)]);
+
+  utilities.readAllFiles(dir, function(err, files) {
+    var nUploaded = 0;
+
+    if (err)
+      return callback(err);
+
+    Seq(files)
+      .seqEach(function(file) {
+        var that = this;
+        self.addLocalFile(infringement, file, started, finished, function(err) {
+          if (err && files.length == 1) {
+            return that(err);
+          } else if (err) {
+            logger.warn('Unable to upload %s for %s, but continuing: %s', file, infringement._id, err);
+          } else {
+            nUploaded++;
+          }
+          that();
+        });
+      })
+      .seq(function() {
+        callback(null, nUploaded);
+      })
+      .catch(function(err) {
+        callback(err);
+      })
+      ;
+  });
 }
 
 /**

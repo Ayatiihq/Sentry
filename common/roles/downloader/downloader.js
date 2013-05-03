@@ -10,8 +10,11 @@
 var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
+  , fs = require('fs')
   , logger = acquire('logger').forFile('downloader.js')
-  , Seq = require('seq')
+  , path = require('path')
+  , os = require('os')
+  , rimraf = require('rimraf')
   , states = acquire('states')
   , util = require('util')
   , utilities = acquire('utilities')
@@ -22,6 +25,7 @@ var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
+  , Seq = require('seq')
   ;
 
 var PLUGINS = [
@@ -171,6 +175,10 @@ Downloader.prototype.createInfringementMap = function(done) {
       });
     });
 
+    list = list.sortBy(function(n) {
+      return n.domain;
+    });
+
     done(null, list);
   });
 }
@@ -183,7 +191,7 @@ Downloader.prototype.run = function(done) {
     return done();
   }
 
-  var work = self.workList_.pop();
+  var work = self.workList_.shift();
   if (!work) {
     logger.info('No work to do');
     return done();
@@ -213,7 +221,7 @@ Downloader.prototype.run = function(done) {
       logger.warn(err);
     })
     .seq(function(){ 
-      setTimeout(self.run.bind(self, done), 1000);
+      setTimeout(self.run.bind(self, done), 100);
     })
     ;
 }
@@ -242,10 +250,45 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
 }
 
 Downloader.prototype.downloadOne = function(infringement, plugin, done) {
-  var self = this;
+  var self = this
+    , tmpDir = path.join(os.tmpDir, 'downloader-' + Date.now() + '-' + infringement._id)
+    , started = Date.now()
+    , newState = states.infringements.state.UNVERIFIED
+    ;
 
-  console.log('Downloading %s', infringement.uri);
-  done();
+  logger.info('Downloading %s', infringement.uri);
+
+  Seq()
+    .seq(function() {
+      rimraf(tmpDir, this);
+    })
+    .seq(function() {
+      fs.mkdir(tmpDir, this);
+    })
+    .seq(function() {
+      plugin.download(infringement, tmpDir, this);
+    })
+    .seq(function() { // FIXME:  WHEN YOU WANT TO ACTUALLY CHANGE DB, REMOVE THIS SEQ
+      done();
+    })
+    .seq(function() {
+      self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
+    })
+    .seq(function(nUploaded) {
+      if (nUploaded == 0)
+        state = states.infringements.state.UNAVAILABLE;
+    })
+    .catch(function(error) {
+      logger.warn('Unable to download %s: %s', infringement.uri, err);
+    })
+    .seq(function() {
+      self.infringements_.setState(infringement, newState, this);
+    })
+    .seq(function() {
+      rimraf(tmpDir);
+      done();
+    })
+    ;
 }
 
 //
@@ -272,7 +315,7 @@ Downloader.prototype.end = function() {
   self.emit('ended');
 }
 
-if (process.argv[1].endsWith('downloader.js')) {
+if (process.argv[1] && process.argv[1].endsWith('downloader.js')) {
   var downloader = new Downloader();
   downloader.started_ = Date.now();
 

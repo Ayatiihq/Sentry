@@ -530,3 +530,48 @@ Utilities.requestURLStream = function(url, options, callback) {
     callback(err);
   });
 }
+
+
+/**
+ * Recursively reads all files in a directory.
+ *
+ * @param {string}                  dir       Directory to read
+ * @param {function(err,files)}     callback  Callback to receive the files, or an error.
+ * @return {undefined}
+ */
+Utilities.readAllFiles = function(dir, done) {
+  var self = this
+    , results = []
+    ;
+
+  fs.readdir(dir, function(err, list) {
+    if (err)
+      return done(err);
+
+    var i = 0;
+    (function next() {
+      var file = list[i++];
+      
+      if (!file)
+       return done(null, results);
+
+     if (file.startsWith('.'))
+      return next();
+
+      file = path.join(dir, file);
+      fs.stat(file, function(err, stat) {
+        if (stat && stat.isDirectory()) {
+          self.readAllFiles(file, function(err, res) {
+            results = results.concat(res);
+            next();
+          });
+        } else if (file) {
+          results.push(file);
+          next();
+        } else {
+          next();
+        }
+      });
+    })();
+  });
+}
