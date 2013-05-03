@@ -39,6 +39,8 @@ var GenericSearchEngine = function (campaign) {
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
   self.engineName = 'UNDEFINED';
+  self.maxPages = campaign.metadata.searchengineMaxPages ? campaign.metadata.searchengineMaxPages : 15;
+  self.pageNumber = 1;
 
   if (!self.keywords) {
     if (Object.has(self.campaign.metadata, 'engineKeywords')) {
@@ -289,6 +291,14 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
 // clicks on the next page, waits for new results
 GoogleScraper.prototype.nextPage = function () {
   var self = this;
+
+  self.pageNumber += 1;
+  if (self.pageNumber > self.maxPages) {
+    logger.info('Reached maximum of %d pages', self.maxPages);
+    self.cleanup();
+    return;
+  }
+
   // clicks the next page element.
   self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
 };
@@ -355,6 +365,14 @@ YahooScraper.prototype.getLinksFromSource = function (source) {
 // clicks on the next page, waits for new results
 YahooScraper.prototype.nextPage = function () {
   var self = this;
+
+  self.pageNumber += 1;
+  if (self.pageNumber > self.maxPages) {
+    logger.info('Reached maximum of %d pages', self.maxPages);
+    self.cleanup();
+    return;
+  }
+
   // clicks the next page element.
   self.remoteClient.findElement(webdriver.By.css('a#pg-next')).click().then(function () { self.handleResults(); });
 };
@@ -420,6 +438,14 @@ BingScraper.prototype.getLinksFromSource = function (source) {
 // clicks on the next page, waits for new results
 BingScraper.prototype.nextPage = function () {
   var self = this;
+
+  self.pageNumber += 1;
+  if (self.pageNumber > self.maxPages) {
+    logger.info('Reached maximum of %d pages', self.maxPages);
+    self.cleanup();
+    return;
+  }
+
   // clicks the next page element.
   self.remoteClient.findElement(webdriver.By.css('a.sb_pagN')).click().then(function () { self.handleResults(); });
 };
