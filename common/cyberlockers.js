@@ -17,7 +17,6 @@ CyberLockers.knownDomains = [
   '4sync.com',
   'adrive.com',
   'albafile.com',
-  'amazon.com',
   'arabloads.com',
   'asuswebstorage.com',
   'banashare.com',
