@@ -37,6 +37,13 @@ util.inherits(FourShared, events.EventEmitter);
 
 FourShared.prototype.authenticate = function(){
   var self  = this;
+
+  if(self.remoteClient){
+    logger.info('We have an active 4shared session already - assume we are logged in already');
+    var promise = new Promise.Promise();
+    promise.resolve();
+    return promise;
+  }
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
@@ -89,7 +96,7 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
     return;
   }
 
-  var hasSubDomain = URIInfrg.subdomain() === ''; 
+  var hasSubDomain = URIInfrg.subdomain() !== ''; 
   // var isDirectLink = URIInfrg.suffix().match(/mp3/i) !== null;
   // Handle the easy case of downloading the MP3.
   if(hasSubDomain){
@@ -128,7 +135,7 @@ FourShared.prototype.finish = function(){
   var self = this;
 
   if(self.remoteClient)
-    self.remoteClient.finish(); 
+    self.remoteClient.quit(); 
 }
 
 // No prototype so we can access without creating instance of module
