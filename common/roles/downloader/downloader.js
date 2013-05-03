@@ -281,6 +281,7 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
     .seq(function(nUploaded) {
       if (nUploaded == 0)
         state = states.infringements.state.UNAVAILABLE;
+      this();
     })
     .catch(function(error) {
       logger.warn('Unable to download %s: %s', infringement.uri, err);
