@@ -8,7 +8,8 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   , database = acquire('database')
   , Promise = require('node-promise')  
-  , states = acquire('states');
+  , states = acquire('states')
+  , Seq = require('seq')  
   ;
 
 function setupSignals() {
@@ -61,16 +62,20 @@ function findCollection(collectionName, args){
   return searchPromise;
 }
 
-function oneAtATime(results){
-  results.each(function(infringement){
-    console.log('download ' + infringement.uri);
-  });
-  /*console.log('Does CyberlockerManager support uri : ' + mgr.canProcess(fourshared[0]));
-  mgr.process(,
-              '/home/ronoc/Desktop/testCBLs', function(results){
-                console.log('results are ' + JSON.stringify(results));
-              });*/
-
+function oneAtaTime(results, cyberlocker){
+  Seq(results)
+    .seqEach(function(infringement){
+      var done = this;
+      logger.info('download ' + infringement.uri);
+      cyberlocker.download(infringement, '/tmp', done);
+    })
+   .seq(function(){
+      logger.info('Finished downloading');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process download job: %s', err);
+    })    
+    ;
 }
 
 function main() {
@@ -83,7 +88,6 @@ function main() {
     logger.warn("Usage: node test_cyberlocker-downloader.js <campaignId> <cyberlocker-domain>");
     process.exit(1);
   }
-
   var campaign = parseObject(process.argv[2]);  
   // update with new cyberlockers as they we get to support 'em.
   cyberlockerSupported = ['4shared.com'].some(process.argv[3]);
@@ -91,7 +95,8 @@ function main() {
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
   }
-  var cyberlocker = require('../common/roles/downloader/' + process.argv[3].split('.')[0]);
+  //var cyberlocker = require('../common/roles/downloader/' + process.argv[3].split('.')[0]);
+  var instance = new (require('../common/roles/downloader/' + process.argv[3].split('.')[0]))(campaign);
 
   var searchPromise = findCollection('infringements', 
                                      {'campaign': campaign._id,
@@ -99,7 +104,7 @@ function main() {
                                       'uri': /4shared/g, // todo insert cyberlocker using regex object.
                                       'state' : states.infringements.state.NEEDS_DOWNLOAD});
   
-  searchPromise.then(function(payload){ oneAtATime(payload)},
+  searchPromise.then(function(payload){ oneAtaTime(payload, instance)},
                   function(err){
                     console.log('Error querying database ' + err);
                   });
