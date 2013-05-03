@@ -55,7 +55,7 @@ EmailEngine.prototype.post = function(done) {
     to: details.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
-    bcc: ['neil@ayatii.com'],
+    bcc: ['neilpatel@ayatii.com'],
     subject: subject,
     text: self.message_,
     replyto: 'neilpatel@ayatii.com',
