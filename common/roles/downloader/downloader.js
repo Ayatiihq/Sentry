@@ -83,6 +83,8 @@ Downloader.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  self.jobs_.start(job);
+
   Seq()
     .seq(function() {
       self.preRun(this);
@@ -186,7 +188,7 @@ Downloader.prototype.createInfringementMap = function(done) {
 Downloader.prototype.run = function(done) {
   var self = this;
 
-  if (Date.create(self.started_).isBefore('1 hour ago')) {
+  if (Date.create(self.started_).isBefore('45 minutes ago')) {
     logger.info('Running for too long, stopping');
     return done();
   }
