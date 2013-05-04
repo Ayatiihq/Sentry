@@ -199,14 +199,13 @@ Processor.prototype.run = function(done) {
     .seq(function() {
       self.updateInfringementState(infringement, mimetype, this);
     })
-    .seq(function() {
-      console.log('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
-      self.updateInfringement(infringement, this);
-    })
     .catch(function(err) {
       logger.warn(err);
       infringement.state = State.UNVERIFIED;
       infringement.category = Categories.WEBSITE;
+    })
+    .seq(function() {
+      logger.info('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
       self.updateInfringement(infringement, this);
     })
     .seq(function() {
@@ -553,7 +552,6 @@ Processor.prototype.addTorrentRelation = function(infringement, done) {
     })
     .catch(function(err) {
       logger.warn('Unable to process torrent for new relation: %s', err);
-      this();
     })
     .seq(function() {
       rimraf(tmpFile, function(e) { if (e) console.log(e); });

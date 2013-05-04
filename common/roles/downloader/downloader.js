@@ -87,9 +87,9 @@ Downloader.prototype.processJob = function(err, job) {
 
   Seq()
     .seq(function() {
-      self.preRun(this);
+      self.preRun(job, this);
     })
-    .seq(function() {
+    .par(function() {
       self.run(this);
     })
     .seq(function() {
@@ -188,7 +188,7 @@ Downloader.prototype.createInfringementMap = function(done) {
 Downloader.prototype.run = function(done) {
   var self = this;
 
-  if (Date.create(self.started_).isBefore('45 minutes ago')) {
+  if (Date.create(self.started_).isBefore('75 minutes ago')) {
     logger.info('Running for too long, stopping');
     return done();
   }
@@ -220,7 +220,7 @@ Downloader.prototype.run = function(done) {
       this();
     })
     .catch(function(err) {
-      logger.warn(err);
+      logger.warn('Unable to download from %s: %s', work.domain, err);
     })
     .seq(function(){ 
       setTimeout(self.run.bind(self, done), 100);
@@ -258,7 +258,7 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
     , newState = states.infringements.state.UNVERIFIED
     ;
 
-  logger.info('Downloading %s', infringement.uri);
+  logger.info('Downloading %s to %s', infringement.uri, tmpDir);
 
   Seq()
     .seq(function() {
@@ -270,34 +270,26 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
     .seq(function() {
       plugin.download(infringement, tmpDir, this);
     })
-    .seq(function() { // FIXME:  WHEN YOU WANT TO ACTUALLY CHANGE DB, REMOVE THIS SEQ
-      utilities.readAllFiles(tmpDir, function(err, files) {
-        logger.info('We would have uploaded: %s', files);
-        rimraf(tmpDir,function(err){
-          if(err)
-            logger.error('Error deleting tmp directory - ' + err);
-        });
-        done();
-      });
-    })
     .seq(function() {
       self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
     })
     .seq(function(nUploaded) {
       if (nUploaded == 0)
-        state = states.infringements.state.UNAVAILABLE;
+        newState = states.infringements.state.UNAVAILABLE;
       this();
     })
     .seq(function() {
+      logger.info('Setting state %d on %s', newState, infringement.uri);
       self.infringements_.setState(infringement, newState, this);
     })
     .catch(function(error) {
       // We don't set a state if the download errored right now
-      logger.warn('Unable to download %s: %s', infringement.uri, err);
-      this();
+      logger.warn('Unable to download %s: %s', infringement.uri, error);
     })
     .seq(function() {
-      rimraf(tmpDir);
+      rimraf(tmpDir, this);
+    })
+    .seq(function() {
       done();
     })
     ;
