@@ -76,6 +76,8 @@ Verifier.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  self.jobs_.start(job);
+
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
       self.emit('error', err);

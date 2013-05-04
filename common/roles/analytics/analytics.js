@@ -77,6 +77,8 @@ Analytics.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  self.jobs_.start(job);
+
   var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
 
   Seq(requiredCollections)
