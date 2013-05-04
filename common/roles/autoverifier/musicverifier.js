@@ -415,6 +415,8 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
 
   self.done = done;
   self.infringement = infringement;
+
+  // FIXME: One infringement could have multiple files to check (i.e. torrent)
   self.infringementURI = self.storage.getURL(downloads[0].name);
   self.startedAt = Date.now();
 

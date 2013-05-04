@@ -445,12 +445,15 @@ Utilities.getDomain = function(uri) {
 /**
  * Requests to a stream for piping elsewhere
  *
- * @param {string}      url                      The URL to get.
- * @param {object}      options                  Options for the request.
- * @param {boolean}     options.followRedirects  Whether to follow redirects (default: true).
- * @param {funtion(err,res,stream)}              
+ * @param {string}                       url                      The URL to get.
+ * @param {object}                       options                  Options for the request.
+ * @param {boolean}                      options.followRedirects  Whether to follow redirects (default: true).
+ * @param {funtion(err,req,res,stream)}  callback                 Callback to receive the request, response and stream. Or an error.          
  */
 Utilities.requestStream = function(url, options, callback) {
+  callback = callback ? callback : options;
+  options = callback ? options : {};
+
   if (Object.has(options, 'followRedirects') && !options.followRedirects) {
     Utilities.requestURLStream(url, options, callback);
   } else {
@@ -467,8 +470,8 @@ Utilities.requestStream = function(url, options, callback) {
 /**
  * Gets the content of a URL via a stream. Unlike normal request, we error on http error codes.
  *
- * @param  {string}                         url                       The URL to get.
- * @param  {object}                         options                   Options for the request. Sent to http[s].request as well.
+ * @param  {string}                             url                       The URL to get.
+ * @param  {object}                             options                   Options for the request. Sent to http[s].request as well.
  * @param  {function(err,req,response,stream)}  callback                  The callback to receive the stream of the URL, or an error.
  * @return {undefined}
  */

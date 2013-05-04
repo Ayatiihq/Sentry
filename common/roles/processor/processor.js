@@ -3,11 +3,13 @@
  *
  * (C) 2012 Ayatii Limited
  *
- * Processor runs processor jobs on the database.
+ * Processor runs on every new link produced in the db, categorising it, adding a state
+ * downloading it and some other bits-and-bobs.
  *
  */
 
 var acquire = require('acquire')
+  , blacklist = acquire('blacklist')
   , config = acquire('config')
   , database = acquire('database')
   , events = require('events')
@@ -15,6 +17,7 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('processor.js')
   , os = require('os')
   , path = require('path')
+  , readTorrent = require('read-torrent')
   , rimraf = require('rimraf')
   , states = acquire('states')
   , URI = require('URIjs')
@@ -34,6 +37,7 @@ var Categories = states.infringements.category
   , Cyberlockers = acquire('cyberlockers').knownDomains
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
+  , Verifications = acquire('verifications')
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts']
@@ -50,6 +54,7 @@ var Processor = module.exports = function() {
   this.job_ = null;
   this.campaign_ = null;
   this.collections_ = [];
+  this.verifications_ = null
 
   this.started_ = false;
   this.touchId_ = 0;
@@ -66,6 +71,7 @@ Processor.prototype.init = function() {
   self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
+  self.verifications_ = new Verifications();
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -90,6 +96,8 @@ Processor.prototype.processJob = function(err, job) {
     self.emit('error', err);
   }
   process.on('uncaughtException', onError);
+
+  self.jobs_.start(job);
 
   Seq()
     .seq(function() {
@@ -162,6 +170,11 @@ Processor.prototype.run = function(done) {
     , mimetype = null
     ;
 
+  if (Date.create(self.started_).isBefore('30 minutes ago')) {
+    logger.info('Running for too long');
+    return done();
+  }
+
   Seq()
     .seq(function() {
       self.getUnprocessedInfringement(this);
@@ -197,7 +210,16 @@ Processor.prototype.run = function(done) {
       self.updateInfringement(infringement, this);
     })
     .seq(function() {
-      setTimeout(self.run.bind(self), 50);
+      self.addInfringementRelations(infringement, mimetype, this);
+    })
+    .seq(function() {
+      self.checkBlacklisted(infringement, mimetype, this);
+    })
+    .seq(function() {
+      self.verifyUnavailable(infringement, mimetype, this);
+    })
+    .seq(function() {
+      setTimeout(self.run.bind(self, done), 50);
     })
     ;
 }
@@ -206,6 +228,7 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   var self = this
     , infringements = self.collections_['infringements']
     , query = {
+        campaign: self.campaign_._id,
         processed: {
           $exists: false
         },
@@ -389,8 +412,12 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
 
   switch (infringement.category) {
     case Categories.CYBERLOCKER:
-    case Categories.TORRENT:
       infringement.state = State.NEEDS_DOWNLOAD;
+      break;
+
+    case Categories.TORRENT:
+      // We only want to download the endpoint for torrents, which is the torrent://$infohash
+      infringement.state = infringement.scheme == 'torrent' ? State.NEEDS_DOWNLOAD : State.UNVERIFIED;
       break;
 
     case Categories.SEARCH_RESULT:
@@ -434,6 +461,107 @@ Processor.prototype.updateInfringement = function(infringement, done) {
   collection.update(query, updates, done);
 }
 
+Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
+  var self = this
+    , blacklisted = false
+    ;
+
+  if (infringement.category == Categories.CYBERLOCKER || infringement.verified)
+    return done();
+
+  blacklist.safeDomains.forEach(function(domain) {
+    if (infringement.uri.has(domain)) {
+      blacklisted = true;
+    }
+  });
+
+  if (blacklisted) {
+    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
+    self.verifications_.submit(infringement, verification, function(err) {
+      if (err)
+        logger.warn('Error verifiying %s to FALSE POSITIVE: %s', infringement.uri, err);
+      done();
+    });
+  } else {
+    done();
+  }
+}
+
+Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
+  var self = this;
+
+  if (infringement.verified || !infringement.state == State.UNAVAILABLE)
+    return done();
+
+  var verification = { state: State.UNAVAILABLE, who: 'processor', started: Date.now(), finished: Date.now() };
+  self.verifications_.submit(infringement, verification, function(err) {
+    if (err)
+      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+    done();
+  });
+}
+
+//
+// Some types of file are special and therefore we want to add any useful relations
+// i.e. torrent files all point to torrent://$INFO_HASH
+//
+Processor.prototype.addInfringementRelations = function(infringement, mimetype, done) {
+  var self = this;
+
+  // Check for new torrent files
+  if (mimetype.has('torrent') && infringement.scheme != 'torrent' && infringement.scheme != 'magnet') {
+    self.addTorrentRelation(infringement, done);
+  } else {
+    done();
+  }
+}
+
+Processor.prototype.addTorrentRelation = function(infringement, done) {
+  var self = this
+    , tmpFile = path.join(os.tmpDir(), infringement._id + '.download.torrent')
+    , torrentURI = null
+    ;
+
+  Seq()
+    .seq(function() {
+      utilities.requestStream(infringement.uri, this);
+    })
+    .seq(function(req, res, stream) {
+      stream.pipe(fs.createWriteStream(tmpFile));
+      stream.on('end', this);
+      stream.on('error', this);
+    })
+    .seq(function() {
+      readTorrent(tmpFile, this);
+    })
+    .seq(function(torrent) {
+      torrentURI = 'torrent://' + torrent.infoHash;
+      logger.info('Creating %s',torrentURI);
+      
+      self.infringements_.add(infringement.campaign,
+                              torrentURI,
+                              infringement.type,
+                              'processor',
+                              State.NEEDS_PROCESSING,
+                              { score: 10 },
+                              {},
+                              this);
+    })
+    .seq(function() {
+      logger.info('Creating relation between %s and %s', infringement.uri, torrentURI);
+      self.infringements_.addRelation(infringement.campaign, infringement.uri, torrentURI, this);
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process torrent for new relation: %s', err);
+      this();
+    })
+    .seq(function() {
+      rimraf(tmpFile, function(e) { if (e) console.log(e); });
+      done();
+    })
+    ;
+}
+
 //
 // Overrides
 //
@@ -444,7 +572,7 @@ Processor.prototype.getName = function() {
 Processor.prototype.start = function() {
   var self = this;
 
-  self.started_ = true;
+  self.started_ = Date.now();
   self.jobs_.pop(self.processJob.bind(self));
   
   self.emit('started');
@@ -459,17 +587,18 @@ Processor.prototype.end = function() {
 }
 
 if (process.argv[1].endsWith('processor.js')) {
-  var processer = new Processor();
+  var processor = new Processor();
+  processor.started_ = Date.now();
 
    Seq()
     .seq(function() {
-      processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+      processor.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
-      processer.run(this);
-      processer.run(this);
-      processer.run(this);
-      processer.run(this);
+      processor.run(this);
+      processor.run(this);
+      processor.run(this);
+      processor.run(this);
     })
     .seq(function() {
       logger.info('Finished running Processor');
