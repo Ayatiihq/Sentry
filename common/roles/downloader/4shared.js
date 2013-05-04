@@ -73,13 +73,18 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
   self.remoteClient.get(infringement.uri).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
-      var uriInstance = self.createURI($('a#btnLink').attr('href'));
-      if(!uriInstance){
-        logger.warn('unable to scrape the directlink');
-        done();
+      var directLink = $('a#btnLink').attr('href');
+      var uriInstance = null;
+
+      if(directLink){
+        logger.info('A direct link found ? : ' + directLink);
+        var uriInstance = self.createURI(directLink);
+        if(uriInstance)
+          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
       }
-      else{
-        self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
+      if(!directLink || !uriInstance){
+        logger.warn('unable to scrape a directLink');
+        done();
       }
     });
   });
