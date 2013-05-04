@@ -222,6 +222,7 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   var self = this
     , infringements = self.collections_['infringements']
     , query = {
+        campaign: self.campaign_,
         processed: {
           $exists: false
         },
