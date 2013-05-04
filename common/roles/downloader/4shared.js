@@ -47,7 +47,7 @@ FourShared.prototype.authenticate = function(){
     return promise;
   }
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
   self.remoteClient.get('http://www.4shared.com/login.jsp');
   self.remoteClient.findElement(webdriver.By.css('#loginfield'))
@@ -88,7 +88,7 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
         }
         else{
           // If we got to here, we were unsuccessfull ripping anything useful from the page.
-          logger.info('unable to scrape a Links'); // Just an info not a warn
+          logger.info('unable to scrape Links - get out of here'); // Just an info not a warn
           done();
         }
       });      
@@ -119,9 +119,9 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
     });  
   },
   function(err){
-    logger.error('Unable to parse for singleFileLink : ' + err);
+    logger.info('Unable to parse for singleFileLink (more than likely it is not available) : ' + err);
     promise.resolve(false);
-    done(err);
+    //done(err);
   });
   return promise;
 }
@@ -148,7 +148,7 @@ FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
   function(err){
     logger.error('Unable to scrape for MultipleFileLink : ' + err);
     promise.resolve(false);
-    done(err);
+    //done(err);
   });
   return promise;
 }
