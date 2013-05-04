@@ -175,6 +175,11 @@ Processor.prototype.run = function(done) {
     , mimetype = null
     ;
 
+  if (Date.create(self.started_).isBefore('30 minutes ago')) {
+    logger.info('Running for too long');
+    return done();
+  }
+
   Seq()
     .seq(function() {
       self.getUnprocessedInfringement(this);
@@ -216,7 +221,7 @@ Processor.prototype.run = function(done) {
       self.checkBlacklisted(infringement, mimetype, this);
     })
     .seq(function() {
-      setTimeout(self.run.bind(self), 50);
+      setTimeout(self.run.bind(self, done), 50);
     })
     ;
 }
@@ -554,7 +559,7 @@ Processor.prototype.getName = function() {
 Processor.prototype.start = function() {
   var self = this;
 
-  self.started_ = true;
+  self.started_ = Date.now();
   self.jobs_.pop(self.processJob.bind(self));
   
   self.emit('started');
