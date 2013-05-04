@@ -101,7 +101,7 @@ Worker.prototype.setRole = function(rolename) {
     logger.warn('Role took too long to run, reaping.')
     process.exit(1);
   },
-  1000 * 60 * 90);
+  role.killTimeout ? role.killTimeout * 60 * 1000 : 1000 * 60 * 90);
 }
 
 Worker.prototype.startExit = function() {

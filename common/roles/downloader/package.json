@@ -4,5 +4,6 @@
   "dependencies": {
     "selenium": 1
   },
-  "intervalMinutes": 5
+  "intervalMinutes": 5,
+  "killTimeout": 90
 }
