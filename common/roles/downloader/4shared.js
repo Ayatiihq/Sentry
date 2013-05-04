@@ -37,28 +37,6 @@ var FourShared = module.exports = function (campaign) {
 
 util.inherits(FourShared, events.EventEmitter);
 
-FourShared.prototype.authenticate = function(){
-  var self  = this;
-
-  if(self.remoteClient){
-    logger.info('We have an active 4shared session already - assume we are logged in already');
-    var promise = new Promise.Promise();
-    promise.resolve();
-    return promise;
-  }
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
-  self.remoteClient.get('http://www.4shared.com/login.jsp');
-  self.remoteClient.findElement(webdriver.By.css('#loginfield'))
-    .sendKeys('conor@ayatii.com');
-  self.remoteClient.findElement(webdriver.By.css('#passfield'))
-    .sendKeys('ayatiian');
-  // xpath generated from firebug (note to self use click and not submit for such forms,
-  // submit was not able to highlight the correct input element).
-  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
-}
-
 FourShared.prototype.createURI = function(uri){
   var result = null;
   try {
@@ -68,6 +46,28 @@ FourShared.prototype.createURI = function(uri){
     logger.error("Can't create uri from " + uri); // some dodgy link => move on.
   }
   return result;
+}
+
+FourShared.prototype.authenticate = function(){
+  var self  = this;
+
+  if(self.remoteClient){
+    logger.info('We have an active 4shared session already - assume we are logged in already');
+    var promise = new Promise.Promise();
+    promise.resolve();
+    return promise;
+  }
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
+  self.remoteClient.get('http://www.4shared.com/login.jsp');
+  self.remoteClient.findElement(webdriver.By.css('#loginfield'))
+    .sendKeys('conor@ayatii.com');
+  self.remoteClient.findElement(webdriver.By.css('#passfield'))
+    .sendKeys('ayatiian');
+  // xpath generated from firebug (note to self use click and not submit for such forms,
+  // submit was not able to highlight the correct input element).
+  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
 }
 
 FourShared.prototype.investigate = function(infringement, pathToUse, done){
@@ -117,7 +117,7 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
         done();
       }
 
-      if(!directLink && !fileUnavailable){
+      if(!directLink && !fileUnavailable){ // if neither then try for multiple links
         logger.info('scrapeForSingleFileLink - was not successfull : ' + directLink);
         promise.resolve(false);
       }
@@ -126,7 +126,7 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
   function(err){
     logger.info('Unable to parse for singleFileLink (WHY NOT -) ' + err);
     promise.resolve(false);
-    done();
+    done(err);
   });
   return promise;
 }
@@ -146,7 +146,7 @@ FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
         }
       });
       if(!fileLinks.isEmpty())
-        self.handleMultipleFiles(fileLinks, pathToUse, done);
+        self.iterateThroughFiles(fileLinks, pathToUse, done);
       promise.resolve(!fileLinks.isEmpty());// Always resolve.      
     });
   },
@@ -156,6 +156,27 @@ FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
     done(err);
   });
   return promise;
+}
+
+FourShared.prototype.iterateThroughFiles = function(files, pathToUse, done){
+  var self = this;
+  Seq(files)
+    .seqEach(function(fileLink){
+      var thisDone = this;
+      logger.info('fetch file and rip single file links ' + fileLink);
+      self.remoteClient.get(fileLink);
+      self.remoteClient.sleep(1533 * Number.random(0,5));
+      self.scrapeForSingleFileLink(pathToUse, thisDone);
+    })
+   .seq(function(){
+      logger.info('Finished downloading multiple files');
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process multiple file downloading: %s', err);
+      done(err);
+    })    
+    ;  
 }
 
 FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
@@ -185,27 +206,6 @@ FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
       done();
     });
   });
-}
-
-FourShared.prototype.handleMultipleFiles = function(files, pathToUse, done){
-  var self = this;
-  Seq(files)
-    .seqEach(function(fileLink){
-      var thisDone = this;
-      logger.info('fetch file and rip single file links ' + fileLink);
-      self.remoteClient.get(fileLink);
-      self.remoteClient.sleep(1533 * Number.random(0,5));
-      self.scrapeForSingleFileLink(pathToUse, thisDone);
-    })
-   .seq(function(){
-      logger.info('Finished downloading multiple files');
-      done();
-    })
-    .catch(function(err) {
-      logger.warn('Unable to process multiple file downloading: %s', err);
-      done(err);
-    })    
-    ;  
 }
 
 // Public API --------------------------------------------------------->
