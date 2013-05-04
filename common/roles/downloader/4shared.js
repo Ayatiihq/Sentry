@@ -23,6 +23,8 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   , util = require('util')
   , webdriver = require('selenium-webdriver')
+  , Seq = require('seq')  
+  , Promise = require('node-promise')    
   ;
 
 var Promise = require('node-promise')
@@ -70,23 +72,67 @@ FourShared.prototype.createURI = function(uri){
 
 FourShared.prototype.investigate = function(infringement, pathToUse, done){
   var self  = this;
-  self.remoteClient.sleep(2000);
-  self.remoteClient.get(infringement.uri).then(function(){
+  self.remoteClient.get(infringement.uri);
+  self.remoteClient.sleep(2000 * Number.random(0,5));
+  var singlePromise = self.scrapeForSingleFileLink(pathToUse, done);
+  singlePromise.then(function(result){
+    if(result){
+      logger.info('Found a single file link - following that path');
+      return;
+    }
+    else{
+      self.scrapeForMultipleFileLinks(pathToUse, done).then(function(multipleResult){
+        if(multipleResult){
+          logger.info("Found multiple file links - following that path");
+          return;
+        }
+        else{
+          // If we got to here, we were unsuccessfull ripping anything useful from the page.
+          logger.info('unable to scrape a Links'); // Just an info not a warn
+          done();
+        }
+      });      
+    } 
+  });
+}
+
+FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
+  var self = this;
+  var promise = new Promise.Promise();
+  // Make sure to wait for the right elements on the page - 4shared crafty buggers.
+  self.remoteClient.findElement(webdriver.By.css('div.fileMeta')).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
       var directLink = $('a#btnLink').attr('href');
       var uriInstance = null;
-      var fileLinks = [];
-      // First try for the direct Link
+      logger.info('scrapeForSingleFileLink - directLink : ' + directLink);
       if(directLink){
-        logger.info('A direct link found ? : ' + directLink);
-        var uriInstance = self.createURI(directLink);
+        logger.info('A direct link found : ' + directLink);
+        uriInstance = self.createURI(directLink);
         if(uriInstance){
-          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done, true);
-          return;
+          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
+          promise.resolve(true);
         }
       }
-      //If no good then try to rip file links
+      if(!directLink || !uriInstance)
+        promise.resolve(false);
+    });  
+  },
+  function(err){
+    logger.error('Unable to parse for singleFileLink : ' + err);
+    promise.resolve(false);
+    done(err);
+  });
+  return promise;
+}
+
+FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
+  var self = this;
+  var fileLinks = [];
+  var promise = new Promise.Promise();
+  self.remoteClient.findElement(webdriver.By.css('table.flist')).then(function(){
+    self.remoteClient.getPageSource().then(function(source){
+      var $ = cheerio.load(source);
       $('table.flist a').each(function(){
         var file = $(this).attr('href');
         if(file && file !== fileLinks.last() && file !== '#'){
@@ -94,22 +140,25 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
           fileLinks.push(file);
         }
       });
-
-      if(!fileLinks.isEmpty()){
-        self.handleMultipleFiles(fileLinks);
-        return;
-      }
-      // If we got to here, we were unsuccessfull ripping anything useful from the page.
-      logger.info('unable to scrape a Links'); // Just an info not a warn
-      done();
+      if(!fileLinks.isEmpty())
+        self.handleMultipleFiles(fileLinks, pathToUse, done);
+      promise.resolve(!fileLinks.isEmpty());// Always resolve.      
     });
+  },
+  function(err){
+    logger.error('Unable to scrape for MultipleFileLink : ' + err);
+    promise.resolve(false);
+    done(err);
   });
+  return promise;
 }
 
-FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done, exitWhenFinished){
+FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   var self = this;
   var target = path.join(pathToUse, utilities.genLinkKey());
   var out = fs.createWriteStream(target);
+  logger.info('target for file ' + target);
+
   utilities.requestStream(uri, {}, function(err, req, res, stream){
     if (err){
       logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
@@ -119,13 +168,33 @@ FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done, exitWh
     stream.pipe(out);
     stream.on('end', function() {
       logger.info('successfully downloaded ' + uri);
-      if(exitWhenFinished)done();
+      done();
     });
   });
 }
 
+FourShared.prototype.handleMultipleFiles = function(files, pathToUse, done){
+  var self = this;
+  Seq(files)
+    .seqEach(function(fileLink){
+      var thisDone = this;
+      logger.info('fetch file and rip single file links ' + fileLink);
+      self.remoteClient.get(fileLink);
+      self.remoteClient.sleep(1533 * Number.random(0,5));
+      self.scrapeForSingleFileLink(pathToUse, thisDone);
+    })
+   .seq(function(){
+      logger.info('Finished downloading multiple files');
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process multiple file downloading: %s', err);
+      done(err);
+    })    
+    ;  
+}
 
-// Public API
+// Public API --------------------------------------------------------->
 FourShared.prototype.download = function(infringement, pathToUse, done){
   var self  = this;
   var URIInfrg = self.createURI(infringement.uri);
@@ -137,9 +206,7 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
   }
 
   var hasSubDomain = URIInfrg.subdomain() !== ''; 
-  // var isDirectLink = URIInfrg.suffix().match(/mp3/i) !== null;
-  // Handle the easy case of downloading the MP3.
-  if(hasSubDomain){
+  if(hasSubDomain){ // A bit rough - if there is a subdomain, assume its a file !
     self.fetchDirectDownload(infringement.uri, pathToUse, done, true);
   }
   else{
@@ -155,7 +222,6 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
 
 FourShared.prototype.finish = function(){
   var self = this;
-
   if(self.remoteClient)
     self.remoteClient.quit(); 
 }
