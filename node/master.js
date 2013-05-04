@@ -253,6 +253,6 @@ Master.prototype.printWorkers = function() {
   
   Object.values(cluster.workers).forEach(function(worker) {
     logger.info('Worker %s is a %j. Running for %s minutes',
-                worker.id, worker.work, Date.create().minutesSince(woker.created));
+                worker.id, worker.work, Date.create().minutesSince(worker.created));
   });
 }
