@@ -71,6 +71,7 @@ function oneAtaTime(results, cyberlocker){
     })
    .seq(function(){
       logger.info('Finished downloading');
+      cyberlocker.finish();
     })
     .catch(function(err) {
       logger.warn('Unable to process download job: %s', err);

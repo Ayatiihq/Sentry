@@ -70,6 +70,7 @@ FourShared.prototype.createURI = function(uri){
 
 FourShared.prototype.investigate = function(infringement, pathToUse, done){
   var self  = this;
+  self.remoteClient.sleep(2000);
   self.remoteClient.get(infringement.uri).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
