@@ -106,6 +106,9 @@ Processor.prototype.processJob = function(err, job) {
     .par(function() {
       self.run(this);
     })
+    .par(function() {
+      self.run(this);
+    })
     .seq(function() {
        rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
     })
@@ -222,7 +225,7 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   var self = this
     , infringements = self.collections_['infringements']
     , query = {
-        campaign: self.campaign_,
+        campaign: self.campaign_._id,
         processed: {
           $exists: false
         },
@@ -567,17 +570,18 @@ Processor.prototype.end = function() {
 }
 
 if (process.argv[1].endsWith('processor.js')) {
-  var processer = new Processor();
+  var processor = new Processor();
+  processor.started_ = Date.now();
 
    Seq()
     .seq(function() {
-      processer.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+      processor.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
-      processer.run(this);
-      processer.run(this);
-      processer.run(this);
-      processer.run(this);
+      processor.run(this);
+      processor.run(this);
+      processor.run(this);
+      processor.run(this);
     })
     .seq(function() {
       logger.info('Finished running Processor');
