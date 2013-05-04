@@ -146,6 +146,7 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      TMPDIR = TMPDIR + '.' + utilities.genLinkKey(campaign.name);
       rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
     })
     .seq(function() {
