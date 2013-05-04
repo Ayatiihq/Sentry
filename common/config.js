@@ -68,7 +68,7 @@ config.MONGODB_PASSWORD = getEnv(process.env.SENTRY_MONGODB_PASSWORD, '3HVb62MG2
 config.MONGODB_REPLICA_NAME = getEnv(process.env.SENTRY_MONGODB_REPLICA_NAME, 'hydros');
 
 // Hub
-config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'watchtower.cloudapp.net');
+config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'hightower.cloudapp.net');
 
 config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 
