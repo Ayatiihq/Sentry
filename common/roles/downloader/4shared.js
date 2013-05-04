@@ -118,7 +118,7 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
       }
 
       if(!directLink && !fileUnavailable){ // if neither then try for multiple links
-        logger.info('scrapeForSingleFileLink - was not successfull : ' + directLink);
+        logger.info('scrapeForSingleFileLink - was not successfull - try multiple list of files');
         promise.resolve(false);
       }
     });  
