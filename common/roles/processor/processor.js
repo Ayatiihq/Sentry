@@ -97,6 +97,8 @@ Processor.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  self.jobs_.start(job);
+
   Seq()
     .seq(function() {
       self.preRun(job, this);

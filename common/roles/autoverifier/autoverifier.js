@@ -115,6 +115,8 @@ AutoVerifier.prototype.processJob = function(err, job) {
   }
   process.on('uncaughtException', onError);
 
+  self.jobs_.start(job);
+
   // Now we process jobs
   Seq()
     .seq(function() {
