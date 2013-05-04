@@ -110,7 +110,7 @@ Processor.prototype.processJob = function(err, job) {
       self.run(this);
     })
     .seq(function() {
-       rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
+       rimraf(self.tmpdir_, this.ok);
     })
     .seq(function() {
       logger.info('Finished running processor');
@@ -149,11 +149,11 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      TMPDIR = TMPDIR + '.' + utilities.genLinkKey(campaign.name);
-      rimraf(path.join(os.tmpDir(), TMPDIR), this.ok);
+      self.tmpdir_ = path.job(os.tmpDir(), 'processor-' + utilities.genLinkKey(campaign.name));
+      rimraf(self.tmpdir_, this.ok);
     })
     .seq(function() {
-      fs.mkdir(path.join(os.tmpDir(), TMPDIR), this);
+      fs.mkdir(self.tmpdir_, this);
     })
     .seq(function() {
       done();  
@@ -316,7 +316,7 @@ Processor.prototype.isSocialNetwork = function(uri, hostname) {
 Processor.prototype.downloadInfringement = function(infringement, done) {
   var self = this
     , outName = self.downloads_.generateName(infringement, 'initialDownload')
-    , outPath = path.join(os.tmpDir(), TMPDIR, outName)
+    , outPath = path.join(self.tmpdir_, outName)
     , started = 0
     , finished = 0
     , mimetype = 'text/html'

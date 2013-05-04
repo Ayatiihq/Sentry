@@ -95,10 +95,14 @@ function main() {
     infringements.getForCampaign(campaign, skip, limit, log);
   }
 
-
   if (action === 'getCountForCampaign') {
     var campaign = require(argv[3]);
     infringements.getCountForCampaign(campaign, log);
+  }
+
+  if (action === 'getNeedsDownloadForCampaign') {
+    var campaign = require(argv[3]);
+    infringements.getNeedsDownloadForCampaign(campaign, Number(argv[4]), log);
   }
 }
 

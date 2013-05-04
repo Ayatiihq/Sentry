@@ -11,10 +11,12 @@ var acquire = require('acquire')
   , config = acquire('config')
   , crypto = require('crypto')
   , exec = require('child_process').exec
+  , fs = require('fs')
   , http = require('http')
   , https = require('https')
   , logger = acquire('logger').forFile('utilities.js')
   , os = require('os')
+  , path = require('path')
   , querystring = require('querystring')
   , sugar = require('sugar')
   , request = require('request')
@@ -22,7 +24,6 @@ var acquire = require('acquire')
   , URL = require('url')
   , util = require('util')
   , zlib = require('zlib')
-  , fs = require('fs')
   ;
 
 var Promise = require('node-promise').Promise
@@ -425,6 +426,18 @@ Utilities.getHostname = function(uri) {
     return uri.hostname();
 
   } catch (err) {
+    logger.warn('Unable tp get hostname for %s', uri);
+    return '';
+  }
+}
+
+Utilities.getDomain = function(uri) {
+  try {
+    uri = URI(uri);
+    return uri.domain();
+
+  } catch (err) {
+    logger.warn('Unable tp get domain for %s', uri);
     return '';
   }
 }
@@ -519,5 +532,50 @@ Utilities.requestURLStream = function(url, options, callback) {
 
   req.on('error', function(err) {
     callback(err);
+  });
+}
+
+
+/**
+ * Recursively reads all files in a directory.
+ *
+ * @param {string}                  dir       Directory to read
+ * @param {function(err,files)}     callback  Callback to receive the files, or an error.
+ * @return {undefined}
+ */
+Utilities.readAllFiles = function(dir, done) {
+  var self = this
+    , results = []
+    ;
+
+  fs.readdir(dir, function(err, list) {
+    if (err)
+      return done(err);
+
+    var i = 0;
+    (function next() {
+      var file = list[i++];
+      
+      if (!file)
+       return done(null, results);
+
+     if (file.startsWith('.'))
+      return next();
+
+      file = path.join(dir, file);
+      fs.stat(file, function(err, stat) {
+        if (stat && stat.isDirectory()) {
+          self.readAllFiles(file, function(err, res) {
+            results = results.concat(res);
+            next();
+          });
+        } else if (file) {
+          results.push(file);
+          next();
+        } else {
+          next();
+        }
+      });
+    })();
   });
 }

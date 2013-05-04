@@ -1,0 +1,8 @@
+{
+  "name": "downloader",
+  "main": "./downloader.js",
+  "dependencies": {
+    "selenium": 1
+  },
+  "intervalMinutes": 5
+}

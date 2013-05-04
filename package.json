@@ -14,6 +14,7 @@
     "handlebars": "1.0.x",
     "mongodb": "1.2.x",
     "node-promise": "0.5.x",
+    "oauth-lite": "*",
     "parseq": "0.2.x",
     "read-torrent": "0.0.x",
     "request": "2.x.x",

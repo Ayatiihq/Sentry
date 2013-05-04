@@ -32,6 +32,5 @@
   "utilities": "common/utilities.js",
   "spidered": "common/spidered.js",
   "verifications": "common/verifications.js",
-  "wrangler-rules": "common/wrangler-rules.js",
-  "music-verifier": "common/autoverifier/musicverifier"
+  "wrangler-rules": "common/wrangler-rules.js"
 }
