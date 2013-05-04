@@ -149,7 +149,7 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.tmpdir_ = path.job(os.tmpDir(), 'processor-' + utilities.genLinkKey(campaign.name));
+      self.tmpdir_ = path.join(os.tmpDir(), 'processor-' + utilities.genLinkKey(campaign.name));
       rimraf(self.tmpdir_, this.ok);
     })
     .seq(function() {
