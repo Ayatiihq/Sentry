@@ -47,7 +47,7 @@ FourShared.prototype.authenticate = function(){
     return promise;
   }
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
+                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
   self.remoteClient.get('http://www.4shared.com/login.jsp');
   self.remoteClient.findElement(webdriver.By.css('#loginfield'))
@@ -77,7 +77,7 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
   var singlePromise = self.scrapeForSingleFileLink(pathToUse, done);
   singlePromise.then(function(result){
     if(result){
-      logger.info('Found a single file link - following that path');
+      logger.info('Either we found a file to download or its not available.');
       return;
     }
     else{
@@ -100,28 +100,33 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
   var self = this;
   var promise = new Promise.Promise();
   // Make sure to wait for the right elements on the page - 4shared crafty buggers.
-  self.remoteClient.findElement(webdriver.By.css('div.fileMeta')).then(function(){
+  self.remoteClient.findElement(webdriver.By.css('div.centered')).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
       var directLink = $('a#btnLink').attr('href');
-      var uriInstance = null;
-      logger.info('scrapeForSingleFileLink - directLink : ' + directLink);
+      var fileUnavailable = $('img.warn').attr('src');
+
       if(directLink){
         logger.info('A direct link found : ' + directLink);
-        uriInstance = self.createURI(directLink);
-        if(uriInstance){
-          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
-          promise.resolve(true);
-        }
+        self.fetchDirectDownload(directLink, pathToUse, done);
+        promise.resolve(true);
       }
-      if(!directLink || !uriInstance)
+      else if(fileUnavailable){// Test presence of 'File not available'
+        logger.info('This file is not available')
+        promise.resolve(true); 
+        done();
+      }
+
+      if(!directLink && !fileUnavailable){
+        logger.info('scrapeForSingleFileLink - was not successfull : ' + directLink);
         promise.resolve(false);
+      }
     });  
   },
   function(err){
-    logger.info('Unable to parse for singleFileLink (more than likely it is not available) : ' + err);
+    logger.info('Unable to parse for singleFileLink (WHY NOT -) ' + err);
     promise.resolve(false);
-    //done(err);
+    done();
   });
   return promise;
 }
@@ -148,16 +153,25 @@ FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
   function(err){
     logger.error('Unable to scrape for MultipleFileLink : ' + err);
     promise.resolve(false);
-    //done(err);
+    done(err);
   });
   return promise;
 }
 
 FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   var self = this;
-  var target = path.join(pathToUse, utilities.genLinkKey());
+
+  var uriInstance = null;
+  uriInstance = self.createURI(uri);
+  if(!uriInstance){
+    logger.warn('fetchDirectDownload - Unable to create valid URI instance - ' + uri);
+    done();
+  }
+
+  var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
   var out = fs.createWriteStream(target);
-  logger.info('target for file ' + target);
+  logger.info('fetchDirectDownload - target for file ' + target);
+
 
   utilities.requestStream(uri, {}, function(err, req, res, stream){
     if (err){
