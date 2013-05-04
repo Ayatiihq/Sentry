@@ -75,8 +75,10 @@ FluxCapacitor.prototype.getRoleDependenciesAvailable = function(role, callback) 
         , depArgs = deps[dependency]
         ;
       self.dependencies_.isAvailable(dependency, depArgs, function(err, available) {
-        if (!available)
+        if (!available) {
+          logger.info('Role %s\'s dependencies are not currently available', role.name);
           allDepsAvailable = false;
+        }
         that();
       });
     })
