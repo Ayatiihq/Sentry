@@ -76,20 +76,54 @@ FourShared.prototype.investigate = function(infringement, pathToUse, done){
       var $ = cheerio.load(source);
       var directLink = $('a#btnLink').attr('href');
       var uriInstance = null;
-
+      var fileLinks = [];
+      // First try for the direct Link
       if(directLink){
         logger.info('A direct link found ? : ' + directLink);
         var uriInstance = self.createURI(directLink);
-        if(uriInstance)
-          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done);
+        if(uriInstance){
+          self.fetchDirectDownload(uriInstance.toString(), pathToUse, done, true);
+          return;
+        }
       }
-      if(!directLink || !uriInstance){
-        logger.warn('unable to scrape a directLink');
-        done();
+      //If no good then try to rip file links
+      $('table.flist a').each(function(){
+        var file = $(this).attr('href');
+        if(file && file !== fileLinks.last() && file !== '#'){
+          logger.info('detected ' + $(this).attr('href'));
+          fileLinks.push(file);
+        }
+      });
+
+      if(!fileLinks.isEmpty()){
+        self.handleMultipleFiles(fileLinks);
+        return;
       }
+      // If we got to here, we were unsuccessfull ripping anything useful from the page.
+      logger.info('unable to scrape a Links'); // Just an info not a warn
+      done();
     });
   });
 }
+
+FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done, exitWhenFinished){
+  var self = this;
+  var target = path.join(pathToUse, utilities.genLinkKey());
+  var out = fs.createWriteStream(target);
+  utilities.requestStream(uri, {}, function(err, req, res, stream){
+    if (err){
+      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
+      done(err);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + uri);
+      if(exitWhenFinished)done();
+    });
+  });
+}
+
 
 // Public API
 FourShared.prototype.download = function(infringement, pathToUse, done){
@@ -106,7 +140,7 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
   // var isDirectLink = URIInfrg.suffix().match(/mp3/i) !== null;
   // Handle the easy case of downloading the MP3.
   if(hasSubDomain){
-    self.fetchDirectDownload(infringement.uri, pathToUse, done);
+    self.fetchDirectDownload(infringement.uri, pathToUse, done, true);
   }
   else{
     logger.info('We think this is an indirect link - go forth and authenticate');
@@ -117,24 +151,6 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
       done(err);
     });
   }
-}
-
-FourShared.prototype.fetchDirectDownload = function(uri, pathToUse, done){
-  var self = this;
-  var target = path.join(pathToUse, utilities.genLinkKey());
-  var out = fs.createWriteStream(target);
-  utilities.requestStream(uri, {}, function(err, req, res, stream){
-    if (err){
-      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
-      done();
-      return;
-    }
-    stream.pipe(out);
-    stream.on('end', function() {
-      logger.info('successfully downloaded ' + uri);
-      done();
-    });
-  });
 }
 
 FourShared.prototype.finish = function(){
