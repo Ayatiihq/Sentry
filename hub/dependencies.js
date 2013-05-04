@@ -67,6 +67,8 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       self.seleniumBusyNodes_ = nBusy;
       self.seleniumLastCheck_ = new Date();
 
+      logger.info('Selenium status: %d total, %d busy', self.seleniumAvailableNodes_, self.seleniumBusyNodes_);
+
       // Now for the one we're about to do
       self.seleniumBusyNodes_ += 1;
       callback(null, (self.seleniumAvailableNodes_ - self.seleniumBusyNodes_) >= required);
