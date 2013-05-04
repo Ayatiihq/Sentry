@@ -216,6 +216,9 @@ Processor.prototype.run = function(done) {
       self.checkBlacklisted(infringement, mimetype, this);
     })
     .seq(function() {
+      self.verifyUnavailable(infringement, mimetype, this);
+    })
+    .seq(function() {
       setTimeout(self.run.bind(self, done), 50);
     })
     ;
@@ -482,6 +485,20 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
   } else {
     done();
   }
+}
+
+Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
+  var self = this;
+
+  if (infringement.verified || !infringement.state == State.UNAVAILABLE)
+    return done();
+
+  var verification = { state: State.UNAVAILABLE, who: 'processor', started: Date.now(), finished: Date.now() };
+  self.verifications_.submit(infringement, verification, function(err) {
+    if (err)
+      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+    done();
+  });
 }
 
 //

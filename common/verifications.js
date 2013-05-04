@@ -301,7 +301,7 @@ Verifications.prototype.getVerifications = function(campaign, from, limit, callb
       $gte: from.getTime()
     },
     state: {
-      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE]
+      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.SENT_NOTICE, iStates.TAKEN_DOWN]
     }
   };
 
@@ -338,7 +338,7 @@ Verifications.prototype.getAdoptedEndpoints = function(campaign, from, limit, ca
       $gte: from.getTime()
     },
     state: {
-      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE]
+      $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.SENT_NOTICE, iStates.TAKEN_DOWN]
     }
   };
 
@@ -381,7 +381,14 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
       break;
 
     case iStates.VERIFIED:
-      // Verified trumps everything
+      stateNot.push[iStates.SENT_NOTICE, iStates.TAKEN_DOWN];
+      break;
+
+    case iStates.SENT_NOTICE:
+    case iStates.TAKEN_DOWN: 
+      // Should be same as verified and never propagated as-is
+      stateNot.push[iStates.SENT_NOTICE, iStates.TAKEN_DOWN];
+      state = iStates.VERIFIED;
       break;
 
     default:
