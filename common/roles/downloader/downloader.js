@@ -280,7 +280,10 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
     })
     .seq(function() {
       logger.info('Setting state %d on %s', newState, infringement.uri);
-      self.infringements_.setState(infringement, newState, this);
+      if (newState == states.infringements.state.UNAVAILABLE)
+        self.verifyUnavailable(infringement, this);
+      else
+        self.infringements_.setState(infringement, newState, this);
     })
     .catch(function(error) {
       // We don't set a state if the download errored right now
@@ -293,6 +296,20 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
       done();
     })
     ;
+}
+
+Downloader.prototype.verifyUnavailable = function(infringement, done) {
+  var self = this;
+
+  if (infringement.state != State.UNAVAILABLE)
+    return done();
+
+  var verification = { state: State.UNAVAILABLE, who: 'downloader', started: Date.now(), finished: Date.now() };
+  self.verifications_.submit(infringement, verification, function(err) {
+    if (err)
+      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+    done();
+  });
 }
 
 //

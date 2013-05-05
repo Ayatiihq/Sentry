@@ -489,7 +489,7 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
 Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
   var self = this;
 
-  if (infringement.verified || !infringement.state == State.UNAVAILABLE)
+  if (infringement.verified || infringement.state != State.UNAVAILABLE)
     return done();
 
   var verification = { state: State.UNAVAILABLE, who: 'processor', started: Date.now(), finished: Date.now() };
