@@ -105,6 +105,9 @@ Master.prototype.onDisconnection = function() {
 
   logger.warn('Disconnected from Hub');
   self.connected_ = false;
+
+  logger.info('Trying a reconnect in 60 seconds');
+  setTimeout(self.initHubConnection.bind(self), 1000 * 60);
 }
 
 Master.prototype.onError = function(err) {
