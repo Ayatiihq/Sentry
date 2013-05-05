@@ -91,18 +91,20 @@ function main() {
   }
   var campaign = parseObject(process.argv[2]);  
   // update with new cyberlockers as they we get to support 'em.
-  cyberlockerSupported = ['4shared.com'].some(process.argv[3]);
+  cyberlockerSupported = ['4shared.com', 'mediafire.com'].some(process.argv[3]);
   if(!cyberlockerSupported){
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
   }
-  //var cyberlocker = require('../common/roles/downloader/' + process.argv[3].split('.')[0]);
   var instance = new (require('../common/roles/downloader/' + process.argv[3].split('.')[0]))(campaign);
+  var uriRegex = null;
+
+  uriRegex = require('../common/roles/downloader/' + process.argv[3].split('.')[0]).getDomains().some('4shared.com') ? /4shared/g : /mediafire/g;
 
   var searchPromise = findCollection('infringements', 
                                      {'campaign': campaign._id,
                                       'category': states.infringements.category.CYBERLOCKER,
-                                      'uri': /4shared/g, // todo insert cyberlocker using regex object.
+                                      'uri': uriRegex, // todo insert cyberlocker using regex object.
                                       'state' : states.infringements.state.NEEDS_DOWNLOAD});
   
   searchPromise.then(function(payload){ oneAtaTime(payload, instance)},

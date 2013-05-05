@@ -11,17 +11,11 @@
 require('sugar');
 var acquire = require('acquire')
   , cheerio = require('cheerio')
-  , crypto = require('crypto')
-  , events = require('events')
   , fs = require('fs-extra')
   , logger = acquire('logger').forFile('4shared.js')
-  , oauth = require("oauth-lite")
-  , os = require('os')
   , path = require('path')
-  , request = require('request')
   , URI = require('URIjs')
   , utilities = acquire('utilities')
-  , util = require('util')
   , webdriver = require('selenium-webdriver')
   , Seq = require('seq')  
   , Promise = require('node-promise')    
@@ -34,8 +28,6 @@ var FourShared = module.exports = function (campaign) {
   self.campaign = campaign;
   self.remoteClient = null;
 };
-
-util.inherits(FourShared, events.EventEmitter);
 
 FourShared.prototype.createURI = function(uri){
   var result = null;
