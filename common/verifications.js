@@ -170,7 +170,7 @@ Verifications.prototype.pop = function(campaign, callback) {
     }
   };
 
-  var sort = [ ['parents.count', -1], ['points.total', -1], ['created', 1 ] ];
+  var sort = ['category', 1 ], ['points.total', -1], ['created', 1 ] ];
 
   var updates = {
     $set: {
