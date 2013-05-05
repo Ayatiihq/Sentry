@@ -26,6 +26,7 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
+  , State = states.infringements.state
   ;
 
 var PLUGINS = [
