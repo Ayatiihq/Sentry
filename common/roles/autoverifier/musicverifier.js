@@ -228,7 +228,7 @@ MusicVerifier.prototype.examineResults = function(){
     if(track.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty())
         logger.warn("Music Verifier has found two potential matches for one infringement in the same album - other score = " + 
-                     matchedTracks.last().score + ' and this score : ' + track.score + " for uri : " + infringement.uri);
+                     matchedTracks.last().score + ' and this score : ' + track.score + " for uri : " + self.infringement.uri);
       matchedTracks.push(track);
     }
   });
