@@ -32,36 +32,26 @@ var Mediafire = module.exports = function (campaign) {
                       authToken: null};
 };
 
-Mediafire.prototype.createURI = function(uri){
-  var result = null;
-  try {
-    result = URI(uri);
+Mediafire.prototype.authenticateWeb = function(){
+  var self = this;
+  if(self.remoteClient){
+    logger.info('We have an active 4shared session already - assume we are logged in already');
+    var promise = new Promise.Promise();
+    promise.resolve();
+    return promise;
   }
-  catch (error) {
-    logger.error("Can't create uri from " + uri); // some dodgy link => move on.
-  }
-  return result;
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000);
+  self.remoteClient.get('https://www.mediafire.com/ssl_login.php?type=login');
+  self.remoteClient.findElement(webdriver.By.css('#login_email'))
+    .sendKeys('conor@ayatii.com');
+  self.remoteClient.findElement(webdriver.By.css('#login_pass'))
+    .sendKeys('3HFTB47i');
+  return self.remoteClient.findElement(webdriver.By.css('#submit_login')).click();
 }
 
-Mediafire.prototype.checkAvailability = function(infringement){
-  var self = this;
-  var promise = new Promise.Promise();
-  var authenticatePromise = self.authenticate();
-  authenticatePromise.then(function(){
-    self.investigate(infringement).then(function(fileAvailable){
-      promise.resolve(fileAvailable);
-    },
-    function(err){
-      promise.reject(err);
-    });
-  },
-  function(err){
-    promise.reject(err);
-  });
-  return promise;
-}  
-
-Mediafire.prototype.authenticate = function(){
+Mediafire.prototype.authenticateRestfully = function(){
   var self = this;
   var promise = new Promise.Promise();
   var shasum = crypto.createHash('sha1');
@@ -86,6 +76,35 @@ Mediafire.prototype.authenticate = function(){
         );
   return promise;
 }
+
+Mediafire.prototype.createURI = function(uri){
+  var result = null;
+  try {
+    result = URI(uri);
+  }
+  catch (error) {
+    logger.error("Can't create uri from " + uri); // some dodgy link => move on.
+  }
+  return result;
+}
+
+Mediafire.prototype.checkAvailability = function(infringement){
+  var self = this;
+  var promise = new Promise.Promise();
+  var authenticateRestfullyPromise = self.authenticateRestfully();
+  authenticateRestfullyPromise.then(function(){
+    self.investigate(infringement).then(function(fileAvailable){
+      promise.resolve(fileAvailable);
+    },
+    function(err){
+      promise.reject(err);
+    });
+  },
+  function(err){
+    promise.reject(err);
+  });
+  return promise;
+}  
 
 Mediafire.prototype.determineFileID = function(uriInstance){
   var fileID = null;
@@ -170,7 +189,18 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
   var self = this;
   self.checkAvailability(infringement).then(function(available){
     logger.info('Is the file available ' + available);
-    done();
+    if(available){
+      self.authenticateWeb().then(function(){
+        console.log('authenticated - what next');
+        done();
+      },
+      function(err){
+        logger.error('unable to login to MediaFire')
+      });
+    }
+    else{
+      done();
+    }
   },  
   function(err){
     done(err);
@@ -178,6 +208,8 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
 }
 
 Mediafire.prototype.finish = function(){
+  if(self.remoteClient)
+    remoteClient.quit();
 }
 
 // No prototype so we can access without creating instance of module
