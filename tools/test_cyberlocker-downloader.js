@@ -1,6 +1,6 @@
 /*
  * test_cyberlocker-manager.js: 
- * (C) 2012 Ayatii Limited
+ * (C) 2013 Ayatii Limited
  *
  */
 var acquire = require('acquire')
@@ -50,7 +50,7 @@ function findCollection(collectionName, args){
                                   searchPromise.reject(err);
                                   return;
                                 }
-                                console.log('payLoad length = ' + results.length);      
+                                console.log('Query results length = ' + results.length);      
                                 db.close(function(err){
                                           if(err)
                                             console.log('Error closing db connection !');
@@ -63,19 +63,22 @@ function findCollection(collectionName, args){
 }
 
 function oneAtaTime(results, cyberlocker){
+  results.each(function(r){
+    logger.info('URI ' + r.uri);
+  });
   Seq(results)
     .seqEach(function(infringement){
       var done = this;
-      logger.info('download ' + infringement.uri);
+      logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri + '\n\n');
       cyberlocker.download(infringement, '/tmp', done);
     })
    .seq(function(){
       logger.info('Finished downloading');
       cyberlocker.finish();
     })
-    //.catch(function(err) {
-    //  logger.warn('Unable to process download job: %s', err);
-    //})    
+    .catch(function(err) {
+      logger.warn('Unable to process download job: %s', err);
+    })    
     ;
 }
 

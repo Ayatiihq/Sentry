@@ -22,8 +22,9 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')   
   ;
 
-var Mediafire = module.exports = function () {
+var Mediafire = module.exports = function (campaign) {
   var self = this;
+  self.campaign = campaign;
   self.credentials = {user: 'conor@ayatii.com',
                       password: '3HFTB47i',
                       appID: '34352',
@@ -42,7 +43,7 @@ Mediafire.prototype.createURI = function(uri){
   return result;
 }
 
-MediaFire.prototype.authenticate = function(){
+Mediafire.prototype.authenticate = function(){
   var self = this;
   var promise = new Promise.Promise();
   var shasum = crypto.createHash('sha1');
@@ -68,20 +69,35 @@ MediaFire.prototype.authenticate = function(){
   return promise;
 }
 
-MediaFire.prototype.investigate = function(infringement){
+Mediafire.prototype.determineFileID = function(uriInstance){
+  var fileID = null;
+  fileID = uriInstance.query();
+  if(fileID && fileID.length === 11)
+    return fileID;
+  logger.info('nope query string didnt work');
+  fileID = uriInstance.segment(1)
+  //if(fileID && fileID.length === 11)
+  return fileID;
+}
+
+Mediafire.prototype.investigate = function(infringement, pathToUse, done){
   var self = this;
   var promise = new Promise.Promise();
-  var uriInstance = createURI(infringement.uri);
+  var uriInstance = self.createURI(infringement.uri);
+  
   if(!uriInstance){
     promise.reject(new Error('cant create a URI instance')); 
-    return null;
+    return promise;
   }
-  var fileID = uriInstance.segment(1);
-  console.log('investigate : ' + fileID);
+
+  var fileID = self.determineFileID(uriInstance);
+  logger.info('investigate Mediafire fileid : ' + fileID);
+
   if(!fileID){
     promise.reject(new Error('cant determine the file id')); // promise or done or whatever
-    return;
+    return promise;
   }
+
   var fileInfoRequest = "http://www.mediafire.com/api/file/get_info.php?session_token=" + self.credentials.authToken +
                         "&quick_key=" + fileID + "&response_format=json&version=1"
 
@@ -94,22 +110,21 @@ MediaFire.prototype.investigate = function(infringement){
             }
             if(body.response && body.response.result === 'Error' && 
               body.response.message === 'Unknown or Invalid QuickKey'){
-              infringement.state = 7
-              //self.verificationObject.notes = "Seems like this file is not valid";
-              //self.verificationObject.state = 7;// UNAVAILABLE // are we using verification 
               logger.info("Couldn't find : " + infringement.uri + ' mark as unavailable');              
+              done();
             }
             else if(body.response && body.response.result === 'Success'){
               console.log('WE FOUND IT !');
               logger.info(JSON.stringify(body));
               infringement.fileID = body.response.file_info.quickkey;
+              logger.info('File present .... investigate further');
             }
             promise.resolve();
           });
   return promise;
 }
 
-MediaFire.prototype.getDownloadLink = function(infringement){
+Mediafire.prototype.getDownloadLink = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
   var linksRequest = "http://www.mediafire.com/api/file/get_links.php?session_token=" + self.credentials.authToken +
@@ -131,3 +146,28 @@ MediaFire.prototype.getDownloadLink = function(infringement){
   );
 }
 
+// Public api
+Mediafire.prototype.download = function(infringement, pathToUse, done){
+  var self = this;
+  var authenticatePromise = self.authenticate();
+  authenticatePromise.then(function(){
+    self.investigate(infringement, pathToUse, done).then(function(fileAvailable){
+      if(fileAvailable)
+        logger.info('Go on and fetch the file');
+    },
+    function(err){
+      done(err);
+    });
+  },
+  function(err){
+    done(err);
+  });
+}
+
+Mediafire.prototype.finish = function(){
+}
+
+// No prototype so we can access without creating instance of module
+Mediafire.getDomains = function() {
+  return ['mediafire.com'];
+}
