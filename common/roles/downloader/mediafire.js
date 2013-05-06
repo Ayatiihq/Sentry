@@ -43,6 +43,24 @@ Mediafire.prototype.createURI = function(uri){
   return result;
 }
 
+Mediafire.prototype.checkAvailability = function(infringement){
+  var self = this;
+  var promise = new Promise.Promise();
+  var authenticatePromise = self.authenticate();
+  authenticatePromise.then(function(){
+    self.investigate(infringement).then(function(fileAvailable){
+      promise.resolve(fileAvailable);
+    },
+    function(err){
+      promise.reject(err);
+    });
+  },
+  function(err){
+    promise.reject(err);
+  });
+  return promise;
+}  
+
 Mediafire.prototype.authenticate = function(){
   var self = this;
   var promise = new Promise.Promise();
@@ -72,15 +90,14 @@ Mediafire.prototype.authenticate = function(){
 Mediafire.prototype.determineFileID = function(uriInstance){
   var fileID = null;
   fileID = uriInstance.query();
-  if(fileID && fileID.length === 11)
+  if(fileID) //&& fileID.length === 11)
     return fileID;
-  logger.info('nope query string didnt work');
   fileID = uriInstance.segment(1)
   //if(fileID && fileID.length === 11)
   return fileID;
 }
 
-Mediafire.prototype.investigate = function(infringement, pathToUse, done){
+Mediafire.prototype.investigate = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
   var uriInstance = self.createURI(infringement.uri);
@@ -108,22 +125,24 @@ Mediafire.prototype.investigate = function(infringement, pathToUse, done){
               promise.reject(err);
               return;
             }
+            var available; 
             if(body.response && body.response.result === 'Error' && 
               body.response.message === 'Unknown or Invalid QuickKey'){
               logger.info("Couldn't find : " + infringement.uri + ' mark as unavailable');              
-              done();
+              available = false;
             }
             else if(body.response && body.response.result === 'Success'){
-              console.log('WE FOUND IT !');
               logger.info(JSON.stringify(body));
               infringement.fileID = body.response.file_info.quickkey;
               logger.info('File present .... investigate further');
+              available = true;
             }
-            promise.resolve();
+            promise.resolve(available);
           });
   return promise;
 }
 
+/*
 Mediafire.prototype.getDownloadLink = function(infringement){
   var self = this;
   var promise = new Promise.Promise();
@@ -144,21 +163,15 @@ Mediafire.prototype.getDownloadLink = function(infringement){
             }
           }
   );
-}
+}*/
 
 // Public api
 Mediafire.prototype.download = function(infringement, pathToUse, done){
   var self = this;
-  var authenticatePromise = self.authenticate();
-  authenticatePromise.then(function(){
-    self.investigate(infringement, pathToUse, done).then(function(fileAvailable){
-      if(fileAvailable)
-        logger.info('Go on and fetch the file');
-    },
-    function(err){
-      done(err);
-    });
-  },
+  self.checkAvailability(infringement).then(function(available){
+    logger.info('Is the file available ' + available);
+    done();
+  },  
   function(err){
     done(err);
   });
