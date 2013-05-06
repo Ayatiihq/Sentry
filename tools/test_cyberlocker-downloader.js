@@ -63,9 +63,6 @@ function findCollection(collectionName, args){
 }
 
 function oneAtaTime(results, cyberlocker){
-  results.each(function(r){
-    logger.info('URI ' + r.uri);
-  });
   Seq(results)
     .seqEach(function(infringement){
       var done = this;

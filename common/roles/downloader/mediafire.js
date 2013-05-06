@@ -147,11 +147,10 @@ Mediafire.prototype.investigate = function(infringement){
             var available; 
             if(body.response && body.response.result === 'Error' && 
               body.response.message === 'Unknown or Invalid QuickKey'){
-              logger.info("Couldn't find : " + infringement.uri + ' mark as unavailable');              
+              logger.info("Couldn't find : " + infringement.uri);              
               available = false;
             }
             else if(body.response && body.response.result === 'Success'){
-              logger.info(JSON.stringify(body));
               infringement.fileID = body.response.file_info.quickkey;
               logger.info('File present .... investigate further');
               available = true;
@@ -161,28 +160,32 @@ Mediafire.prototype.investigate = function(infringement){
   return promise;
 }
 
-/*
-Mediafire.prototype.getDownloadLink = function(infringement){
+
+Mediafire.prototype.getFiles = function(infringement, pathToUse, done){
   var self = this;
   var promise = new Promise.Promise();
-  var linksRequest = "http://www.mediafire.com/api/file/get_links.php?session_token=" + self.credentials.authToken +
-                     "&quick_key=" + infringement.fileID + "&response_format=json";
-
-  console.log('\n request with ' + linksRequest);
-
-  request({uri: linksRequest, json:true}, 
-          function(err, resp, body){
-            if(err){
-              promise.reject(err);
-              return;
-            }
-            console.log('body : ' + JSON.stringify(body));
-            if(body.response && body.response.result === 'Error'){
-              logger.info('error for some reason')  
-            }
-          }
-  );
-}*/
+  self.remoteClient.getPageSource().then(function(source){
+    var $ = cheerio.load(source);
+    if(source.match(/kNO =/)){
+      logger.info('Detected the file is available ?');
+      var targetLine = source.match(/kNO =\s\"http:\/\/\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\/[a-zA-Z0-9_]*\/[a-zA-Z0-9_]*\/[a-zA-Z0-9_\+\.]*/)
+      logger.info("Is this the link : " + targetLine[0].split(' ')[1]);
+      done();      
+    }
+    else{
+      logger.info('File not available - probably a private file');
+      done();      
+    }
+    /*if($('h3.error_msg_title') && $('h3.error_msg_title').text() === 'Permisssion denied'){
+      logger.info('File not available - probably a private file');
+      done();
+    }
+    else{
+      logger.info('Is this file available ?' + source);
+      done();
+    }*/
+  });
+}
 
 // Public api
 Mediafire.prototype.download = function(infringement, pathToUse, done){
@@ -191,8 +194,11 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
     logger.info('Is the file available ' + available);
     if(available){
       self.authenticateWeb().then(function(){
+        self.remoteClient.sleep(5000);
         console.log('authenticated - what next');
-        done();
+        self.remoteClient.get(infringement.uri).then(function(){
+          self.getFiles(infringement, pathToUse, done);
+        });
       },
       function(err){
         logger.error('unable to login to MediaFire')
