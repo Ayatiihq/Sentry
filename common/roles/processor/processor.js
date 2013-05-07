@@ -31,13 +31,14 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
+  , Verifications = acquire('verifications')
   ;
 
 var Categories = states.infringements.category
   , Cyberlockers = acquire('cyberlockers').knownDomains
+  , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
-  , Verifications = acquire('verifications')
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts']
@@ -187,6 +188,7 @@ Processor.prototype.run = function(done) {
         return done();
       }
       logger.info('Processing %s', infringement._id);
+      infringement.err = [];
       self.categorizeInfringement(infringement, this);
     })
     .seq(function() {
@@ -197,12 +199,16 @@ Processor.prototype.run = function(done) {
       self.reCategorizeInfringement(infringement, mimetype, this);
     })
     .seq(function() {
+      self.checkIfExtensionLedToWebpage(infringement, mimetype, this);
+    })
+    .seq(function() {
       self.updateInfringementState(infringement, mimetype, this);
     })
     .catch(function(err) {
-      logger.warn(err);
+      logger.warn('Error processing %s: %s', infringement._id, err);
       infringement.state = State.UNVERIFIED;
       infringement.category = Categories.WEBSITE;
+      infringement.err.push(err.toString());
     })
     .seq(function() {
       logger.info('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
@@ -366,6 +372,9 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
 
       if (err.statusCode >= 400)
         infringement.state = State.UNAVAILABLE;
+      else {
+        infringement.err.push(err.toString());
+      }
       
       done(null, mimetype);
     })
@@ -458,6 +467,9 @@ Processor.prototype.updateInfringement = function(infringement, done) {
   if (infringement.verified)
     updates.$set = Object.reject(updates.$set, 'state');
 
+  if (infringement.err)
+    updates.$set['metadata.errors'] = infringement.err;
+
   logger.info('Updating infringement with %d changes', Object.keys(updates.$set).length);
 
   collection.update(query, updates, done);
@@ -501,6 +513,32 @@ Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
       logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
     done();
   });
+}
+
+Processor.prototype.checkIfExtensionLedToWebpage = function(infringement, mimetype, done) {
+  var self = this
+    , hadExtension = false
+    , extension = ''
+    ;
+
+  if (!Extensions[infringement.type])
+    return done();
+
+  Extensions[infringement.type].forEach(function(ext) {
+    if (infringement.uri.endsWith(ext)) {
+      hadExtension = true;
+      extension = ext;
+    }
+  });
+
+  if (!hadExtension)
+    return done();
+
+  if (mimetype.has('text/') && mimetype.has('xml') || mimetype.has('html') || mimetype.has('script')) {
+    infringement.state = State.UNAVAILABLE;
+  }
+
+  done();
 }
 
 //
@@ -587,7 +625,7 @@ Processor.prototype.end = function() {
   self.emit('ended');
 }
 
-if (process.argv[1].endsWith('processor.js')) {
+if (process.argv[1] && process.argv[1].endsWith('processor.js')) {
   var processor = new Processor();
   processor.started_ = Date.now();
 
