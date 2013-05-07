@@ -277,7 +277,13 @@ var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', 
 
 var p2pExtensions = ['.torrent'];
 
+var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
+
 module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
                                       ruleFindExtensions(audioExtensions),
-                                      ruleFindExtensions(p2pExtensions)];
+                                      ruleFindExtensions(p2pExtensions),
+                                      ruleFindExtensions(archiveExtensions)];
 
+module.exports.typeExtensions = {
+  'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
+}

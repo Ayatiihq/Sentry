@@ -423,6 +423,9 @@ Processor.prototype.updateInfringementState = function(infringement, mimetype, d
     case Categories.WEBSITE:
     case Categories.SOCIAL:
       infringement.state = infringement.children.count ? State.UNVERIFIED : State.NEEDS_SCRAPE;
+      if (infringement.source == 'generic') {
+        infringement.state = State.UNVERIFIED;
+      }
       break;
 
     case Categories.FILE:

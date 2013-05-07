@@ -16,7 +16,9 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Seq = require('seq');
+var Categories = states.infringements.category
+  , Seq = require('seq')
+  ;
 
 /**
  * Wraps the verifications table.
@@ -163,6 +165,9 @@ Verifications.prototype.pop = function(campaign, callback) {
 
   var query = {
     campaign: campaign,
+    category: {
+      $in: [Categories.WEBSITE, Categories.SOCIAL]
+    },
     state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
     popped: {
@@ -170,7 +175,7 @@ Verifications.prototype.pop = function(campaign, callback) {
     }
   };
 
-  var sort = [['category', 1 ], ['points.total', -1], ['created', 1 ] ];
+  var sort = [['category', 1 ], ['created', 1 ] ];
 
   var updates = {
     $set: {
