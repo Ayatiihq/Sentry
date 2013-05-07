@@ -168,22 +168,22 @@ Mediafire.prototype.getFiles = function(infringement, pathToUse, done){
     var $ = cheerio.load(source);
     if(source.match(/kNO =/)){
       logger.info('Detected the file is available ?');
-      var targetLine = source.match(/kNO =\s\"http:\/\/\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\/[a-zA-Z0-9_]*\/[a-zA-Z0-9_]*\/[a-zA-Z0-9_\+\.]*/)
-      logger.info("Is this the link : " + targetLine[0].split(' ')[1]);
-      done();      
+      var targetLine = source.match(/kNO =\s\"http:\/\/\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\.\d\d(\d)?\/[a-zA-Z0-9_]*\/[a-zA-Z0-9_]*\/[a-zA-Z\.\+0-9_\-%]*/)
+      if(!targetLine){
+        done(new Error('Unable to regex out link ?'));        
+      }
+      else{
+        var n = source.indexOf('kNO =');
+        console.log('index = ' + n);
+        logger.info("Is this the link : " + targetLine[0].split('"')[1].trim());
+        console.log('compare against : ' + source.substring(n, n+100));
+        done();
+      }      
     }
     else{
       logger.info('File not available - probably a private file');
       done();      
     }
-    /*if($('h3.error_msg_title') && $('h3.error_msg_title').text() === 'Permisssion denied'){
-      logger.info('File not available - probably a private file');
-      done();
-    }
-    else{
-      logger.info('Is this file available ?' + source);
-      done();
-    }*/
   });
 }
 
