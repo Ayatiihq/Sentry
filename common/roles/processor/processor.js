@@ -373,7 +373,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       if (err.statusCode >= 400)
         infringement.state = State.UNAVAILABLE;
       else {
-        infringement.errors.push(err;
+        infringement.errors.push(err);
       }
       
       done(null, mimetype);
