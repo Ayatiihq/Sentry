@@ -11,17 +11,11 @@
 require('sugar');
 var acquire = require('acquire')
   , cheerio = require('cheerio')
-  , crypto = require('crypto')
-  , events = require('events')
   , fs = require('fs-extra')
   , logger = acquire('logger').forFile('4shared.js')
-  , oauth = require("oauth-lite")
-  , os = require('os')
   , path = require('path')
-  , request = require('request')
   , URI = require('URIjs')
   , utilities = acquire('utilities')
-  , util = require('util')
   , webdriver = require('selenium-webdriver')
   , Seq = require('seq')  
   , Promise = require('node-promise')    
@@ -34,8 +28,6 @@ var FourShared = module.exports = function (campaign) {
   self.campaign = campaign;
   self.remoteClient = null;
 };
-
-util.inherits(FourShared, events.EventEmitter);
 
 FourShared.prototype.createURI = function(uri){
   var result = null;
@@ -118,7 +110,7 @@ FourShared.prototype.scrapeForSingleFileLink = function(pathToUse, done){
       }
 
       if(!directLink && !fileUnavailable){ // if neither then try for multiple links
-        logger.info('scrapeForSingleFileLink - was not successfull : ' + directLink);
+        logger.info('scrapeForSingleFileLink - was not successfull - try multiple list of files');
         promise.resolve(false);
       }
     });  
@@ -138,12 +130,12 @@ FourShared.prototype.scrapeForMultipleFileLinks = function(pathToUse, done){
   self.remoteClient.findElement(webdriver.By.css('table.flist')).then(function(){
     self.remoteClient.getPageSource().then(function(source){
       var $ = cheerio.load(source);
-      $('table.flist a').each(function(){
-        var file = $(this).attr('href');
-        if(file && file !== fileLinks.last() && file !== '#'){
-          logger.info('detected ' + $(this).attr('href'));
-          fileLinks.push(file);
-        }
+      $('table.flist a').each(function(index, elem){
+          var file = $(this).attr('href');
+          if(file && file !== fileLinks.last() && file !== '#'){
+            logger.info('detected ' + $(this).attr('href'));
+            fileLinks.push(file);
+          }
       });
       if(!fileLinks.isEmpty())
         self.iterateThroughFiles(fileLinks, pathToUse, done);
@@ -163,10 +155,18 @@ FourShared.prototype.iterateThroughFiles = function(files, pathToUse, done){
   Seq(files)
     .seqEach(function(fileLink){
       var thisDone = this;
-      logger.info('fetch file and rip single file links ' + fileLink);
+      logger.info('fetch link ' + fileLink);
       self.remoteClient.get(fileLink);
       self.remoteClient.sleep(1533 * Number.random(0,5));
-      self.scrapeForSingleFileLink(pathToUse, thisDone);
+      var isAFolder = fileLink.has('folder');
+      if(isAFolder){
+        logger.info('its a folder');
+        self.scrapeForMultipleFileLinks(pathToUse, thisDone);
+      }
+      else{// Assume its a single file
+        logger.info('its a single file');
+        self.scrapeForSingleFileLink(pathToUse, thisDone);
+      }
     })
    .seq(function(){
       logger.info('Finished downloading multiple files');
@@ -214,11 +214,16 @@ FourShared.prototype.download = function(infringement, pathToUse, done){
   var URIInfrg = self.createURI(infringement.uri);
 
   if(!URIInfrg){
-    logger.error('unable to create an instance from that uri');
     done(new Error('Unable to create a URI from this infringement'));
     return;
   }
+  
+  if(URIInfrg.path() === '/'){// Its not an error but I don't see why we need to investigate a pathless uri
+    done();
+    return;
+  } 
 
+  logger.info('uri path :' + URIInfrg.path());
   var hasSubDomain = URIInfrg.subdomain() !== ''; 
   if(hasSubDomain){ // A bit rough - if there is a subdomain, assume its a file !
     self.fetchDirectDownload(infringement.uri, pathToUse, done, true);
