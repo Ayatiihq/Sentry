@@ -22,6 +22,7 @@ var acquire = require('acquire')
 var Sharebeast = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
+  self.authenticated = false;
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);                           
@@ -29,6 +30,14 @@ var Sharebeast = module.exports = function (campaign) {
 
 Sharebeast.prototype.authenticate = function(){
   var self =this;
+
+  if(self.authenticated){
+    var promise = new Promise.Promise();
+    promise.resolve();
+    return promise;
+  }
+  self.authenticated = true;
+
   self.remoteClient.get('http://www.sharebeast.com/?op=my_files');
   self.remoteClient.findElement(webdriver.By.css('#uname'))
     .sendKeys('conor-ayatii');
@@ -39,7 +48,7 @@ Sharebeast.prototype.authenticate = function(){
   return self.remoteClient.findElement(webdriver.By.css('.loginBtn1')).click();
 }
 
-// Public api
+// Public API
 Sharebeast.prototype.download = function(infringement, pathToUse, done){
   var self = this;
   self.authenticate().then(function(){
@@ -47,7 +56,14 @@ Sharebeast.prototype.download = function(infringement, pathToUse, done){
     self.remoteClient.get(infringement.uri).then(function(){
       self.remoteClient.getPageSource().then(function(source){
         var $ = cheerio.load(source);
-        console.log($('div#bigbox h2').html());
+        if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
+          logger.info('File not available for whatever reason - moving on ...');
+          done();
+        }
+        else{
+          logger.info('Is this a file ?');    
+          done();      
+        }
       });
     });  
     //self.remoteClient.findElement(webdriver.By.css("input[type='submit']")).click();
