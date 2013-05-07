@@ -40,7 +40,7 @@ Mediafire.prototype.authenticateWeb = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);
   self.remoteClient.get('https://www.mediafire.com/ssl_login.php?type=login');
@@ -127,13 +127,13 @@ Mediafire.prototype.investigate = function(infringement){
   }
 
   var fileID = self.determineFileID(uriInstance);
-  logger.info('investigate Mediafire fileid : ' + fileID);
 
   if(!fileID){
     promise.reject(new Error('cant determine the file id')); // promise or done or whatever
     return promise;
   }
 
+  logger.info('investigate Mediafire file with ID : ' + fileID);
   var fileInfoRequest = "http://www.mediafire.com/api/file/get_info.php?session_token=" + self.credentials.authToken +
                         "&quick_key=" + fileID + "&response_format=json&version=1"
 
@@ -173,19 +173,49 @@ Mediafire.prototype.getFiles = function(infringement, pathToUse, done){
         done(new Error('Unable to regex out link ?'));        
       }
       else{
-        var n = source.indexOf('kNO =');
-        console.log('index = ' + n);
-        logger.info("Is this the link : " + targetLine[0].split('"')[1].trim());
-        console.log('compare against : ' + source.substring(n, n+100));
-        done();
+        var fileLink = targetLine[0].split('"')[1].trim();
+        logger.info("the File link : " + fileLink);
+        self.fetchDirectDownload(fileLink, pathToUse, done);
+        // DEBUG
+        //var n = source.indexOf('kNO =');
+        //console.log('compare against : ' + source.substring(n, n+100));
       }      
     }
     else{
-      logger.info('File not available - probably a private file');
-      done();      
+      logger.info('File not available (even though REST API said it was, probably permission denied) - move along');
+      done();
     }
   });
 }
+
+Mediafire.prototype.fetchDirectDownload = function(uri, pathToUse, done){
+  var self = this;
+
+  var uriInstance = null;
+  uriInstance = self.createURI(uri);
+  if(!uriInstance){
+    logger.warn('fetchDirectDownload - Unable to create valid URI instance - ' + uri);
+    done();
+  }
+
+  var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
+  var out = fs.createWriteStream(target);
+  logger.info('fetchDirectDownload - target for file ' + target);
+
+  utilities.requestStream(uri, {}, function(err, req, res, stream){
+    if (err){
+      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
+      done(err);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + uri);
+      done();
+    });
+  });
+}
+
 
 // Public api
 Mediafire.prototype.download = function(infringement, pathToUse, done){
@@ -194,7 +224,7 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
     logger.info('Is the file available ' + available);
     if(available){
       self.authenticateWeb().then(function(){
-        self.remoteClient.sleep(5000);
+        self.remoteClient.sleep(7500);
         console.log('authenticated - what next');
         self.remoteClient.get(infringement.uri).then(function(){
           self.getFiles(infringement, pathToUse, done);
