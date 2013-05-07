@@ -146,7 +146,7 @@ AutoVerifier.prototype.processJob = function(err, job) {
 AutoVerifier.prototype.processVerifications = function(done) {
   var self = this;
 
-  if (self.started_.isBefore('60 minutes ago')) {
+  if (self.started_.isBefore('30 minutes ago')) {
     logger.info('Been running for around an hour, quitting');
     done();
   }
