@@ -79,6 +79,21 @@ function oneAtaTime(results, cyberlocker){
     ;
 }
 
+function fetchRegex(downloader){
+  var domain = require('../common/roles/downloader/' + downloader.split('.')[0]).getDomains()[0];
+
+  switch(domain)
+  { 
+    case '4shared.com':
+      return /4shared/g;
+    case 'mediafire.com':
+      return /mediafire/g;
+    case 'sharebeast.com':
+      return /sharebeast/g;
+  }
+  return null;
+}
+
 function main() {
   logger.init();
   logger = logger.forFile('test_cyberlocker-manager.js');
@@ -91,7 +106,7 @@ function main() {
   }
   var campaign = parseObject(process.argv[2]);  
   // update with new cyberlockers as they we get to support 'em.
-  cyberlockerSupported = ['4shared.com', 'mediafire.com'].some(process.argv[3]);
+  cyberlockerSupported = ['4shared.com', 'mediafire.com', 'sharebeast.com'].some(process.argv[3]);
   if(!cyberlockerSupported){
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
@@ -99,7 +114,12 @@ function main() {
   var instance = new (require('../common/roles/downloader/' + process.argv[3].split('.')[0]))(campaign);
   var uriRegex = null;
 
-  uriRegex = require('../common/roles/downloader/' + process.argv[3].split('.')[0]).getDomains().some('4shared.com') ? /4shared/g : /mediafire/g;
+  uriRegex = fetchRegex(process.argv[3]);
+
+  if(!uriRegex){
+    logger.error("Unable to figure out which regex to use!");
+    process.exit(1);
+  }
 
   var searchPromise = findCollection('infringements', 
                                      {'campaign': campaign._id,
