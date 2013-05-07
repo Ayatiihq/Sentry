@@ -184,11 +184,11 @@ Processor.prototype.run = function(done) {
       infringement = infringement_;
 
       if (!infringement) {
-        logger.info('No more jobs to process');
+        logger.info('No more infringements to process');
         return done();
       }
       logger.info('Processing %s', infringement._id);
-      infringement.err = [];
+      infringement.errors = [];
       self.categorizeInfringement(infringement, this);
     })
     .seq(function() {
@@ -208,7 +208,7 @@ Processor.prototype.run = function(done) {
       logger.warn('Error processing %s: %s', infringement._id, err);
       infringement.state = State.UNVERIFIED;
       infringement.category = Categories.WEBSITE;
-      infringement.err.push(err.toString());
+      infringement.errors.push(err);
     })
     .seq(function() {
       logger.info('%s (%s) category=%s state=%s', mimetype, infringement._id, infringement.category, infringement.state);
@@ -224,7 +224,7 @@ Processor.prototype.run = function(done) {
       self.verifyUnavailable(infringement, mimetype, this);
     })
     .seq(function() {
-      setTimeout(self.run.bind(self, done), 50);
+      setTimeout(self.run.bind(self, done), 100);
     })
     ;
 }
@@ -373,7 +373,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       if (err.statusCode >= 400)
         infringement.state = State.UNAVAILABLE;
       else {
-        infringement.err.push(err.toString());
+        infringement.errors.push(err;
       }
       
       done(null, mimetype);
@@ -405,7 +405,7 @@ Processor.prototype.reCategorizeInfringement = function(infringement, mimetype, 
     infringement.category = Categories.FILE;
   }
 
-  logger.info('Recategorising infringement to category %d', infringement.category);
+  logger.info('Recategorising %s to category %d', infringement._id, infringement.category);
 
   done();
 }
@@ -413,7 +413,7 @@ Processor.prototype.reCategorizeInfringement = function(infringement, mimetype, 
 Processor.prototype.updateInfringementState = function(infringement, mimetype, done) {
   var self = this;
 
-  logger.info('Updating infringement state');
+  logger.info('Updating %s state', infringement._id);
 
   if (infringement.verified || infringement.state == State.UNAVAILABLE)
     return done();
@@ -467,10 +467,18 @@ Processor.prototype.updateInfringement = function(infringement, done) {
   if (infringement.verified)
     updates.$set = Object.reject(updates.$set, 'state');
 
-  if (infringement.err)
-    updates.$set['metadata.errors'] = infringement.err;
+  if (infringement.errors.length) {
+    var errs = [];
+    infringement.errors.forEach(function(error) {
+      if (error.stack)
+        errs.push(error.stack.toString());
+      else
+        errs.push(error.toString());
+    });
+    updates.$set['errors'] = errs;
+  }
 
-  logger.info('Updating infringement with %d changes', Object.keys(updates.$set).length);
+  logger.info('Updating %s with %d changes', infringement._id, Object.keys(updates.$set).length);
 
   collection.update(query, updates, done);
 }
@@ -634,9 +642,6 @@ if (process.argv[1] && process.argv[1].endsWith('processor.js')) {
       processor.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
-      processor.run(this);
-      processor.run(this);
-      processor.run(this);
       processor.run(this);
     })
     .seq(function() {
