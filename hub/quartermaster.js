@@ -35,6 +35,6 @@ QuarterMaster.prototype.init = function() {
     return;
 
   self.scraperDispatcher_ = new ScraperDispatcher();
-  self.spiderDispatcher_ = new SpiderDispatcher();
+  //self.spiderDispatcher_ = new SpiderDispatcher();
   self.standardDispatcher_ = new StandardDispatcher();
 }
