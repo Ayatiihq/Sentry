@@ -289,8 +289,8 @@ MusicVerifier.prototype.prepInfringementList = function (infrgs){
 }
 
 MusicVerifier.prototype.prepInfringement = function (){
-  logger.info(self.infringement._id + ': campaign audio ready - get the infringement');
   var self = this;
+  logger.info(self.infringement._id + ': campaign audio ready - get the infringement');
   self.fetchInfringement().then(function(success){
     if(success)
       self.goFingerprint(); // got everything in place, lets match.
