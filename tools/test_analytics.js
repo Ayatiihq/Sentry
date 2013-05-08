@@ -54,7 +54,6 @@ function main() {
   if (action === 'getClientAnalytics')
     analytics.getClientAnalytics(require(arg0), log);
 
-
   if (action === 'getCampaignCountryData')
     analytics.getCampaignCountryData(require(arg0), log);
 

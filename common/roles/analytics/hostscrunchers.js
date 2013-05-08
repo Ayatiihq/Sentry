@@ -15,11 +15,36 @@ var acquire = require('acquire')
   , util = require('util')
   ;
 
-var Settings = acquire('settings')
+var Category = states.infringements.category
+  , Settings = acquire('settings')
   , Seq = require('seq')
+  , State = states.infringements.state
   ;
 
 var HostsCrunchers = module.exports;
+
+var stateData = [
+    { name: 'nNeedsProcessing', state: State.NEEDS_PROCESSING }
+  , { name: 'nUnverified', state: State.UNVERIFIED }
+  , { name: 'nVerified', state: State.VERIFIED }
+  , { name: 'nFalsePositive', state: State.FALSE_POSITIVE }
+  , { name: 'nSentNotice', state: State.SENT_NOTICE }
+  , { name: 'nTakenDown', state: State.TAKEN_DOWN }
+  , { name: 'nNeedsScrape', state: State.NEEDS_SCRAPE }
+  , { name: 'nDeferred', state: State.DEFERRED }
+  , { name: 'nUnavailable', state: State.UNAVAILABLE }
+  , { name: 'nNeedsDownload', state: State.NEEDS_DOWNLOAD }
+];
+
+var categoryData = [
+    { name: 'nWebsites', category: Category.WEBSITE }
+  , { name: 'nSearchResults', category: Category.SEARCH_RESULT }
+  , { name: 'nFiles', category: Category.FILE }
+  , { name: 'nTorrents', category: Category.TORRENT }
+  , { name: 'nSocial', category: Category.SOCIAL}
+];
+
+
 
 //
 // Build the interesting datasets so clients are faster
@@ -190,157 +215,47 @@ HostsCrunchers.linksCount = function(db, collections, campaign, done) {
   });
 }
 
-HostsCrunchers.infringementsCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
+stateData.forEach(function(data) {
+  var name = data.name;
+  var state = data.state;
 
-  logger.info('infringementsCount: Running job');
+  HostsCrunchers[name] = function(db, collections, campaign, done) {
+    var collection = collections.infringements
+      , analytics = collections.analytics
+      ;
 
-  collection.find({ campaign: campaign._id, state: { $in: [ 1, 3, 4] } })
-            .count(function(err, count) {
+    logger.info(name + ': Running job');
+    collection.find({ campaign: campaign._id, state: state })
+              .count(function(err, count) {
+      if (err)
+        return done(name + ': Error counting number of links with state ' + state + ': ' + err);
 
-    if (err)
-      return done('infringementsCount: Error counting number of infringements: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'infringementsCount' };
+      var key = { campaign: campaign._id, statistic: name };
+      analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    });
+  }
+});
 
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
+categoryData.forEach(function(data) {
+  var name = data.name;
+  var category = data.category;
 
-HostsCrunchers.falsePositiveCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
+  HostsCrunchers[name] = function(db, collections, campaign, done) {
+    var collection = collections.infringements
+      , analytics = collections.analytics
+      ;
 
-  logger.info('falsePositiveCount: Running job');
+    logger.info(name + ': Running job');
+    collection.find({ campaign: campaign._id, category: category })
+              .count(function(err, count) {
+      if (err)
+        return done(name + ': Error counting number of links with category ' + category + ': ' + err);
 
-  collection.find({ 'campaign': campaign._id , state: states.infringements.state.FALSE_POSITIVE })
-            .count(function(err, count) {
-
-    if (err)
-      return done('falsePositiveCount: Error counting number of false positives: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'falsePositiveCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unverifiedCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unverifiedCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , state: states.infringements.state.UNVERIFIED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unverifiedCount: Error counting number of unverified: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'unverifiedCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unverifiedEndpointCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unverifiedEndpointCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , 'children.count': 0, state: states.infringements.state.UNVERIFIED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unverifiedEndpointCount: Error counting number of unverified endpoints: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'unverifiedEndpointCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.noticedCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('noticedCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , state: { $in: [3, 4] } })
-            .count(function(err, count) {
-
-    if (err)
-      return done('noticedCount: Error counting number of notices sent: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'noticedCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.takenDownCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('takenDownCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , state: states.infringements.state.TAKEN_DOWN })
-            .count(function(err, count) {
-
-    if (err)
-      return done('takenDownCount: Error counting number of take downs: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'takenDownCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unavailableCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unavailableCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , state: states.infringements.state.UNAVAILABLE })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unavailableCount: Error counting number of unavailable links: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'unavailableCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.deferredCount = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('deferredCount: Running job');
-
-  collection.find({ 'campaign': campaign._id , state: states.infringements.state.DEFERRED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('deferredCount: Error counting number of deferred links: ' + err);
-    
-    var key = { campaign: campaign._id, statistic: 'deferredCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
+      var key = { campaign: campaign._id, statistic: name };
+      analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    });
+  }
+});
 
 
 //
@@ -512,154 +427,46 @@ HostsCrunchers.linksCountClient = function(db, collections, campaign, done) {
   });
 }
 
-HostsCrunchers.infringementsCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
+stateData.forEach(function(data) {
+  var method = data.name + 'Client'
+  var name = data.name;
+  var state = data.state;
 
-  logger.info('infringementsCountClient: Running job');
+  HostsCrunchers[method] = function(db, collections, campaign, done) {
+    var collection = collections.infringements
+      , analytics = collections.analytics
+      ;
 
-  collection.find({ 'campaign.client': campaign.client, state: { $in: [ 1, 3, 4] } })
-            .count(function(err, count) {
+    logger.info(method + ': Running job');
+    collection.find({ 'campaign.client': campaign.client, state: state })
+              .count(function(err, count) {
+      if (err)
+        return done(method + ': Error counting number of links with state ' + state + ': ' + err);
 
-    if (err)
-      return done('infringementsCountClient: Error counting number of infringements: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'infringementsCount' };
+      var key = { client: campaign.client, statistic: name };
+      analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    });
+  }
+});
 
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
+categoryData.forEach(function(data) {
+  var method = data.name + 'Client'
+  var name = data.name;
+  var category = data.category;
 
-HostsCrunchers.falsePositiveCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
+  HostsCrunchers[method] = function(db, collections, campaign, done) {
+    var collection = collections.infringements
+      , analytics = collections.analytics
+      ;
 
-  logger.info('falsePositiveCountClient: Running job');
+    logger.info(method + ': Running job');
+    collection.find({ 'campaign.client': campaign.client, category: category })
+              .count(function(err, count) {
+      if (err)
+        return done(method + ': Error counting number of links with category ' + category + ': ' + err);
 
-  collection.find({ 'campaign.client': campaign.client , state: states.infringements.state.FALSE_POSITIVE })
-            .count(function(err, count) {
-
-    if (err)
-      return done('falsePositiveCountClient: Error counting number of false positives: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'falsePositiveCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unverifiedCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unverifiedCountClient: Running job');
-
-  collection.find({ 'campaign.client': campaign.client , state: states.infringements.state.UNVERIFIED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unverifiedCountClient: Error counting number of unverified: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'unverifiedCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unverifiedEndpointCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unverifiedEndpointCountClient: Running job');
-
-  collection.find({ 'campaign.client': campaign.client , 'children.count': 0, state: states.infringements.state.UNVERIFIED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unverifiedEndpointCountClient: Error counting number of unverified endpoints: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'unverifiedEndpointCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.noticedCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('noticedCountClient: Running job');
-
-  collection.find({ 'campaign.client': campaign.client , state: { $in: [3, 4] } })
-            .count(function(err, count) {
-
-    if (err)
-      return done('noticedCountClient: Error counting number of notices sent: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'noticedCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.takenDownCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('takenDownCountClient: Running job');
-
-  collection.find({ 'campaign.count': campaign.count , state: states.infringements.state.TAKEN_DOWN })
-            .count(function(err, count) {
-
-    if (err)
-      return done('takenDownCountClient: Error counting number of take downs: ' + err);
-    
-    var key = { count: campaign.count, statistic: 'takenDownCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.unavailableCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('unavailableCountClient: Running job');
-
-  collection.find({ 'campaign.client': campaign.client , state: states.infringements.state.UNAVAILABLE })
-            .count(function(err, count) {
-
-    if (err)
-      return done('unavailableCountClient: Error counting number of unavailable links: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'unavailableCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
-
-HostsCrunchers.deferredCountClient = function(db, collections, campaign, done) {
-  var collection = collections.infringements
-    , analytics = collections.analytics
-    ;
-
-  logger.info('deferredCountClient: Running job');
-
-  collection.find({ 'campaign.client': campaign.client , state: states.infringements.state.DEFERRED })
-            .count(function(err, count) {
-
-    if (err)
-      return done('deferredCountClient: Error counting number of deferred links: ' + err);
-    
-    var key = { client: campaign.client, statistic: 'deferredCount' };
-
-    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
-  });
-}
+      var key = { client: campaign.client, statistic: name };
+      analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    });
+  }
+});

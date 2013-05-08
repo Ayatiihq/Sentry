@@ -179,35 +179,55 @@ Analytics.prototype.loadWork = function() {
 
   work.push(LinkMR.preRun);
   work.push(LinkMR.linkStats);
-  
+
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenInfringementCountries);
+  
   work.push(HostsCrunchers.linksCount);
-  work.push(HostsCrunchers.infringementsCount);
-  work.push(HostsCrunchers.falsePositiveCount);
-  work.push(HostsCrunchers.unverifiedCount);
-  work.push(HostsCrunchers.unverifiedEndpointCount);
-  work.push(HostsCrunchers.noticedCount);
-  work.push(HostsCrunchers.takenDownCount);
-  work.push(HostsCrunchers.unavailableCount);
-  work.push(HostsCrunchers.deferredCount);
+  
+  work.push(HostsCrunchers.nNeedsProcessing);
+  work.push(HostsCrunchers.nUnverified);
+  work.push(HostsCrunchers.nVerified);
+  work.push(HostsCrunchers.nFalsePositive);
+  work.push(HostsCrunchers.nSentNotice);
+  work.push(HostsCrunchers.nTakenDown);
+  work.push(HostsCrunchers.nNeedsScrape);
+  work.push(HostsCrunchers.nDeferred);
+  work.push(HostsCrunchers.nUnavailable);
+  work.push(HostsCrunchers.nNeedsDownload);
+
+  work.push(HostsCrunchers.nWebsites);
+  work.push(HostsCrunchers.nSearchResults);
+  work.push(HostsCrunchers.nFiles);
+  work.push(HostsCrunchers.nTorrents);
+  work.push(HostsCrunchers.nSocial);
 
   work.push(HostsCrunchers.topTenLinkHostsClient);
   work.push(HostsCrunchers.topTenInfringementHostsClient);
   work.push(HostsCrunchers.topTenLinkCountriesClient);
   work.push(HostsCrunchers.topTenInfringementCountriesClient);
+  
   work.push(HostsCrunchers.linksCountClient);
-  work.push(HostsCrunchers.infringementsCountClient);
-  work.push(HostsCrunchers.falsePositiveCountClient);
-  work.push(HostsCrunchers.unverifiedCountClient);
-  work.push(HostsCrunchers.unverifiedEndpointCountClient);
-  work.push(HostsCrunchers.noticedCountClient);
-  work.push(HostsCrunchers.takenDownCountClient);
-  work.push(HostsCrunchers.unavailableCountClient);
-  work.push(HostsCrunchers.deferredCountClient);
+  
+  work.push(HostsCrunchers.nNeedsProcessingClient);
+  work.push(HostsCrunchers.nUnverifiedClient);
+  work.push(HostsCrunchers.nVerifiedClient);
+  work.push(HostsCrunchers.nFalsePositiveClient);
+  work.push(HostsCrunchers.nSentNoticeClient);
+  work.push(HostsCrunchers.nTakenDownClient);
+  work.push(HostsCrunchers.nNeedsScrapeClient);
+  work.push(HostsCrunchers.nDeferredClient);
+  work.push(HostsCrunchers.nUnavailableClient);
+  work.push(HostsCrunchers.nNeedsDownloadClient);
+
+  work.push(HostsCrunchers.nWebsitesClient);
+  work.push(HostsCrunchers.nSearchResultsClient);
+  work.push(HostsCrunchers.nFilesClient);
+  work.push(HostsCrunchers.nTorrentsClient);
+  work.push(HostsCrunchers.nSocialClient);
 
   return work;
 }
