@@ -26,6 +26,7 @@ var Campaigns = acquire('campaigns')
 var HostsCrunchers = require('./hostscrunchers')
   , HostsInfo = require('./hostsinfo')
   , HostsMR = require('./hostsmr')
+  , LinkMR = require('./linkmr')
   ;
 
 var Analytics = module.exports = function() {
@@ -79,7 +80,32 @@ Analytics.prototype.processJob = function(err, job) {
 
   self.jobs_.start(job);
 
-  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
+  Seq()
+    .seq(function() {
+      self.preRun(job, this);
+    })
+    .seq(function() {
+      self.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running analytics');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job %j: %s', job, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Analytics.prototype.preRun = function(job, done) {
+  var self = this;
+
+  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -100,24 +126,15 @@ Analytics.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.runAnalytics(this);
-    })
-    .seq(function() {
-      logger.info('Finished running analytics');
-      self.jobs_.complete(job);
-      clearInterval(self.touchId_);
-      self.emit('finished');
+      done();
     })
     .catch(function(err) {
-      logger.warn('Unable to process job %j: %s', job, err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      clearInterval(self.touchId_);
-      self.emit('error', err);
+      done(err);
     })
     ;
 }
 
-Analytics.prototype.runAnalytics = function(done) {
+Analytics.prototype.run = function(done) {
   var self = this;
 
   Seq(self.loadWork())
@@ -149,14 +166,18 @@ Analytics.prototype.loadWork = function() {
     ;
 
   // Pre-MapReduce
-  work.push(HostsInfo.serverInfo);
-  work.push(HostsInfo.websiteInfo);
+  //work.push(HostsInfo.serverInfo);
+  //work.push(HostsInfo.websiteInfo);
 
   // Map Reduce
-  work.push(HostsMR.preRun);
+  //work.push(HostsMR.preRun);
   
-  work.push(HostsMR.hostBasicStats);
-  work.push(HostsMR.hostLocationStats);
+  //work.push(HostsMR.hostBasicStats);
+  //work.push(HostsMR.hostLocationStats);
+
+  work.push(LinkMR.preRun);
+  work.push(LinkMR.linkStats);
+  return work;
   
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
@@ -198,4 +219,24 @@ Analytics.prototype.end = function() {
   self.started_ = false;
 
   self.emit('ended');
+}
+
+if (process.argv[1] && process.argv[1].endsWith('.js')) {
+  var analytics = new Analytics();
+  analytics.started_ = Date.now();
+
+   Seq()
+    .seq(function() {
+      analytics.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+    })
+    .seq(function() {
+      analytics.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running Analytics');
+    })
+    .catch(function(err) {
+      logger.warn(err);
+    })
+    ;
 }
