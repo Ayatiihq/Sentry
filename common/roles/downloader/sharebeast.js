@@ -24,9 +24,20 @@ var Sharebeast = module.exports = function (campaign) {
   self.campaign = campaign;
   self.authenticated = false;
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);                           
 };
+
+Sharebeast.prototype.createURI = function(uri){
+  var result = null;
+  try {
+    result = URI(uri);
+  }
+  catch (error) {
+    logger.error("Can't create uri from " + uri); // some dodgy link => move on.
+  }
+  return result;
+}
 
 Sharebeast.prototype.authenticate = function(){
   var self =this;
@@ -48,6 +59,65 @@ Sharebeast.prototype.authenticate = function(){
   return self.remoteClient.findElement(webdriver.By.css('.loginBtn1')).click();
 }
 
+Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
+  var self = this;
+  self.remoteClient.findElement(webdriver.By.css('.download-file1')).click().then(function(){
+    self.remoteClient.get('chrome://downloads').then(function(){
+      self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click().then(function(){    
+        self.remoteClient.getPageSource().then(function(source){
+          var $ = cheerio.load(source);
+          var directDownload = $('a.src-url').attr('href');
+          logger.info('Direct file link : ' + directDownload);
+          self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click().then(function(){
+            self.fetchDirectDownload(directDownload, pathToUse, done);
+          });
+        });
+      },
+      function(err){
+        done(err);
+      });
+    });      
+  },
+  function(err){
+    done(err);
+  });
+}
+
+Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
+  var self = this;
+
+  var uriInstance = null;
+  uriInstance = self.createURI(uri);
+  if(!uriInstance){
+    logger.warn('fetchDirectDownload - Unable to create valid URI instance - ' + uri);
+    done();
+  }
+
+  var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
+  var out = fs.createWriteStream(target);
+  logger.info('fetchDirectDownload - target for file ' + target);
+
+
+  utilities.requestStream(uri, {}, function(err, req, res, stream){
+    if (err){
+      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
+      done(err);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + uri);
+      done();
+    });
+  });
+}
+
+Sharebeast.prototype.clearDownloads = function(){
+  self.remoteClient.get('chrome://downloads');
+  return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
+}
+
+
 // Public API
 Sharebeast.prototype.download = function(infringement, pathToUse, done){
   var self = this;
@@ -61,14 +131,14 @@ Sharebeast.prototype.download = function(infringement, pathToUse, done){
           done();
         }
         else{
-          logger.info('Is this a file ?');    
-          done();      
+          logger.info('Detected a file ...');
+          self.generateFileDownload(pathToUse, done);
         }
       });
     });  
-    //self.remoteClient.findElement(webdriver.By.css("input[type='submit']")).click();
   });
 }
+
 
 Sharebeast.prototype.finish = function(){
   var self = this;
