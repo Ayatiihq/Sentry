@@ -127,6 +127,8 @@ FluxCapacitor.prototype.getWork = function(callback) {
         role.nRuns_ += 1;
         work.rolename = role.name;
         callback(work);
+
+        logger.info('Sending work %s', work.rolename);
       }
     })
     ;
