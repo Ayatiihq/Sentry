@@ -185,6 +185,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenInfringementCountries);
+  work.push(HostsCrunchers.topTenInfringementCyberlockers);
   
   work.push(HostsCrunchers.linksCount);
   
@@ -209,6 +210,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.topTenInfringementHostsClient);
   work.push(HostsCrunchers.topTenLinkCountriesClient);
   work.push(HostsCrunchers.topTenInfringementCountriesClient);
+  work.push(HostsCrunchers.topTenInfringementCyberlockersClient);
   
   work.push(HostsCrunchers.linksCountClient);
   
