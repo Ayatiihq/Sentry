@@ -89,7 +89,9 @@ Analytics.prototype.getClientStats = function(client, callback) {
       nInfringements: 0,
       nEndpoints: 0,
       nNotices: 0,
-      nTotal: 0
+      nTotal: 0,
+      nNeedsProcessing: 0,
+      nNeedsDownload: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -135,8 +137,22 @@ Analytics.prototype.getClientStats = function(client, callback) {
     })
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
         stats.nTotal = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
+        stats.nNeedsProcessing = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
+        stats.nNeedsDownload = count ? count : 0;
         that(err);
       });
     })
@@ -162,7 +178,9 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
       nInfringements: 0,
       nEndpoints: 0,
       nNotices: 0,
-      nTotal: 0
+      nTotal: 0,
+      nNeedsProcessing: 0,
+      nNeedsDownload: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -177,7 +195,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign': campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign': campaign._id, 'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -207,8 +225,22 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     })
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': { $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
         stats.nTotal = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
+        stats.nNeedsProcessing = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
+        stats.nNeedsDownload = count ? count : 0;
         that(err);
       });
     })
