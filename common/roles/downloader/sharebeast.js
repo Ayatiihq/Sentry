@@ -48,8 +48,7 @@ Sharebeast.prototype.authenticate = function(){
     return promise;
   }
   self.authenticated = true;
-
-  self.remoteClient.get('http://www.sharebeast.com/?op=my_files');
+  self.remoteClient.get('http://www.sharebeast.com/?op=login');
   self.remoteClient.findElement(webdriver.By.css('#uname'))
     .sendKeys('conor-ayatii');
   self.remoteClient.findElement(webdriver.By.css('#pass'))
@@ -62,6 +61,7 @@ Sharebeast.prototype.authenticate = function(){
 Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
   var self = this;
   self.remoteClient.findElement(webdriver.By.css('.download-file1')).click().then(function(){
+    self.remoteClient.sleep(5000);
     self.remoteClient.get('chrome://downloads').then(function(){
       self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click().then(function(){    
         self.remoteClient.getPageSource().then(function(source){
@@ -113,6 +113,7 @@ Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
 }
 
 Sharebeast.prototype.clearDownloads = function(){
+  var self = this;
   self.remoteClient.get('chrome://downloads');
   return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
 }
@@ -121,22 +122,25 @@ Sharebeast.prototype.clearDownloads = function(){
 // Public API
 Sharebeast.prototype.download = function(infringement, pathToUse, done){
   var self = this;
-  self.authenticate().then(function(){
-    self.remoteClient.sleep(7500);
-    self.remoteClient.get(infringement.uri).then(function(){
-      self.remoteClient.getPageSource().then(function(source){
-        var $ = cheerio.load(source);
-        if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
-          logger.info('File not available for whatever reason - moving on ...');
-          done();
-        }
-        else{
-          logger.info('Detected a file ...');
-          self.generateFileDownload(pathToUse, done);
-        }
-      });
-    });  
-  });
+  self.clearDownloads().then(function(){
+    self.authenticate().then(function(){
+      self.remoteClient.sleep(5000);
+      self.remoteClient.get(infringement.uri).then(function(){
+        self.remoteClient.sleep(7500);
+        self.remoteClient.getPageSource().then(function(source){
+          var $ = cheerio.load(source);
+          if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
+            logger.info('File not available for whatever reason - moving on ...');
+            done();
+          }
+          else{
+            logger.info('Detected a file ...');
+            self.generateFileDownload(pathToUse, done);
+          }
+        });
+      });  
+    });
+  });    
 }
 
 
