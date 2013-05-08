@@ -88,7 +88,8 @@ Analytics.prototype.getClientStats = function(client, callback) {
     , stats = {
       nInfringements: 0,
       nEndpoints: 0,
-      nNotices: 0
+      nNotices: 0,
+      nTotal: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -104,7 +105,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
   Seq()
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -132,6 +133,13 @@ Analytics.prototype.getClientStats = function(client, callback) {
         that(err);
       });
     })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+        stats.nTotal = count ? count : 0;
+        that(err);
+      });
+    })
     .seq(function() {
       callback(null, stats);
     })
@@ -153,7 +161,8 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     , stats = {
       nInfringements: 0,
       nEndpoints: 0,
-      nNotices: 0
+      nNotices: 0,
+      nTotal: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -193,6 +202,13 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
 
       self.collections_.infringements.find(query).count(function(err, count) {
         stats.nNotices = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+        stats.nTotal = count ? count : 0;
         that(err);
       });
     })
