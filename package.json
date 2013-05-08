@@ -27,6 +27,8 @@
     "sugar": "1.3.x",
     "URIjs":"1.8.x",
     "winston": "0.6.x",
+    "winston-loggly": "0.6.x",
+    "winston-papertrail": "*",
     "xregexp": "2.0.x"
   },
   

@@ -53,7 +53,7 @@ function main() {
     , longRunningTask = null
     ;
 
-  logger.init();
+  logger.initServer();
   logger = logger.forFile('sentry.js');
 
   setupSignals();
