@@ -166,18 +166,19 @@ Analytics.prototype.loadWork = function() {
     ;
 
   // Pre-MapReduce
-  //work.push(HostsInfo.serverInfo);
-  //work.push(HostsInfo.websiteInfo);
+  work.push(HostsInfo.serverInfo);
+  work.push(HostsInfo.websiteInfo);
 
   // Map Reduce
-  //work.push(HostsMR.preRun);
+  work.push(HostsMR.preRun);
   
-  //work.push(HostsMR.hostBasicStats);
-  //work.push(HostsMR.hostLocationStats);
+  work.push(HostsMR.hostBasicStats);
+  work.push(HostsMR.hostLocationStats);
+  work.push(HostsMR.hostClientBasicStats);
+  work.push(HostsMR.hostClientLocationStats);
 
   work.push(LinkMR.preRun);
   work.push(LinkMR.linkStats);
-  return work;
   
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);

@@ -297,11 +297,32 @@ Analytics.prototype.getCampaignCountryData = function(campaign, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  if (!self.collections_.analytics)
+  if (!self.collections_.hostLocationStats)
     return self.cachedCalls_.push([self.getCampaignCountryData, Object.values(arguments)]);
 
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
   self.collections_.hostLocationStats.find({ '_id.campaign': campaign._id, '_id.regionName': { $exists: false } }).toArray(callback);
+}
+
+/**
+ * Get country data for a client.
+ *
+ * @param  {object}              campaign      The campaign to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getClientCountryData = function(client, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.hostLocationStats)
+    return self.cachedCalls_.push([self.getClientCountryData, Object.values(arguments)]);
+
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  self.collections_.hostLocationStats.find({ '_id.client': client._id, '_id.regionName': { $exists: false } }).toArray(callback);
 }
