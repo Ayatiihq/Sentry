@@ -59,6 +59,12 @@ function main() {
 
   if (action === 'getClientCountryData')
     analytics.getClientCountryData(require(arg0), log);
+
+  if (action === 'getClientWorkTimeSeries')
+    analytics.getClientWorkTimeSeries(require(arg0), log);
+
+  if (action === 'getCampaignWorkTimeSeries')
+    analytics.getCampaignWorkTimeSeries(require(arg0), log);
 }
 
 main()

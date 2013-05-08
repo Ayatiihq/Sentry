@@ -164,7 +164,7 @@ Analytics.prototype.loadWork = function() {
   var self = this
     , work = []
     ;
-
+/*
   // Pre-MapReduce
   work.push(HostsInfo.serverInfo);
   work.push(HostsInfo.websiteInfo);
@@ -176,10 +176,11 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsMR.hostLocationStats);
   work.push(HostsMR.hostClientBasicStats);
   work.push(HostsMR.hostClientLocationStats);
-
+*/
   work.push(LinkMR.preRun);
   work.push(LinkMR.linkStats);
-
+  work.push(LinkMR.linkStatsClient);
+  return work;
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenInfringementHosts);

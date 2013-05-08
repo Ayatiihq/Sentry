@@ -41,7 +41,7 @@ var Analytics = module.exports = function() {
 Analytics.prototype.init = function() {
   var self = this;
 
-  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats'];
+  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -389,4 +389,42 @@ Analytics.prototype.getClientCountryData = function(client, callback) {
     return callback(new Error('Valid client required'));
 
   self.collections_.hostLocationStats.find({ '_id.client': client._id, '_id.regionName': { $exists: false } }).toArray(callback);
+}
+
+/**
+ * Get work done timeseries for client
+ */
+Analytics.prototype.getClientWorkTimeSeries = function(client, callback) {
+  var self = this;
+  
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.linkStats)
+    return self.cachedCalls_.push([self.getClientWorkTimeSeries, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  var query = { '_id.client': client._id, '_id.timestamp': { $exists: true }, '_id.category': { $exists: false } };
+  self.collections_.linkStats.find(query).sort({ '_id.timestamp': -1 }).limit(6).toArray(callback);
+}
+
+/**
+ * Get work done timeseries for client
+ */
+Analytics.prototype.getCampaignWorkTimeSeries = function(campaign, callback) {
+  var self = this;
+  
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.linkStats)
+    return self.cachedCalls_.push([self.getCampaignWorkTimeSeries, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
+  var query = { '_id.campaign': campaign._id, '_id.timestamp': { $exists: true }, '_id.category': { $exists: false } };
+  self.collections_.linkStats.find(query).sort({ '_id.timestamp': -1 }).limit(6).toArray(callback);
 }
