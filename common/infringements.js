@@ -127,7 +127,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
     modified: Date.now(),
     entries: [ pointsEntry ]
   };
-  entity.metadata = metadata;
+  entity.metadata = metadata ? metadata : {};
   entity.parents = { count: 0, uris: [] };
   entity.children = { count: 0, uris: [] };
 
