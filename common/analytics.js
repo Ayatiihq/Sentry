@@ -73,6 +73,32 @@ function defaultCallback(err) {
     logger.warn('Reply Error: %s', err);
 }
 
+function normalizeCampaign(campaign) {
+  if (Object.isString(campaign) && client.startsWith('{')) {
+    // It's the _id of the campaign stringified
+    return JSON.parse(campaign);
+  } else if (campaign._id) {
+    // It's an entire campaign row
+    return campaign;
+  } else {
+    // It's just the _id object
+    return { _id: campaign };
+  }
+}
+
+function normalizeClient(client) {
+  if (Object.isString(client) && client.startsWith('{')) {
+    // It's the _id of the client stringified
+    return JSON.parse(client);
+  } else if (client._id) {
+    // It's an entire client row
+    return client;
+  } else {
+    // It's just the _id object
+    return { _id: client };
+  }
+}
+
 //
 // Public Methods
 //
@@ -101,6 +127,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
   if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getClientStats, Object.values(arguments)]);
 
+  client = normalizeClient(client);
   if (!client || !client._id)
     return callback(new Error('Valid client required'));
 
@@ -189,6 +216,7 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getCampaignStats, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
@@ -268,10 +296,44 @@ Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
   if (!self.collections_.analytics)
     return self.cachedCalls_.push([self.getCampaignAnalytics, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
   self.collections_.analytics.find({ '_id.campaign': campaign._id }).toArray(function(err, docs) {
+    if (err)
+      return callback(err);
+
+    var stats = {};
+
+    docs.forEach(function(doc) {
+      stats[doc._id.statistic] = doc.value;
+    });
+
+    callback(null, stats);
+  });
+}
+
+/**
+ * Get analytics for a client.
+ *
+ * @param  {object}              client      The client to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getClientAnalytics = function(client, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.analytics)
+    return self.cachedCalls_.push([self.getClientAnalytics, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  self.collections_.analytics.find({ '_id.client': client._id }).toArray(function(err, docs) {
     if (err)
       return callback(err);
 
@@ -300,6 +362,7 @@ Analytics.prototype.getCampaignCountryData = function(campaign, callback) {
   if (!self.collections_.hostLocationStats)
     return self.cachedCalls_.push([self.getCampaignCountryData, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
@@ -321,6 +384,7 @@ Analytics.prototype.getClientCountryData = function(client, callback) {
   if (!self.collections_.hostLocationStats)
     return self.cachedCalls_.push([self.getClientCountryData, Object.values(arguments)]);
 
+  client = normalizeClient(client);
   if (!client || !client._id)
     return callback(new Error('Valid client required'));
 

@@ -195,6 +195,20 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.unavailableCount);
   work.push(HostsCrunchers.deferredCount);
 
+  work.push(HostsCrunchers.topTenLinkHostsClient);
+  work.push(HostsCrunchers.topTenInfringementHostsClient);
+  work.push(HostsCrunchers.topTenLinkCountriesClient);
+  work.push(HostsCrunchers.topTenInfringementCountriesClient);
+  work.push(HostsCrunchers.linksCountClient);
+  work.push(HostsCrunchers.infringementsCountClient);
+  work.push(HostsCrunchers.falsePositiveCountClient);
+  work.push(HostsCrunchers.unverifiedCountClient);
+  work.push(HostsCrunchers.unverifiedEndpointCountClient);
+  work.push(HostsCrunchers.noticedCountClient);
+  work.push(HostsCrunchers.takenDownCountClient);
+  work.push(HostsCrunchers.unavailableCountClient);
+  work.push(HostsCrunchers.deferredCountClient);
+
   return work;
 }
 
