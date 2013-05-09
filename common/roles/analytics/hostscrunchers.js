@@ -40,6 +40,7 @@ var stateData = [
 var categoryData = [
     { name: 'nWebsites', category: Category.WEBSITE }
   , { name: 'nSearchResults', category: Category.SEARCH_RESULT }
+  , { name: 'nCyberlockers', category: Category.CYBERLOCKER }
   , { name: 'nFiles', category: Category.FILE }
   , { name: 'nTorrents', category: Category.TORRENT }
   , { name: 'nSocial', category: Category.SOCIAL}
