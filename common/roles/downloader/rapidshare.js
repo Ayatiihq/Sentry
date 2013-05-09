@@ -71,11 +71,10 @@ Rapidshare.prototype.fetchDirectDownload = function(uri, pathToUse, done){
 
 Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
   var self = this;
-  var promise = new Promise.Promise();
   var uriInstance = null;
   uriInstance = self.createURI(infringement.uri);
 
-  logger.info('check availability for + ' + uriInstance.segment(1) + ' & filename : ' + uriInstance.segment(2));
+  logger.info('check getDownloadLink for + ' + uriInstance.segment(1) + ' & filename : ' + uriInstance.segment(2));
   var downloadQuery = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=download" +
                       "&fileid=" + 
                       uriInstance.segment(1) + 
@@ -91,15 +90,18 @@ Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
         function(err, resp, body){
           if(err){
             logger.error('unable to request downloadQuery ' + err);
-            promise.reject(err);
+            done(err);
+            return;
+          }
+          if(body.match(/ERROR:/)){
+            done();
             return;
           }
           results = body.split(',');
           logger.info(JSON.stringify(results));
-          promise.resolve(false);
+          done();
         }
       );
-  return promise;
 }
 
 Rapidshare.prototype.checkAvailability = function(uri){
@@ -166,12 +168,7 @@ Rapidshare.prototype.download = function(infringement, pathToUse, done){
   self.checkAvailability(infringement.uri).then(function(available){
     logger.info('Is the file available ' + available);
     if(available){
-      self.getDownloadLink(infringement, pathToUse, done).then(function(){
-        done();
-      },
-      function(err){
-        done(err);
-      });
+      self.getDownloadLink(infringement, pathToUse, done);
     }
     else{
       logger.info('file is not available or its blocked');
