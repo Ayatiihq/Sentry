@@ -109,10 +109,9 @@ Mediafire.prototype.checkAvailability = function(infringement){
 Mediafire.prototype.determineFileID = function(uriInstance){
   var fileID = null;
   fileID = uriInstance.query();
-  if(fileID) //&& fileID.length === 11)
+  if(fileID) 
     return fileID;
   fileID = uriInstance.segment(1)
-  //if(fileID && fileID.length === 11)
   return fileID;
 }
 
