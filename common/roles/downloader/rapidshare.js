@@ -98,6 +98,11 @@ Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
             done();
             return;
           }
+          /*
+          The only example I could see was when the API returned a different host to query the direct download 
+          from. According to the scant docs there is a chance a direct download will result from the download query.
+          TODO watch for it and accomodate.
+          */
           var results = body.split(',');
           var hostDL = results[0].split(':');
           if(hostDL.length !== 2){
@@ -147,7 +152,7 @@ Rapidshare.prototype.checkFiles = function(fileID, filename){
                     filename + 
                     "&files=" +
                     fileID;
-  logger.info('query string for checkfiles : ' + checkFiles);
+  //logger.info('query string for checkfiles : ' + checkFiles);
   request({uri: checkFiles, json:true},
         function(err, resp, body){
           if(err){
