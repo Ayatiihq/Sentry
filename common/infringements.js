@@ -515,6 +515,10 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
     query.category = options.category;
   }
 
+  if (options.mimetypes) {
+   query.mimetypes = { $in: options.mimetypes };
+  }
+
   self.infringements_.find(query, opts).toArray(callback); 
 }
 
@@ -553,6 +557,10 @@ Infringements.prototype.getForClient = function(client, options, callback)
     query.category = options.category;
   }
 
+  if (options.mimetypes) {
+   query.mimetypes = { $in: options.mimetypes };
+  }
+
   self.infringements_.find(query, opts).toArray(callback); 
 }
 
@@ -581,6 +589,10 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
   
   if (options.category > -1) {
     query.category = options.category;
+  }
+
+  if (options.mimetypes) {
+   query.mimetypes = { $in: options.mimetypes };
   }
 
   self.infringements_.find(query).count(callback);
@@ -612,6 +624,10 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
   if (options.category > -1) {
     query.category = options.category;
   }
+
+ if (options.mimetypes) {
+    query.mimetypes = { $in: options.mimetypes };
+ }
 
   self.infringements_.find(query).count(callback);
 }
