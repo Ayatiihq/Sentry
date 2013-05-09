@@ -45,9 +45,9 @@ Mediafire.prototype.authenticateWeb = function(){
   self.remoteClient.manage().timeouts().implicitlyWait(30000);
   self.remoteClient.get('https://www.mediafire.com/ssl_login.php?type=login');
   self.remoteClient.findElement(webdriver.By.css('#login_email'))
-    .sendKeys('conor@ayatii.com');
+    .sendKeys(self.credentials.user);
   self.remoteClient.findElement(webdriver.By.css('#login_pass'))
-    .sendKeys('3HFTB47i');
+    .sendKeys(self.credentials.password);
   return self.remoteClient.findElement(webdriver.By.css('#submit_login')).click();
 }
 
