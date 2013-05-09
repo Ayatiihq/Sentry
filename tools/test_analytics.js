@@ -51,8 +51,20 @@ function main() {
   if (action === 'getCampaignAnalytics')
     analytics.getCampaignAnalytics(require(arg0), log);
 
+  if (action === 'getClientAnalytics')
+    analytics.getClientAnalytics(require(arg0), log);
+
   if (action === 'getCampaignCountryData')
     analytics.getCampaignCountryData(require(arg0), log);
+
+  if (action === 'getClientCountryData')
+    analytics.getClientCountryData(require(arg0), log);
+
+  if (action === 'getClientWorkTimeSeries')
+    analytics.getClientWorkTimeSeries(require(arg0), log);
+
+  if (action === 'getCampaignWorkTimeSeries')
+    analytics.getCampaignWorkTimeSeries(require(arg0), log);
 }
 
 main()

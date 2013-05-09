@@ -41,7 +41,7 @@ var Analytics = module.exports = function() {
 Analytics.prototype.init = function() {
   var self = this;
 
-  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats'];
+  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -73,6 +73,32 @@ function defaultCallback(err) {
     logger.warn('Reply Error: %s', err);
 }
 
+function normalizeCampaign(campaign) {
+  if (Object.isString(campaign) && client.startsWith('{')) {
+    // It's the _id of the campaign stringified
+    return JSON.parse(campaign);
+  } else if (campaign._id) {
+    // It's an entire campaign row
+    return campaign;
+  } else {
+    // It's just the _id object
+    return { _id: campaign };
+  }
+}
+
+function normalizeClient(client) {
+  if (Object.isString(client) && client.startsWith('{')) {
+    // It's the _id of the client stringified
+    return JSON.parse(client);
+  } else if (client._id) {
+    // It's an entire client row
+    return client;
+  } else {
+    // It's just the _id object
+    return { _id: client };
+  }
+}
+
 //
 // Public Methods
 //
@@ -88,7 +114,10 @@ Analytics.prototype.getClientStats = function(client, callback) {
     , stats = {
       nInfringements: 0,
       nEndpoints: 0,
-      nNotices: 0
+      nNotices: 0,
+      nTotal: 0,
+      nNeedsProcessing: 0,
+      nNeedsDownload: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -98,13 +127,14 @@ Analytics.prototype.getClientStats = function(client, callback) {
   if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getClientStats, Object.values(arguments)]);
 
+  client = normalizeClient(client);
   if (!client || !client._id)
     return callback(new Error('Valid client required'));
 
   Seq()
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -132,6 +162,27 @@ Analytics.prototype.getClientStats = function(client, callback) {
         that(err);
       });
     })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+        stats.nTotal = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
+        stats.nNeedsProcessing = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
+        stats.nNeedsDownload = count ? count : 0;
+        that(err);
+      });
+    })
     .seq(function() {
       callback(null, stats);
     })
@@ -153,7 +204,10 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
     , stats = {
       nInfringements: 0,
       nEndpoints: 0,
-      nNotices: 0
+      nNotices: 0,
+      nTotal: 0,
+      nNeedsProcessing: 0,
+      nNeedsDownload: 0
     }
     , iStates = states.infringements.state 
     ;
@@ -162,13 +216,14 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
   if (!self.collections_.infringements)
     return self.cachedCalls_.push([self.getCampaignStats, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
   Seq()
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign': campaign._id, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }).count(function(err, count) {
+      self.collections_.infringements.find({ 'campaign': campaign._id, 'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
@@ -196,6 +251,27 @@ Analytics.prototype.getCampaignStats = function(campaign, callback) {
         that(err);
       });
     })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': { $in: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+        stats.nTotal = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
+        stats.nNeedsProcessing = count ? count : 0;
+        that(err);
+      });
+    })
+    .par(function() {
+      var that = this;
+      self.collections_.infringements.find({ 'campaign' : campaign._id, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
+        stats.nNeedsDownload = count ? count : 0;
+        that(err);
+      });
+    })
     .seq(function() {
       callback(null, stats);
     })
@@ -220,10 +296,44 @@ Analytics.prototype.getCampaignAnalytics = function(campaign, callback) {
   if (!self.collections_.analytics)
     return self.cachedCalls_.push([self.getCampaignAnalytics, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
   self.collections_.analytics.find({ '_id.campaign': campaign._id }).toArray(function(err, docs) {
+    if (err)
+      return callback(err);
+
+    var stats = {};
+
+    docs.forEach(function(doc) {
+      stats[doc._id.statistic] = doc.value;
+    });
+
+    callback(null, stats);
+  });
+}
+
+/**
+ * Get analytics for a client.
+ *
+ * @param  {object}              client      The client to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getClientAnalytics = function(client, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.analytics)
+    return self.cachedCalls_.push([self.getClientAnalytics, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  self.collections_.analytics.find({ '_id.client': client._id }).toArray(function(err, docs) {
     if (err)
       return callback(err);
 
@@ -249,11 +359,72 @@ Analytics.prototype.getCampaignCountryData = function(campaign, callback) {
 
   callback = callback ? callback : defaultCallback;
 
-  if (!self.collections_.analytics)
+  if (!self.collections_.hostLocationStats)
     return self.cachedCalls_.push([self.getCampaignCountryData, Object.values(arguments)]);
 
+  campaign = normalizeCampaign(campaign);
   if (!campaign || !campaign._id)
     return callback(new Error('Valid campaign required'));
 
   self.collections_.hostLocationStats.find({ '_id.campaign': campaign._id, '_id.regionName': { $exists: false } }).toArray(callback);
+}
+
+/**
+ * Get country data for a client.
+ *
+ * @param  {object}              campaign      The campaign to find stats for.
+ * @param  {function(err,stats)} callback      The callback to consume the stats, or an error.
+ * @return {undefined}
+ */
+Analytics.prototype.getClientCountryData = function(client, callback) {
+  var self = this;
+
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.hostLocationStats)
+    return self.cachedCalls_.push([self.getClientCountryData, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  self.collections_.hostLocationStats.find({ '_id.client': client._id, '_id.regionName': { $exists: false } }).toArray(callback);
+}
+
+/**
+ * Get work done timeseries for client
+ */
+Analytics.prototype.getClientWorkTimeSeries = function(client, callback) {
+  var self = this;
+  
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.linkStats)
+    return self.cachedCalls_.push([self.getClientWorkTimeSeries, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+  if (!client || !client._id)
+    return callback(new Error('Valid client required'));
+
+  var query = { '_id.client': client._id, '_id.timestamp': { $exists: true }, '_id.category': { $exists: false } };
+  self.collections_.linkStats.find(query).sort({ '_id.timestamp': -1 }).limit(6).toArray(callback);
+}
+
+/**
+ * Get work done timeseries for client
+ */
+Analytics.prototype.getCampaignWorkTimeSeries = function(campaign, callback) {
+  var self = this;
+  
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.collections_.linkStats)
+    return self.cachedCalls_.push([self.getCampaignWorkTimeSeries, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+  if (!campaign || !campaign._id)
+    return callback(new Error('Valid campaign required'));
+
+  var query = { '_id.campaign': campaign._id, '_id.timestamp': { $exists: true }, '_id.category': { $exists: false } };
+  self.collections_.linkStats.find(query).sort({ '_id.timestamp': -1 }).limit(6).toArray(callback);
 }

@@ -81,6 +81,17 @@ function normalizeCampaign(campaign) {
   }
 }
 
+function normalizeClient(client) {
+ if (client._id) {
+    // It's an entire client row
+    return client._id;
+  } else {
+    // It's just the _id object
+    return client;
+  }
+}
+
+
 //
 // Public Methods
 //
@@ -165,6 +176,48 @@ Verifications.prototype.pop = function(campaign, callback) {
 
   var query = {
     campaign: campaign,
+    category: {
+      $in: [Categories.WEBSITE, Categories.SOCIAL]
+    },
+    state: states.infringements.state.UNVERIFIED,
+    'children.count': 0,
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [['category', 1 ], ['created', 1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
+}
+
+/**
+ * Pop a infringement off the queue for verification.
+ *
+ * @param  {object}                       campaign    The campaign to find an infringement for to verify.
+ * @param  {function(err,infringement)}   callback    A callback to receive the infringment, or null;
+ * @return {undefined}
+ */
+Verifications.prototype.popClient = function(client, callback) {
+  var self = this
+    , then = Date.create('30 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+
+  var query = {
+    'campaign.client': client,
     category: {
       $in: [Categories.WEBSITE, Categories.SOCIAL]
     },

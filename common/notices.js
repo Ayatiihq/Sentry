@@ -79,6 +79,17 @@ function normalizeCampaign(campaign) {
   }
 }
 
+
+function normalizeClient(campaign) {
+ if (campaign._id) {
+    // It's an entire campaign row
+    return campaign._id;
+  } else {
+    // It's just the _id object
+    return campaign;
+  }
+}
+
 //
 // Public Methods
 //
@@ -252,7 +263,7 @@ Notices.prototype.setTakenDown = function(notice, callback) {
  * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
  * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
 */
-Notices.prototype.getForCampaign = function(campaign, skip, limit, callback)
+Notices.prototype.getForCampaign = function(campaign, options, callback)
 {
   var self = this;
 
@@ -266,8 +277,8 @@ Notices.prototype.getForCampaign = function(campaign, skip, limit, callback)
   };
 
   var options = { 
-    skip: skip, 
-    limit: limit,
+    skip: options.skip, 
+    limit: options.limit,
     sort: { created: -1 }
   };
 
@@ -280,7 +291,7 @@ Notices.prototype.getForCampaign = function(campaign, skip, limit, callback)
  * @param {object}                 campaign         The campaign which we want unverified links for
  * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
  */
-Notices.prototype.getCountForCampaign = function(campaign, callback)
+Notices.prototype.getCountForCampaign = function(campaign, options, callback)
 {
   var self = this;
 
@@ -291,6 +302,58 @@ Notices.prototype.getCountForCampaign = function(campaign, callback)
 
   var query = {
     campaign: campaign
+  };
+
+  self.notices_.find(query).count(callback);
+}
+
+/**
+ * Get notices for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {number}                skip             The number of documents to skip, for pagenation.
+ * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+*/
+Notices.prototype.getForClient = function(client, options, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getForClient, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+
+  var query = {
+    'campaign.client': client
+  };
+
+  var options = { 
+    skip: options.skip, 
+    limit: options.limit,
+    sort: { created: -1 }
+  };
+
+  self.notices_.find(query, options).toArray(callback); 
+}
+
+/**
+ * Get notices count for a campaign at the specified points.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+ */
+Notices.prototype.getCountForClient = function(client, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getCountForClient, Object.values(arguments)]);
+
+  client = normalizeClient(client);
+
+  var query = {
+    'campaign.client': client
   };
 
   self.notices_.find(query).count(callback);

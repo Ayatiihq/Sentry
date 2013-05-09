@@ -26,6 +26,7 @@ var Campaigns = acquire('campaigns')
 var HostsCrunchers = require('./hostscrunchers')
   , HostsInfo = require('./hostsinfo')
   , HostsMR = require('./hostsmr')
+  , LinkMR = require('./linkmr')
   ;
 
 var Analytics = module.exports = function() {
@@ -79,7 +80,32 @@ Analytics.prototype.processJob = function(err, job) {
 
   self.jobs_.start(job);
 
-  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats'];
+  Seq()
+    .seq(function() {
+      self.preRun(job, this);
+    })
+    .seq(function() {
+      self.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running analytics');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process job %j: %s', job, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Analytics.prototype.preRun = function(job, done) {
+  var self = this;
+
+  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -100,24 +126,15 @@ Analytics.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.runAnalytics(this);
-    })
-    .seq(function() {
-      logger.info('Finished running analytics');
-      self.jobs_.complete(job);
-      clearInterval(self.touchId_);
-      self.emit('finished');
+      done();
     })
     .catch(function(err) {
-      logger.warn('Unable to process job %j: %s', job, err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
-      clearInterval(self.touchId_);
-      self.emit('error', err);
+      done(err);
     })
     ;
 }
 
-Analytics.prototype.runAnalytics = function(done) {
+Analytics.prototype.run = function(done) {
   var self = this;
 
   Seq(self.loadWork())
@@ -157,21 +174,65 @@ Analytics.prototype.loadWork = function() {
   
   work.push(HostsMR.hostBasicStats);
   work.push(HostsMR.hostLocationStats);
-  
+  work.push(HostsMR.hostClientBasicStats);
+  work.push(HostsMR.hostClientLocationStats);
+
+  work.push(LinkMR.preRun);
+  work.push(LinkMR.linkStats);
+  work.push(LinkMR.linkStatsClient);
+
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenInfringementCountries);
+  work.push(HostsCrunchers.topTenInfringementCyberlockers);
+  
   work.push(HostsCrunchers.linksCount);
-  work.push(HostsCrunchers.infringementsCount);
-  work.push(HostsCrunchers.falsePositiveCount);
-  work.push(HostsCrunchers.unverifiedCount);
-  work.push(HostsCrunchers.unverifiedEndpointCount);
-  work.push(HostsCrunchers.noticedCount);
-  work.push(HostsCrunchers.takenDownCount);
-  work.push(HostsCrunchers.unavailableCount);
-  work.push(HostsCrunchers.deferredCount);
+  
+  work.push(HostsCrunchers.nNeedsProcessing);
+  work.push(HostsCrunchers.nUnverified);
+  work.push(HostsCrunchers.nVerified);
+  work.push(HostsCrunchers.nFalsePositive);
+  work.push(HostsCrunchers.nSentNotice);
+  work.push(HostsCrunchers.nTakenDown);
+  work.push(HostsCrunchers.nNeedsScrape);
+  work.push(HostsCrunchers.nDeferred);
+  work.push(HostsCrunchers.nUnavailable);
+  work.push(HostsCrunchers.nNeedsDownload);
+
+  work.push(HostsCrunchers.nWebsites);
+  work.push(HostsCrunchers.nSearchResults);
+  work.push(HostsCrunchers.nCyberlockers);
+  work.push(HostsCrunchers.nFiles);
+  work.push(HostsCrunchers.nTorrents);
+  work.push(HostsCrunchers.nSocial);
+
+  work.push(HostsCrunchers.topTenLinkHostsClient);
+  work.push(HostsCrunchers.topTenInfringementHostsClient);
+  work.push(HostsCrunchers.topTenLinkCountriesClient);
+  work.push(HostsCrunchers.topTenInfringementCountriesClient);
+  work.push(HostsCrunchers.topTenInfringementCyberlockersClient);
+  
+  work.push(HostsCrunchers.linksCountClient);
+  
+  work.push(HostsCrunchers.nNeedsProcessingClient);
+  work.push(HostsCrunchers.nUnverifiedClient);
+  work.push(HostsCrunchers.nVerifiedClient);
+  work.push(HostsCrunchers.nFalsePositiveClient);
+  work.push(HostsCrunchers.nSentNoticeClient);
+  work.push(HostsCrunchers.nTakenDownClient);
+  work.push(HostsCrunchers.nNeedsScrapeClient);
+  work.push(HostsCrunchers.nDeferredClient);
+  work.push(HostsCrunchers.nUnavailableClient);
+  work.push(HostsCrunchers.nNeedsDownloadClient);
+
+  work.push(HostsCrunchers.nWebsitesClient);
+  work.push(HostsCrunchers.nSearchResultsClient);
+  work.push(HostsCrunchers.nCyberlockersClient);
+  work.push(HostsCrunchers.nFilesClient);
+  work.push(HostsCrunchers.nTorrentsClient);
+  work.push(HostsCrunchers.nSocialClient);
 
   return work;
 }
@@ -198,4 +259,24 @@ Analytics.prototype.end = function() {
   self.started_ = false;
 
   self.emit('ended');
+}
+
+if (process.argv[1] && process.argv[1].endsWith('.js')) {
+  var analytics = new Analytics();
+  analytics.started_ = Date.now();
+
+   Seq()
+    .seq(function() {
+      analytics.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+    })
+    .seq(function() {
+      analytics.run(this);
+    })
+    .seq(function() {
+      logger.info('Finished running Analytics');
+    })
+    .catch(function(err) {
+      logger.warn(err);
+    })
+    ;
 }
