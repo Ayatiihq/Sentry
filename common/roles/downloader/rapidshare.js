@@ -132,29 +132,35 @@ Rapidshare.prototype.checkAvailability = function(uri){
   }
   var fileID;
   fileID = self.determineFileID(uriInstance);
-  return self.checkFiles(fileID);
+  return self.checkFiles(fileID, uriInstance.segment(2));
 }
 
-Rapidshare.prototype.checkFiles = function(fileID){
+Rapidshare.prototype.checkFiles = function(fileID, filename){
   var self = this;
   var promise = new Promise.Promise();
-  var checkFiles = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=checkfiles&login=" +
+  logger.info('check availability for + ' + fileID + ' & filename : ' + filename);
+  var checkFiles = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=checkfiles" +
+                    "&login=" +
                     self.credentials.user +
                     "&password=" +
-                    self.credentials.password + 
-                    "files=" +
+                    self.credentials.password +
+                    "&filenames=" + 
+                    filename + 
+                    "&files=" +
                     fileID;
+  logger.info('query string for checkfiles : ' + checkFiles);
   request({uri: checkFiles, json:true},
-          function(err, resp, body){
-            if(err){
-              logger.error('unable to request checkfiles ' + err);
-              promise.reject(err);
-              return;
-            }
-            logger.info('body  = ' + JSON.stringify(body));
-            promise.resolve(false);
+        function(err, resp, body){
+          if(err){
+            logger.error('unable to request checkfiles ' + err);
+            promise.reject(err);
+            return;
           }
-        );
+          //logger.info('resp  = ' + JSON.stringify(resp));
+          logger.info('body  = ' + JSON.stringify(body));
+          promise.resolve(false);
+        }
+      );
   return promise;
 }
 
