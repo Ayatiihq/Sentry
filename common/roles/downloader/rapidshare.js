@@ -26,13 +26,9 @@ var Rapidshare = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.credentials = {user: 'conor@ayatii.com',
+                      userID: '46663346',
                       password: 'ayatiian'};
 };
-
-
-Rapidshare.prototype.authenticateWeb = function(){
-  var self = this;
-}
 
 Rapidshare.prototype.createURI = function(uri){
   var result = null;
@@ -44,53 +40,6 @@ Rapidshare.prototype.createURI = function(uri){
   }
   return result;
 }
-
-
-
-Rapidshare.prototype.investigate = function(infringement){
-  var self = this;
-  var promise = new Promise.Promise();
-  var uriInstance = self.createURI(infringement.uri);
-  
-  if(!uriInstance){
-    promise.reject(new Error('cant create a URI instance')); 
-    return promise;
-  }
-
-  var fileID = self.determineFileID(uriInstance);
-
-  if(!fileID){
-    promise.reject(new Error('cant determine the file id')); // promise or done or whatever
-    return promise;
-  }
-
-  logger.info('investigate Rapidshare file with ID : ' + fileID);
-  var fileInfoRequest = "http://www.Rapidshare.com/api/file/get_info.php?session_token=" + self.credentials.authToken +
-                        "&quick_key=" + fileID + "&response_format=json&version=1"
-
-  request({uri: fileInfoRequest, json:true},
-          function(err, resp, body){
-            if(err){
-              logger.error('unable to request file info from Rapidshare ' + err);
-              promise.reject(err);
-              return;
-            }
-            var available; 
-            if(body.response && body.response.result === 'Error' && 
-              body.response.message === 'Unknown or Invalid QuickKey'){
-              logger.info("Couldn't find : " + infringement.uri);              
-              available = false;
-            }
-            else if(body.response && body.response.result === 'Success'){
-              infringement.fileID = body.response.file_info.quickkey;
-              logger.info('File present .... investigate further');
-              available = true;
-            }
-            promise.resolve(available);
-          });
-  return promise;
-}
-
 
 Rapidshare.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   var self = this;
@@ -120,6 +69,39 @@ Rapidshare.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   });
 }
 
+Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
+  var self = this;
+  var promise = new Promise.Promise();
+  var uriInstance = null;
+  uriInstance = self.createURI(infringement.uri);
+
+  logger.info('check availability for + ' + uriInstance.segment(1) + ' & filename : ' + uriInstance.segment(2));
+  var downloadQuery = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=download" +
+                      "&fileid=" + 
+                      uriInstance.segment(1) + 
+                      "&filename=" +
+                      uriInstance.segment(2) +
+                      "&login=" +
+                      self.credentials.userID +
+                      "&password=" +
+                      self.credentials.password;
+
+  logger.info('query string for download : ' + downloadQuery);
+  request({uri: downloadQuery, json:true},
+        function(err, resp, body){
+          if(err){
+            logger.error('unable to request downloadQuery ' + err);
+            promise.reject(err);
+            return;
+          }
+          results = body.split(',');
+          logger.info(JSON.stringify(results));
+          promise.resolve(false);
+        }
+      );
+  return promise;
+}
+
 Rapidshare.prototype.checkAvailability = function(uri){
   var self = this;
   var uriInstance = null;
@@ -130,9 +112,7 @@ Rapidshare.prototype.checkAvailability = function(uri){
     p.resolve(false);
     return p;
   }
-  var fileID;
-  fileID = self.determineFileID(uriInstance);
-  return self.checkFiles(fileID, uriInstance.segment(2));
+  return self.checkFiles(uriInstance.segment(1), uriInstance.segment(2));
 }
 
 Rapidshare.prototype.checkFiles = function(fileID, filename){
@@ -156,19 +136,27 @@ Rapidshare.prototype.checkFiles = function(fileID, filename){
             promise.reject(err);
             return;
           }
-          //logger.info('resp  = ' + JSON.stringify(resp));
-          logger.info('body  = ' + JSON.stringify(body));
-          promise.resolve(false);
+          results = body.split(',');
+          //logger.info(JSON.stringify(results));
+          if(parseInt(results[4]) === 0){
+            logger.info('File is not available');
+            promise.resolve(false);
+          }
+          else if(parseInt(results[4]) === 4){
+            logger.info('File is illegal');
+            promise.resolve(false);
+          }
+          else if(parseInt(results[4]) === 1){
+            logger.info('File is available !');
+            promise.resolve(true);
+          }
+          else{
+            logger.warn("don't know what this is");
+            promise.resolve(false);            
+          }
         }
       );
   return promise;
-}
-
-Rapidshare.prototype.determineFileID = function(uriInstance){
-  var fileID = null;
-  fileID = uriInstance.segment(1);
-  logger.info('fileID : ' + fileID);
-  return fileID;
 }
 
 // Public API
@@ -177,7 +165,18 @@ Rapidshare.prototype.download = function(infringement, pathToUse, done){
 
   self.checkAvailability(infringement.uri).then(function(available){
     logger.info('Is the file available ' + available);
-    done();
+    if(available){
+      self.getDownloadLink(infringement, pathToUse, done).then(function(){
+        done();
+      },
+      function(err){
+        done(err);
+      });
+    }
+    else{
+      logger.info('file is not available or its blocked');
+      done();
+    }
   },  
   function(err){
     done(err);
