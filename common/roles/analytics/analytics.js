@@ -261,7 +261,7 @@ Analytics.prototype.end = function() {
   self.emit('ended');
 }
 
-if (process.argv[1] && process.argv[1].endsWith('.js')) {
+if (process.argv[1] && process.argv[1].endsWith('analytics.js')) {
   var analytics = new Analytics();
   analytics.started_ = Date.now();
 
