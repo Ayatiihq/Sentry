@@ -123,8 +123,6 @@ Rapidshare.prototype.fetchDirectDownload = function(uri, pathToUse, done){
 Rapidshare.prototype.checkAvailability = function(uri){
   var self = this;
   var uriInstance = null;
-  var fileID;
-  fileID = self.determineFileID(uri);
   uriInstance = self.createURI(uri);
   if(!uriInstance){
     logger.warn('fetchDirectDownload - Unable to create valid URI instance - ' + uri);
@@ -132,16 +130,18 @@ Rapidshare.prototype.checkAvailability = function(uri){
     p.resolve(false);
     return p;
   }
-  return self.checkfiles(fileID);
+  var fileID;
+  fileID = self.determineFileID(uriInstance);
+  return self.checkFiles(fileID);
 }
 
 Rapidshare.prototype.checkFiles = function(fileID){
   var self = this;
   var promise = new Promise.Promise();
   var checkFiles = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=checkfiles&login=" +
-                    self.creditionals.user +
+                    self.credentials.user +
                     "&password=" +
-                    self.creditionals.password + 
+                    self.credentials.password + 
                     "files=" +
                     fileID;
   request({uri: checkFiles, json:true},
@@ -152,7 +152,7 @@ Rapidshare.prototype.checkFiles = function(fileID){
               return;
             }
             logger.info('body  = ' + JSON.stringify(body));
-            promise.resolve();
+            promise.resolve(false);
           }
         );
   return promise;
@@ -160,7 +160,7 @@ Rapidshare.prototype.checkFiles = function(fileID){
 
 Rapidshare.prototype.determineFileID = function(uriInstance){
   var fileID = null;
-  fileID = uriInstance.segment(2);
+  fileID = uriInstance.segment(1);
   logger.info('fileID : ' + fileID);
   return fileID;
 }
@@ -171,14 +171,7 @@ Rapidshare.prototype.download = function(infringement, pathToUse, done){
 
   self.checkAvailability(infringement.uri).then(function(available){
     logger.info('Is the file available ' + available);
-      },
-      function(err){
-        logger.error('unable to login to Rapidshare')
-      });
-    }
-    else{
-      done();
-    }
+    done();
   },  
   function(err){
     done(err);
@@ -186,6 +179,7 @@ Rapidshare.prototype.download = function(infringement, pathToUse, done){
 }
 
 Rapidshare.prototype.finish = function(){
+  var self = this;
   if(self.remoteClient)
     remoteClient.quit();
 }
