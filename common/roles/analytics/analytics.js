@@ -164,7 +164,7 @@ Analytics.prototype.loadWork = function() {
   var self = this
     , work = []
     ;
-/*
+
   // Pre-MapReduce
   work.push(HostsInfo.serverInfo);
   work.push(HostsInfo.websiteInfo);
@@ -176,11 +176,11 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsMR.hostLocationStats);
   work.push(HostsMR.hostClientBasicStats);
   work.push(HostsMR.hostClientLocationStats);
-*/
+
   work.push(LinkMR.preRun);
   work.push(LinkMR.linkStats);
   work.push(LinkMR.linkStatsClient);
-  return work;
+
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenInfringementHosts);
@@ -203,6 +203,7 @@ Analytics.prototype.loadWork = function() {
 
   work.push(HostsCrunchers.nWebsites);
   work.push(HostsCrunchers.nSearchResults);
+  work.push(HostsCrunchers.nCyberlockers);
   work.push(HostsCrunchers.nFiles);
   work.push(HostsCrunchers.nTorrents);
   work.push(HostsCrunchers.nSocial);
@@ -228,6 +229,7 @@ Analytics.prototype.loadWork = function() {
 
   work.push(HostsCrunchers.nWebsitesClient);
   work.push(HostsCrunchers.nSearchResultsClient);
+  work.push(HostsCrunchers.nCyberlockersClient);
   work.push(HostsCrunchers.nFilesClient);
   work.push(HostsCrunchers.nTorrentsClient);
   work.push(HostsCrunchers.nSocialClient);

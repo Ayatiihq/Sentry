@@ -46,8 +46,6 @@ var categoryData = [
   , { name: 'nSocial', category: Category.SOCIAL}
 ];
 
-
-
 //
 // Build the interesting datasets so clients are faster
 //

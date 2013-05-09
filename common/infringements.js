@@ -73,13 +73,13 @@ function normalizeCampaign(campaign) {
   }
 }
 
-function normalizeClient(campaign) {
- if (campaign._id) {
-    // It's an entire campaign row
-    return campaign._id;
+function normalizeClient(client) {
+ if (client._id) {
+    // It's an entire client row
+    return client._id;
   } else {
     // It's just the _id object
-    return campaign;
+    return client;
   }
 }
 
