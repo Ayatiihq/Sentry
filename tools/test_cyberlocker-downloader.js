@@ -90,6 +90,8 @@ function fetchRegex(downloader){
       return /mediafire/g;
     case 'sharebeast.com':
       return /sharebeast/g;
+    case 'rapidshare.com':
+      return /rapidshare/g;
   }
   return null;
 }
@@ -106,7 +108,7 @@ function main() {
   }
   var campaign = parseObject(process.argv[2]);  
   // update with new cyberlockers as they we get to support 'em.
-  cyberlockerSupported = ['4shared.com', 'mediafire.com', 'sharebeast.com'].some(process.argv[3]);
+  cyberlockerSupported = ['rapidshare.com', '4shared.com', 'mediafire.com', 'sharebeast.com'].some(process.argv[3]);
   if(!cyberlockerSupported){
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
