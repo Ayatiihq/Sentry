@@ -74,7 +74,7 @@ Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
   var uriInstance = null;
   uriInstance = self.createURI(infringement.uri);
 
-  logger.info('check getDownloadLink for + ' + uriInstance.segment(1) + ' & filename : ' + uriInstance.segment(2));
+  //logger.info('check getDownloadLink for + ' + uriInstance.segment(1) + ' & filename : ' + uriInstance.segment(2));
   var downloadQuery = "https://api.rapidshare.com/cgi-bin/rsapi.cgi?sub=download" +
                       "&fileid=" + 
                       uriInstance.segment(1) + 
@@ -85,7 +85,7 @@ Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
                       "&password=" +
                       self.credentials.password;
 
-  logger.info('query string for download : ' + downloadQuery);
+  //logger.info('query string for download : ' + downloadQuery);
   request({uri: downloadQuery, json:true},
         function(err, resp, body){
           if(err){
@@ -94,12 +94,29 @@ Rapidshare.prototype.getDownloadLink = function(infringement, pathToUse, done){
             return;
           }
           if(body.match(/ERROR:/)){
+            logger.info("File is there but rapidshare won't serve it up, more than likely permissions have been set to disable download");
             done();
             return;
           }
-          results = body.split(',');
-          logger.info(JSON.stringify(results));
-          done();
+          var results = body.split(',');
+          var hostDL = results[0].split(':');
+          if(hostDL.length !== 2){
+            logger.warn('Unable to figure out host to download from - investigate ' + results);
+            done();
+            return;
+          }
+          logger.info('Download host : ' + hostDL[1]);
+          var directDownloadQuery = "https://" + hostDL[1] +
+                                    "/cgi-bin/rsapi.cgi?sub=download" +
+                                    "&fileid=" + 
+                                    uriInstance.segment(1) + 
+                                    "&filename=" +
+                                    uriInstance.segment(2) +
+                                    "&login=" +
+                                    self.credentials.userID +
+                                    "&password=" +
+                                    self.credentials.password;
+          self.fetchDirectDownload(directDownloadQuery, pathToUse, done);
         }
       );
 }
@@ -139,7 +156,6 @@ Rapidshare.prototype.checkFiles = function(fileID, filename){
             return;
           }
           results = body.split(',');
-          //logger.info(JSON.stringify(results));
           if(parseInt(results[4]) === 0){
             logger.info('File is not available');
             promise.resolve(false);
@@ -153,7 +169,7 @@ Rapidshare.prototype.checkFiles = function(fileID, filename){
             promise.resolve(true);
           }
           else{
-            logger.warn("don't know what this is");
+            logger.warn("don't know what this is, investigate : " + JSON.stringify(results));
             promise.resolve(false);            
           }
         }
@@ -166,7 +182,6 @@ Rapidshare.prototype.download = function(infringement, pathToUse, done){
   var self = this;
 
   self.checkAvailability(infringement.uri).then(function(available){
-    logger.info('Is the file available ' + available);
     if(available){
       self.getDownloadLink(infringement, pathToUse, done);
     }
