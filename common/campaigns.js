@@ -157,9 +157,7 @@ Campaigns.prototype.getDetails = function(id, callback) {
  * @return {undefined}
  */
 Campaigns.prototype.add = function(campaign, callback) {
-  var self = this
-    , now = Date.utc.create().getTime()
-    ;
+  var self = this;
   
   callback = callback ? callback : defaultCallback;
 
@@ -179,11 +177,11 @@ Campaigns.prototype.add = function(campaign, callback) {
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');
   campaign.avatar = ifUndefined(campaign.avatar, '');
-  campaign.created = now;
+  campaign.created = Date.now();
   campaign.sweep = ifUndefined(campaign.sweep, false);
   campaign.sweepFrom = ifUndefined(campaign.sweepFrom, now);
-  campaign.sweepTo = ifUndefined(campaign.sweepTo, Date.utc.create('two weeks from now').getTime());
-  campaign.sweepIntervalMinutes = ifUndefined(campaign.sweepIntervalMinutes, 180);
+  campaign.sweepTo = ifUndefined(campaign.sweepTo, Date.utc.create('four weeks from now').getTime());
+  campaign.sweepIntervalMinutes = ifUndefined(campaign.sweepIntervalMinutes, 60);
   campaign.names = ifUndefined(campaign.names, []);
   campaign.metadata = ifUndefined(campaign.metadata, {});
   campaign.scrapersEnabled = ifUndefined(campaign.scrapersEnabled, []);

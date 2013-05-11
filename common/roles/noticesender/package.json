@@ -3,5 +3,5 @@
   "main": "./noticesender.js",
   "dependencies": {
   },
-  "intervalMinutes": 5
+  "intervalMinutes": 300
 }

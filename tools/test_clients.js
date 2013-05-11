@@ -38,7 +38,7 @@ function main() {
   var clients = new Clients();
 
   if (argv[2] === 'add') {
-    var data = JSON.parse(argv[3]);
+    var data = require(argv[3])
     clients.add(data);
   }
 

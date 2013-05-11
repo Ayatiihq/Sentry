@@ -124,6 +124,12 @@ NoticeSender.prototype.processJob = function(err, job) {
 NoticeSender.prototype.getInfringements = function(done) {
   var self = this;
 
+  // If a client doesn't have the required information, we skip it
+  if (!self.client_.authorization || !self.client_.copyrightContact) {
+    logger.info('Client %s does not have the reuired information to process notices', self.client_.name);
+    return done();
+  }
+
   Seq()
     .seq(function() {
       self.notices_.getReadyForNotice(self.campaign_, this);
