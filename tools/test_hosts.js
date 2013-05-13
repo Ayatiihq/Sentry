@@ -41,6 +41,7 @@ function main() {
   var hosts = new Notices();
   var action = argv[2];
   var arg0 = argv[3];
+  var arg1 = argv[4];
 
   if (action === 'get')
     hosts.get(arg0, log);

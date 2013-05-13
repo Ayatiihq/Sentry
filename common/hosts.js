@@ -100,5 +100,5 @@ Hosts.prototype.add = function(host, callback)
 
   host.created = Date.now();
 
-  self.hosts_.insert(host, callback);
+  self.hosts_.update({ _id: host._id }, { $set: Object.reject(host, '_id') }, { upsert: true }, callback);
 }

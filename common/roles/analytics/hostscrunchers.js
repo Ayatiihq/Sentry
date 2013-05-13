@@ -50,6 +50,24 @@ var categoryData = [
 // Build the interesting datasets so clients are faster
 //
 
+HostsCrunchers.nTotalHosts = function(db, collections, campaign, done) {
+  var collection = collections.hostLocationStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('nTotalHosts: Running job');
+  
+  collection.find({ '_id.campaign': campaign._id, '_id.state': { $exists: false }})
+            .count(function(err, count) {
+
+    if (err)
+      return done('nTotalHosts: Error compiling host count: ' + err);
+    
+    var key = { campaign: campaign._id, statistic: 'nTotalHosts' };
+    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+  });
+}
+
 HostsCrunchers.topTenLinkHosts = function(db, collections, campaign, done) {
   var collection = collections.hostBasicStats
     , analytics = collections.analytics
@@ -172,6 +190,54 @@ HostsCrunchers.topTenInfringementCyberlockers = function(db, collections, campai
   });
 }
 
+HostsCrunchers.topTenLinkCyberlockers = function(db, collections, campaign, done) {
+  var collection = collections.hostBasicStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('topTenLinkCyberlockers: Running job');
+
+  // Compile the top ten hosts carrying INFRINGEMENTS
+  collection.find({ '_id.campaign': campaign._id })
+            .sort({ 'value.count': -1 })
+            .limit(150)
+            .toArray(function(err, docs) {
+
+    if (err)
+      return done('topTenLinkCyberlockers: Error compiling top ten infringement cyberlockers: ' + err);
+    
+    var key = { campaign: campaign._id, statistic: 'topTenLinkCyberlockers' };
+    var map = {};
+    var values = [];
+
+    docs.forEach(function(doc) {
+      var value = {};
+
+      if (Cyberlockers.indexOf(doc._id.host) < 0)
+        return;
+
+      if (map[doc._id.host])
+        map[doc._id.host].count += doc.value.count;
+      else
+        map[doc._id.host] = doc.value;
+    });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
+
+    analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+  });
+}
+
 HostsCrunchers.topTenLinkCountries = function(db, collections, campaign, done) {
   var collection = collections.hostLocationStats
     , analytics = collections.analytics
@@ -263,6 +329,24 @@ HostsCrunchers.linksCount = function(db, collections, campaign, done) {
   });
 }
 
+HostsCrunchers.nTotalCountries = function(db, collections, campaign, done) {
+  var collection = collections.hostLocationStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('nTotalCountries: Running job');
+  
+  collection.find({ '_id.campaign': campaign._id, '_id.regionName': { $exists: false }, '_id.cityName': { $exists: false }, '_id.state': { $exists: false } })
+            .count(function(err, count) {
+
+    if (err)
+      return done('nTotalCountries: Error compiling country count: ' + err);
+    
+    var key = { campaign: campaign._id, statistic: 'nTotalCountries' };
+    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+  });
+}
+
 stateData.forEach(function(data) {
   var name = data.name;
   var state = data.state;
@@ -309,6 +393,24 @@ categoryData.forEach(function(data) {
 //
 // Client
 //
+
+HostsCrunchers.nTotalHostsClient = function(db, collections, campaign, done) {
+  var collection = collections.hostLocationStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('nTotalHostsClient: Running job');
+  
+  collection.find({ '_id.client': campaign.client, '_id.state': { $exists: false }})
+            .count(function(err, count) {
+
+    if (err)
+      return done('nTotalHostsClient: Error compiling host count: ' + err);
+    
+    var key = { 'client': campaign.client, statistic: 'nTotalHosts' };
+    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+  });
+}
 
 HostsCrunchers.topTenLinkHostsClient = function(db, collections, campaign, done) {
   var collection = collections.hostBasicStats
@@ -433,6 +535,71 @@ HostsCrunchers.topTenInfringementCyberlockersClient = function(db, collections, 
   });
 }
 
+HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign, done) {
+  var collection = collections.hostBasicStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('topTenLinkCyberlockersClient: Running job');
+
+  // Compile the top ten hosts carrying INFRINGEMENTS
+  collection.find({ '_id.client': campaign.client })
+            .sort({ 'value.count': -1 })
+            .limit(150)
+            .toArray(function(err, docs) {
+
+    if (err)
+      return done('topTenLinkCyberlockersClient: Error compiling top ten infringement hosts: ' + err);
+    
+    var key = { 'client': campaign.client, statistic: 'topTenLinkCyberlockers' };
+    var map = {};
+    var values = [];
+
+    docs.forEach(function(doc) {
+      var value = {};
+
+      if (Cyberlockers.indexOf(doc._id.host) < 0)
+        return;
+
+      if (map[doc._id.host])
+        map[doc._id.host].count += doc.value.count;
+      else
+        map[doc._id.host] = doc.value;
+    });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
+
+    analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+  });
+}
+
+HostsCrunchers.nTotalCountriesClient = function(db, collections, campaign, done) {
+  var collection = collections.hostLocationStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('nTotalCountries: Running job');
+  
+  collection.find({ '_id.client': campaign.client, '_id.regionName': { $exists: false }, '_id.cityName': { $exists: false }, '_id.state': { $exists: false } })
+            .count(function(err, count) {
+
+    if (err)
+      return done('nTotalCountries: Error compiling top ten link countries: ' + err);
+    
+    var key = { 'client': campaign.client, statistic: 'nTotalCountries' };
+    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+  });
+}
 
 HostsCrunchers.topTenLinkCountriesClient = function(db, collections, campaign, done) {
   var collection = collections.hostLocationStats
@@ -447,7 +614,7 @@ HostsCrunchers.topTenLinkCountriesClient = function(db, collections, campaign, d
             .toArray(function(err, docs) {
 
     if (err)
-      return done('topTenLinkCountriesClient: Error compiling top ten link countries: ' + err);
+      return done('topTenLinkCountriesClient: Error compiling country count: ' + err);
     
     var key = { 'client': campaign.client, statistic: 'topTenLinkCountries' };
     var values = [];
