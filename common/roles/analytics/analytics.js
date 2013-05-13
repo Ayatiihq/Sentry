@@ -183,13 +183,16 @@ Analytics.prototype.loadWork = function() {
 
   // Post-MapReduce
   work.push(HostsCrunchers.topTenLinkHosts);
-  work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
+  work.push(HostsCrunchers.topTenLinkCyberlockers);
+  work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenInfringementCountries);
   work.push(HostsCrunchers.topTenInfringementCyberlockers);
   
   work.push(HostsCrunchers.linksCount);
-  
+  work.push(HostsCrunchers.nTotalCountries);
+  work.push(HostsCrunchers.nTotalHosts);
+
   work.push(HostsCrunchers.nNeedsProcessing);
   work.push(HostsCrunchers.nUnverified);
   work.push(HostsCrunchers.nVerified);
@@ -209,12 +212,15 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nSocial);
 
   work.push(HostsCrunchers.topTenLinkHostsClient);
-  work.push(HostsCrunchers.topTenInfringementHostsClient);
   work.push(HostsCrunchers.topTenLinkCountriesClient);
+  work.push(HostsCrunchers.topTenLinkCyberlockersClient);
+  work.push(HostsCrunchers.topTenInfringementHostsClient);
   work.push(HostsCrunchers.topTenInfringementCountriesClient);
   work.push(HostsCrunchers.topTenInfringementCyberlockersClient);
-  
+
   work.push(HostsCrunchers.linksCountClient);
+  work.push(HostsCrunchers.nTotalCountriesClient);
+  work.push(HostsCrunchers.nTotalHostsClient);
   
   work.push(HostsCrunchers.nNeedsProcessingClient);
   work.push(HostsCrunchers.nUnverifiedClient);
