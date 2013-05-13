@@ -30,7 +30,9 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-  '4shared'
+    '4shared'
+  , 'mediafire'
+  , 'sharebeast'
 ];
 
 var Downloader = module.exports = function() {
@@ -124,7 +126,7 @@ Downloader.prototype.preRun = function(job, done) {
       self.createInfringementMap(this);
     })
     .seq(function(workList) {
-      self.workList_ = workList;
+      self.workList_ = workList.randomize();
       this();
     })
     .seq(function() {
@@ -189,7 +191,7 @@ Downloader.prototype.createInfringementMap = function(done) {
 Downloader.prototype.run = function(done) {
   var self = this;
 
-  if (Date.create(self.started_).isBefore('75 minutes ago')) {
+  if (Date.create(self.started_).isBefore('30 minutes ago')) {
     logger.info('Running for too long, stopping');
     return done();
   }

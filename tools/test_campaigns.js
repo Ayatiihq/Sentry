@@ -47,7 +47,7 @@ function main() {
     campaigns.listCampaignsForClient(argv[3], log);
 
   if (action === 'add') {
-    var data = JSON.parse(argv[3]);
+    var data = require(argv[3]);
     campaigns.add(data, log);
   }
 
