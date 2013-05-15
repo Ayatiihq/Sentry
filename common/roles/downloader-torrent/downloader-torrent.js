@@ -9,6 +9,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')
   , events = require('events')
   , fs = require('fs')
   , logger = acquire('logger').forFile('downloader-torrent.js')
@@ -35,6 +36,7 @@ var DownloaderTorrent = module.exports = function() {
   this.campaigns_ = null;
   this.downloads_ = null;
   this.infringements_ = null;
+  this.infringementsCollection_ = null;
   this.jobs_ = null;
 
   this.started_ = 0;
@@ -56,6 +58,13 @@ DownloaderTorrent.prototype.init = function() {
   self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('downloader-torrent');
+
+  database.connectAndEnsureCollection('infringements', function(err, db, collection) {
+    if (err)
+      return logger.error(err);
+
+    self.infringementsCollection_ = collection;
+  });
 }
 
 DownloaderTorrent.prototype.processJob = function(err, job) {
@@ -123,16 +132,7 @@ DownloaderTorrent.prototype.preRun = function(job, done) {
       var that = this;
 
       logger.info('Creating download directory %s', self.downloadDir_);
-      fs.mkdir(self.downloadDir_, function(err) {
-        if (!err) {
-          return that();
-        } else if (err.code == 'EEXIST') {
-          logger.info('Using pre-existing download directory');
-          that();
-        } else {
-          that(err);
-        }
-      });
+      self.tryMakeDir(self.downloadDir_, this);
     })
     .seq(function() {
       done();
@@ -161,15 +161,92 @@ DownloaderTorrent.prototype.run = function(done) {
 }
 
 DownloaderTorrent.prototype.getTorrent = function() {
+  var self = this
+    , infringement = null
+    ;
 
+  Seq()
+    .seq(function() {
+      self.popInfringement(this);
+    })
+    .seq(function(infringement_) {
+      infringement = infringement_;
+      
+      infringement.downloadDir = path.join(self.downloadDir_, infringement._id);
+      self.tryMakeDir(infringement.downloadDir, this);
+    })
+    .seq(function() {
+      infringement.downloadStarted = Date.now();
+      self.torrentClient_.add(infringement);
+    })
+    .catch(function(err) {
+      logger.warn('Unable to prepare infringement to download: %s', err);
+    })
+    ;
 }
 
-DownloaderTorrent.prototype.torrentFinished = function() {
+DownloaderTorrent.prototype.popInfringement = function(callback) {
+  var self = this
+    , then = Date.create('30 minutes ago').getTime()
+    ;
 
+  var query = {
+    'campaign': self.campaign_._id,
+    scheme: 'torrent',
+    'children.count': 0,
+    popped: {
+      $lt: then
+    },
+    'metadata.processedBy': {
+      $ne: 'downloader-torrent'
+    }
+  };
+
+  var sort = [['created', 1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  self.infringementsCollection_.findAndModify(query, sort, updates, options, callback);
 }
 
-DownloaderTorrent.prototype.torrentErrored = function() {
+DownloaderTorrent.prototype.torrentFinished = function(infringement) {
+  var self = this;
 
+  logger.info('Infringement %s has finished downloading, registering new files', infringement._id);
+
+  Seq()
+    .seq(function() {
+      self.downloads_.addLocalDirectory(infringement,
+                                        infringement.downloadDir,
+                                        infringement.downloadStarted,
+                                        Date.now(),
+                                        this);
+    })
+    .seq(function() {
+      rimraf(infringement.downloadDir, this.ok);
+    })
+    .seq(function() {
+      self.infringements_.processedBy(infringement, 'downloader-torrent', this);
+    })
+    .catch(function(err) {
+      logger.warn('Unable to register downloads for %s (%s): %s', infringement._id, infringement.uri, err);
+      // FIXME: Register this shiznit somewhere
+    })
+    ;
+}
+
+DownloaderTorrent.prototype.torrentErrored = function(err, infringement) {
+  var self = this;
+
+  logger.warn('Unable to download %s (%s): %s', infringement._id, infringement.uri, err);
+
+  // FIXME: We should record this somewhere
 }
 
 DownloaderTorrent.prototype.clientFinished = function() {
@@ -180,6 +257,19 @@ DownloaderTorrent.prototype.clientFinished = function() {
 DownloaderTorrent.prototype.clientErrored = function(err) {
   var self = this;
   self.runDone_(err);
+}
+
+DownloaderTorrent.prototype.tryMakeDir = function(name, done) {
+  fs.mkdir(name, function(err) {
+    if (!err) {
+      return done();
+    } else if (err.code == 'EEXIST') {
+      logger.info('Using pre-existing download directory');
+      done();
+    } else {
+      done(err);
+    }
+  });
 }
 
 //
