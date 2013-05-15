@@ -105,6 +105,9 @@ StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, role, jobs
       return false;
 
     case states.STARTED:
+      if (role.longRunning)
+        return false;
+
       var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
       if (tooLong)
         jobs.close(lastJob, states.ERRORED, new Error('Timed out'));

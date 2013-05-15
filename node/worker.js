@@ -97,11 +97,13 @@ Worker.prototype.setRole = function(rolename) {
   
   self.role_.start();
 
-  setTimeout(function() {
-    logger.warn('Role took too long to run, reaping.')
-    process.exit(1);
-  },
-  self.role_.killTimeout ? self.role_.killTimeout * 60 * 1000 : 1000 * 60 * 90);
+  if (!self.role_.longRunning) {
+    setTimeout(function() {
+      logger.warn('Role took too long to run, reaping.')
+      process.exit(1);
+    },
+    self.role_.killTimeout ? self.role_.killTimeout * 60 * 1000 : 1000 * 60 * 90);
+  }
 }
 
 Worker.prototype.startExit = function() {
