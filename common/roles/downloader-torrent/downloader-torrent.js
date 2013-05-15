@@ -176,6 +176,11 @@ DownloaderTorrent.prototype.getTorrent = function() {
       self.tryMakeDir(infringement.downloadDir, this);
     })
     .seq(function() {
+      // Hold onto the lock for the infringement
+      infringement.downloadTimer = setInterval(self.infringements_.touch.bind(self.infringements_, infringement), 5 * 60 * 1000);
+      this();
+    })
+    .seq(function() {
       infringement.downloadStarted = Date.now();
       self.torrentClient_.add(infringement);
     })
@@ -220,6 +225,8 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement) {
 
   logger.info('Infringement %s has finished downloading, registering new files', infringement._id);
 
+  clearInterval(infringement.downloadTimer);
+
   Seq()
     .seq(function() {
       self.downloads_.addLocalDirectory(infringement,
@@ -233,6 +240,9 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement) {
     })
     .seq(function() {
       self.infringements_.processedBy(infringement, 'downloader-torrent', this);
+    })
+    .seq(function() {
+      logger.info('Sucessfully registered downloads for %s', infringement._id);
     })
     .catch(function(err) {
       logger.warn('Unable to register downloads for %s (%s): %s', infringement._id, infringement.uri, err);

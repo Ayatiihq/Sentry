@@ -690,7 +690,29 @@ Infringements.prototype.getNeedsDownloadForCampaign = function(campaign, categor
 
   self.infringements_.find(query, project).toArray(callback);
 }
+
 /**
+ * Touch the popped property for this infringement, keeping the lock alive on it
+ *
+ * @param {object}           infringement     The infringement to touch
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.touch = function(infringement, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.touch, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
+}/**
  * Update the metadata on the infringement with the new key value pair.
  * @infringement {object}   The infringement to update
  * @key {string} key which to add to the metaData property
