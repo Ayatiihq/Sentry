@@ -42,7 +42,7 @@ function main() {
   var arg0 = argv[3]
 
   if (action === 'getFileMimeType')
-    downloads.getFileMimeType(arg0, log);
+    Downloads.getFileMimeType(arg0, log);
 
   if (action === 'getInfringementDownloads')
     downloads.getInfringementDownloads(require(arg0), log);
