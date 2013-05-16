@@ -67,15 +67,15 @@ function oneAtaTime(results, cyberlocker){
     .seqEach(function(infringement){
       var done = this;
       logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri);
-      cyberlocker.download(infringement, '/tmp', done);
+      cyberlocker.download(infringement, '/tmp/hulk', done);
+    })
+    .catch(function(err){
+      logger.warn('Unable to process download job: %s', err);      
     })
    .seq(function(){
       logger.info('Finished downloading');
       cyberlocker.finish();
     })
-    .catch(function(err) {
-      logger.warn('Unable to process download job: %s', err);
-    })    
     ;
 }
 
