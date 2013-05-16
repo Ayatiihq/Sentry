@@ -1,5 +1,5 @@
 /*
- * hulkshare.js: the Hulkshare downloader
+ * Hulkshare.js: the Hulkshare downloader
  *
  * (C) 2013 Ayatii Limited
  *
@@ -22,14 +22,13 @@ var acquire = require('acquire')
   , Downloads = acquire('downloads')
   ;
 
-var HulkShare = module.exports = function (campaign) {
+var Hulkshare = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.remoteClient = null;
-  self.authenticate();
 };
 
-HulkShare.prototype.createURI = function(uri){
+Hulkshare.prototype.createURI = function(uri){
   var result = null;
   try {
     result = URI(uri);
@@ -40,7 +39,7 @@ HulkShare.prototype.createURI = function(uri){
   return result;
 }
 
-HulkShare.prototype.authenticate = function(){
+Hulkshare.prototype.authenticate = function(){
   var self  = this;
 
   if(self.remoteClient){
@@ -52,7 +51,7 @@ HulkShare.prototype.authenticate = function(){
   self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
-  self.remoteClient.get('http://www.hulkshare.com/static.php?op=login');
+  self.remoteClient.get('http://www.Hulkshare.com/static.php?op=login');
   self.remoteClient.findElement(webdriver.By.css('input[id=username]'))
     .sendKeys('ayatii');
   self.remoteClient.findElement(webdriver.By.css('input[id=password]'))
@@ -60,7 +59,7 @@ HulkShare.prototype.authenticate = function(){
   return self.remoteClient.findElement(webdriver.By.css('a#submit_button')).click();
 }
 
-HulkShare.prototype.fetchDirectDownload = function(uriInstance, target){
+Hulkshare.prototype.fetchDirectDownload = function(uriInstance, target){
   var self = this;
   var promise = new Promise.Promise();
   var out = fs.createWriteStream(target);
@@ -80,8 +79,143 @@ HulkShare.prototype.fetchDirectDownload = function(uriInstance, target){
   return promise;
 }
 
+Hulkshare.prototype.clearDownloads = function(){
+  var self = this;
+  self.remoteClient.get('chrome://downloads');
+  return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
+}
+
+Hulkshare.prototype.checkForDMCA = function(infringement){
+  var self = this;
+  var promise = new Promise.Promise();
+  self.remoteClient.get(infringement.uri).then(function(){
+    self.remoteClient.sleep(Number.random(3,9) * 500);
+    self.remoteClient.getPageSource().then(function(source){
+      var $ = cheerio.load(source);
+      if($('div.playerNoTrack')){
+        logger.info('DMCA blocked or private or somefink - mark as unavailable');
+        promise.resolve(true);
+        return;
+      }
+      promise.resolve(false);
+      /*$('a').each(function(index, elem){
+        if($(elem).attr('class') === "basicDownload")
+          logger.info('is this the link : ' + $(elem).attr('href'));
+      });*/
+    });  
+  },
+  function(err){
+    promise.reject(err);
+  });
+  return promise;  
+}
+
+Hulkshare.prototype.checkForFileDownload = function(){
+  var self = this;
+  var promise = new Promise.Promise();
+  self.remoteClient.get('chrome://downloads').then(function(){
+    self.remoteClient.sleep(5000);
+    self.remoteClient.getPageSource().then(function(source){
+      var $ = cheerio.load(source);
+      var directDownload = $('a.src-url').attr('href');
+      logger.info('Direct file link : ' + directDownload);
+      if(directDownload)
+        self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();
+      promise.resolve(directDownload);
+    });
+  });
+  return promise;
+}
+
+Hulkshare.prototype.isWebRoute = function(infringement, target, done){
+  var self = this;
+  logger.info('go the web route with : ' + infringement.uri);  
+
+  self.checkForFileDownload().then(function(directDownload){
+    if(directDownload){
+      logger.info('detected a direct download !');
+      self.fetchDirectDownload(URI(infringement.uri), target).then(function(){
+        done();
+        },
+        function(err){
+          done(err);
+      });
+    }
+    else{
+      self.cleanupFirstPhase(target).then(function(){
+        self.checkForDMCA(infringement).then(function(yes){
+          if(yes){
+            logger.info('yep DMCAd');
+            done();   
+          }
+          else{
+            logger.warn("erm don't know - more scraping needed ?");
+            //TODO
+            done();
+          }
+        },
+        function(err){
+          done(err);
+        });
+      });        
+    }
+  });
+}
+
+Hulkshare.prototype.cleanupFirstPhase = function(path){
+  var promise = new Promise.Promise();
+  fs.readdir(dir, function(err, files){
+    if(err){
+      promise.reject(err);
+      return;
+    }
+    files.each(function(file){
+      fs.unlink(path.join(dir, file), function (errr) {
+        if(errr){
+          logger.warn('error deleting ' + errr + path.join(dir, file));
+          promise.reject(err);
+          return;
+        }
+        promise.resolve();                   
+      });
+    });
+  });
+  return promise;
+}
+
+Hulkshare.prototype.isDirectDownload = function(uriInstance, target){
+  var self = this;
+  var promise = new Promise.Promise();
+
+  function determineAudio(err, mimetype){
+    if(err){
+      promise.reject(err);
+      return;
+    }        
+    
+    logger.info('mimetype : ' + mimetype);
+    var isAudio = mimetype.split('/')[0] === 'audio';
+    
+    if(isAudio){
+      logger.info('an audio file - moving on ...')
+      promise.resolve(true);
+      return;
+    }
+    promise.resolve(false)
+    //self.webRoute(infringement, pathToUse, done);
+  }
+  self.fetchDirectDownload(uriInstance, target).then(function(){
+    Downloads.getFileMimeType(target, determineAudio);
+    },
+    function(err){
+      logger.info(' Problem fetching the file : ' + err);
+      promise.reject(err);
+  });
+  return promise;
+}
+
 // Public API --------------------------------------------------------->
-HulkShare.prototype.download = function(infringement, pathToUse, done){
+Hulkshare.prototype.download = function(infringement, target, done){
   var self  = this;
   var uriInstance = self.createURI(infringement.uri);
 
@@ -92,69 +226,36 @@ HulkShare.prototype.download = function(infringement, pathToUse, done){
 
   var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
   
-  function callback(err, mimetype){
-    if(err){
-      done(err);
-    }      
-    
-    logger.info('mimetype : ' + mimetype);
-    var isAudio = mimetype.split('/')[0] === 'audio';
-    logger.info('isMusic : ' + isAudio);
-    
-    if(!isAudio && uriInstance.toString().match(/\.mp3/)){
-      logger.warn('dont know what this is !, looks like an mp3 uri but downloaded text more than likely.');
-    }
-
-    if(isAudio){
-      logger.info('an audio file - moving on ...')
-      done();
-    }
-    else{
-      self.remoteClient.get(infringement.uri).then(function(){
-        logger.info('ready to go');
-        self.remoteClient.getPageSource().then(function(source){
-          var $ = cheerio.load(source);
-          logger.info('is this the link : ' + $('a.bigDownloadBtn').attr('href'));
+  self.authenticate().then(function(){
+    self.clearDownloads().then(function(){
+      var isDirect = self.isDirectDownload(uriInstance, target);
+      isDirect.then(function(result){
+        if(result){
           done();
-        })  
+          return;
+        }
+        self.remoteClient.get(infringement.uri).then(function(){
+          self.isWebRoute(infringement, target, done);
+        },
+        function(err){
+          logger.info('isDirectDownload poo - 1');
+          done(err);
+        }
+      )},      
+      function(err){
+        logger.info('isDirectDownload poo - 2');
+        done(err);
       });
-    }
-  }
-
-  self.fetchDirectDownload(uriInstance, target).then(function(){
-    Downloads.getFileMimeType(target, callback);
-    },
-    function(err){
-      logger.info(' Problem fetching the file : ' + err);
-      done(err);
     });
-
-  //Check for cdn
-  //if(URIInfrg.subdomain().match(/cdn[0-9]*/)){
-  //  logger.info('CDN - dud link');
-  //  done();
-  //}
-  //Check for mp3 - don't know if we need this !
-  /*if(infringement.uri.match(/\.mp3/)){
-    logger.info('mp3 - go direct');
-    self.fetchDirectDownload(URIInfrg, pathToUse).then(function(){
-      done();
-    },
-    function(err){
-      done(err);
-    });
-  }*/
-  //done();
+  });  
 }
 
-HulkShare.prototype.finish = function(){
+Hulkshare.prototype.finish = function(){
   var self = this;
   if(self.remoteClient)
     self.remoteClient.quit(); 
 }
 
-HulkShare.getDomains = function() {
+Hulkshare.getDomains = function() {
   return ['hulkshare.com'];
 }
-
-
