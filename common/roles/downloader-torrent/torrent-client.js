@@ -8,6 +8,9 @@
  *
  */
 
+// TODO, hook up what happens when the torrent actually finishes downloading
+
+
 var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
