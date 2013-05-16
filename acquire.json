@@ -34,6 +34,7 @@
   "users": "common/users.js",
   "utilities": "common/utilities.js",
   "spidered": "common/spidered.js",
+  "torrent-downloader": "common/torrent-downloader.js",
   "verifications": "common/verifications.js",
   "wrangler-rules": "common/wrangler-rules.js"
 }
