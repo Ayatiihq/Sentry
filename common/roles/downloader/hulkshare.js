@@ -116,11 +116,21 @@ Hulkshare.prototype.checkForFileDownload = function(){
   self.remoteClient.get('chrome://downloads');
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
-    var directDownload = $('a.src-url').attr('href');
+    var directDownload = null;
+    directDownload = $('a.src-url').attr('href');
     logger.info('Direct file link : ' + directDownload);
-    if(directDownload)
-      self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();
-    promise.resolve(directDownload);
+    if(directDownload){
+      self.remoteClient.findElement(webdriver.By.linkText('Cancel')).then(function(){
+        self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();
+        promise.resolve(directDownload);
+      },
+      function(err){
+        promise.reject(err);
+      });
+    }
+    else{
+      promise.resolve(null);
+    }
   });
   return promise;
 }
@@ -191,7 +201,6 @@ Hulkshare.prototype.isDirectDownload = function(uriInstance, target){
       return;
     }
     promise.resolve(false)
-    //self.webRoute(infringement, pathToUse, done);
   }
   self.fetchDirectDownload(uriInstance, target).then(function(){
     Downloads.getFileMimeType(target, determineAudio);
