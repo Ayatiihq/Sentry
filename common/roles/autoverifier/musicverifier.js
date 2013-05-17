@@ -402,6 +402,15 @@ MusicVerifier.getSupportedTypes = function() {
     , 'audio/mpeg3'
     , 'audio/mp3'
     , 'audio/x-mpeg-3'
+    , 'audio/x-wav'
+    , 'audio/wav'
+    , 'audio/aiff'
+    , 'audio/x-aiff'
+    , 'audio/ogg'
+    , 'audio/flac'
+    , 'audio/x-flac'
+    , 'audio/m4a'
+    , 'audio/x-aac'
   ];
 }
 
