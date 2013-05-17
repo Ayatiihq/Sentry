@@ -423,35 +423,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
   logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
   self.cleanupInfringement().then(function(){    
     if(!sameCampaignAsBefore){
-      // if we had a different previous campaign, nuke it.
-      var cleansing;
-
-      if(haveRunAlready){
-        cleansing = self.cleanupEverything();
-      }
-      else{
-        cleansing  = new Promise.Promise();
-        cleansing.resolve();
-      }
-
-      cleansing.then(function(){
-        // Only on a new campaign do we overwrite our instance variable
-        // (We want to still know about folderpaths etc.)
-        self.campaign = campaign; 
-
-        var promise = self.createParentFolder();
-        promise.then(function(err){
-          if(err){
-            self.cleanupEverything().then(function(){
-              self.done(err);
-              return;              
-            });
-          }
-          else{
-            self.fetchCampaignAudio();
-          }
-        });
-      });
+      self.newCampaignChangeOver(!!self.campaign);
     }
     else{ // Same campaign as before, keep our one in memory
       logger.info("we just processed that campaign, use what has already been downloaded.")
@@ -463,6 +435,32 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
   });
 }
 
+MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready){
+  // if we had a different previous campaign, nuke it.
+  var self = this; 
+  var cleansing;
+
+  if(haveRunAlready){
+    cleansing = self.cleanupEverything();
+  }
+  else{
+    cleansing  = new Promise.Promise();
+    cleansing.resolve();
+  }
+
+  cleansing.then(function(){
+    // Only on a new campaign do we overwrite 
+    // (We want to still know about folderpaths etc.)
+    self.campaign = campaign; 
+
+    self.createParentFolder().then(function(){
+      self.fetchCampaignAudio();      
+    },
+    function(err){
+      self.done(err);
+    });
+  });
+}
 
 MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
   var self = this;
