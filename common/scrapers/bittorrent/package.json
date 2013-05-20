@@ -3,7 +3,8 @@
   "main": "./bittorrent-scraper.js",
   "types": {
     "tv": ".*",
-    "music": ".*"
+    "music": ".*",
+    "movie": ".*"
   },
   "engines": [
     "kat"
