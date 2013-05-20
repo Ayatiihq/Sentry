@@ -3,7 +3,8 @@
   "main": "./searchengine-scraper.js",
   "types": {
     "tv": ".*",
-    "music": ".*"
+    "music": ".*",
+    "movie": ".*"
   },
   "engines": [
     "google",
