@@ -279,7 +279,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
  * @param  {function(err,mimetype)}    callback    A callback to receive the mimetype, or an error.
  * @return {undefined}
  */
-Downloads.prototype.getFileMimeType = function(filepath, callback) {
+Downloads.getFileMimeType = function(filepath, callback) {
   var self = this
     , mimetype = ''
     ;
