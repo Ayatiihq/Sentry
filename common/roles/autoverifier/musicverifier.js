@@ -406,7 +406,7 @@ MusicVerifier.prototype.relevantDownload = function(download, done){
     var isAudio = self.getSupportedTypes().some(mimetype);
     logger.info('is this file audio :' + isAudio);
     if(isAudio){
-      self.infringement.tmpDownloads.push(target);
+      download.tmpFileLocation = target;
     }
     //should we delete if it isn't ?
     this(null, isAudio);
