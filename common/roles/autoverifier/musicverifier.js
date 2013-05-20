@@ -9,7 +9,6 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , events = require('events')
   , util = require('util')
-  , filed = require('filed')  
   , fs = require('fs-extra')
   , os = require('os')
   , Promise = require('node-promise')
@@ -19,6 +18,7 @@ var acquire = require('acquire')
   , exec = require('child_process').execFile
   , URI = require('URIjs')   
   , utilities = acquire('utilities') 
+  , Downloads = acquire('downloads')
   ;
 
 var logger = acquire('logger').forFile('musicverifier.js')
@@ -38,101 +38,47 @@ MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
   self.storage = new Storage('downloads');
-  self.results = {complete: [], incomplete: []};
-  self.on('campaign-audio-ready', self.prepInfringement.bind(self));
 }
 
-MusicVerifier.prototype.createParentFolder = function() {
+MusicVerifier.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
   self.cleanupEverything().then(function(){
     logger.info('%s: creating parent folder %s', self.infringement._id, self.tmpDirectory);
     fs.mkdir(self.tmpDirectory, function(err){
-      if(err)
+      if(err){
         logger.error('%s: Error creating parenting folder called %s', self.infringement._id, self.tmpDirectory);
-      promise.resolve(err);
+        promise.reject(err);
+        return;
+      }
+      promise.resolve();
     });    
   });// Call this just in case we have a hangover from some other failed run on the same campaign
   return promise;
 }
 
-MusicVerifier.prototype.fetchCampaignAudio = function() {
-  var self = this;
-
-  function fetchTrack(track){
-    var self = this;
-    var promise = new Promise.Promise();
-    var folderName = utilities.genLinkKey(track.title);
-    track.folderPath = path.join(self.tmpDirectory, folderName);
-    track.score = 0.0;
-    try{
-      fs.mkdirSync(track.folderPath);
-      self.downloadThing(track.uri, path.join(track.folderPath, "original"), promise);
-    }
-    catch(err){
-      logger.error(self.infringement._id + ': Unable to fetch file for ' + track.title + ' error : ' + err);
-      promise.resolve(false);
-    }
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
-  Promise.seq(promiseArray).then(function(){
-    self.emit('campaign-audio-ready');
-  }); 
-}
-
-MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
-  var self = this;
-  var downloadFile = filed(target);  
-  try{
-    var req = request(downloadURL);
-    req.pipe(downloadFile);  
-
-    req.on('error', function(err) {
-      logger.warn(err, 'error downloading ' + downloadURL);
-      promise.resolve(false);
-    });
-    req.on('close', function(err) {
-      logger.warn(err, 'Connection closed ' + downloadURL);
-      promise.resolve(false);
-    });
-    req.on('complete', function(err) {
-      logger.warn(err, 'Connection completed ' + downloadURL);
-      promise.resolve(false);
-    });
-
-    downloadFile.on('end', function () {
-      logger.info("Download of " + downloadURL + " complete.")
-      promise.resolve(true);
-    });  
-    downloadFile.on('error', function (err) {
-      logger.warn(err, 'error downloading ' + downloadURL);
-      promise.resolve(false);
-    });
-  }
-  catch(err){
-    logger.warn('Error requesting ' + downloadURL + ' err : ' + err);
-    promise.resolve(false);
-  }  
-}
-
-MusicVerifier.prototype.fetchInfringement = function(){
+MusicVerifier.prototype.downloadThing = function(downloadURL, target){
   var self = this;
   var promise = new Promise.Promise();
-  try{
-    logger.info(self.infringement._id + ': Fetch infringement : ' + self.infringementURI);
-    self.downloadThing(self.infringementURI, path.join(self.tmpDirectory, "infringement"), promise);
-  }
-  catch(err){
-    logger.warn(self.infringement._id + ': Problem fetching infringing file : err : ' + err);
-    promise.resolve(false);
-  }
+  var out = fs.createWriteStream(target);
+  //logger.info('downloadThing ' + downloadURL);
+
+  utilities.requestStream(downloadURL, {}, function(err, req, res, stream){
+    if(err){
+      logger.error('unable to downloadThing ' + downloadURL + ' error : ' + err);
+      promise.reject(err);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + downloadURL);
+      promise.resolve();
+    });
+  });
   return promise;
 }
+
 
 MusicVerifier.prototype.goFingerprint = function(){
   var self = this;
@@ -168,11 +114,10 @@ MusicVerifier.prototype.goFingerprint = function(){
              function(err){
               if(err){
                 logger.error('Error copying file : ' + err);
-                promise.resolve();
+                promise.reject(err);
+                return;
               }
-              else{
-                self.evaluate(track, promise);
-              }
+              self.evaluate(track, promise);
              });
     return promise;
   }
@@ -180,10 +125,15 @@ MusicVerifier.prototype.goFingerprint = function(){
   var promiseArray;
   promiseArray = self.campaign.metadata.tracks.map(function(track){return compare.bind(self, track)});
 
-  Promise.seq(promiseArray).then(function(){
-    self.examineResults();
-    wrapperPromise.resolve();
-  }); 
+  Promise.seq(promiseArray).then(
+    function(){
+      self.examineResults();
+      wrapperPromise.resolve();
+    },
+    function(err){
+      wrapperPromise.reject(err);
+    }
+  ); 
   return wrapperPromise; 
 }
 
@@ -276,18 +226,6 @@ MusicVerifier.prototype.examineResults = function(){
   self.done(err, verificationObject);
 }
 
-MusicVerifier.prototype.prepInfringementList = function (infrgs){
-  var self = this;
-  var promiseArray = infrgs.map(function(infrg) { return self.oneAtaTime.bind(self, infrg)});
-  Promise.seq(promiseArray).then(function(){
-    logger.info(self.infringement._id + ': Finished verifying list : matched successfully : ' + self.results.completed.length);
-    logger.info(self.infringement._id + ': Failed to match: ' + self.results.incomplete.length);
-    fs.writeFile(path.join(process.cwd(),'musicverifierResults'),
-                 JSON.stringify(self.results), function(err) {if(err)logger.warn('Couldnt write to results file')}); 
-    self.cleanupEverything();
-  }); 
-}
-
 MusicVerifier.prototype.prepInfringement = function (){
   var self = this;
   logger.info(self.infringement._id + ': campaign audio ready - get the infringement');
@@ -299,37 +237,21 @@ MusicVerifier.prototype.prepInfringement = function (){
   });        
 }
 
-MusicVerifier.prototype.oneAtaTime = function(infrg){
+MusicVerifier.prototype.fetchInfringementDownload = function(location){
   var self = this;
   var promise = new Promise.Promise();
-  try{ // don't bother with uris that have not been completed.
-    var link = URI(infrg.uri);
-    if(link.is('relative')){
-      logger.info(self.infringement._id + ': uri is relative - dont go any further' + ' : ' + infrg.uri);
-      promise.resolve();
-      return promise;
-    }
-  } 
-  catch(err){
-    promise.resolve();
-    logger.info(self.infringement._id + ': error making uri from link' +  ' : ' + err );
-    return promise;
+  try{
+    logger.info(self.infringement._id + ': Fetch infringement : ' + self.infringementURI);
+    self.downloadThing(self.infringementURI, path.join(self.tmpDirectory, "infringement"), promise);
   }
-  self.infringement = infrg;
-  self.fetchInfringement().then(function(success){
-    if(success) {
-      self.goFingerprint().then(function(){
-        promise.resolve();
-      });   
-    }
-    else{
-      promise.resolve();
-    }
-  });
+  catch(err){
+    logger.warn(self.infringement._id + ': Problem fetching infringing file : err : ' + err);
+    promise.resolve(false);
+  }
   return promise;
 }
 
-MusicVerifier.prototype.cleanupEverything = function(err) {
+MusicVerifier.prototype.cleanupEverything = function() {
   var self = this;
   var promise = new Promise.Promise();
   logger.info('cleanupEverything');  
@@ -343,56 +265,199 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
   return promise;
 }
 
-MusicVerifier.prototype.cleanupInfringement = function() {
+/*
+ * Attempt to clean the file called infringement from each track folder
+ */
+MusicVerifier.prototype.cleanupInfringement = function(done) {
   var self = this;
-  var wrapperPromise = new Promise.Promise();
 
-  var deleteInfringement = function(dir) {
+  function deleteInfringement(dir) {
     var promise = new Promise.Promise();
-    if(!dir){
-      promise.resolve();
-    }
-    else{
+    fs.readdir(dir, function(err, files){
+      if(err){
+        promise.reject(err);
+        return;
+      }
       var matched = false;
-      fs.readdir(dir, function(err, files){
-        if(err){
-          promise.resolve();
-          return;
+      files.each(function(file){
+        if(file.match(/infringement/g)){
+          matched = true;
+          fs.unlink(path.join(dir, file), function (errr) {
+            if(errr){
+              logger.warn('error deleting ' + errr + path.join(dir, file));
+              promise.reject(errr);
+              return;              
+            }
+            promise.resolve();
+          });
         }
-        files.each(function(file){
-          if(file.match(/infringement/g)){
-            fs.unlink(path.join(dir, file), function (errr) {
-              if (errr)
-                logger.warn('error deleting ' + errr + path.join(dir, file));
-            });
-            matched = true;
-            promise.resolve();                    
-          }
-        });
-        // Make sure to resolve the mother even it there isn't a match (failed download or whatever)
-        if(!matched) promise.resolve();
       });
-    }
+      // Make sure to resolve the mother even if there isn't a match (failed download or whatever)
+      if(!matched)promise.resolve();
+    });
     return promise
   }
 
-  if(self.campaign){
-    var promiseArray;
-    promiseArray = self.campaign.metadata.tracks.map(function(track){ return deleteInfringement.bind(self, track.folderPath)});
-    promiseArray.push(deleteInfringement.bind(self, self.tmpDirectory));
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){ if(track.folderPath) return deleteInfringement.bind(self, track.folderPath)});
+  Promise.seq(promiseArray).then(function(){
+    logger.info('Finished deleting infringement from root and track folders...')
+    done();
+  },
+  function(err){
+    done(err);   
+  });   
+}
 
-    Promise.seq(promiseArray).then(function(){
-      wrapperPromise.resolve()
-    }); 
+/* 
+ * Go through each track for that campaign, create a folder for it.
+ * download it to that location, error if there is ANY error.
+ */
+MusicVerifier.prototype.fetchCampaignAudio = function(done) {
+  var self = this;
+
+  function fetchTrack(track){
+    var promise = new Promise.Promise();
+    var folderName = utilities.genLinkKey(track.title);
+    track.folderPath = path.join(self.tmpDirectory, folderName);
+    track.score = 0.0;
+    fs.mkdirSync(track.folderPath);
+    self.downloadThing(track.uri, path.join(track.folderPath, "original")).then(
+      function(){
+        promise.resolve();
+      },
+      function(err){
+        logger.error(self.infringement._id + ': Unable to fetch file for ' + track.title + ' error : ' + err);
+        promise.reject(err);
+      }
+    );
+    return promise;
+  }
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
+  Promise.seq(promiseArray).then(function(){
+    done();
+  },
+  function(err){
+    done(err)
+  }); 
+}
+
+MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready, campaign, done){
+  // if we had a different previous campaign, nuke it.
+  var self = this; 
+  var cleansing;
+
+  if(haveRunAlready){
+    cleansing = self.cleanupEverything();
   }
   else{
-    wrapperPromise.resolve();
+    cleansing  = new Promise.Promise();
+    cleansing.resolve();
   }
-  return wrapperPromise;
+
+  cleansing.then(function(){
+    // Only on a new campaign do we overwrite 
+    // (We want to still know about folderpaths etc.)
+    self.campaign = campaign; 
+
+    self.createParentFolder().then(function(){
+      self.fetchCampaignAudio(done);
+    },
+    function(err){
+      self.done(err);
+    });
+  });
+}
+
+MusicVerifier.prototype.prepCampaign = function(campaign, done){
+  var self = this;
+
+  var sameCampaignAsBefore = self.campaign &&
+                             (self.campaign._id.client === campaign._id.client &&
+                              self.campaign._id.campaign === campaign._id.campaign);
+  if(!sameCampaignAsBefore){
+    logger.info()
+    self.newCampaignChangeOver(!!self.campaign, campaign, done);
+  }
+  else{ // Same campaign as before, keep our one in memory but reset the track.score
+    logger.info("we just processed that campaign, use what has already been downloaded.")
+    self.campaign.metadata.tracks.each(function resetScore(track){
+      track.score = 0.0;
+    });      
+    done();
+  }
+}
+
+/*
+ * Fetch a given download and determine if the file is an audio file 
+ */
+MusicVerifier.prototype.relevantDownload = function(download, done){
+  var self = this;
+  var uri = self.storage.getURL(download.name);
+  var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
+  
+  function determineAudio(err, mimetype){
+    if(err){
+      this(err);
+      return;
+    }        
+    var isAudio = self.getSupportedTypes().some(mimetype);
+    logger.info('is this file audio :' + isAudio);
+    if(isAudio){
+      self.infringement.tmpDownloads.push(target);
+    }
+    //should we delete if it isn't ?
+    this(null, isAudio);
+  }  
+  
+  self.downloadThing(uri, target).then(
+    function{
+      Downloads.getFileMimeType(initialTarget, determineAudio.bind(done));
+    },
+    function(err){
+      logger.info(' Problem fetching the file : ' + err);
+      done(err);
+  });
 }
 //
 // Public
 //
+MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
+  var self = this;
+  self.done = done;
+  self.infringement = infringement;
+  self.startedAt = Date.now();
+
+  logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
+
+  Seq(downloads)
+    // First things first, filter out downloads that are not audio
+    .parFilter(function(download){
+      var that = this;
+      self.relevantDownload(download, that);
+    })
+    // then prep the campaign    
+    .seq(function(){
+      var that = this;
+      self.prepCampaign(campaign, that);
+    })
+    // delete any infringement that might be lying around
+    .seq(function(){
+      var that = this;
+      self.cleanupInfringement(that);
+    })
+  ;
+}
+
+MusicVerifier.prototype.finish = function(){
+  if(self.tmpDirectory) {
+    self.cleanupEverything().then(function(){
+      self.tmpDirectory = null;
+    });
+  }
+}
 
 // This needs to not be added to the prototype, that way it's available without
 // having to make an instance of the verifier
@@ -412,85 +477,4 @@ MusicVerifier.getSupportedTypes = function() {
     , 'audio/m4a'
     , 'audio/x-aac'
   ];
-}
-
-MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
-  var self = this;
-  var haveRunAlready = !!self.campaign;
-
-  var sameCampaignAsBefore = self.campaign &&
-                             (self.campaign._id.client === campaign._id.client &&
-                              self.campaign._id.campaign === campaign._id.campaign);
-
-  self.done = done;
-  self.infringement = infringement;
-
-  // FIXME: One infringement could have multiple files to check (i.e. torrent)
-  self.infringementURI = self.storage.getURL(downloads[0].name);
-  self.startedAt = Date.now();
-
-  logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
-  self.cleanupInfringement().then(function(){    
-    if(!sameCampaignAsBefore){
-      self.newCampaignChangeOver(!!self.campaign);
-    }
-    else{ // Same campaign as before, keep our one in memory
-      logger.info("we just processed that campaign, use what has already been downloaded.")
-      self.campaign.metadata.tracks.each(function resetScore(track){
-        track.score = 0.0;
-      });      
-      self.emit('campaign-audio-ready');
-    }
-  });
-}
-
-MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready){
-  // if we had a different previous campaign, nuke it.
-  var self = this; 
-  var cleansing;
-
-  if(haveRunAlready){
-    cleansing = self.cleanupEverything();
-  }
-  else{
-    cleansing  = new Promise.Promise();
-    cleansing.resolve();
-  }
-
-  cleansing.then(function(){
-    // Only on a new campaign do we overwrite 
-    // (We want to still know about folderpaths etc.)
-    self.campaign = campaign; 
-
-    self.createParentFolder().then(function(){
-      self.fetchCampaignAudio();      
-    },
-    function(err){
-      self.done(err);
-    });
-  });
-}
-
-MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
-  var self = this;
-  self.done = done;
-  self.campaign = campaign;
-  self.startedAt = Date.now();
-  self.createParentFolder().then(function(err){
-    if(err){
-      self.cleanupEverything();
-      self.done(err);
-      return;
-    }
-    self.fetchCampaignAudio();
-  });  
-  self.on('campaign-audio-ready', self.prepInfringementList.bind(self, infringementList));
-}
-
-MusicVerifier.prototype.finish = function(){
-  if(self.tmpDirectory) {
-    self.cleanupEverything().then(function(){
-      self.tmpDirectory = null;
-    });
-  }
 }
