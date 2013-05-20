@@ -72,7 +72,8 @@ BittorrentPortal.prototype.buildSearchQuery = function () {
   var queryBuilder = {
     'tv.live': self.buildSearchQueryTV.bind(self),
     'music.album': self.buildSearchQueryAlbum.bind(self),
-    'music.track': self.buildSearchQueryTrack.bind(self)
+    'music.track': self.buildSearchQueryTrack.bind(self),
+    'movie': self.buildSearchQueryMovie.bind(self)
   };
 
   if (!Object.has(queryBuilder, self.campaign.type)) {
@@ -93,6 +94,13 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   var albumTitle = self.campaign.metadata.albumTitle;
   var query = albumTitle.escapeURL(true);
+  return query;
+};
+
+BittorrentPortal.prototype.buildSearchQueryMovie = function () {
+  var self = this;
+  var movieTitle = self.campaign.metadata.movieTitle;
+  var query = movieTitle.escapeURL(true);
   return query;
 };
 
@@ -192,10 +200,14 @@ KatScraper.prototype.beginSearch = function () {
 
 KatScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
+  var categories = {
+    'movie': '%20category%3Amovies/',
+    'music.album': '%20category%3Amusic/'
+  };
   var queryString = self.root +
                     '/usearch/' + 
                     self.searchTerm +  
-                    '%20category%3Amusic/' + 
+                    categories[self.campaign.type] + 
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
   self.remoteClient.get(queryString);
@@ -272,11 +284,14 @@ IsoHuntScraper.prototype.beginSearch = function () {
 
 IsoHuntScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
-  var categoryID = 2;
+  var categories = {
+    'music.album': 2,
+    'movie': 1
+  };
   var queryString = self.root + 
                     '/torrents/' + 
                     self.searchTerm + '?' +
-                    'iht=' + categoryID +
+                    'iht=' + categories[self.campaign.type] +
                     '&ihp=' + pageNumber +
                     '&ihs1=5&iho1=d';
   self.remoteClient.get(queryString);

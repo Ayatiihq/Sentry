@@ -47,8 +47,7 @@ function main() {
   }
 
   if (action === 'createFromFile') {
-
-    storage.createFromFile(arg0, arg1, false, log);
+    storage.createFromFile(arg0, arg1, false, log.bind(null, 'http://goldrush.blob.core.windows.net/media/' + arg0));
   }
 
   // node ./tools/test-storage.js createFromURL torrent testShortener http://bit.ly/Z4buW2

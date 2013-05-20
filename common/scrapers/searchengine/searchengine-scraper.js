@@ -25,7 +25,7 @@ var Scraper = acquire('scraper')
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
-var MAX_SCRAPER_POINTS = 20;
+var MAX_SCRAPER_POINTS = 50;
 
 var GenericSearchEngine = function (campaign) {
   events.EventEmitter.call(this);
@@ -88,7 +88,8 @@ GenericSearchEngine.prototype.buildSearchQuery = function (done) {
   var queryBuilder = {
     'tv.live': self.buildSearchQueryTV.bind(self),
     'music.album': self.buildSearchQueryAlbum.bind(self),
-    'music.track': self.buildSearchQueryTrack.bind(self)
+    'music.track': self.buildSearchQueryTrack.bind(self),
+    "movie": self.buildSearchQueryMovie.bind(self)
   };
 
   if (!Object.has(queryBuilder, self.campaign.type)) {
@@ -136,6 +137,62 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   done(null, query);
 };
+
+GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
+  var self = this
+    , movieTitle = self.campaign.metadata.movieTitle
+    , year = self.campaign.metadata.year
+    , fmt = util.format
+    , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
+    , searchTerms = []
+    , searchTerms1 = []
+    , searchTerms2 = []
+    , searchTerms3 = []
+    , language = self.campaign.metadata.language
+    ;
+
+  searchTerms1.push(fmt('%s movie download', movieTitle));
+  searchTerms2.push(fmt('%s %s movie download', movieTitle, year));
+  if (language != 'english')
+    searchTerms3.push(fmt('%s %s movie download', movieTitle, language));
+
+  searchTerms1.push(fmt('%s movie torrent', movieTitle));
+  searchTerms2.push(fmt('%s %s movie torrent', movieTitle, year));
+  if (language != 'english')
+    searchTerms3.push(fmt('%s %s movie torrent', movieTitle, language));
+
+  searchTerms1.push(fmt('%s watch online', movieTitle));
+  searchTerms2.push(fmt('%s %s watch online', movieTitle, year));
+  if (language != 'english')
+    searchTerms3.push(fmt('%s %s watch online', movieTitle, language));
+
+  searchTerms1.push(fmt('%s online free', movieTitle));
+  searchTerms2.push(fmt('%s %s online free', movieTitle, year));
+  if (language != 'english')
+    searchTerms3.push(fmt('%s %s online free', movieTitle, language));
+
+  searchTerms1.push(fmt('%s free download', movieTitle));
+  searchTerms2.push(fmt('%s %s free download', movieTitle, year));
+  if (language != 'english')
+    searchTerms3.push(fmt('%s %s free download', movieTitle, language));
+
+  // Compile the list
+  searchTerms = searchTerms1.add(searchTerms2);
+  searchTerms = searchTerms.add(searchTerms3);
+
+  // Figure out the current run from settings
+  self.settings.get(key, function(err, run) {
+    if (err)
+      return done(err);
+
+    run = run ? run : 0; // Convert into number
+
+    // Update it for next run
+    self.settings.set(key, run + 1);
+
+    done(null, searchTerms[run % searchTerms.length]);
+  });  
+}
 
 GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   var self = this
