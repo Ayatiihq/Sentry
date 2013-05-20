@@ -80,86 +80,6 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target){
 }
 
 
-MusicVerifier.prototype.goFingerprint = function(){
-  var self = this;
-  var wrapperPromise = new Promise.Promise();
-
-  var copyfile = function (source, target, cb) {
-    var cbCalled = false;
-    var rd = fs.createReadStream(source);
-    rd.on("error", function(err) {
-      done(err);
-    });
-    var wr = fs.createWriteStream(target);
-    wr.on("error", function(err) {
-      done(err);
-    });
-    wr.on("close", function(ex) {
-      done();
-    });
-    rd.pipe(wr);
-    function done(err) {
-      if (!cbCalled) {
-        cb(err);
-        cbCalled = true;
-      }
-    }
-  };
-
-  var compare = function(track){
-    var self = this;
-    var promise = new Promise.Promise();
-    copyfile(path.join(self.tmpDirectory,  'infringement'),
-             path.join(track.folderPath, 'infringement'),
-             function(err){
-              if(err){
-                logger.error('Error copying file : ' + err);
-                promise.reject(err);
-                return;
-              }
-              self.evaluate(track, promise);
-             });
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){return compare.bind(self, track)});
-
-  Promise.seq(promiseArray).then(
-    function(){
-      self.examineResults();
-      wrapperPromise.resolve();
-    },
-    function(err){
-      wrapperPromise.reject(err);
-    }
-  ); 
-  return wrapperPromise; 
-}
-
-MusicVerifier.prototype.evaluate = function(track, promise){
-  var self = this;
-  logger.info('about to evaluate ' + track.folderPath);
-  exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
-    function (error, stdout, stderr){
-      if(stderr && !stderr.match(/Header\smissing/g))
-        logger.error(self.infringement._id + ": Fpeval standard error : " + stderr);
-      if(error && !stderr.match(/Header\smissing/g))
-        logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
-      
-      try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
-        var result = JSON.parse(stdout);
-        logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
-        track.score = result.score;
-      }
-      catch(err){
-        logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
-        track.score = -1;// -1 signifying fpeval failed for some reason.
-      }
-      promise.resolve();
-    });
-}
-
 MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
@@ -226,30 +146,7 @@ MusicVerifier.prototype.examineResults = function(){
   self.done(err, verificationObject);
 }
 
-MusicVerifier.prototype.prepInfringement = function (){
-  var self = this;
-  logger.info(self.infringement._id + ': campaign audio ready - get the infringement');
-  self.fetchInfringement().then(function(success){
-    if(success)
-      self.goFingerprint(); // got everything in place, lets match.
-    else
-      self.done(self.infringement._id + ': Problem fetching infringment');
-  });        
-}
 
-MusicVerifier.prototype.fetchInfringementDownload = function(location){
-  var self = this;
-  var promise = new Promise.Promise();
-  try{
-    logger.info(self.infringement._id + ': Fetch infringement : ' + self.infringementURI);
-    self.downloadThing(self.infringementURI, path.join(self.tmpDirectory, "infringement"), promise);
-  }
-  catch(err){
-    logger.warn(self.infringement._id + ': Problem fetching infringing file : err : ' + err);
-    promise.resolve(false);
-  }
-  return promise;
-}
 
 MusicVerifier.prototype.cleanupEverything = function() {
   var self = this;
@@ -270,6 +167,7 @@ MusicVerifier.prototype.cleanupEverything = function() {
  */
 MusicVerifier.prototype.cleanupInfringement = function(done) {
   var self = this;
+  var wrapperPromise = new Promise.Promise();
 
   function deleteInfringement(dir) {
     var promise = new Promise.Promise();
@@ -301,12 +199,13 @@ MusicVerifier.prototype.cleanupInfringement = function(done) {
   var promiseArray;
   promiseArray = self.campaign.metadata.tracks.map(function(track){ if(track.folderPath) return deleteInfringement.bind(self, track.folderPath)});
   Promise.seq(promiseArray).then(function(){
-    logger.info('Finished deleting infringement from root and track folders...')
-    done();
+    logger.info('Finished deleting infringement from track folders...')
+    wrapperPromise.resolve();
   },
   function(err){
-    done(err);   
+    wrapperPromise.reject(err);   
   });   
+  return wrapperPromise;
 }
 
 /* 
@@ -421,6 +320,79 @@ MusicVerifier.prototype.relevantDownload = function(download, done){
       done(err);
   });
 }
+
+// TODO refactor somehow
+MusicVerifier.prototype.goMeasureDownload = function(download, done){
+  var self = this;
+  var cleansed = self.cleanupInfringement();
+
+  function copyfile(track){
+    var promise = new Promise.Promise();
+    fs.copy(download.tmpFileLocation,
+            path.join(track.folderPath, 'infringement'),
+            function(err){
+              if(err){
+                logger.error('Error copying file : ' + err);
+                promise.reject(err);
+                return;
+              }
+              promise.resolve();
+            });
+    return promise;
+  }
+
+  function compare(track){
+    var promise = new Promise.Promise();
+    logger.info('about to evaluate ' + track.folderPath);
+    exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
+      function (error, stdout, stderr){
+        if(stderr && !stderr.match(/Header\smissing/g))
+          logger.error(self.infringement._id + ": Fpeval standard error : " + stderr);
+        if(error && !stderr.match(/Header\smissing/g))
+          logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
+        
+        try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
+          var result = JSON.parse(stdout);
+          logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
+          track.score = result.score;
+        }
+        catch(err){
+          logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
+          track.score = -1;// -1 signifying fpeval failed for some reason.
+        }
+        promise.resolve();
+      });
+    return promise;
+  } 
+
+  function doIt(track){
+    var promise = new Promise.Promise();
+    copyfile(track).then(function(){
+      compare(track).then(function(){
+        promise.resolve();
+      },
+      function(err){
+        promise.reject(err);
+      });
+    },
+    function(err){
+      promise.reject(err);
+    });
+    return promise;
+  }
+
+  cleansed.then(function(){
+    var promiseArray;
+    promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
+    Promise.seq(promiseArray).then(
+    function(){
+      // Here we examine results - if we get a success bail on the whole operation => self.done()
+    },
+    function(err){
+      done(err);
+    }
+  ); 
+}
 //
 // Public
 //
@@ -434,7 +406,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
 
   Seq(downloads)
     // First things first, filter out downloads that are not audio
-    .parFilter(function(download){
+    .seqFilter(function(download){
       var that = this;
       self.relevantDownload(download, that);
     })
@@ -446,7 +418,11 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     // delete any infringement that might be lying around
     .seq(function(){
       var that = this;
-      self.cleanupInfringement(that);
+    })
+    // copy the download to each track folder, take scores and examine results.
+    .seq(function(download){
+      var that = this;
+      self.goMeasureDownload(download, that);      
     })
   ;
 }
@@ -461,6 +437,8 @@ MusicVerifier.prototype.finish = function(){
 
 // This needs to not be added to the prototype, that way it's available without
 // having to make an instance of the verifier
+// TODO test each of these formats against fpeval !
+// ensure compatibility
 MusicVerifier.getSupportedTypes = function() {
   return [
     , 'audio/mpeg'
