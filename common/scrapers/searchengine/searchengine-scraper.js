@@ -102,8 +102,33 @@ GenericSearchEngine.prototype.buildSearchQuery = function (done) {
 };
 
 GenericSearchEngine.prototype.buildSearchQueryTV = function (done) {
-  var self = this;
-  done(null, self.campaign.name);
+ var self = this
+    , fmt = util.format
+    , channelName = self.campaign.metadata.channelName
+    , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
+    , searchTerms = []
+    ;
+
+  searchTerms.push(fmt('%s watch online'));
+  searchTerms.push(fmt('%s watch live online'));
+  searchTerms.push(fmt('%s watch live online free'));
+  searchTerms.push(fmt('%s live online'));
+  searchTerms.push(fmt('%s live stream'));
+  searchTerms.push(fmt('%s live stream free'));
+  searchTerms.push(fmt('%s free online stream'));
+  
+  // Figure out the current run from settings
+  self.settings.get(key, function(err, run) {
+    if (err)
+      return done(err);
+
+    run = run ? run : 0; // Convert into number
+
+    // Update it for next run
+    self.settings.set(key, run + 1);
+
+    done(null, searchTerms[run % searchTerms.length]);
+  });  
 };
 
 
