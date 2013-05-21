@@ -86,14 +86,19 @@ MusicVerifier.prototype.examineResults = function(){
   var err = null;
   var MATCHER_THRESHOLD = 0.3;
 
-  // First check that fpeval could carry out a match, if not end this check with an error
+  var verificationObject = {started : self.startedAt,
+                            who : "MusicVerifer AKA Harry Caul",
+                            finished : Date.now()
+                           };
+
+  // First check that fpeval could carry out a match, if any of the match attempts fail (score === -1) then return with error.
   var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.score < 0}).unique();
   if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
     logger.warn(self.infringement._id + ': Failed to match with FPeval, more than likely an issue with downloading the infringment');
-    self.done(new Error('FpEval failed to carry out any match'));
-    return;
+    return [new Error('FpEval failed to carry out any match'), verificationObject];
   }
 
+  // Next attempt to filter which tracks have a score above the MATCHER_THRESHOLD
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty())
@@ -103,50 +108,42 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var verificationObject = {started : self.startedAt,
-                            who : "MusicVerifer AKA Harry Caul",
-                            finished : Date.now()
-                           };
-  
   var success;
 
+  // At this point if we have more than 1 track which matched successfully we want to make sure the delta between the scores
+  // is greater than 0.2 inorder to be confident that we have a genuine match. Deltas which are less than 0.2 indicate a very
+  // inaccurate and fuzzy resultset => mark unsuccessfull
   if(matchedTracks.length > 1){
     var delta = matchedTracks.reduce(function(a, b){
       return a-b;
     });
     logger.warn(self.infringement._id + ': We found ' + matchedTracks.length + ' matches and the delta between them is ' + delta);
     success = delta > 0.2;
-  }
-  else{
-    success = matchedTracks.length === 1 // this needs more testing.
-  }
-
-  if(success){
-    logger.info('Successfull matching ' + self.infringementURI);
-    verificationObject = Object.merge (verificationObject, 
-                                      {"state" : states.VERIFIED,
-                                       "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
-    self.results.complete.push(verificationObject);
-  }
-  else{
-    
-    verificationObject.state = states.FALSE_POSITIVE
-
-    if(matchedTracks.length > 1){
-      verificationObject.notes = "Harry Caul found more than one match here, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
-      err = 'Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks);
+    if(success){
+      verificationObject = Object.merge (verificationObject,
+                                        {"state" : states.VERIFIED,
+                                         "notes" : "Success but Harry Caul found more than one match where the delta between the matches was > 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}))});
     }
-    else{ //matchedTracks.length === 0
+    else{
+      verificationObject.state = states.FALSE_POSITIVE
+      verificationObject.notes = "Harry Caul found more than one match where the delta between the matches was < 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
+      err = new Error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));      
+    }
+  }
+  else{ // Else just check for the simple lone match. Write up notes accordingly
+    success = matchedTracks.length === 1; 
+    if(success){
+      verificationObject = Object.merge (verificationObject, 
+                                        {"state" : states.VERIFIED,
+                                         "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
+    }
+    else{
+      verificationObject.state = states.FALSE_POSITIVE
       verificationObject.notes = "Harry Caul did not find any match, again please examine.",
-      logger.info(self.infringement._id + ': Not successful in matching ' + self.infringementURI);
     }
-    self.results.incomplete.push(verificationObject);    
   }
-
-  self.done(err, verificationObject);
+  return[err, verificationObject];
 }
-
-
 
 MusicVerifier.prototype.cleanupEverything = function() {
   var self = this;
@@ -386,7 +383,18 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
     promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
     Promise.seq(promiseArray).then(
     function(){
-      // Here we examine results - if we get a success bail on the whole operation => self.done()
+      var results = self.examineResults();
+      if(results[0]){
+        self.done(err);
+        return;
+      }
+      if(result[1].state === states.VERIFIED){
+        // report back immediately once we are confident we have one match.
+        self.done(null, result[1]);
+      }
+      else{ // Move on to the next track.
+        done();
+      }
     },
     function(err){
       done(err);
@@ -422,7 +430,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     // copy the download to each track folder, take scores and examine results.
     .seq(function(download){
       var that = this;
-      self.goMeasureDownload(download, that);      
+      self.goMeasureDownload(download, that, done);      
     })
   ;
 }
