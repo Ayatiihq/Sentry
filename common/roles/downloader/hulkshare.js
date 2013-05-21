@@ -117,19 +117,29 @@ Hulkshare.prototype.checkForFileDownload = function(){
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
     var directDownload = null;
+    var removeFromList;
     directDownload = $('a.src-url').attr('href');
-    logger.info('Direct file link : ' + directDownload);
-    if(directDownload){
-      self.remoteClient.findElement(webdriver.By.linkText('Cancel')).then(function(){
-        self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();
-        promise.resolve(directDownload);
-      },
-      function(err){
-        promise.reject(err);
-      });
+    
+    //logger.info('Direct file link : ' + directDownload);
+    if(!directDownload){
+      promise.resolve(null);
     }
     else{
-      promise.resolve(null);
+      var cancelPresent = self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel'));
+      var removeFromList = self.remoteClient.isElementPresent(webdriver.By.linkText('Remove from list'));
+
+      cancelPresent.then(function(present){
+        if(present){
+          self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();
+        }
+        else{
+          removeFromList.then(function(remove){
+            if(remove)
+              self.remoteClient.findElement(webdriver.By.linkText('Remove from list')).click();
+          });
+        }
+        promise.resolve(directDownload);      
+      });
     }
   });
   return promise;
@@ -234,7 +244,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
         else{
           self.cleanupFirstPhase(target).then(function(){
             self.remoteClient.get(infringement.uri).then(function(){
-              self.remoteClient.sleep(5000);
+              self.remoteClient.sleep(2500);
               self.isWebRoute(infringement, target, done);
             },
             function(err){
