@@ -176,6 +176,13 @@ GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
   if (language != 'english')
     searchTerms3.push(fmt('%s %s free download', movieTitle, language));
 
+  ['bdrip', '720p', 'screener', 'dvdrip', 'cam'].forEach(function(type) {
+    searchTerms1.push(fmt('%s %s download', movieTitle, type));
+    searchTerms2.push(fmt('%s %s %s download', movieTitle, year, type));
+    if (language != 'english')
+      searchTerms3.push(fmt('%s %s %s download', movieTitle, language, type));
+  });
+
   // Compile the list
   searchTerms = searchTerms1.add(searchTerms2);
   searchTerms = searchTerms.add(searchTerms3);

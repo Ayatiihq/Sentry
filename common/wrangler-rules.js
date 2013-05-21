@@ -273,7 +273,9 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
                              , module.exports.ruleRegexStreamUri
                              , module.exports.ruleSwfObject];
 
-var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls'];
+var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg'];
+
+var videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', '.mpg', '.mpe', '.ogg', '.wmv'];
 
 var p2pExtensions = ['.torrent'];
 
@@ -283,6 +285,13 @@ module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
                                       ruleFindExtensions(audioExtensions),
                                       ruleFindExtensions(p2pExtensions),
                                       ruleFindExtensions(archiveExtensions)];
+
+module.exports.rulesDownloadsMovie = [
+    module.exports.ruleCyberLockers
+  , ruleFindExtensions(videoExtensions)
+  , ruleFindExtensions(p2pExtensions)
+  , ruleFindExtensions(archiveExtensions)
+];
 
 module.exports.typeExtensions = {
   'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
