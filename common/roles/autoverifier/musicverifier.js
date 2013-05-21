@@ -79,7 +79,10 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target){
   return promise;
 }
 
-
+/*
+ * This method might seem a little long-winded but for the sake of accurate note taking its layed out this way.
+ * @return {[error, verificationObject]} 
+ */
 MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
@@ -138,8 +141,8 @@ MusicVerifier.prototype.examineResults = function(){
                                          "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
     }
     else{
-      verificationObject.state = states.FALSE_POSITIVE
-      verificationObject.notes = "Harry Caul did not find any match, again please examine.",
+      verificationObject.state = states.FALSE_POSITIVE;
+      verificationObject.notes = "Harry Caul did not find any match, please examine.";
     }
   }
   return[err, verificationObject];
@@ -309,8 +312,8 @@ MusicVerifier.prototype.relevantDownload = function(download, done){
   }  
   
   self.downloadThing(uri, target).then(
-    function{
-      Downloads.getFileMimeType(initialTarget, determineAudio.bind(done));
+    function(){
+      Downloads.getFileMimeType(target, determineAudio.bind(done));
     },
     function(err){
       logger.info(' Problem fetching the file : ' + err);
@@ -382,24 +385,25 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
     var promiseArray;
     promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
     Promise.seq(promiseArray).then(
-    function(){
-      var results = self.examineResults();
-      if(results[0]){
-        self.done(err);
-        return;
+      function(){
+        var results = self.examineResults();
+        if(results[0]){
+          self.done(err);
+          return;
+        }
+        if(result[1].state === states.VERIFIED){
+          // report back immediately once we are confident we have one match.
+          self.done(null, result[1]);
+        }
+        else{ // Move on to the next track.
+          done();
+        }
+      },
+      function(err){
+        done(err);
       }
-      if(result[1].state === states.VERIFIED){
-        // report back immediately once we are confident we have one match.
-        self.done(null, result[1]);
-      }
-      else{ // Move on to the next track.
-        done();
-      }
-    },
-    function(err){
-      done(err);
-    }
-  ); 
+    );
+  }); 
 }
 //
 // Public
