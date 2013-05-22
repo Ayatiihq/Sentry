@@ -124,29 +124,17 @@ Hulkshare.prototype.checkForFileDownload = function(){
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
     var directDownload = null;
-    var removeFromList = null;
-    directDownload = $('a.src-url').attr('href');
-    
-    //logger.info('Direct file link : ' + directDownload);
+    directDownload = $('a.src-url').attr('href');    
     if(!directDownload){
       promise.resolve(null);
     }
     else{
-      var cancelPresent = self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel'));
-      var removeFromList = self.remoteClient.isElementPresent(webdriver.By.linkText('Remove from list'));
-
-      cancelPresent.then(function(present){
-        if(present){
-          self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();
-        }
-        else{
-          removeFromList.then(function(remove){
-            if(remove)
-              self.remoteClient.findElement(webdriver.By.linkText('Remove from list')).click();
-          });
-        }
-        promise.resolve(directDownload);      
+      // This is racey but I really don't know how to avoid that race
+      // Maybe let it download and sleep until remove from list shows up ...
+      self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel')).then(function(present){
+        if(present) self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();          
       });
+      promise.resolve(directDownload);      
     }
   });
   return promise;
@@ -252,7 +240,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
     .seq(function(){
       var that = this;      
       self.remoteClient.get(infringement.uri).then(function(){
-        self.remoteClient.sleep(2500);
+        self.remoteClient.sleep(1000);
         that();
         },
         function(err){
