@@ -89,11 +89,12 @@ Hulkshare.prototype.clearDownloads = function(){
 Hulkshare.prototype.checkForDMCA = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.remoteClient.sleep(Number.random(3,9) * 500);
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
+
     if($('div.playerNoTrack')){
       logger.info('DMCA blocked or private or somefink - mark as unavailable');
+      console.log('DMCAd check source \n\n\n ' + source);
       promise.resolve(true);
       return;
     }
@@ -206,6 +207,12 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
     return;
   }
 
+  if(uriInstance.toString().match(/embed_mp3\.php/)){
+    logger.info('Detected an embed script - forget about it');
+    done();
+    return;
+  }
+
   var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
   
   Seq()
@@ -264,7 +271,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
               done();
             },
             function(err){
-              that(err);
+              done(err);
           });
         }
         else{
@@ -280,7 +287,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
     .seq(function(){
       var that = this;      
       self.remoteClient.get(infringement.uri).then(function(){
-        self.remoteClient.sleep(2500);
+        self.remoteClient.sleep(4000);
         that();
         },
         function(err){
@@ -292,8 +299,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
     // Check for DMCA or blocking  
     .seq(function(){
       var that = this;
-      var DMCAd = self.checkForDMCA();
-      DMCAd.then(function(isDMCAd){
+      self.checkForDMCA().then(function(isDMCAd){
         if(isDMCAd){
           logger.info('yep DMCAd');
           done();
