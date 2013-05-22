@@ -20,6 +20,7 @@ var acquire = require('acquire')
   , Promise = require('node-promise')   
   , exec = require('child_process').execFile
   , Downloads = acquire('downloads')
+  , Seq = require('seq')  
   ;
 
 var Hulkshare = module.exports = function (campaign) {
@@ -85,28 +86,33 @@ Hulkshare.prototype.clearDownloads = function(){
   return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
 }
 
-Hulkshare.prototype.checkForDMCA = function(infringement){
+Hulkshare.prototype.checkForDMCA = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.remoteClient.get(infringement.uri).then(function(){
-    self.remoteClient.sleep(Number.random(3,9) * 500);
-    self.remoteClient.getPageSource().then(function(source){
-      var $ = cheerio.load(source);
-      if($('div.playerNoTrack')){
-        logger.info('DMCA blocked or private or somefink - mark as unavailable');
-        promise.resolve(true);
-        return;
-      }
-      promise.resolve(false);
-      /*$('a').each(function(index, elem){
-        if($(elem).attr('class') === "basicDownload")
-          logger.info('is this the link : ' + $(elem).attr('href'));
-      });*/
-    });  
-  },
-  function(err){
-    promise.reject(err);
-  });
+  self.remoteClient.sleep(Number.random(3,9) * 500);
+  self.remoteClient.getPageSource().then(function(source){
+    var $ = cheerio.load(source);
+    if($('div.playerNoTrack')){
+      logger.info('DMCA blocked or private or somefink - mark as unavailable');
+      promise.resolve(true);
+      return;
+    }
+    promise.resolve(false);
+    /*$('a').each(function(index, elem){
+      if($(elem).attr('class') === "basicDownload")
+        logger.info('is this the link : ' + $(elem).attr('href'));
+    });*/
+  });  
+  return promise;  
+}
+
+Hulkshare.prototype.checkInlineSingleDownload = function(){
+  var self = this;
+  var promise = new Promise.Promise();
+  promise.resolve(false);
+  self.remoteClient.getPageSource().then(function(source){
+    var $ = cheerio.load(source);
+  });  
   return promise;  
 }
 
@@ -117,7 +123,7 @@ Hulkshare.prototype.checkForFileDownload = function(){
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
     var directDownload = null;
-    var removeFromList;
+    var removeFromList = null;
     directDownload = $('a.src-url').attr('href');
     
     //logger.info('Direct file link : ' + directDownload);
@@ -145,44 +151,12 @@ Hulkshare.prototype.checkForFileDownload = function(){
   return promise;
 }
 
-Hulkshare.prototype.isWebRoute = function(infringement, target, done){
-  var self = this;
-  logger.info('go the web route with : ' + infringement.uri);  
-
-  self.checkForFileDownload().then(function(directDownload){
-    if(directDownload){
-      logger.info('detected a direct download !');
-      self.fetchDirectDownload(URI(directDownload), target).then(function(){
-        done();
-        },
-        function(err){
-          done(err);
-      });
-    }
-    else{
-      self.checkForDMCA(infringement).then(function(yes){
-        if(yes){
-          logger.info('yep DMCAd');
-          done();   
-        }
-        else{
-          logger.warn("erm don't know - more scraping needed ?");
-          //TODO
-          done();
-        }
-      },
-      function(err){
-        done(err);
-      });
-    }
-  });
-}
 /*Make sure to delete files in download dir*/
 Hulkshare.prototype.cleanupFirstPhase = function(fileTarget){
   var promise = new Promise.Promise();
-  fs.unlink(fileTarget, function (errr) {
-    if(errr){
-      logger.warn('error deleting ' + errr + fileTarget);
+  fs.unlink(fileTarget, function (err) {
+    if(err){
+      logger.warn('error deleting ' + err + fileTarget);
       promise.reject(err);
     }
     else{
@@ -234,36 +208,108 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
 
   var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
   
-  self.authenticate().then(function(){
-    self.clearDownloads().then(function(){
+  Seq()
+    .seq(function(){
+      var that = this;
+      self.authenticate().then(function(){that()},
+        function(err){
+          that(err);
+      });
+    })
+    // Make sure to clear the downloads page 
+    .seq(function(){
+      var that = this;
+      self.clearDownloads().then(function(){that()});    
+    })  
+    // Try for a direct download - some are accessible this way 
+    .seq(function(){
+      var that = this;
       var isDirect = self.isDirectDownload(uriInstance, target);
       isDirect.then(function(result){
         if(result){
           done();
+          return;
         }
-        else{
-          self.cleanupFirstPhase(target).then(function(){
-            self.remoteClient.get(infringement.uri).then(function(){
-              self.remoteClient.sleep(2500);
-              self.isWebRoute(infringement, target, done);
+        that();
+      });
+    })
+    // Make sure to remove the file which was downloaded during the previous stage
+    .seq(function(){
+      var that = this;
+      self.cleanupFirstPhase(target).then(function(){that();},
+        function(err){
+          that(err);
+        });
+    })    
+    // Fetch infringement, wait for a bit
+    .seq(function(){
+      var that = this;      
+      self.remoteClient.get(infringement.uri).then(function(){
+        self.remoteClient.sleep(2500);
+        that();
+        },
+        function(err){
+          logger.info('remote client get error ' + err);
+          that(err);
+        }
+      );
+    })
+    // more often than not you need to have an authenticated session before being able to get a file
+    .seq(function(){
+      var that = this;
+      self.checkForFileDownload().then(function(directDownload){
+        if(directDownload){  
+          logger.info('detected a direct download !');
+          self.fetchDirectDownload(URI(directDownload), target).then(function(){
+              done();
             },
             function(err){
-              logger.info('remote client get error ' + err);
-              done(err);
-            });
-          },
-          function(err){
-            logger.info('Error deleting files from target director');
-            done(err);
+              that(err);
           });
         }
-      },      
+        else{
+          logger.warn("Not a direct download - try to scrape page ...");
+          that();
+        }
+      },
       function(err){
-        logger.info('isDirectDownload poo - 2');
-        done(err);
+        that(err);
       });
-    });
-  });  
+    })
+    // Fetch infringement, wait for a bit
+    .seq(function(){
+      var that = this;      
+      self.remoteClient.get(infringement.uri).then(function(){
+        self.remoteClient.sleep(2500);
+        that();
+        },
+        function(err){
+          logger.info('remote client get error ' + err);
+          that(err);
+        }
+      );
+    })
+    // Check for DMCA or blocking  
+    .seq(function(){
+      var that = this;
+      var DMCAd = self.checkForDMCA();
+      DMCAd.then(function(isDMCAd){
+        if(isDMCAd){
+          logger.info('yep DMCAd');
+          done();
+          return;
+        }
+        that();
+      });
+    })
+    .seq(function(){
+      logger.info("dont know what this is");
+      done();
+    })    
+    .catch(function(err){
+      done(err);
+    })      
+    ;
 }
 
 Hulkshare.prototype.finish = function(){
