@@ -82,8 +82,12 @@ Hulkshare.prototype.fetchDirectDownload = function(uriInstance, target){
 
 Hulkshare.prototype.clearDownloads = function(){
   var self = this;
-  self.remoteClient.get('chrome://downloads');
-  return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
+  var p = new Promise.Promise();
+  self.remoteClient.get('chrome://downloads').then(function(){
+    self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();        
+    p.resolve();
+  });
+  return p;
 }
 
 Hulkshare.prototype.checkForDMCA = function(){
@@ -92,17 +96,12 @@ Hulkshare.prototype.checkForDMCA = function(){
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
 
-    if($('div.playerNoTrack')){
+    if($('div.playerNoTrack').html()){
       logger.info('DMCA blocked or private or somefink - mark as unavailable');
-      console.log('DMCAd check source \n\n\n ' + source);
       promise.resolve(true);
       return;
     }
     promise.resolve(false);
-    /*$('a').each(function(index, elem){
-      if($(elem).attr('class') === "basicDownload")
-        logger.info('is this the link : ' + $(elem).attr('href'));
-    });*/
   });  
   return promise;  
 }
@@ -110,11 +109,20 @@ Hulkshare.prototype.checkForDMCA = function(){
 Hulkshare.prototype.checkInlineSingleDownload = function(){
   var self = this;
   var promise = new Promise.Promise();
-  promise.resolve(false);
   self.remoteClient.getPageSource().then(function(source){
     var $ = cheerio.load(source);
+    var found = false;
+    $('a').each(function(){
+      if($(this).attr('class') === "bigDownloadBtn basicDownload"){
+        logger.info('IS THIS A SINGLE DOWNLOAD');
+        promise.resolve($(this).attr('href'));
+        found = true;
+      }
+    });
+    if(!found)
+      promise.resolve(null);
   });  
-  return promise;  
+  return promise;
 }
 
 Hulkshare.prototype.checkForFileDownload = function(){
@@ -130,7 +138,8 @@ Hulkshare.prototype.checkForFileDownload = function(){
     }
     else{
       // This is racey but I really don't know how to avoid that race
-      // Maybe let it download and sleep until remove from list shows up ...
+      // Maybe let it download and sleep until remove from list shows up ... 
+      // (but that will introduce the possiblility of another race)
       self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel')).then(function(present){
         if(present) self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();          
       });
@@ -226,6 +235,9 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
           return;
         }
         that();
+      },
+      function(err){
+        done(err);
       });
     })
     // Make sure to remove the file which was downloaded during the previous stage
@@ -263,7 +275,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
           });
         }
         else{
-          logger.warn("Not a direct download - try to scrape page ...");
+          logger.info("Not a direct download - try to scrape page ...");
           that();
         }
       },
@@ -297,8 +309,22 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
       });
     })
     .seq(function(){
-      logger.info("dont know what this is");
-      done();
+      var that  = this;
+      self.checkInlineSingleDownload().then(function(result){
+        if(!result){
+          logger.info("DONT KNOW WHAT THIS IS - (NOT A SINGLE DOWNLOAD");
+          done();
+        }
+        else{
+          logger.info('fetching single download !');
+          self.fetchDirectDownload(URI(result), target).then(function(){
+              done();
+            },
+            function(err){
+              done(err);
+          });          
+        }
+      })
     })    
     .catch(function(err){
       done(err);
