@@ -114,7 +114,7 @@ Hulkshare.prototype.checkInlineSingleDownload = function(){
     var found = false;
     $('a').each(function(){
       if($(this).attr('class') === "bigDownloadBtn basicDownload"){
-        logger.info('IS THIS A SINGLE DOWNLOAD');
+        logger.info('single file download - ' + $(this).attr('href'));
         promise.resolve($(this).attr('href'));
         found = true;
       }
