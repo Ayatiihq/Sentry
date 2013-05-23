@@ -308,6 +308,7 @@ Hulkshare.prototype.download = function(infringement, pathToUse, done){
         that();
       });
     })
+    // Check for single file download.
     .seq(function(){
       var that  = this;
       self.checkInlineSingleDownload().then(function(result){
