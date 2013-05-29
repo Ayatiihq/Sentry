@@ -91,11 +91,12 @@ TorrentDownloader.prototype.poll = function () {
 };
 
 TorrentDownloader.prototype.callMethod = function () {
+  var self = this;
   // simple wrapper around xmlrpc so we get a promise return
   // we need to bind the client.callMethod to use client as its this
   // javascript is annoying.
-  var fn = this.client.callMethod.bind(this.client);
-  var args = Array.prototype.slice.call(arguments, 1);
+  var fn = self.client.methodCall.bind(this.client);
+  var args = Array.prototype.slice.call(arguments);
   args.unshift(fn);
 
   if (args.length < 3) { // lets us do some shorthand if no paramaters are passed 
@@ -105,7 +106,9 @@ TorrentDownloader.prototype.callMethod = function () {
   // Promise.execute creates a promise for us, but we can be a bit smarter and 
   // create our own promise that we can reject/resolve depending on the error value returned
   var promise = Promise.Promise();
-  Promise.execute.call(args).then(function (err, val) {
+  console.log(args);
+  console.log(arguments);
+  Promise.execute.apply(null, args).then(function (err, val) {
     if (!!err) { 
       promise.reject(err, val);
     }
