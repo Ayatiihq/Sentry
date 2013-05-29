@@ -49,26 +49,17 @@ function getTorrentDownloader() {
 
 var TorrentDownloader = function () {
   this.downloadPath = path.join(os.tmpdir(), genRandString());
-  var options = {
-    host: RPCHOST,
-    port: RPCPORT,
-    path: '/RPC2'
-  };
-
-  this.client = xmlrpc.createClient(options);
-  this.client.methodCall('download_list', [], function (error, value) {
-    // Results of the method response
-    console.log(value);
-    //console.log('Method response for \'anAction\': ' + value)
-  })
-
-  this.enablePoll = true;
-
   this._init();
 };
 
 TorrentDownloader.prototype._init = function () {
   var self = this;
+  var options = {
+    host: RPCHOST,
+    port: RPCPORT,
+    path: '/RPC2'
+  };
+  self.client = xmlrpc.createClient(options);
 
   self.enablePoll = true;
   self.poll(); // starts the polling cycle running
@@ -111,7 +102,6 @@ TorrentDownloader.prototype.callMethod = function () {
 
   // create our promise handling callback function
   args.push(function (err, val) {
-    console.log('phandler', err, val);
     if (!!err) {
       promise.reject(err, val);
     }
