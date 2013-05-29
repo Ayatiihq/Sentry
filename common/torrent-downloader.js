@@ -178,3 +178,7 @@ module.exports.addFromURI = function (uri, downloadDir) {
 };
 
 
+// for testing
+if (require.main === module) {
+  var tDownloder = getTorrentDownloader();
+}
