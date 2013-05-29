@@ -13,9 +13,9 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('torrent-downloader.js')
   , util = require('util')
-  , torrentClient = require('node-torrent')
   , path = require('path')
   , os = require('os')
+  , xmlrpc = require('xmlrpc')
 ;
 
 var errorCodes = module.exports.errorCodes = {
@@ -26,6 +26,9 @@ var errorCodes = module.exports.errorCodes = {
   'downloadError': 'DOWNLOADERROR'
 }
 
+var RPCHOST = '192.168.1.10';
+var RPCPORT = 80
+var POLLDELAY = 30;
 
 function genRandString(size) {
   if (!size) { size = 8; }
@@ -45,9 +48,102 @@ function getTorrentDownloader() {
 }
 
 var TorrentDownloader = function () {
-  this.tempdir = path.join(os.tmpdir(), genRandString());
-  var options = { 'downloadPath': this.tempdir };
-  this.client = new torrentClient(options);
+  this.downloadPath = path.join(os.tmpdir(), genRandString());
+  var options = {
+    host: RPCHOST,
+    port: RPCPORT,
+    path: '/RPC2'
+  };
+
+  this.client = xmlrpc.createClient(options);
+  this.enablePoll = true;
+
+  this._init();
+};
+
+TorrentDownloader.prototype._init = function () {
+  // setup a few long running things
+  // we don't have signals or anything like that so we need to run 
+  // a poll
+
+
+};
+
+TorrentDownloader.prototype.poll = function () {
+  var self = this;
+  var promiseAccumulator = []
+
+  // we want to accumulate all our promises so that we don't accidentally hammer xmlRPC, 
+  // we can just wait for all the promises to resolve before queing another poll
+
+  var pGetTorrents = self.getTorrents();
+  pGetTorrents.then(self.handleTorrentList);
+  promiseAccumulator.push(pGetTorrents)
+
+  Promise.allOrNone(promiseAccumulator).then(function queueNewPoll() {
+    // poll ready to be queued up again
+    if (!self.enablePoll) { return; }
+    self.poll.delay(POLLDELAY * 1000);
+
+  }, function pollError(err) {
+    logger.error('Error during poll: %s', err.message);
+    self.enablePoll = false;
+  });
+
+
+};
+
+TorrentDownloader.prototype.callMethod = function () {
+  // simple wrapper around xmlrpc so we get a promise return
+  // we need to bind the client.callMethod to use client as its this
+  // javascript is annoying.
+  var fn = this.client.callMethod.bind(this.client);
+  var args = Array.prototype.slice.call(arguments, 1);
+  args.unshift(fn);
+
+  if (args.length < 3) { // lets us do some shorthand if no paramaters are passed 
+    args.push([]);
+  }
+
+  // Promise.execute creates a promise for us, but we can be a bit smarter and 
+  // create our own promise that we can reject/resolve depending on the error value returned
+  var promise = Promise.Promise();
+  Promise.execute.call(args).then(function (err, val) {
+    if (!!err) { 
+      promise.reject(err, val);
+    }
+    else {
+      promise.resolve(val);
+    }
+  });
+
+  return promise;
+}
+
+// builds an error handler for a promise 
+TorrentDownloader.prototype.genericFailure = function (p) {
+  function onError(promise, err) {
+    promise.reject(err);
+    logger.error("Error encountered: %s", err.message);
+  }
+  return onError.bind(this, p);
+}
+
+// returns a promise that will resolve to a list of torrents
+TorrentDownloader.prototype.getTorrents = function () {
+  var self = this;
+  var promise = Promise.Promise();
+
+  self.callMethod('download_list').then(function onDownloadListReturned(val) {
+    promise.resolve(val);
+  }, self.genericFailure(promise));
+
+  return promise;
+};
+
+/* Handlers */
+TorrentDownloader.prototype.handleTorrentList = function (val) {
+  logger.info('HandleTorrentList: %s', val);
 };
 
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
