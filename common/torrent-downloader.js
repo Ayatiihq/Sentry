@@ -79,7 +79,7 @@ TorrentDownloader.prototype.poll = function () {
   Promise.allOrNone(promiseAccumulator).then(function queueNewPoll() {
     // poll ready to be queued up again
     if (!self.enablePoll) { return; }
-    self.poll.delay(POLLDELAY * 1000);
+    self.poll.bind(self).delay(POLLDELAY * 1000);
 
   }, function pollError(err) {
     logger.error('Error during poll: %s', err.message);
