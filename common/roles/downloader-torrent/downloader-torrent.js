@@ -185,7 +185,7 @@ DownloaderTorrent.prototype.getTorrent = function() {
       self.torrentClient_.add(infringement);
     })
     .catch(function(err) {
-      logger.warn('Unable to prepare infringement to download: %s', err);
+      logger.warn('Unable to prepare infringement to download: %s', err.message);
     })
     ;
 }

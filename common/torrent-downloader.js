@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , util = require('util')
   , torrentClient = require('node-torrent')
   , path = require('path')
+  , os = require('os')
 ;
 
 var errorCodes = module.exports.errorCodes = {
@@ -33,6 +34,7 @@ function genRandString(size) {
   while (val.length < size) {
     val += pool.charAt(Math.floor(Math.random() * pool.length));
   };
+  return val;
 }
 
 var globalTorrentDownloader = null; // stays consistant over multiple imports as long as nodes import caching isn't broken
@@ -48,10 +50,11 @@ var TorrentDownloader = function () {
   this.client = new torrentClient(options);
 };
 
-TorrentDownloader.prototype.addFromFilePath = function (filepath) {
+TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = Promise.Promise();
   var self = this;
-  var torrent = self.addTorrent(filepath);
+
+  var torrent = this.client.addTorrent(URI, downloadDir);
 
   torrent.on('complete', function () {
     promise.resolve(torrent.files);
@@ -66,15 +69,7 @@ TorrentDownloader.prototype.addFromFilePath = function (filepath) {
   return promise;
 };
 
-TorrentDownloader.prototype.addFromMagnet = function (magnet) {
-  var promise = Promise.Promise();
-
-  return promise;
-};
-
-
-
-module.exports.addFromURI = function (uri) {
+module.exports.addFromURI = function (uri, downloadDir) {
   //TODO!! - add uri checks before sending to torrent downloader
   var check = null; // check go here
   if (check) {
@@ -85,24 +80,8 @@ module.exports.addFromURI = function (uri) {
     return promise;
   }
   else {
-    return globalTorrentDownloader.addFromURI(uri);
+    return getTorrentDownloader().addFromURI(uri, downloadDir);
   }
 };
-
-module.exports.addFromMagnet = function (magnet) {
-  //TODO!! - add magnet uri checks before sending to torrent downloader
-  var check = null; // check go here
-  if (check) {
-    var promise = Promise.Promise();
-    var error = new Error(errorCodes.malformedMagnetURI);
-    error.detail = check;
-    promise.reject([error, null]);
-    return promise;
-  }
-  else {
-    return globalTorrentDownloader.addFromMagnet(magnet);
-  }
-};
-
 
 

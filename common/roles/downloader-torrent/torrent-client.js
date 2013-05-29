@@ -18,7 +18,8 @@ var acquire = require('acquire')
   , Promise = require('node-promise')
   , torrentDownloader = acquire('torrent-downloader')
   , util = require('util')
-  ;
+;
+require('sugar');
 
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.
@@ -85,38 +86,46 @@ TorrentClient.prototype.start = function() {
 //
 TorrentClient.prototype.add = function(infringement) {
   logger.info('%s', JSON.stringify(infringement, null, '  '));
-  try {// always have to try/catch this crap because javascript is not really okay with the idea of nested objects
+
+  // Do lots of checks on the infringement data, i miss g_return_if_fail :( 
+  try { // always have to try/catch this crap because javascript is not really okay with the idea of nested objects
     var potentialURIS = infringement.parents.uris;
   } catch (err) {
     self.emit('torrentErrored', infringement, err);
     logger.error(err);
   }
 
+  // still have to do even more checks
   if (!potentialURIS && potentialURIS.length === 0) {
-    // still have to do even more checks
     self.emit('torrentErrored', infringement, new Error('no torrent uris'));
     logger.error(new Error('no torrent uris'));
     return;
   }
+  
+  // Checks complete
 
-  var magnetURIS = potentialURIS.filter(function (n) { return n.has('magnet://'); });
-  var webURIS = potentialURIS.filter(function () { return n.has('http://') || n.has('https://'); });
+  // the idea here is to sort our uri list so we get web uris before magnet uris
+  // web uris are actual torrent files and thus full of more juicy data like multiple trackers and file lists
+  potentialURIS.sort(function (a, b) {
+    if (a === b) { return 0; }
 
-  function onSetupComplete(tPromise) {
-    // torrent was succesfully added to the torrent client
+    // just store if we have magnet or not here, makes the comparison simpler as we don't have to check multiple times
+    var acomp = a.has('magnet://');
+    var bcomp = b.has('magnet://');
 
-  };
+    if (acomp === bcomp) { return (a < b) ? -1 : 1; }
+    else { return (acomp < bcomp) ? -1 : 1; }
+  });
 
-  var setupPromise = execFirstInSet(webURIS, torrentDownloader.addFromURI);
-
-  setupPromise.then(onSetupComplete, function onSetupFailed(err) {
-    // balls. either we had no uris to download or all of them failed.  
-    setupPromise = execFirstInSet(magnetURIS, torrentDownloader.addFromMagnet);
-    setupPromise.then(onSetupComplete, function onFullSetupFailed(err) {
-      // super balls. no recovering from this
-      self.emit('torrentErrored', infringement, err);
-      logger.error(err);
-    });
+  // we use a custom function defined above, execFirstInSet to send multiple data items into a function that provides a promise
+  // it is clever enough to only continue sending in data items if the promise is rejected, if it returns correctly it does not continue
+  var torrentPromise = execFirstInSet(potentialURIS, torrentDownloader.addFromURI.bind(torrentDownloader, infringement.downloadDir));
+  torrentPromise.then(function onTorrentComplete(files) {
+    self.emit('torrentFinished', infringement);
+    logger.info('torrentFinished %s', infringement);
+  }, function onTorrentFailed(err) {
+    self.emit('torrentErrored', infringement, err);
+    logger.info('torrentErrored %s - %s', infringement, err);
   });
 
   // Can start downloading the infringement, infringment.parents will be useful
@@ -125,6 +134,21 @@ TorrentClient.prototype.add = function(infringement) {
   // Then self.emit('getTorrent') for a new torrent
 
   // If torrent is invalid or errors then self.emit('torrentErrored', infringement)
+  
+}
+
+TorrentClient.prototype.waitOnTorrent = function (promise, infringement) {
+  // once we get here the torrent has been added to the client, waiting on it to resolve or reject the promise.
+  // we just need to make sure our infringement doesn't get recycled
+
+  promise.then(function onTorrentComplete(resolvedFiles) {
+    self.emit('torrentFinished', infringement);
+  }, function onTorrentError(err) {
+    // torrent errored for some reason
+    self.emit('torrentErrored', infringement, err);
+    logger.error(err);
+  });
+
 }
 
 /**
