@@ -56,6 +56,12 @@ var TorrentDownloader = function () {
   };
 
   this.client = xmlrpc.createClient(options);
+  this.client.methodCall('download_list', [], function (error, value) {
+    // Results of the method response
+    console.log(value);
+    //console.log('Method response for \'anAction\': ' + value)
+  })
+
   this.enablePoll = true;
 
   this._init();
@@ -92,30 +98,29 @@ TorrentDownloader.prototype.poll = function () {
 
 TorrentDownloader.prototype.callMethod = function () {
   var self = this;
+  var promise = Promise.Promise();
   // simple wrapper around xmlrpc so we get a promise return
-  // we need to bind the client.callMethod to use client as its this
-  // javascript is annoying.
-  var fn = self.client.methodCall.bind(this.client);
+  
   var args = Array.prototype.slice.call(arguments);
-  args.unshift(fn);
+
+  logger.info('calling method: %s(%s)', arguments[0], Array.prototype.slice.call(arguments, 1));
 
   if (args.length < 3) { // lets us do some shorthand if no paramaters are passed 
     args.push([]);
   }
 
-  // Promise.execute creates a promise for us, but we can be a bit smarter and 
-  // create our own promise that we can reject/resolve depending on the error value returned
-  var promise = Promise.Promise();
-  console.log(args);
-  console.log(arguments);
-  Promise.execute.apply(null, args).then(function (err, val) {
-    if (!!err) { 
+  // create our promise handling callback function
+  args.push(function (err, val) {
+    console.log('phandler', err, val);
+    if (!!err) {
       promise.reject(err, val);
     }
     else {
       promise.resolve(val);
     }
   });
+
+  self.client.methodCall.apply(self.client, args)
 
   return promise;
 }
