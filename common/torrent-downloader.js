@@ -97,25 +97,20 @@ TorrentDownloader.prototype.callMethod = function () {
   var promise = new Promise.Promise();
   // simple wrapper around xmlrpc so we get a promise return
   
-  var args = Array.prototype.slice.call(arguments);
+  var args = Array.prototype.slice.call(arguments, 1);
 
-  logger.info('calling method: %s(%s)', arguments[0], Array.prototype.slice.call(arguments, 1));
-
-  if (args.length < 3) { // lets us do some shorthand if no paramaters are passed 
-    args.push([]);
-  }
-
+  logger.info('calling method: %s(%s)', arguments[0], args);
   // create our promise handling callback function
-  args.push(function (err, val) {
+  function handler(err, val) {
     if (!!err) {
       promise.reject(err, val);
     }
     else {
       promise.resolve(val);
     }
-  });
+  };
 
-  self.client.methodCall.apply(self.client, args)
+  self.client.methodCall.apply(self.client, [arguments[0], args, handler]);
 
   return promise;
 }
@@ -149,6 +144,29 @@ TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
   return promise;
 }
 
+// infohash, can send in as many values as you want after info hash, they will be passed on
+TorrentDownloader.prototype.resolveInfohash = function (infohash) {
+  var self = this;
+  if (!Object.has(self.watchHashes, infohash)) { logger.error('could not find infohash %s to resolve', infohash); return; }
+
+  var args = Array.prototype.slice.call(arguments, 1);
+  self.watchHashes[infohash].resolve.apply(self.watchHashes[infohash], args);
+  delete self.watchHashes[infohash];
+}
+
+TorrentDownloader.prototype.rejectInfohash = function (infohash) {
+  var self = this;
+  if (!Object.has(self.watchHashes, infohash)) { logger.error('could not find infohash %s to reject', infohash); return; }
+
+  var args = Array.prototype.slice.call(arguments, 1);
+  self.watchHashes[infohash].reject.apply(self.watchHashes[infohash], args);
+  delete self.watchHashes[infohash];
+}
+
+TorrentDownloader.prototype.rejectInfohashBuilder = function (infohash) {
+  return this.rejectInfohash.bind(this, infohash);
+}
+
 /* Handlers */
 TorrentDownloader.prototype.handleTorrentList = function (val) {
   logger.info('HandleTorrentList: %s', val);
@@ -167,7 +185,13 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   logger.info('Extracted %s infohash', infohash);
 
   self.addInfohashToWatch(URI).then(function () { promise.resolve.apply(promise, arguments); },
-                               function () { promise.reject.apple(promise, arguments); })
+                               function () { promise.reject.apply(promise, arguments); })
+
+  self.callMethod('load', [URI]).then(function () {
+    self.callMethod('d.set_directory', infohash, downloadDir);
+  }, self.rejectInfohashBuilder(infohash));
+ 
+
   return promise;
 };
 
