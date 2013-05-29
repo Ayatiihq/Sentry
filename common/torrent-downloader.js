@@ -62,11 +62,10 @@ var TorrentDownloader = function () {
 };
 
 TorrentDownloader.prototype._init = function () {
-  // setup a few long running things
-  // we don't have signals or anything like that so we need to run 
-  // a poll
+  var self = this;
 
-
+  self.enablePoll = true;
+  self.poll(); // starts the polling cycle running
 };
 
 TorrentDownloader.prototype.poll = function () {
@@ -89,8 +88,6 @@ TorrentDownloader.prototype.poll = function () {
     logger.error('Error during poll: %s', err.message);
     self.enablePoll = false;
   });
-
-
 };
 
 TorrentDownloader.prototype.callMethod = function () {
