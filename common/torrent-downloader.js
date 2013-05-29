@@ -15,7 +15,9 @@ var acquire = require('acquire')
   , util = require('util')
   , path = require('path')
   , os = require('os')
+  , utilities = acquire('utilities')
   , xmlrpc = require('xmlrpc')
+  , XRegExp = require('xregexp').XRegExp
 ;
 
 var errorCodes = module.exports.errorCodes = {
@@ -28,7 +30,8 @@ var errorCodes = module.exports.errorCodes = {
 
 var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
-var POLLDELAY = 30;
+var POLLDELAY = 5;
+var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)', 'gix'); // global, ignore case, free spacing 
 
 function genRandString(size) {
   if (!size) { size = 8; }
@@ -60,6 +63,8 @@ TorrentDownloader.prototype._init = function () {
     path: '/RPC2'
   };
   self.client = xmlrpc.createClient(options);
+  
+  self.watchHashes = {};
 
   self.enablePoll = true;
   self.poll(); // starts the polling cycle running
@@ -89,7 +94,7 @@ TorrentDownloader.prototype.poll = function () {
 
 TorrentDownloader.prototype.callMethod = function () {
   var self = this;
-  var promise = Promise.Promise();
+  var promise = new Promise.Promise();
   // simple wrapper around xmlrpc so we get a promise return
   
   var args = Array.prototype.slice.call(arguments);
@@ -127,7 +132,7 @@ TorrentDownloader.prototype.genericFailure = function (p) {
 // returns a promise that will resolve to a list of torrents
 TorrentDownloader.prototype.getTorrents = function () {
   var self = this;
-  var promise = Promise.Promise();
+  var promise = new Promise.Promise();
 
   self.callMethod('download_list').then(function onDownloadListReturned(val) {
     promise.resolve(val);
@@ -136,27 +141,33 @@ TorrentDownloader.prototype.getTorrents = function () {
   return promise;
 };
 
+TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
+  var self = this;
+  var promise = new Promise.Promise();
+  if (Object.has(self.watchHashes, infohash)) { promise.reject(new Error('infohash ' + infohash + 'already added')); return promise; }
+  self.watchHashes[infohash] = promise;
+  return promise;
+}
+
 /* Handlers */
 TorrentDownloader.prototype.handleTorrentList = function (val) {
   logger.info('HandleTorrentList: %s', val);
 };
 
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
-  var promise = Promise.Promise();
+  var promise = new Promise.Promise();
   var self = this;
 
-  var torrent = this.client.addTorrent(URI, downloadDir);
+  //only support magnet for right now, easier to extract the infohash
+  if (!URI.has('magnet:')) { promise.reject(new Error('only magnet links supported')); return promise; }
+  var match = XRegExp.exec(URI, magnetMatch);
+  if (!match.infohash) { promise.reject(new Error('could not extract infohash from magnet URI: ' + URI)); return promise; }
 
-  torrent.on('complete', function () {
-    promise.resolve(torrent.files);
-    self.client.removeTorrent(torrent);
-  });
+  var infohash = match.infohash;
+  logger.info('Extracted %s infohash', infohash);
 
-  torrent.on('error', function (error) {
-    promise.reject(error);
-    self.client.removeTorrent(torrent);
-  });
-
+  self.addInfohashToWatch(URI).then(function () { promise.resolve.apply(promise, arguments); },
+                               function () { promise.reject.apple(promise, arguments); })
   return promise;
 };
 
@@ -164,7 +175,7 @@ module.exports.addFromURI = function (uri, downloadDir) {
   //TODO!! - add uri checks before sending to torrent downloader
   var check = null; // check go here
   if (check) {
-    var promise = Promise.Promise();
+    var promise = new Promise.Promise();
     var error = new Error(errorCodes.malformedURI);
     error.detail = check;
     promise.reject([error, null]);
@@ -179,4 +190,5 @@ module.exports.addFromURI = function (uri, downloadDir) {
 // for testing
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
+  tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }
