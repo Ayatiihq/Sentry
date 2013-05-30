@@ -78,7 +78,7 @@ TorrentDownloader.prototype.poll = function () {
   // we can just wait for all the promises to resolve before queing another poll
 
   var pGetTorrents = self.getTorrents();
-  pGetTorrents.then(self.handleTorrentList);
+  pGetTorrents.then(self.handleTorrentList.bind(self));
   promiseAccumulator.push(pGetTorrents)
 
   Promise.allOrNone(promiseAccumulator).then(function queueNewPoll() {
@@ -99,7 +99,7 @@ TorrentDownloader.prototype.callMethod = function () {
   
   var args = Array.prototype.slice.call(arguments, 1);
 
-  logger.info('calling method: %s(%s)', arguments[0], args);
+  logger.info('[trace] calling method: %s(%s)', arguments[0], args);
   // create our promise handling callback function
   function handler(err, val) {
     if (!!err) {
@@ -129,7 +129,7 @@ TorrentDownloader.prototype.getTorrents = function () {
   var self = this;
   var promise = new Promise.Promise();
 
-  self.callMethod('download_list').then(function onDownloadListReturned(val) {
+  self.callMethod('d.multicall', 'main', 'd.name=', 'd.hash=', 'd.size_bytes=', 'd.bytes_done=').then(function onDownloadListReturned(val) {
     promise.resolve(val);
   }, self.genericFailure(promise));
 
@@ -139,8 +139,16 @@ TorrentDownloader.prototype.getTorrents = function () {
 TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
   var self = this;
   var promise = new Promise.Promise();
+  var info = {
+    name: "",
+    hash: infohash,
+    size: 1,
+    progressSize: 0,
+    'promise': promise
+  };
+
   if (Object.has(self.watchHashes, infohash)) { promise.reject(new Error('infohash ' + infohash + 'already added')); return promise; }
-  self.watchHashes[infohash] = promise;
+  self.watchHashes[infohash] = info;
   return promise;
 }
 
@@ -150,7 +158,7 @@ TorrentDownloader.prototype.resolveInfohash = function (infohash) {
   if (!Object.has(self.watchHashes, infohash)) { logger.error('could not find infohash %s to resolve', infohash); return; }
 
   var args = Array.prototype.slice.call(arguments, 1);
-  self.watchHashes[infohash].resolve.apply(self.watchHashes[infohash], args);
+  self.watchHashes[infohash].promise.resolve.apply(self.watchHashes[infohash], args);
   delete self.watchHashes[infohash];
 }
 
@@ -159,7 +167,7 @@ TorrentDownloader.prototype.rejectInfohash = function (infohash) {
   if (!Object.has(self.watchHashes, infohash)) { logger.error('could not find infohash %s to reject', infohash); return; }
 
   var args = Array.prototype.slice.call(arguments, 1);
-  self.watchHashes[infohash].reject.apply(self.watchHashes[infohash], args);
+  self.watchHashes[infohash].promise.reject.apply(self.watchHashes[infohash], args);
   delete self.watchHashes[infohash];
 }
 
@@ -169,8 +177,42 @@ TorrentDownloader.prototype.rejectInfohashBuilder = function (infohash) {
 
 /* Handlers */
 TorrentDownloader.prototype.handleTorrentList = function (val) {
-  logger.info('HandleTorrentList: %s', val);
+  var self = this;
+
+  val.every(function onEachTorrent(torrentInfo) {
+    var info = {
+      name: torrentInfo[0],
+      hash: torrentInfo[1],
+      size: torrentInfo[2],
+      progressSize: torrentInfo[3]
+    };
+
+    if (Object.has(self.watchHashes)) {
+      self.torrentUpdate(info);
+    }
+    else {
+      logger.warn('Torrent polled that we are not watching: %s (%s)', name, hash);
+    }
+  });
 };
+
+TorrentDownloader.prototype.torrentUpdate = function (info) {
+  var self = this;
+  var hash = info.hash;
+
+  self.watchHashes[hash] = Object.merge(self.watchHashes[hash], info);
+  var progress = self.watchHashes[hash].progressSize / self.watchHashes[hash].size;
+
+  if (self.watchHashes[hash].progressSize < self.watchHashes[hash].size) {
+    // torrent not complete
+  }
+  else {
+    // torrent complete
+    self.callMethod('d.close', hash).then(function () {
+      self.resolveInfohash(hash);
+    });
+  }
+}
 
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = new Promise.Promise();
@@ -214,5 +256,5 @@ module.exports.addFromURI = function (uri, downloadDir) {
 // for testing
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
-  tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  //tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }
