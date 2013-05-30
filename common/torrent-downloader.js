@@ -187,11 +187,13 @@ TorrentDownloader.prototype.handleTorrentList = function (val) {
       progressSize: torrentInfo[3]
     };
 
-    if (Object.has(self.watchHashes)) {
+    if (Object.has(self.watchHashes, info.hash)) {
       self.torrentUpdate(info);
     }
     else {
-      logger.warn('Torrent polled that we are not watching: %s (%s)', name, hash);
+      logger.warn('Torrent polled that we are not watching: %s (%s)', info.name, info.hash);
+      logger.warn('Removing torrent %s (%s)', info.name, info.hash);
+      self.callMethod('d.erase', info.hash);
     }
   });
 };
@@ -205,10 +207,13 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
 
   if (self.watchHashes[hash].progressSize < self.watchHashes[hash].size) {
     // torrent not complete
+    var progress = self.watchHashes[hash].progressSize / (self.watchHashes[hash].size / 100);
+    logger.info('torrent progress (%d%%):\t %s', progress, self.watchHashes[hash].name);
   }
   else {
     // torrent complete
-    self.callMethod('d.close', hash).then(function () {
+    logger.info('torrent complete:\t %s', self.watchHashes[hash].name);
+    self.callMethod('d.erase', hash).then(function () {
       self.resolveInfohash(hash);
     });
   }
@@ -226,7 +231,7 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var infohash = match.infohash;
   logger.info('Extracted %s infohash', infohash);
 
-  self.addInfohashToWatch(URI).then(function () { promise.resolve.apply(promise, arguments); },
+  self.addInfohashToWatch(infohash.toUpperCase()).then(function () { promise.resolve.apply(promise, arguments); },
                                function () { promise.reject.apply(promise, arguments); })
 
   self.callMethod('load', [URI]).then(function () {
@@ -256,5 +261,5 @@ module.exports.addFromURI = function (uri, downloadDir) {
 // for testing
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
-  //tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }
