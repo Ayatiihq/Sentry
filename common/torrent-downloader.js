@@ -28,10 +28,21 @@ var errorCodes = module.exports.errorCodes = {
   'downloadError': 'DOWNLOADERROR'
 }
 
+var EXTRADEBUG = true; // if this is on in a merge request, yell at me. 
+
 var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
 var POLLDELAY = 5;
 var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)', 'gix'); // global, ignore case, free spacing 
+
+function trace() {
+  if (!EXTRADEBUG) return;
+  var args = Array.prototype.slice.call(arguments, 1);
+  var formatStr = arguments[0];
+  args.unshift('[trace] ' + formatStr);
+
+  logger.info.apply(logger, args);
+}
 
 function genRandString(size) {
   if (!size) { size = 8; }
@@ -92,16 +103,25 @@ TorrentDownloader.prototype.poll = function () {
   });
 };
 
+var methodID = 0;
 TorrentDownloader.prototype.callMethod = function () {
   var self = this;
+  methodID++;
+
   var promise = new Promise.Promise();
   // simple wrapper around xmlrpc so we get a promise return
   
   var args = Array.prototype.slice.call(arguments, 1);
+  var methodName = arguments[0];
 
-  logger.info('[trace] calling method: %s(%s)', arguments[0], args);
+  trace('(%d)calling method:\t %s(%s)', methodID, methodName, args);
+
   // create our promise handling callback function
   function handler(err, val) {
+    if (!!val) {
+      if (val.length) { trace('(%d)method return(%s): ' + val, methodID, methodName) } ;
+    }
+
     if (!!err) {
       promise.reject(err, val);
     }
@@ -110,7 +130,7 @@ TorrentDownloader.prototype.callMethod = function () {
     }
   };
 
-  self.client.methodCall.apply(self.client, [arguments[0], args, handler]);
+  self.client.methodCall.apply(self.client, [methodName, args, handler]);
 
   return promise;
 }
@@ -129,7 +149,7 @@ TorrentDownloader.prototype.getTorrents = function () {
   var self = this;
   var promise = new Promise.Promise();
 
-  self.callMethod('d.multicall', 'main', 'd.name=', 'd.hash=', 'd.size_bytes=', 'd.bytes_done=').then(function onDownloadListReturned(val) {
+  self.callMethod('d.multicall', 'main', 'd.name=', 'd.hash=', 'd.size_bytes=', 'd.bytes_done=', 'd.is_open=').then(function onDownloadListReturned(val) {
     promise.resolve(val);
   }, self.genericFailure(promise));
 
@@ -144,6 +164,7 @@ TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
     hash: infohash,
     size: 1,
     progressSize: 0,
+    state: null,
     'promise': promise
   };
 
@@ -184,7 +205,8 @@ TorrentDownloader.prototype.handleTorrentList = function (val) {
       name: torrentInfo[0],
       hash: torrentInfo[1],
       size: torrentInfo[2],
-      progressSize: torrentInfo[3]
+      progressSize: torrentInfo[3],
+      state: torrentInfo[4]
     };
 
     if (Object.has(self.watchHashes, info.hash)) {
@@ -205,6 +227,12 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   self.watchHashes[hash] = Object.merge(self.watchHashes[hash], info);
   var progress = self.watchHashes[hash].progressSize / self.watchHashes[hash].size;
 
+  // make sure we didn't get a closed state on a torrent somehow, ensuring states sucks
+  console.log(info.state);
+  if (info.state.has('0')) {
+    self.callMethod('d.start', hash);
+  }
+
   if (self.watchHashes[hash].progressSize < self.watchHashes[hash].size) {
     // torrent not complete
     var progress = self.watchHashes[hash].progressSize / (self.watchHashes[hash].size / 100);
@@ -212,6 +240,7 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   }
   else {
     // torrent complete
+    logger.info(self.watchHashes[hash].progressSize, self.watchHashes[hash].size);
     logger.info('torrent complete:\t %s', self.watchHashes[hash].name);
     self.callMethod('d.erase', hash).then(function () {
       self.resolveInfohash(hash);
@@ -234,8 +263,13 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   self.addInfohashToWatch(infohash.toUpperCase()).then(function () { promise.resolve.apply(promise, arguments); },
                                function () { promise.reject.apply(promise, arguments); })
 
+  // i miss seleniums promise manager, must build one of those some day
   self.callMethod('load', [URI]).then(function () {
-    self.callMethod('d.set_directory', infohash, downloadDir);
+    self.callMethod('d.set_directory', infohash, downloadDir).then(function () {
+      self.callMethod('d.start', infohash).then(function () {
+        self.callMethod('d.open', infohash);
+      });
+    });
   }, self.rejectInfohashBuilder(infohash));
  
 
@@ -262,4 +296,5 @@ module.exports.addFromURI = function (uri, downloadDir) {
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
   tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  //tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:786e6bac12504ada2db0054fe375c3912c2af249&dn=beini-1.2.3.zip&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }
