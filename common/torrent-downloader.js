@@ -228,7 +228,7 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   var progress = self.watchHashes[hash].progressSize / self.watchHashes[hash].size;
 
   // make sure we didn't get a closed state on a torrent somehow, ensuring states sucks
-  console.log(info.state);
+
   if (info.state.has('0')) {
     self.callMethod('d.start', hash);
   }
@@ -255,8 +255,6 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   //only support magnet for right now, easier to extract the infohash
   if (!URI.has('magnet:')) { promise.reject(new Error('only magnet links supported')); return promise; }
 
-
-  console.log(URI);
   var match = XRegExp.exec(URI, magnetMatch);
   if (!match) { URI = decodeURIComponent(URI); match = XRegExp.exec(URI, magnetMatch); }
   if (!match) { promise.reject(new Error('Can not understand URI: ' + URI)); return promise; }
