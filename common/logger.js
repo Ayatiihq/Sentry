@@ -68,7 +68,6 @@ exports.init = function() {
 exports.initServer = function() {
   winston.remove(winston.transports.Console);
   winston.add(winston.transports.Console, { colorize: true, timestamp: true });
-  winston.add(winston.transports.Loggly, { level: 0, subdomain: 'scout', inputToken:'40b87e62-5974-4d54-a249-bb843d3d48bb', json:true });
   winston.add(winston.transports.Papertrail, { host: 'logs.papertrailapp.com', port: 14963 });
 }
 
