@@ -33,7 +33,7 @@ var EXTRADEBUG = true; // if this is on in a merge request, yell at me.
 var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
 var POLLDELAY = 5;
-var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)', 'gix'); // global, ignore case, free spacing 
+var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)[$&]', 'gix'); // global, ignore case, free spacing 
 
 function trace() {
   if (!EXTRADEBUG) return;
@@ -254,7 +254,12 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
 
   //only support magnet for right now, easier to extract the infohash
   if (!URI.has('magnet:')) { promise.reject(new Error('only magnet links supported')); return promise; }
+
+
+  console.log(URI);
   var match = XRegExp.exec(URI, magnetMatch);
+  if (!match) { URI = decodeURIComponent(URI); match = XRegExp.exec(URI, magnetMatch); }
+  if (!match) { promise.reject(new Error('Can not understand URI: ' + URI)); return promise; }
   if (!match.infohash) { promise.reject(new Error('could not extract infohash from magnet URI: ' + URI)); return promise; }
 
   var infohash = match.infohash;
