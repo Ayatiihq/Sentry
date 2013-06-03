@@ -21,6 +21,8 @@ var acquire = require('acquire')
 ;
 require('sugar');
 
+var POLLDELAY = 5;
+
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.
 // if the promise resolves the promise created by this method will resolve with the same data;
@@ -67,7 +69,7 @@ TorrentClient.prototype.init = function() {
 }
 
 TorrentClient.prototype.start = function() {
-  
+  this.cheapPollNewTorrents();
   // Get the first torrent, can call this as many times as you want for concurrent downloads
   // TorrentClient.add is called when the DownloaderTorrent finds a valid infringement to download
   this.emit('getTorrent');
@@ -78,6 +80,28 @@ TorrentClient.prototype.start = function() {
   // to indicate that you're completely done, self.emit('finished')
 }
 
+TorrentClient.prototype.canGetNewTorrent = function () {
+  return torrentDownloader.getNumActiveTorrents() < 30; // lets say we can have 30 torrents for now
+};
+
+// if cheapStart then we quickly just move on to queuing another poll cycle instead of checking for
+// new torrents immediately, gives the RPC api time to breath
+TorrentClient.prototype.pollNewTorrents = function (cheapStart) {
+  var self = this;
+
+  if (cheapStart || !self.canGetNewTorrent()) {
+    self.pollNewTorrents.bind(self).delay(POLLDELAY * 1000); // check every POLLDELAY seconds for new torrents, cheep check
+  }
+  else {
+    self.emit('getTorrent');
+  }
+};
+
+// so we don't have to pass a boolean into a function, self documenting code is awesome
+TorrentClient.prototype.cheapPollNewTorrents = function () {
+  this.pollNewTorrents(true);
+}
+
 
 //
 // In addition to the standard properties, infringement will also have
@@ -85,7 +109,8 @@ TorrentClient.prototype.start = function() {
 // infringement.started (when the download started)
 //
 TorrentClient.prototype.add = function(infringement) {
-  logger.info('%s', JSON.stringify(infringement, null, '  '));
+  //logger.info('%s', JSON.stringify(infringement, null, '  '));
+  var self = this;
 
   // Do lots of checks on the infringement data, i miss g_return_if_fail :( 
   try { // always have to try/catch this crap because javascript is not really okay with the idea of nested objects
@@ -135,20 +160,7 @@ TorrentClient.prototype.add = function(infringement) {
 
   // If torrent is invalid or errors then self.emit('torrentErrored', infringement)
   
-}
-
-TorrentClient.prototype.waitOnTorrent = function (promise, infringement) {
-  // once we get here the torrent has been added to the client, waiting on it to resolve or reject the promise.
-  // we just need to make sure our infringement doesn't get recycled
-
-  promise.then(function onTorrentComplete(resolvedFiles) {
-    self.emit('torrentFinished', infringement);
-  }, function onTorrentError(err) {
-    // torrent errored for some reason
-    self.emit('torrentErrored', infringement, err);
-    logger.error(err);
-  });
-
+  self.cheapPollNewTorrents(); // keeps a poll cycle going 
 }
 
 /**

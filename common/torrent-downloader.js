@@ -248,6 +248,10 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   }
 }
 
+TorrentDownloader.prototype.getNumActiveTorrents = function () {
+  return Object.keys(this.watchHashes).length;
+};
+
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = new Promise.Promise();
   var self = this;
@@ -278,6 +282,10 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
 
   return promise;
 };
+
+module.exports.getNumActiveTorrents = function () {
+  return getTorrentDownloader().getNumActiveTorrents();
+}
 
 module.exports.addFromURI = function (uri, downloadDir) {
   //TODO!! - add uri checks before sending to torrent downloader
