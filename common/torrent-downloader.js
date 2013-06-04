@@ -32,7 +32,7 @@ var errorCodes = module.exports.errorCodes = {
 
 var EXTRADEBUG = false; // if this is on in a merge request, yell at me. 
 
-var RPCHOST = '192.168.1.10';
+var RPCHOST = 'localhost';
 var RPCPORT = 80
 var POLLDELAY = 5;
 var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)[$&]', 'gix'); // global, ignore case, free spacing 
