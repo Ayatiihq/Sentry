@@ -78,6 +78,7 @@ TorrentDownloader.prototype._init = function () {
   self.client = xmlrpc.createClient(options);
   
   self.watchHashes = {};
+  self.waitUntilFoundList = {};
 
   self.enablePoll = true;
   self.poll(); // starts the polling cycle running
@@ -228,6 +229,12 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   self.watchHashes[hash] = Object.merge(self.watchHashes[hash], info);
   var progress = self.watchHashes[hash].progressSize / self.watchHashes[hash].size;
 
+  // wait until found support
+  if (!!self.waitUntilFoundList[hash]) {
+    self.waitUntilFoundList[hash].each(function (p) { p.resolve(hash); });
+    self.waitUntilFoundList[hash] = [];
+  }
+
   // make sure we didn't get a closed state on a torrent somehow, ensuring states sucks
 
   if (info.state.has('0')) {
@@ -287,7 +294,18 @@ TorrentDownloader.prototype.getURIHash = function (URI) {
   return promise;
 }
 
+// returns a promise that will resolve when the info hash is found 
+TorrentDownloader.prototype.waitUntilFound = function (infohash) {
+  var self = this;
+  var promise = new Promise.Promise();
+  if (!Object.has(self.waitUntilFoundList, infohash)) {
+    self.waitUntilFoundList[infohash] = [];
+  }
 
+  self.waitUntilFoundList[infohash].push(promise);
+
+  return promise;
+}
 
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = new Promise.Promise();
@@ -299,17 +317,17 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
                                  function () { promise.reject.apply(promise, arguments); })
 
     // i miss seleniums promise manager, must build one of those some day
-    self.callMethod('load', [URI]).then(function () {
+    self.callMethod('load', URI);
+
+    // wait until we find the infohash of this torrent in rtorrent, then tell it to set a directory and start
+    self.waitUntilFound(infohash).then(function () {
       self.callMethod('d.set_directory', infohash, downloadDir).then(function () {
         self.callMethod('d.start', infohash).then(function () {
           self.callMethod('d.open', infohash);
         });
       });
     }, self.rejectInfohashBuilder(infohash));
-  }, function onHashLost(err) {
-    promise.reject(err);
   });
- 
 
   return promise;
 };
