@@ -201,7 +201,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
 
   Seq()
     .seq(function() {
-      Downloads.getFileMimeType(filepath, this);
+      self.getFileMimeType(filepath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
@@ -279,8 +279,27 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
  * @param  {function(err,mimetype)}    callback    A callback to receive the mimetype, or an error.
  * @return {undefined}
  */
-Downloads.getFileMimeType = function(filepath, callback) {
-  utilities.getFileMimeType(filepath, callback);
+Downloads.prototype.getFileMimeType = function(filepath, callback) {
+  var self = this
+    , mimetype = ''
+    ;
+
+  Seq()
+    .seq(function() {
+      exec('file --mime-type "' + filepath + '"', this);
+    })
+    .seq(function(stdout) {
+      mimetype = stdout.split(' ')[1];
+      exec('xdg-mime query filetype "' + filepath + '"', this);
+    })
+    .seq(function(stdout) {
+      mimetype = stdout;
+      callback(null, mimetype.compact());
+    })
+    .catch(function(err) {
+      callback(mimetype == '' ? err : null, mimetype.compact());
+    })
+    ;
 }
 
 /**

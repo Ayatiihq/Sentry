@@ -30,7 +30,7 @@ var errorCodes = module.exports.errorCodes = {
   'downloadError': 'DOWNLOADERROR'
 }
 
-var EXTRADEBUG = true; // if this is on in a merge request, yell at me. 
+var EXTRADEBUG = false; // if this is on in a merge request, yell at me. 
 
 var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
@@ -206,8 +206,8 @@ TorrentDownloader.prototype.handleTorrentList = function (val) {
     var info = {
       name: torrentInfo[0],
       hash: torrentInfo[1],
-      size: torrentInfo[2],
-      progressSize: torrentInfo[3],
+      size: parseInt(torrentInfo[2], 10),
+      progressSize: parseInt(torrentInfo[3], 10),
       state: torrentInfo[4]
     };
 
@@ -355,6 +355,6 @@ module.exports.addFromURI = function (uri, downloadDir) {
 // for testing
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
-  tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
-  tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:786e6bac12504ada2db0054fe375c3912c2af249&dn=beini-1.2.3.zip&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  tDownloder.addFromURI("/tmp/dl", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  //tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:786e6bac12504ada2db0054fe375c3912c2af249&dn=beini-1.2.3.zip&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }
