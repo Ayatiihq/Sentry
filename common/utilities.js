@@ -371,10 +371,10 @@ Utilities.requestURL = function(url, options, callback) {
   },
   REQ_TIMEOUT);
 
-  req.on('response', function(response) {
-    var body = ''
-      , stream = null
-      ;
+  req.on('response', function (response) {
+    var body = (options.returnBuffer) ? [] : ''
+    , stream = null
+    ;
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
@@ -391,8 +391,13 @@ Utilities.requestURL = function(url, options, callback) {
         stream = response;
     }
 
-    stream.on('data', function(chunk) {
-      body += chunk;
+    stream.on('data', function (chunk) {
+      if (options.returnBuffer) {
+        body.push(chunk);
+      }
+      else {
+        body += chunk;
+      }
       
       if (options.maxLength) {
         if (body.length > options.maxLength) {
@@ -402,7 +407,8 @@ Utilities.requestURL = function(url, options, callback) {
       }
     });
 
-    stream.on('end', function() {
+    stream.on('end', function () {
+      body = Buffer.concat(body);
       clearTimeout(timeoutId);
       callback(err, response, body);
     });

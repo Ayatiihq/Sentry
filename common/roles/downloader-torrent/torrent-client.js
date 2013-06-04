@@ -22,7 +22,7 @@ var acquire = require('acquire')
 require('sugar');
 
 var POLLDELAY = 5;
-var MAXDOWNLOADS = 3;
+var MAXDOWNLOADS = 1;
 
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.
@@ -37,6 +37,7 @@ function execFirstInSet(set, fn) {
   function doNextIndex() {
     if (index >= set.length) { promise.reject(new Error('all data items rejected')); }
     else {
+      console.log('fooo: ' + set[index]);
       return fn(set[index]);
     }
   };
@@ -142,6 +143,8 @@ TorrentClient.prototype.add = function(infringement) {
     if (acomp === bcomp) { return (a < b) ? -1 : 1; }
     else { return (acomp < bcomp) ? -1 : 1; }
   });
+
+  console.log(potentialURIS);
 
   // we use a custom function defined above, execFirstInSet to send multiple data items into a function that provides a promise
   // it is clever enough to only continue sending in data items if the promise is rejected, if it returns correctly it does not continue

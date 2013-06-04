@@ -11,11 +11,13 @@ require('sugar');
 var acquire = require('acquire')
   , Promise = require('node-promise')
   , events = require('events')
+  , fs = require('fs')
   , logger = acquire('logger').forFile('torrent-downloader.js')
   , util = require('util')
   , path = require('path')
   , os = require('os')
   , utilities = acquire('utilities')
+  , readtorrent = require('read-torrent')
   , xmlrpc = require('xmlrpc')
   , XRegExp = require('xregexp').XRegExp
 ;
@@ -250,32 +252,63 @@ TorrentDownloader.prototype.getNumActiveTorrents = function () {
   return Object.keys(this.watchHashes).length;
 };
 
+TorrentDownloader.prototype.getURIHash = function (URI) {
+  var promise = new Promise.Promise();
+
+  if (URI.has('magnet:')) {
+    // magnet uri we can do quickly
+    var match = XRegExp.exec(URI, magnetMatch);
+    if (!match) { URI = decodeURIComponent(URI); match = XRegExp.exec(URI, magnetMatch); }
+    if (!match) { promise.reject(new Error('Can not understand URI: ' + URI)); return promise; }
+    if (!match.infohash) { promise.reject(new Error('could not extract infohash from magnet URI: ' + URI)); return promise; }
+
+    var infohash = match.infohash.toUpperCase();
+    promise.resolve(infohash);
+  }
+  else {
+    // other uri, we need to download the .torrent file, extract the hash ourselves then return it. kind of a pain
+    // we need to download the torrent to a file on the filesystem to do this because readtorrent can't handle forced compression
+    // and our own requestURL method doesn't return buffers.
+
+    utilities.request(URI, {returnBuffer:true}, function onRequestFinish(err, response, body) {
+      if (!!err) { promise.reject(err); }
+      else if (response.statusCode >= 400 && response.statusCode < 500) {
+        promise.reject(new Error('404: ' + URI));
+      }
+      else {
+        readtorrent(body, function onReadTorrentFinished(err, result) {
+          if (!!err) { console.log('read-torrent err: ' + err.message); promise.reject(err); }
+          else { promise.resolve(result.infoHash.toUpperCase()); }
+        });
+      }
+    });
+  }
+
+  return promise;
+}
+
+
+
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = new Promise.Promise();
   var self = this;
 
-  //only support magnet for right now, easier to extract the infohash
-  if (!URI.has('magnet:')) { promise.reject(new Error('only magnet links supported')); return promise; }
+  self.getURIHash(URI).then(function onHashFound(infohash) {
+    trace('Extracted %s infohash', infohash);
+    self.addInfohashToWatch(infohash).then(function () { promise.resolve.apply(promise, arguments); },
+                                 function () { promise.reject.apply(promise, arguments); })
 
-  var match = XRegExp.exec(URI, magnetMatch);
-  if (!match) { URI = decodeURIComponent(URI); match = XRegExp.exec(URI, magnetMatch); }
-  if (!match) { promise.reject(new Error('Can not understand URI: ' + URI)); return promise; }
-  if (!match.infohash) { promise.reject(new Error('could not extract infohash from magnet URI: ' + URI)); return promise; }
-
-  var infohash = match.infohash;
-  trace('Extracted %s infohash', infohash);
-
-  self.addInfohashToWatch(infohash.toUpperCase()).then(function () { promise.resolve.apply(promise, arguments); },
-                               function () { promise.reject.apply(promise, arguments); })
-
-  // i miss seleniums promise manager, must build one of those some day
-  self.callMethod('load', [URI]).then(function () {
-    self.callMethod('d.set_directory', infohash, downloadDir).then(function () {
-      self.callMethod('d.start', infohash).then(function () {
-        self.callMethod('d.open', infohash);
+    // i miss seleniums promise manager, must build one of those some day
+    self.callMethod('load', [URI]).then(function () {
+      self.callMethod('d.set_directory', infohash, downloadDir).then(function () {
+        self.callMethod('d.start', infohash).then(function () {
+          self.callMethod('d.open', infohash);
+        });
       });
-    });
-  }, self.rejectInfohashBuilder(infohash));
+    }, self.rejectInfohashBuilder(infohash));
+  }, function onHashLost(err) {
+    promise.reject(err);
+  });
  
 
   return promise;
