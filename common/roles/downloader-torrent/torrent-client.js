@@ -22,7 +22,7 @@ var acquire = require('acquire')
 require('sugar');
 
 var POLLDELAY = 5;
-var MAXDOWNLOADS = 2;
+var MAXDOWNLOADS = 8;
 
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.

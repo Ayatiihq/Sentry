@@ -36,7 +36,7 @@ var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
 var POLLDELAY = 5;
 var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)[$&]', 'gix'); // global, ignore case, free spacing 
-var MAXNOPROGRESSTIME = 1 * 60;
+var MAXNOPROGRESSTIME = 10 * 60;
 
 function trace() {
   if (!EXTRADEBUG) return;
