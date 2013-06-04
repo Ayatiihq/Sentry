@@ -36,6 +36,7 @@ var RPCHOST = '192.168.1.10';
 var RPCPORT = 80
 var POLLDELAY = 5;
 var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)[$&]', 'gix'); // global, ignore case, free spacing 
+var MAXNOPROGRESSTIME = 1 * 60;
 
 function trace() {
   if (!EXTRADEBUG) return;
@@ -168,6 +169,7 @@ TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
     size: 1,
     progressSize: 0,
     state: null,
+    lastProgressTime: process.hrtime(),
     'promise': promise
   };
 
@@ -226,6 +228,10 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   var self = this;
   var hash = info.hash;
 
+  if (self.watchHashes[hash].progressSize !== info.progressSize) {
+    self.watchHashes.lastProgressTime = process.hrtime();
+  }
+
   self.watchHashes[hash] = Object.merge(self.watchHashes[hash], info);
   var progress = self.watchHashes[hash].progressSize / self.watchHashes[hash].size;
 
@@ -239,6 +245,20 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
 
   if (info.state.has('0')) {
     self.callMethod('d.start', hash);
+  }
+
+  // do a check on the torrent progress, if it has been more than x seconds since the last time it 'moved'
+  // just reject it
+  // FIXME - in the future lets be smarter? i'm not entirely sure where rtorrent falls down though so need that infos
+  // before we can do anything interesting. 
+  var lastTime = process.hrtime(self.watchHashes[hash].lastProgressTime)[0];
+  if (lastTime > MAXNOPROGRESSTIME) {
+    logger.warn('Torrent has not progressed in %s seconds, cancelling: %s', lastTime, self.watchHashes[hash].name);
+    self.callMethod('d.erase', hash).then(function () {
+      self.rejectInfohash(hash, new Error('Torrent has not progressed in ' + lastTime + ' seconds'));
+    });
+
+    return;
   }
 
   if (self.watchHashes[hash].progressSize < self.watchHashes[hash].size) {
@@ -284,7 +304,7 @@ TorrentDownloader.prototype.getURIHash = function (URI) {
       }
       else {
         readtorrent(body, function onReadTorrentFinished(err, result) {
-          if (!!err) { console.log('read-torrent err: ' + err.message); promise.reject(err); }
+          if (!!err) { promise.reject(err); }
           else { promise.resolve(result.infoHash.toUpperCase()); }
         });
       }
@@ -307,14 +327,16 @@ TorrentDownloader.prototype.waitUntilFound = function (infohash) {
   return promise;
 }
 
+// given a URI will return a promise, if this uri is succesfully added to the backend
+// then that promise will resolve to another promise that can be used to track the download.
+// otherwise it is rejected, usually because its a .torrent that 404'ed
 TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   var promise = new Promise.Promise();
   var self = this;
 
   self.getURIHash(URI).then(function onHashFound(infohash) {
     trace('Extracted %s infohash', infohash);
-    self.addInfohashToWatch(infohash).then(function () { promise.resolve.apply(promise, arguments); },
-                                 function () { promise.reject.apply(promise, arguments); })
+    var newPromise = self.addInfohashToWatch(infohash);
 
     // i miss seleniums promise manager, must build one of those some day
     self.callMethod('load', URI);
@@ -327,6 +349,11 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
         });
       });
     }, self.rejectInfohashBuilder(infohash));
+
+    promise.resolve(newPromise);
+  },
+  function onHashFindError(err) {
+    promise.reject(err);
   });
 
   return promise;

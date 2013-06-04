@@ -22,7 +22,7 @@ var acquire = require('acquire')
 require('sugar');
 
 var POLLDELAY = 5;
-var MAXDOWNLOADS = 10;
+var MAXDOWNLOADS = 2;
 
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.
@@ -146,9 +146,15 @@ TorrentClient.prototype.add = function(infringement) {
   // we use a custom function defined above, execFirstInSet to send multiple data items into a function that provides a promise
   // it is clever enough to only continue sending in data items if the promise is rejected, if it returns correctly it does not continue
   var torrentPromise = execFirstInSet(potentialURIS, torrentDownloader.addFromURI.bind(torrentDownloader, infringement.downloadDir));
-  torrentPromise.then(function onTorrentComplete(files) {
-    self.emit('torrentFinished', infringement);
-    logger.info('torrentFinished %s', infringement);
+  torrentPromise.then(function onTorrentComplete(downloadPromise) {
+    // we now get a new promise we can use to track the download
+    downloadPromise.then(function onDownloadComplete() {
+      self.emit('torrentFinished', infringement);
+      logger.info('torrentFinished %s', infringement);
+    }, function onDownloadErr(err) {
+      self.emit('torrentErrored', infringement, err);
+      logger.info('torrentErrored %s - %s', infringement, err);
+    });
   }, function onTorrentFailed(err) {
     self.emit('torrentErrored', infringement, err);
     logger.info('torrentErrored %s - %s', infringement, err);
