@@ -236,11 +236,10 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   if (self.watchHashes[hash].progressSize < self.watchHashes[hash].size) {
     // torrent not complete
     var progress = self.watchHashes[hash].progressSize / (self.watchHashes[hash].size / 100);
-    logger.info('torrent progress (%d%%):\t %s', progress, self.watchHashes[hash].name);
+    trace('torrent progress (%d%%):\t %s', progress, self.watchHashes[hash].name);
   }
   else {
     // torrent complete
-    logger.info(self.watchHashes[hash].progressSize, self.watchHashes[hash].size);
     logger.info('torrent complete:\t %s', self.watchHashes[hash].name);
     self.callMethod('d.erase', hash).then(function () {
       self.resolveInfohash(hash);
@@ -265,7 +264,7 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
   if (!match.infohash) { promise.reject(new Error('could not extract infohash from magnet URI: ' + URI)); return promise; }
 
   var infohash = match.infohash;
-  logger.info('Extracted %s infohash', infohash);
+  trace('Extracted %s infohash', infohash);
 
   self.addInfohashToWatch(infohash.toUpperCase()).then(function () { promise.resolve.apply(promise, arguments); },
                                function () { promise.reject.apply(promise, arguments); })

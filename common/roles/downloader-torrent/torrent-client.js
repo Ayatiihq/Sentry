@@ -22,6 +22,7 @@ var acquire = require('acquire')
 require('sugar');
 
 var POLLDELAY = 5;
+var MAXDOWNLOADS = 3;
 
 // utility function, calls fn(set[i]) one by one
 // fn will return a promise.
@@ -81,7 +82,7 @@ TorrentClient.prototype.start = function() {
 }
 
 TorrentClient.prototype.canGetNewTorrent = function () {
-  return torrentDownloader.getNumActiveTorrents() < 30; // lets say we can have 30 torrents for now
+  return torrentDownloader.getNumActiveTorrents() < MAXDOWNLOADS;
 };
 
 // if cheapStart then we quickly just move on to queuing another poll cycle instead of checking for
