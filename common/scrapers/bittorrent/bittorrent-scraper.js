@@ -19,7 +19,7 @@ var acquire = require('acquire')
 
 var Scraper = acquire('scraper');
 
-var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
+var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
 
@@ -29,7 +29,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
@@ -125,14 +125,18 @@ BittorrentPortal.prototype.emitInfringements = function () {
                {score: MAX_SCRAPER_POINTS / 2,
                 source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Torrent page at ' + self.engineName},
-               {type: torrent.genre});
+               {type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});                
     self.emit('torrent',
                torrent.directLink,
                {score: MAX_SCRAPER_POINTS / 1.5,
                 source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Link to actual Torrent file from ' + self.engineName},
                {fileSize: torrent.fileSize,
-                type: torrent.genre});
+                type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
     if(torrent.magnet){
       self.emit('torrent',
@@ -141,7 +145,9 @@ BittorrentPortal.prototype.emitInfringements = function () {
                   source: 'scraper.bittorrent.' + self.engineName,
                   message: 'Torrent page at ' + self.engineName},
                  {fileSize: torrent.fileSize,
-                  type: torrent.genre});
+                  type: torrent.genre,
+                  leechers: torrent.leechers,
+                  seeders: torrent.seeders});
       self.emit('relation', torrent.activeLink.uri, torrent.magnet);
       self.emit('relation', torrent.magnet, torrent.hash_ID);
     }
@@ -151,7 +157,9 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 source: 'scraper.bittorrent' + self.engineName,
                 message: 'Torrent hash scraped from ' + self.engineName},
                {fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
-                type: torrent.genre});
+                type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});                
     self.emit('relation', torrent.directLink, torrent.hash_ID);
     self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
   });
@@ -211,15 +219,16 @@ KatScraper.prototype.searchQuery = function(pageNumber){
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
   self.remoteClient.get(queryString);
-  self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
-    if (element) {
+  try{
+    self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(){
       self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
-  });
+    });
+  }
+  catch(error){
+    logger.error('Unable to find a table with data : ' + error);
+    self.emit('error', ERROR_NORESULTS);
+    self.cleanup();    
+  }
 }
 
 KatScraper.prototype.getTorrentsDetails = function(){
@@ -260,7 +269,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return true; 
+  return false//true; 
 };
 
 /* -- ISOHunt Scraper */
