@@ -226,8 +226,9 @@ KatScraper.prototype.searchQuery = function(pageNumber){
     });
   }
   catch(error){
-    logger.error('Unable to find a table with data : ' + error);
-    self.emit('error', ERROR_NORESULTS);
+    logger.warning('Unable to find a table with data as the class, more than likely KAT is down at the moment ');
+    // Don't emit the error, sentry will try it again in time, more than likely Kat is down at the moment, 
+    // no point in retrying continiously (which if you emitted the error that is what would have happened)
     self.cleanup();    
   }
 }
