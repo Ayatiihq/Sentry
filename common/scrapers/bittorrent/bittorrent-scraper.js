@@ -29,7 +29,7 @@ var BittorrentPortal = function (campaign) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
@@ -120,6 +120,8 @@ BittorrentPortal.prototype.cleanup = function () {
 BittorrentPortal.prototype.emitInfringements = function () {
   var self = this;
   self.results.each(function (torrent){
+    logger.info('seeders ' + torrent.seeders);
+    logger.info('leechers ' + torrent.leechers);
     self.emit('torrent',
                torrent.activeLink.uri,
                {score: MAX_SCRAPER_POINTS / 2,
@@ -269,7 +271,7 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   var result = katparser.paginationDetails(source);
   if(result.otherPages.isEmpty() || (result.otherPages.max() < result.currentPage))
     return false;
-  return false//true; 
+  return true; 
 };
 
 /* -- ISOHunt Scraper */

@@ -98,7 +98,7 @@ KatParser.resultsPage = function(source, campaign){
                       ' rough torrent date : ' + roughDate);
         }
         else{
-          logger.warn('fail to create : ' + JSON.stringify({magnet: magnet,
+          logger.warn('fail to create : ' + JSON.stringify({magnetLink: magnet,
                                                             fileSize: size,
                                                             date: roughDate,
                                                             file: fileLink,
@@ -151,6 +151,6 @@ KatParser.torrentPage = function(source, torrent){
       torrent.hash_ID = 'torrent://' + tmp.split(': ')[1]; 
     }      
   });
-  torrent.seeders = $('div.seedBlock strong') || 0;
-  torrent.leechers = $('div.leechBlock strong') || 0;
+  torrent.seeders = $('div.seedBlock strong').text() || 0;
+  torrent.leechers = $('div.leechBlock strong').text() || 0;
 }
