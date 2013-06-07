@@ -1,3 +1,4 @@
+
 "use strict";
 /*
  * bittorrent-scraper.js
@@ -120,8 +121,6 @@ BittorrentPortal.prototype.cleanup = function () {
 BittorrentPortal.prototype.emitInfringements = function () {
   var self = this;
   self.results.each(function (torrent){
-    logger.info('seeders ' + torrent.seeders);
-    logger.info('leechers ' + torrent.leechers);
     self.emit('torrent',
                torrent.activeLink.uri,
                {score: MAX_SCRAPER_POINTS / 2,
