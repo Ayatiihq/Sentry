@@ -92,6 +92,7 @@ function main() {
     });
   });
 
+  instance.verify(campaign, infringement, downloads);
 }
 
 main(); 
