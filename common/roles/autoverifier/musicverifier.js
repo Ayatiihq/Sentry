@@ -290,30 +290,16 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
 }
 
 /*
- * Fetch a given download and determine if the file is an audio file 
+ * Fetch a download
  */
-MusicVerifier.prototype.relevantDownload = function(download, done){
+MusicVerifier.prototype.fetchDownload = function(download, done){
   var self = this;
   var uri = self.storage.getURL(download.name);
   var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
-  
-  function determineAudio(err, mimetype){
-    if(err){
-      this(err);
-      return;
-    }        
-    var isAudio = self.getSupportedTypes().some(mimetype);
-    logger.info('is this file audio :' + isAudio);
-    if(isAudio){
-      download.tmpFileLocation = target;
-    }
-    //should we delete if it isn't ?
-    this(null, isAudio);
-  }  
-  
+    
   self.downloadThing(uri, target).then(
     function(){
-      Downloads.getFileMimeType(target, determineAudio.bind(done));
+      done();
     },
     function(err){
       logger.info(' Problem fetching the file : ' + err);
@@ -420,16 +406,19 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     // First things first, filter out downloads that are not audio
     .seqFilter(function(download){
       var that = this;
-      self.relevantDownload(download, that);
+      var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
+      logger.info('is Download audio ' + isAudio );
+      that(isAudio);
     })
     // then prep the campaign    
     .seq(function(){
       var that = this;
       self.prepCampaign(campaign, that);
     })
-    // delete any infringement that might be lying around
+    // fetch download
     .seq(function(){
       var that = this;
+      self.fetchDownload(download, that)
     })
     // copy the download to each track folder, take scores and examine results.
     .seq(function(download){
