@@ -33,6 +33,8 @@ var PLUGINS = [
     '4shared'
   , 'mediafire'
   , 'sharebeast'
+  , 'rapidshare'
+  , 'hulkshare'
 ];
 
 var Downloader = module.exports = function() {

@@ -66,34 +66,27 @@ function oneAtaTime(results, cyberlocker){
   Seq(results)
     .seqEach(function(infringement){
       var done = this;
-      logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri + '\n\n');
-      cyberlocker.download(infringement, '/tmp', done);
+      logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri);
+      cyberlocker.download(infringement, '/tmp/hulk', done);
+    })
+    .catch(function(err){
+      logger.warn('Unable to process download job: %s', err);      
     })
    .seq(function(){
       logger.info('Finished downloading');
       cyberlocker.finish();
     })
-    .catch(function(err) {
-      logger.warn('Unable to process download job: %s', err);
-    })    
     ;
 }
 
 function fetchRegex(downloader){
   var domain = require('../common/roles/downloader/' + downloader.split('.')[0]).getDomains()[0];
-
-  switch(domain)
-  { 
-    case '4shared.com':
-      return /4shared/g;
-    case 'mediafire.com':
-      return /mediafire/g;
-    case 'sharebeast.com':
-      return /sharebeast/g;
-    case 'rapidshare.com':
-      return /rapidshare/g;
-  }
-  return null;
+  var domains = {'4shared.com': /4shared/g, 
+                 'mediafire.com': /mediafire/g,
+                 'sharebeast.com': /sharebeast.com/g,
+                 'rapidshare.com': /rapidshare.com/g,
+                 'hulkshare.com': /hulkshare.com/g};
+  return domains[domain];
 }
 
 function main() {
@@ -107,8 +100,7 @@ function main() {
     process.exit(1);
   }
   var campaign = parseObject(process.argv[2]);  
-  // update with new cyberlockers as they we get to support 'em.
-  cyberlockerSupported = ['rapidshare.com', '4shared.com', 'mediafire.com', 'sharebeast.com'].some(process.argv[3]);
+  cyberlockerSupported = ['rapidshare.com', '4shared.com', 'mediafire.com', 'sharebeast.com', 'hulkshare.com'].some(process.argv[3]);
   if(!cyberlockerSupported){
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
@@ -125,9 +117,9 @@ function main() {
 
   var searchPromise = findCollection('infringements', 
                                      {'campaign': campaign._id,
+                                      'state': states.infringements.state.NEEDS_DOWNLOAD,
                                       'category': states.infringements.category.CYBERLOCKER,
-                                      'uri': uriRegex, // todo insert cyberlocker using regex object.
-                                      'state' : states.infringements.state.NEEDS_DOWNLOAD});
+                                      'uri': uriRegex});
   
   searchPromise.then(function(payload){ oneAtaTime(payload, instance)},
                   function(err){
