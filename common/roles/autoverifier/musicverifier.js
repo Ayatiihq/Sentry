@@ -165,7 +165,7 @@ MusicVerifier.prototype.cleanupEverything = function() {
 /*
  * Attempt to clean the file called infringement from each track folder
  */
-MusicVerifier.prototype.cleanupInfringement = function(done) {
+MusicVerifier.prototype.cleanupInfringement = function() {
   var self = this;
   var wrapperPromise = new Promise.Promise();
 
@@ -289,47 +289,28 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
   }
 }
 
-/*
- * Fetch a download
- */
-MusicVerifier.prototype.fetchDownload = function(download, done){
-  var self = this;
-  var uri = self.storage.getURL(download.name);
-  var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
-    
-  self.downloadThing(uri, target).then(
-    function(){
-      done();
-    },
-    function(err){
-      logger.info(' Problem fetching the file : ' + err);
-      done(err);
-  });
+MusicVerifier.prototype.copyDownload = function(download, track){
+  var promise = new Promise.Promise();
+  fs.copy(download.tmpFileLocation,
+          path.join(track.folderPath, 'infringement'),
+          function(err){
+            if(err){
+              logger.error('Error copying file : ' + err);
+              promise.reject(err);
+              return;
+            }
+            promise.resolve();
+          });
+  return promise;
 }
 
 // TODO refactor somehow
 MusicVerifier.prototype.goMeasureDownload = function(download, done){
   var self = this;
-  var cleansed = self.cleanupInfringement();
-
-  function copyfile(track){
-    var promise = new Promise.Promise();
-    fs.copy(download.tmpFileLocation,
-            path.join(track.folderPath, 'infringement'),
-            function(err){
-              if(err){
-                logger.error('Error copying file : ' + err);
-                promise.reject(err);
-                return;
-              }
-              promise.resolve();
-            });
-    return promise;
-  }
 
   function compare(track){
     var promise = new Promise.Promise();
-    logger.info('about to evaluate ' + track.folderPath);
+    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
     exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
       function (error, stdout, stderr){
         if(stderr && !stderr.match(/Header\smissing/g))
@@ -353,7 +334,7 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
 
   function doIt(track){
     var promise = new Promise.Promise();
-    copyfile(track).then(function(){
+    self.copyDownload(download, track).then(function(){
       compare(track).then(function(){
         promise.resolve();
       },
@@ -367,30 +348,48 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
     return promise;
   }
 
-  cleansed.then(function(){
-    var promiseArray;
-    promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
-    Promise.seq(promiseArray).then(
-      function(){
-        var results = self.examineResults();
-        if(results[0]){
-          self.done(err);
-          return;
-        }
-        if(result[1].state === states.VERIFIED){
-          // report back immediately once we are confident we have one match.
-          self.done(null, result[1]);
-        }
-        else{ // Move on to the next track.
-          done();
-        }
-      },
-      function(err){
-        done(err);
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
+  Promise.seq(promiseArray).then(
+    function(){
+      var results = self.examineResults();
+      if(results[0]){
+        self.done(new Error('examine Results returned a nonsensical result'));
+        return;
       }
-    );
-  }); 
+      //if(true){//results[1].state === states.VERIFIED){
+        // report back immediately once we are confident we have one match.
+        logger.info('We have found a match ! - return immediately');
+        self.done(null, results[1]);
+      //}
+      //else{ // Move on to the next track.
+      //  done();
+      //}
+    },
+    function(err){
+      done(err);
+    }
+  );
 }
+
+/*
+ * Fetch a download
+ */
+MusicVerifier.prototype.fetchDownload = function(download, done){
+  var self = this;
+  var uri = self.storage.getURL(download.name);
+  var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
+  download.tmpFileLocation = target;
+  self.downloadThing(uri, target).then(
+    function(){
+      done();
+    },
+    function(err){
+      logger.info(' Problem fetching the file : ' + err);
+      done(err);
+  });
+}
+
 //
 // Public
 //
@@ -402,30 +401,41 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
 
   logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
 
-  Seq(downloads)
-    // First things first, filter out downloads that are not audio
-    .seqFilter(function(download){
-      var that = this;
-      var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
-      logger.info('is Download audio ' + isAudio );
-      that(isAudio);
-    })
-    // then prep the campaign    
-    .seq(function(){
-      var that = this;
-      self.prepCampaign(campaign, that);
-    })
-    // fetch download
-    .seq(function(){
-      var that = this;
-      self.fetchDownload(download, that)
-    })
-    // copy the download to each track folder, take scores and examine results.
-    .seq(function(download){
-      var that = this;
-      self.goMeasureDownload(download, that, done);      
-    })
-  ;
+  self.prepCampaign(campaign, function(){
+    Seq(downloads)
+      .seqEach(function(download){
+        var that = this;
+        var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
+        if(isAudio)
+          logger.info('fetch Download ' + isAudio);
+          self.fetchDownload(download, that);
+        else
+          that();
+      })
+      .seqEach(function(download){
+        var that = this;
+        if(download.tmpFileLocation){
+          self.cleanupInfringement().then(function(){
+            self.goMeasureDownload(download, that);      
+          },
+          function(err){
+            logger.warn('Problem cleaning infringement %s', err);
+            that();
+          })
+        }
+        else
+          that();// don't evaluate those that were not downloaded (not an audio file)        
+      })
+      .seq(function(){
+        self.finish();
+        logger.info('Finished multi-file verification...');
+        self.done();
+      })
+      .catch(function(err) {
+        logger.warn('Unable to process music-verification: %s', err);
+      })    
+    ;
+  });
 }
 
 MusicVerifier.prototype.finish = function(){
