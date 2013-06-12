@@ -357,14 +357,15 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
         self.done(new Error('examine Results returned a nonsensical result'));
         return;
       }
-      //if(true){//results[1].state === states.VERIFIED){
+      if(results[1].state === states.VERIFIED){
         // report back immediately once we are confident we have one match.
         logger.info('We have found a match ! - return immediately');
         self.done(null, results[1]);
-      //}
-      //else{ // Move on to the next track.
-      //  done();
-      //}
+      }
+      else{ // Move on to the next track, nothing to report back here.
+        logger.info('moving to the next track');
+        done();
+      }
     },
     function(err){
       done(err);
@@ -406,9 +407,10 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       .seqEach(function(download){
         var that = this;
         var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
-        if(isAudio)
-          logger.info('fetch Download ' + isAudio);
+        if(isAudio){
+          logger.info('fetch Download');
           self.fetchDownload(download, that);
+        }
         else
           that();
       })
