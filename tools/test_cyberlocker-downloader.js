@@ -1,7 +1,6 @@
 /*
  * test_cyberlocker-manager.js: 
  * (C) 2013 Ayatii Limited
- *
  */
 var acquire = require('acquire')
   , config = acquire('config')
@@ -20,7 +19,6 @@ function setupSignals() {
 
 function parseObject(arg) {
   var ret = arg;
-
   try {
     ret = require(arg);
   } catch (err) {

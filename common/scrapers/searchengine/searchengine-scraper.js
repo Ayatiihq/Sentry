@@ -17,6 +17,8 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriver')
   , sugar = require('sugar')
   , cheerio = require('cheerio')
+  , request = require('request')
+  , URI = require('URIjs')
   ;
 
 var Scraper = acquire('scraper')
@@ -545,8 +547,45 @@ BingScraper.prototype.checkHasNextPage = function (source) {
   return true;
 };
 
-/* Scraper Interface */
+/* -- Filestube Scraper */
+var FilestubeScraper = function (campaign) {
+  var self = this;
+  self.constructor.super_.call(self, campaign);
+  self.engineName = 'filestube';
+  self.apikey = '051b6ec16152e2a74da5032591e9cc84';
+};
 
+util.inherits(FilestubeScraper, GenericSearchEngine);
+
+FilestubeScraper.prototype.beginSearch = function () {
+  var self = this;
+  self.resultsCount = 0;
+  self.emit('started');
+  self.buildSearchQuery(function(err, searchTerm) {
+    if (err)
+      return self.emit('error', err);
+    self.searchTerm = searchTerm;
+    var requestURI = "http://api.filestube.com/?key=" + 
+                      self.apikey + 
+                      '&phrase=' + URI.encode(self.searchTerm);
+    logger.info('about to search filestube with this query ' + requestURI);
+    request(requestURI, {}, self.getLinksFromSource);
+  });
+};
+
+FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
+  var self = this;
+  var links = [];
+  var $ = cheerio.load(html);
+  logger.info('filestube has found ' + $('hasResults').text() + ' answers');
+  $('link').each(function(){
+    links.push($(this).text());
+  })
+  self.emitLinks(links);
+};
+
+
+/* Scraper Interface */
 var SearchEngine = module.exports = function () {
   this.sourceName_ = 'searchengine';
   
@@ -576,13 +615,13 @@ SearchEngine.prototype.start = function (campaign, job) {
   var scraperMap = {
     'google': { klass: GoogleScraper, sourceName: 'searchengine.google' },
     'yahoo': { klass: YahooScraper, sourceName: 'searchengine.bing' }, // Results come from bing
-    'bing': { klass: BingScraper, sourceName: 'searchengine.bing' }
+    'bing': { klass: BingScraper, sourceName: 'searchengine.bing' },
+    'filestube': { klass: FilestubeScraper, sourceName: 'searchengine.filestube' }
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
   self.scraper = new scraperMap[job.metadata.engine].klass(campaign);
   self.sourceName_ = scraperMap[job.metadata.engine].sourceName;
-
 
   self.scraper.on('finished', function onFinished() {
     self.emit('finished');
