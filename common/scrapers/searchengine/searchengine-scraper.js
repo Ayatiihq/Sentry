@@ -516,7 +516,6 @@ BingScraper.prototype.beginSearch = function () {
   });
 };
 
-
 BingScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
   var $ = cheerio.load(source);
@@ -557,6 +556,12 @@ var FilestubeScraper = function (campaign) {
 
 util.inherits(FilestubeScraper, GenericSearchEngine);
 
+FilestubeScraper.prototype.buildSearchQuery = function (done) {
+  var self = this;
+  done(null, util.format('%s %s', 
+                         self.campaign.metadata.artist,
+                         self.campaign.metadata.albumTitle));
+}
 FilestubeScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
@@ -569,7 +574,7 @@ FilestubeScraper.prototype.beginSearch = function () {
                       self.apikey + 
                       '&phrase=' + URI.encode(self.searchTerm);
     logger.info('about to search filestube with this query ' + requestURI);
-    request(requestURI, {}, self.getLinksFromSource);
+    request(requestURI, {}, self.getLinksFromSource.bind(self));
   });
 };
 
@@ -584,11 +589,9 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   self.emitLinks(links);
 };
 
-
 /* Scraper Interface */
 var SearchEngine = module.exports = function () {
   this.sourceName_ = 'searchengine';
-  
   this.init();
 };
 util.inherits(SearchEngine, Scraper);
