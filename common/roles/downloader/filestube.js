@@ -51,14 +51,31 @@ Filestube.prototype.authenticate = function(){
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.filestube.com/account/login.html');
-  self.remoteClient.findElement(webdriver.By.css('[name="username"]'));
+  self.remoteClient.findElement(webdriver.By.css('input[name="username"]'));
     .sendKeys('conorayatii');
-  self.remoteClient.findElement(webdriver.By.css('[name="password"]'))
+  self.remoteClient.findElement(webdriver.By.css('input[name="password"]'))
     .sendKeys('ayatiian');
   // xpath generated from firebug (note to self use click and not submit for such forms,
   // submit was not able to highlight the correct input element).
-  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
+  return self.remoteClient.findElement(webdriver.By.css('#accCent')).click();
 }
 
+//key = '051b6ec16152e2a74da5032591e9cc84'
+// Public API
+Filestube.prototype.download = function(infringement, pathToUse, done){
+  self.authenticate().then(function(){
+      logger.info('authenticated !');
+      self.finish();
+  });
+}
 
-key = '051b6ec16152e2a74da5032591e9cc84'
+Filestube.prototype.finish = function(){
+  var self = this;
+  if(self.remoteClient)
+    remoteClient.quit();
+}
+
+Filestube.getDomains = function() {
+  return ['filestube.com'];
+}
+
