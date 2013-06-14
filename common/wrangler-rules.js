@@ -42,7 +42,7 @@ module.exports.shouldIgnoreUri = function (uri) {
 
 };
 
-var urlmatch = XRegExp( //ignore jslint
+module.exports.urlmatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
   '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +

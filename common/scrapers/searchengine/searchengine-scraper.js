@@ -19,6 +19,8 @@ var acquire = require('acquire')
   , cheerio = require('cheerio')
   , request = require('request')
   , URI = require('URIjs')
+  , XRegExp = require('xregexp').XRegExp
+  , urlmatch = acquire('wrangler-rules').urlmatch;
   ;
 
 var Scraper = acquire('scraper')
@@ -528,14 +530,12 @@ BingScraper.prototype.getLinksFromSource = function (source) {
 // clicks on the next page, waits for new results
 BingScraper.prototype.nextPage = function () {
   var self = this;
-
   self.pageNumber += 1;
   if (self.pageNumber > self.maxPages) {
     logger.info('Reached maximum of %d pages', self.maxPages);
     self.cleanup();
     return;
   }
-
   // clicks the next page element.
   self.remoteClient.findElement(webdriver.By.css('a.sb_pagN')).click().then(function () { self.handleResults(); });
 };
@@ -562,10 +562,10 @@ FilestubeScraper.prototype.buildSearchQuery = function (done) {
   var key = util.format('%s.%s.runNumber', self.engineName, self.campaign.name)
   var tracks = self.campaign.metadata.tracks.map(getValFromObj.bind(null, 'title'))
   searchTerms.push(util.format('%s %s', 
-                         self.campaign.metadata.artist,
-                         self.campaign.metadata.albumTitle));
+                               self.campaign.metadata.artist,
+                               self.campaign.metadata.albumTitle));
   tracks.each(function(trackTitle){
-    searchTerms.push(util.format('%s %s'), self.campaign.metadata.artist, trackTitle);
+    searchTerms.push(util.format('%s %s', self.campaign.metadata.artist, trackTitle));
   });
 
   // Figure out the current run from settings
@@ -592,7 +592,7 @@ FilestubeScraper.prototype.beginSearch = function () {
     var requestURI = "http://api.filestube.com/?key=" + 
                       self.apikey + 
                       '&phrase=' + URI.encode(self.searchTerm);
-    logger.info('about to search filestube with this query ' + requestURI);
+    //logger.info('about to search filestube with this query ' + requestURI);
     request(requestURI, {}, self.getLinksFromSource.bind(self));
   });
 };
@@ -601,12 +601,14 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   var self = this;
   var links = [];
   var $ = cheerio.load(html);
-  logger.info('filestube has found ' + $('hasResults').text() + ' answers');
-  $('link').each(function(){
-    links.push($(this).text());
-  })
+  $('hits').each(function(){
+      XRegExp.forEach(this.html(), urlmatch, function (match, i){
+        links.push(match[0]);
+        logger.info('just found link ' + match[0]);
+      });
+  });
   self.emitLinks(links);
-};
+}
 
 /* Scraper Interface */
 var SearchEngine = module.exports = function () {
