@@ -558,10 +558,29 @@ util.inherits(FilestubeScraper, GenericSearchEngine);
 
 FilestubeScraper.prototype.buildSearchQuery = function (done) {
   var self = this;
-  done(null, util.format('%s %s', 
+  var searchTerms = [];
+  var key = util.format('%s.%s.runNumber', self.engineName, self.campaign.name)
+  var tracks = self.campaign.metadata.tracks.map(getValFromObj.bind(null, 'title'))
+  searchTerms.push(util.format('%s %s', 
                          self.campaign.metadata.artist,
                          self.campaign.metadata.albumTitle));
+  tracks.each(function(trackTitle){
+    searchTerms.push(util.format('%s %s'), self.campaign.metadata.artist, trackTitle);
+  });
+
+  // Figure out the current run from settings
+  self.settings.get(key, function(err, run) {
+    if (err)
+      return done(err);
+
+    run = run ? run : 0; // Convert into number
+
+    // Update it for next run
+    self.settings.set(key, run + 1);
+    done(null, searchTerms[run % searchTerms.length]);
+  });
 }
+
 FilestubeScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
