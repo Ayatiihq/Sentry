@@ -248,7 +248,6 @@ Utilities.notify = function(message) {
  * @param  {object} promise A promise instance which resolves at some point returning an array of link(s)
  * @return {object} the given promise.
  */
-
 Utilities.followRedirects = function(links, promise) {
 
   function onHeadResponse(results, thePromise, err, resp, html){
