@@ -82,6 +82,7 @@ CyberLockers.knownDomains = [
   'freakshare.com',
   'free4udown.com',
   'freestorage.ro',
+  'fuupload.com',
   'gamefront.com',
   'ge.tt',
   'gigasize.com',

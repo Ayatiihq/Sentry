@@ -209,7 +209,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
       foundItems.push(hrefValue);
     }
     // otherwise check if its a url shortener
-    else if(linkDomain && !module.exports.shouldIgnoreUri(hrefValue) && shorteners.knownDomains.some(linkDomain)){
+    else if(linkDomain && shorteners.knownDomains.some(linkDomain)){
       flattened.push(hrefValue);
     }
   });
@@ -233,7 +233,6 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
         if (cyberLockers.knownDomains.some(URILink.domain())) {
           foundItems.push(list);
         }
-      });
     });
     promise.resolve(foundItems);
   });
