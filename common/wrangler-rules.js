@@ -204,7 +204,12 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
     catch (error){
       logger.error("Can't create uri from " + hrefValue);
     }
-    if(linkDomain && !module.exports.shouldIgnoreUri(hrefValue) && shorteners.knownDomains.some(linkDomain)){
+    // First check if the link is a simple cyberlocker
+    if(cyberLockers.knownDomains.some(linkDomain)){
+      foundItems.push(hrefValue);
+    }
+    // otherwise check if its a url shortener
+    else if(linkDomain && !module.exports.shouldIgnoreUri(hrefValue) && shorteners.knownDomains.some(linkDomain)){
       flattened.push(hrefValue);
     }
   });
@@ -216,12 +221,11 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   promise = new Promise();
 
   all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
-    lifted30Xs.each(function (list) {
-      // keep the list together inorder to associate redirects with initial scraped link.
-      list.each(function (resolvedLink) {
+    lifted30Xs.each(function (individual30xs) {
         var URILink;
         try {
-          URILink = URI(resolvedLink);
+          // Only check the last link
+          URILink = URI(individual30xs.last());
         }
         catch (error) {
           return; // some dodgy link => move on.
