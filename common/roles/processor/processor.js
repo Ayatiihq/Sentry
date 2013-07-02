@@ -357,7 +357,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     .seq(function() {
       logger.info('Download finished for %s', outPath);
       finished = Date.now();
-      self.downloads_.getFileMimeType(outPath, this);
+      Downloads.getFileMimeType(outPath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;

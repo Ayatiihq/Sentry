@@ -130,6 +130,11 @@ NoticeSender.prototype.getInfringements = function(done) {
     return done();
   }
 
+  if (self.campaign_.monitoring) {
+    logger.info('Campaign %s is for monitoring only', self.campaign_.name);
+    return done();
+  }
+
   Seq()
     .seq(function() {
       self.notices_.getReadyForNotice(self.campaign_, this);

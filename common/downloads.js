@@ -280,9 +280,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
  * @return {undefined}
  */
 Downloads.getFileMimeType = function(filepath, callback) {
-  var self = this
-    , mimetype = ''
-    ;
+  var mimetype = '';
 
   Seq()
     .seq(function() {

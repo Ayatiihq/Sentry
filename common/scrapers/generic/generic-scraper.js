@@ -226,7 +226,8 @@ Generic.prototype.checkInfringement = function (infringement) {
 
     var rules = {
       'music': acquire('wrangler-rules').rulesDownloadsMusic,
-      'tv': acquire('wrangler-rules').rulesLiveTV
+      'tv': acquire('wrangler-rules').rulesLiveTV,
+      'movie': acquire('wrangler-rules').rulesDownloadsMovie
     };
 
     wrangler.addRule(rules[self.campaign.type.split('.')[0]]);

@@ -21,8 +21,6 @@ var acquire = require('acquire')
   , Promise = require('node-promise')    
   ;
 
-var Promise = require('node-promise')
-
 var FourShared = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;

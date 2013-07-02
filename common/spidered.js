@@ -146,6 +146,8 @@ var TorrentDescriptor = module.exports.TorrentDescriptor = function(name, genre,
   self.magnet = null;
   self.directLink = null; 
   self.hash_ID = null;  
+  self.seeders = 0;
+  self.leechers = 0;
 }
 
 util.inherits(TorrentDescriptor, Spidered);

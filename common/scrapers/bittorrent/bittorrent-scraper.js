@@ -1,3 +1,4 @@
+
 "use strict";
 /*
  * bittorrent-scraper.js
@@ -19,7 +20,7 @@ var acquire = require('acquire')
 
 var Scraper = acquire('scraper');
 
-var CAPABILITIES = { browserName: 'firefox', seleniumProtocol: 'WebDriver' };
+var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
 
@@ -72,7 +73,8 @@ BittorrentPortal.prototype.buildSearchQuery = function () {
   var queryBuilder = {
     'tv.live': self.buildSearchQueryTV.bind(self),
     'music.album': self.buildSearchQueryAlbum.bind(self),
-    'music.track': self.buildSearchQueryTrack.bind(self)
+    'music.track': self.buildSearchQueryTrack.bind(self),
+    'movie': self.buildSearchQueryMovie.bind(self)
   };
 
   if (!Object.has(queryBuilder, self.campaign.type)) {
@@ -93,6 +95,13 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   var albumTitle = self.campaign.metadata.albumTitle;
   var query = albumTitle.escapeURL(true);
+  return query;
+};
+
+BittorrentPortal.prototype.buildSearchQueryMovie = function () {
+  var self = this;
+  var movieTitle = self.campaign.metadata.movieTitle;
+  var query = movieTitle.escapeURL(true);
   return query;
 };
 
@@ -117,14 +126,18 @@ BittorrentPortal.prototype.emitInfringements = function () {
                {score: MAX_SCRAPER_POINTS / 2,
                 source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Torrent page at ' + self.engineName},
-               {type: torrent.genre});
+               {type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});                
     self.emit('torrent',
                torrent.directLink,
                {score: MAX_SCRAPER_POINTS / 1.5,
                 source: 'scraper.bittorrent.' + self.engineName,
                 message: 'Link to actual Torrent file from ' + self.engineName},
                {fileSize: torrent.fileSize,
-                type: torrent.genre});
+                type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});
     self.emit('relation', torrent.activeLink.uri, torrent.directLink);
     if(torrent.magnet){
       self.emit('torrent',
@@ -133,7 +146,9 @@ BittorrentPortal.prototype.emitInfringements = function () {
                   source: 'scraper.bittorrent.' + self.engineName,
                   message: 'Torrent page at ' + self.engineName},
                  {fileSize: torrent.fileSize,
-                  type: torrent.genre});
+                  type: torrent.genre,
+                  leechers: torrent.leechers,
+                  seeders: torrent.seeders});
       self.emit('relation', torrent.activeLink.uri, torrent.magnet);
       self.emit('relation', torrent.magnet, torrent.hash_ID);
     }
@@ -143,7 +158,9 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 source: 'scraper.bittorrent' + self.engineName,
                 message: 'Torrent hash scraped from ' + self.engineName},
                {fileSize: torrent.fileSize, fileData: torrent.fileData.join(', '),
-                type: torrent.genre});
+                type: torrent.genre,
+                leechers: torrent.leechers,
+                seeders: torrent.seeders});                
     self.emit('relation', torrent.directLink, torrent.hash_ID);
     self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
   });
@@ -192,22 +209,28 @@ KatScraper.prototype.beginSearch = function () {
 
 KatScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
+  var categories = {
+    'movie': '%20category%3Amovies/',
+    'music.album': '%20category%3Amusic/'
+  };
   var queryString = self.root +
                     '/usearch/' + 
                     self.searchTerm +  
-                    '%20category%3Amusic/' + 
+                    categories[self.campaign.type] + 
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
   self.remoteClient.get(queryString);
-  self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(element) {
-    if (element) {
+  try{
+    self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(){
       self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
-  });
+    });
+  }
+  catch(error){
+    logger.warning('Unable to find a table with data as the class, more than likely KAT is down at the moment ');
+    // Don't emit the error, sentry will try it again in time, more than likely Kat is down at the moment, 
+    // no point in retrying continiously (which if you emitted the error that is what would have happened)
+    self.cleanup();    
+  }
 }
 
 KatScraper.prototype.getTorrentsDetails = function(){
@@ -272,11 +295,14 @@ IsoHuntScraper.prototype.beginSearch = function () {
 
 IsoHuntScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
-  var categoryID = 2;
+  var categories = {
+    'music.album': 2,
+    'movie': 1
+  };
   var queryString = self.root + 
                     '/torrents/' + 
                     self.searchTerm + '?' +
-                    'iht=' + categoryID +
+                    'iht=' + categories[self.campaign.type] +
                     '&ihp=' + pageNumber +
                     '&ihs1=5&iho1=d';
   self.remoteClient.get(queryString);
