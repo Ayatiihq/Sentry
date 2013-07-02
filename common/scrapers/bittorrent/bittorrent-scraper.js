@@ -16,6 +16,7 @@ var acquire = require('acquire')
   , isohuntparser = acquire('isohunt-parser')  
   , Storage = acquire('storage')
   , Promise = require('node-promise')
+  , Campaigns = acquire('campaigns')
 ;
 
 var Scraper = acquire('scraper');
@@ -24,7 +25,7 @@ var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
 
-var BittorrentPortal = function (campaign) {
+var BittorrentPortal = function (campaign, types) {
   events.EventEmitter.call(this);
   var self = this;
   self.results = [];
@@ -38,6 +39,10 @@ var BittorrentPortal = function (campaign) {
   self.resultsCount = 0;
   self.engineName = 'UNDEFINED';
   self.searchTerm = self.buildSearchQuery();
+  self.campaignCategories = {};
+  types.each(function(camType){
+    self.campaignCategories[camType] = '';
+  });
 };
 
 util.inherits(BittorrentPortal, events.EventEmitter);
@@ -189,9 +194,9 @@ BittorrentPortal.prototype.checkHasNextPage = function (source) {
 };
 
 /* -- KAT Scraper */
-var KatScraper = function (campaign) {
+var KatScraper = function (campaign, types) {
   var self = this;
-  self.constructor.super_.call(self, campaign);
+  self.constructor.super_.call(self, campaign, types);
   self.engineName = 'kat';
   self.root = 'http://www.katproxy.com';
 };
@@ -209,14 +214,13 @@ KatScraper.prototype.beginSearch = function () {
 
 KatScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
-  var categories = {
-    'movie': '%20category%3Amovies/',
-    'music.album': '%20category%3Amusic/'
-  };
+  self.campaignCategories.movie = '%20category%3Amovies/';
+  self.campaignCategories['music.album'] = '%20category%3Amusic/';
+
   var queryString = self.root +
                     '/usearch/' + 
                     self.searchTerm +  
-                    categories[self.campaign.type] + 
+                    self.campaignCategories[self.campaign.type] + 
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
   self.remoteClient.get(queryString);
@@ -275,9 +279,9 @@ KatScraper.prototype.checkHasNextPage = function (source) {
 };
 
 /* -- ISOHunt Scraper */
-var IsoHuntScraper = function (campaign) {
+var IsoHuntScraper = function (campaign, types) {
   var self = this;
-  self.constructor.super_.call(self, campaign);
+  self.constructor.super_.call(self, campaign, types);
   self.engineName = 'isohunt';
   self.root = 'http://www.isohunt.com';
 };
@@ -295,14 +299,13 @@ IsoHuntScraper.prototype.beginSearch = function () {
 
 IsoHuntScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
-  var categories = {
-    'music.album': 2,
-    'movie': 1
-  };
+  self.campaignCategories['music.album'] = 2;
+  self.campaignCategories.movie = 1;
+
   var queryString = self.root + 
                     '/torrents/' + 
                     self.searchTerm + '?' +
-                    'iht=' + categories[self.campaign.type] +
+                    'iht=' + self.campaignCategories[self.campaign.type] +
                     '&ihp=' + pageNumber +
                     '&ihs1=5&iho1=d';
   self.remoteClient.get(queryString);
@@ -382,7 +385,7 @@ Bittorrent.prototype.start = function (campaign, job) {
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
-  self.scraper = new scraperMap[job.metadata.engine](campaign);
+  self.scraper = new scraperMap[job.metadata.engine](campaign, Campaigns.types());
 
   self.scraper.on('finished', function onFinished() {
     self.emit('finished');

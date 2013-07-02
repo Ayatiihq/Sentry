@@ -32,6 +32,14 @@ var Campaigns = module.exports = function() {
   this.init();
 }
 
+/**
+ * Define the 'static' list of campaign types that we should use for various campaign types
+ */
+Campaigns.types = function() {
+  // add new campaign types as we add support for them.
+  return ['music.album', 'music.track', 'movie', 'tv.live', 'tv.series'];
+}
+
 Campaigns.prototype.init = function() {
   var self = this;
 
