@@ -11,6 +11,7 @@ require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
   , cyberLockers = acquire('cyberlockers')
+  , shorteners = acquire('shorteners')
   , events = require('events')
   , logger = acquire('logger').forFile('wrangler-rules.js')
   , Promise = require('node-promise').Promise
@@ -190,12 +191,25 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
 
 /* - Rules to identify links to files on a known cyberlocker - */
 module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems) {
-  /*var flattened = [];
+  var flattened = [];
   var promise;
   // first Rip out links into an array
-  $('a').each(function () {
+  $('a').each(function () {    
     var hrefValue = $(this).attr('href');
-    if (hrefValue && !module.exports.shouldIgnoreUri(hrefValue) && !flattened.some(hrefValue)) {
+    var linkDomain = null;
+    try{
+      var result = URI(hrefValue);
+      linkDomain = result.domain();
+    }
+    catch (error){
+      logger.error("Can't create uri from " + hrefValue);
+    }
+    // First check if the link is a simple cyberlocker
+    if(cyberLockers.knownDomains.some(linkDomain)){
+      foundItems.push(hrefValue);
+    }
+    // otherwise check if its a url shortener
+    else if(linkDomain && shorteners.knownDomains.some(linkDomain)){
       flattened.push(hrefValue);
     }
   });
@@ -207,12 +221,11 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
   promise = new Promise();
 
   all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
-    lifted30Xs.each(function (list) {
-      // keep the list together inorder to associate redirects with initial scraped link.
-      list.each(function (resolvedLink) {
+    lifted30Xs.each(function (individual30xs) {
         var URILink;
         try {
-          URILink = URI(resolvedLink);
+          // Only check the last link
+          URILink = URI(individual30xs.last());
         }
         catch (error) {
           return; // some dodgy link => move on.
@@ -220,30 +233,10 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
         if (cyberLockers.knownDomains.some(URILink.domain())) {
           foundItems.push(list);
         }
-      });
     });
     promise.resolve(foundItems);
   });
-  return promise; */
-
-  // nope to all of the above right now, too slow
-  $('a').each(function () {
-    var hrefValue = $(this).attr('href');
-    var URILink;
-    try {
-      URILink = URI(hrefValue);
-    }
-    catch (error) {
-      return foundItems; // some dodgy link => move on.
-    }
-    if (cyberLockers.knownDomains.some(URILink.domain())) {
-      var newitem = new Endpoint(hrefValue);
-      newitem.isEndpoint = true;
-      foundItems.push(newitem);
-    }
-  });
-
-  return foundItems;
+  return promise; 
 };
 
 // finds any links that match the extensions in the extension list
