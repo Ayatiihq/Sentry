@@ -1,7 +1,6 @@
 /*
  * test_cyberlocker-manager.js: 
  * (C) 2013 Ayatii Limited
- *
  */
 var acquire = require('acquire')
   , config = acquire('config')
@@ -20,7 +19,6 @@ function setupSignals() {
 
 function parseObject(arg) {
   var ret = arg;
-
   try {
     ret = require(arg);
   } catch (err) {
@@ -100,7 +98,12 @@ function main() {
     process.exit(1);
   }
   var campaign = parseObject(process.argv[2]);  
-  cyberlockerSupported = ['rapidshare.com', '4shared.com', 'mediafire.com', 'sharebeast.com', 'hulkshare.com'].some(process.argv[3]);
+  cyberlockerSupported = ['rapidshare.com',
+                          '4shared.com', 
+                          'mediafire.com', 
+                          'sharebeast.com',
+                          'hulkshare.com'].some(process.argv[3]);
+  // update with new cyberlockers as they we get to support 'em.
   if(!cyberlockerSupported){
     logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
     process.exit(1);
