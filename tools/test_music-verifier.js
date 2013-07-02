@@ -36,36 +36,6 @@ function parseObject(arg) {
   return ret;
 }
 
-function gatherInfringements(urisList){
-  var infringements = [];
-  fs.readFile(path.join(process.cwd(), urisList), function (err, data) {
-    if (err) {
-      throw err; 
-    }
-    data.toString().words(function(singular){
-      // bad javascript bad bad!
-      isState = parseInt(singular) || parseInt(singular) === 0;
-      if(isState){
-        // make a new infringement when a new state is detected.
-        infringements.push({state: parseInt(singular), uri:null});
-      } 
-      else{
-        var link = null;
-        try{
-          link = URI(singular);
-          logger.info('just added : ' + link.toString() + ' to a infrg with a state of ' + infringements.last().state);
-          infringements.last().uri = link.toString();
-        }
-        catch(err){
-          logger.info('unable to create link ' + singular);
-        }
-      }
-    });
-    logger.info('infringements size : ' + infringements.length);
-  });
-  return infringements;  
-}
-
 var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready'];
 
 function main() {
@@ -74,14 +44,61 @@ function main() {
 
   setupSignals();
 
-  if (process.argv.length < 3)
+  if (process.argv.length < 2)
   {
-    logger.warn("Usage: node test_music-verifier.js <campaignId> <listLocation>");
+    logger.warn("Usage: node test_music-verifier.js <campaignJSON>");
     process.exit(1);
   }
 
   var campaign = parseObject(process.argv[2]);
-  var infringeURIs = gatherInfringements(process.argv[3]);
+  var infringement = {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+                      "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
+                      "category":3,
+                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},"mimetypes":["audio/mpeg"],
+                      "parents":{"count":1,"modified":1370545325749,
+                      "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
+                      "points":{"total":20,"modified":1370545325747,
+                      "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
+                      "popped":1370548822088,
+                      "processed":1370546427068,
+                      "scheme":"http",
+                      "source":"generic",
+                      "state":2,"type":"music.album",
+                      "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
+                      "verified":1370548862188}
+  var downloads = [{"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
+                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
+                    "mimetype": "audio/mpeg",
+                    "size":35172936,
+                    "created":1370546427052,
+                    "started":1370546311579,
+                    "finished":1370546329413,
+                    'testName': 'first-validmp3'},
+                    {"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
+                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
+                    "mimetype":'notaudio/audionot',//"audio/mpeg",
+                    "size":35172936,
+                    "created":1370546427052,
+                    "started":1370546311579,
+                    "finished":1370546329413,
+                    'testName': 'second-invalid'},
+                    {"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
+                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
+                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
+                    "mimetype":"audio/mpeg",
+                    "size":35172936,
+                    "created":1370546427052,
+                    "started":1370546311579,
+                    "finished":1370546329413,
+                    'testName': 'third-validmp3'}];
 
   var MusicVerifier = require('../common/roles/autoverifier/musicverifier');
   var instance = new MusicVerifier();
@@ -98,20 +115,12 @@ function main() {
     });
   });
 
-  instance.verifyList(campaign, infringeURIs, function(err, details){
+  instance.verify(campaign, infringement, downloads, function(err){
     if(err)
-      logger.warn('unable to verify :' + err);
+      logger.warn('Verify Err : ' + err);
     else
-      try{
-        logger.info(JSON.stringify(details));
-      }
-      catch(err){
-        logger.warn('unable to parse results from verifyList - ' + err);
-      }
-  });  
-  //var promise = new Promise.Promise();
-  //instance.evaluate({folderPath:'/home/ronoc/ayatii/test-mp3s/sentry-sandbox/'}, promise);
-  //promise.then(logger.info('finished'));
+      logger.info('Verify finished');
+  });
 }
 
 main(); 

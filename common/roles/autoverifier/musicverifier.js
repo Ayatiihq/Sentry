@@ -9,7 +9,6 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , events = require('events')
   , util = require('util')
-  , filed = require('filed')  
   , fs = require('fs-extra')
   , os = require('os')
   , Promise = require('node-promise')
@@ -19,6 +18,7 @@ var acquire = require('acquire')
   , exec = require('child_process').execFile
   , URI = require('URIjs')   
   , utilities = acquire('utilities') 
+  , Downloads = acquire('downloads')
   ;
 
 var logger = acquire('logger').forFile('musicverifier.js')
@@ -38,192 +38,70 @@ MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
   self.storage = new Storage('downloads');
-  self.results = {complete: [], incomplete: []};
-  self.on('campaign-audio-ready', self.prepInfringement.bind(self));
 }
 
-MusicVerifier.prototype.createParentFolder = function() {
+MusicVerifier.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
   self.cleanupEverything().then(function(){
     logger.info('%s: creating parent folder %s', self.infringement._id, self.tmpDirectory);
     fs.mkdir(self.tmpDirectory, function(err){
-      if(err)
+      if(err){
         logger.error('%s: Error creating parenting folder called %s', self.infringement._id, self.tmpDirectory);
-      promise.resolve(err);
+        promise.reject(err);
+        return;
+      }
+      promise.resolve();
     });    
   });// Call this just in case we have a hangover from some other failed run on the same campaign
   return promise;
 }
 
-MusicVerifier.prototype.fetchCampaignAudio = function() {
-  var self = this;
-
-  function fetchTrack(track){
-    var self = this;
-    var promise = new Promise.Promise();
-    var folderName = utilities.genLinkKey(track.title);
-    track.folderPath = path.join(self.tmpDirectory, folderName);
-    track.score = 0.0;
-    try{
-      fs.mkdirSync(track.folderPath);
-      self.downloadThing(track.uri, path.join(track.folderPath, "original"), promise);
-    }
-    catch(err){
-      logger.error(self.infringement._id + ': Unable to fetch file for ' + track.title + ' error : ' + err);
-      promise.resolve(false);
-    }
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
-  Promise.seq(promiseArray).then(function(){
-    self.emit('campaign-audio-ready');
-  }); 
-}
-
-MusicVerifier.prototype.downloadThing = function(downloadURL, target, promise){
-  var self = this;
-  var downloadFile = filed(target);  
-  try{
-    var req = request(downloadURL);
-    req.pipe(downloadFile);  
-
-    req.on('error', function(err) {
-      logger.warn(err, 'error downloading ' + downloadURL);
-      promise.resolve(false);
-    });
-    req.on('close', function(err) {
-      logger.warn(err, 'Connection closed ' + downloadURL);
-      promise.resolve(false);
-    });
-    req.on('complete', function(err) {
-      logger.warn(err, 'Connection completed ' + downloadURL);
-      promise.resolve(false);
-    });
-
-    downloadFile.on('end', function () {
-      logger.info("Download of " + downloadURL + " complete.")
-      promise.resolve(true);
-    });  
-    downloadFile.on('error', function (err) {
-      logger.warn(err, 'error downloading ' + downloadURL);
-      promise.resolve(false);
-    });
-  }
-  catch(err){
-    logger.warn('Error requesting ' + downloadURL + ' err : ' + err);
-    promise.resolve(false);
-  }  
-}
-
-MusicVerifier.prototype.fetchInfringement = function(){
+MusicVerifier.prototype.downloadThing = function(downloadURL, target){
   var self = this;
   var promise = new Promise.Promise();
-  try{
-    logger.info(self.infringement._id + ': Fetch infringement : ' + self.infringementURI);
-    self.downloadThing(self.infringementURI, path.join(self.tmpDirectory, "infringement"), promise);
-  }
-  catch(err){
-    logger.warn(self.infringement._id + ': Problem fetching infringing file : err : ' + err);
-    promise.resolve(false);
-  }
+  var out = fs.createWriteStream(target);
+  //logger.info('downloadThing ' + downloadURL);
+
+  utilities.requestStream(downloadURL, {}, function(err, req, res, stream){
+    if(err){
+      logger.error('unable to downloadThing ' + downloadURL + ' error : ' + err);
+      promise.reject(err);
+      return;
+    }
+    stream.pipe(out);
+    stream.on('end', function() {
+      logger.info('successfully downloaded ' + downloadURL);
+      promise.resolve();
+    });
+  });
   return promise;
 }
 
-MusicVerifier.prototype.goFingerprint = function(){
-  var self = this;
-  var wrapperPromise = new Promise.Promise();
-
-  var copyfile = function (source, target, cb) {
-    var cbCalled = false;
-    var rd = fs.createReadStream(source);
-    rd.on("error", function(err) {
-      done(err);
-    });
-    var wr = fs.createWriteStream(target);
-    wr.on("error", function(err) {
-      done(err);
-    });
-    wr.on("close", function(ex) {
-      done();
-    });
-    rd.pipe(wr);
-    function done(err) {
-      if (!cbCalled) {
-        cb(err);
-        cbCalled = true;
-      }
-    }
-  };
-
-  var compare = function(track){
-    var self = this;
-    var promise = new Promise.Promise();
-    copyfile(path.join(self.tmpDirectory,  'infringement'),
-             path.join(track.folderPath, 'infringement'),
-             function(err){
-              if(err){
-                logger.error('Error copying file : ' + err);
-                promise.resolve();
-              }
-              else{
-                self.evaluate(track, promise);
-              }
-             });
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){return compare.bind(self, track)});
-
-  Promise.seq(promiseArray).then(function(){
-    self.examineResults();
-    wrapperPromise.resolve();
-  }); 
-  return wrapperPromise; 
-}
-
-MusicVerifier.prototype.evaluate = function(track, promise){
-  var self = this;
-  logger.info('about to evaluate ' + track.folderPath);
-  exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
-    function (error, stdout, stderr){
-      if(stderr && !stderr.match(/Header\smissing/g))
-        logger.error(self.infringement._id + ": Fpeval standard error : " + stderr);
-      if(error && !stderr.match(/Header\smissing/g))
-        logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
-      
-      try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
-        var result = JSON.parse(stdout);
-        logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
-        track.score = result.score;
-      }
-      catch(err){
-        logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
-        track.score = -1;// -1 signifying fpeval failed for some reason.
-      }
-      promise.resolve();
-    });
-}
-
+/*
+ * This method might seem a little long-winded but for the sake of accurate note taking its layed out this way.
+ * @return {[error, verificationObject]} 
+ */
 MusicVerifier.prototype.examineResults = function(){
   var self = this;
   var matchedTracks = [];
   var err = null;
   var MATCHER_THRESHOLD = 0.3;
 
-  // First check that fpeval could carry out a match, if not end this check with an error
+  var verificationObject = {started : self.startedAt,
+                            who : "MusicVerifer AKA Harry Caul",
+                            finished : Date.now()
+                           };
+
+  // First check that fpeval could carry out a match, if any of the match attempts fail (score === -1) then return with error.
   var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.score < 0}).unique();
   if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
     logger.warn(self.infringement._id + ': Failed to match with FPeval, more than likely an issue with downloading the infringment');
-    self.done(new Error('FpEval failed to carry out any match'));
-    return;
+    return [new Error('FpEval failed to carry out any match'), verificationObject];
   }
 
+  // Next attempt to filter which tracks have a score above the MATCHER_THRESHOLD
   self.campaign.metadata.tracks.each(function(track){
     if(track.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty())
@@ -233,103 +111,44 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var verificationObject = {started : self.startedAt,
-                            who : "MusicVerifer AKA Harry Caul",
-                            finished : Date.now()
-                           };
-  
   var success;
 
+  // At this point if we have more than 1 track which matched successfully we want to make sure the delta between the scores
+  // is greater than 0.2 inorder to be confident that we have a genuine match. Deltas which are less than 0.2 indicate a very
+  // inaccurate and fuzzy resultset => mark unsuccessfull
   if(matchedTracks.length > 1){
     var delta = matchedTracks.reduce(function(a, b){
       return a-b;
     });
     logger.warn(self.infringement._id + ': We found ' + matchedTracks.length + ' matches and the delta between them is ' + delta);
     success = delta > 0.2;
-  }
-  else{
-    success = matchedTracks.length === 1 // this needs more testing.
-  }
-
-  if(success){
-    logger.info('Successfull matching ' + self.infringementURI);
-    verificationObject = Object.merge (verificationObject, 
-                                      {"state" : states.VERIFIED,
-                                       "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
-    self.results.complete.push(verificationObject);
-  }
-  else{
-    
-    verificationObject.state = states.FALSE_POSITIVE
-
-    if(matchedTracks.length > 1){
-      verificationObject.notes = "Harry Caul found more than one match here, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
-      err = 'Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks);
-    }
-    else{ //matchedTracks.length === 0
-      verificationObject.notes = "Harry Caul did not find any match, again please examine.",
-      logger.info(self.infringement._id + ': Not successful in matching ' + self.infringementURI);
-    }
-    self.results.incomplete.push(verificationObject);    
-  }
-
-  self.done(err, verificationObject);
-}
-
-MusicVerifier.prototype.prepInfringementList = function (infrgs){
-  var self = this;
-  var promiseArray = infrgs.map(function(infrg) { return self.oneAtaTime.bind(self, infrg)});
-  Promise.seq(promiseArray).then(function(){
-    logger.info(self.infringement._id + ': Finished verifying list : matched successfully : ' + self.results.completed.length);
-    logger.info(self.infringement._id + ': Failed to match: ' + self.results.incomplete.length);
-    fs.writeFile(path.join(process.cwd(),'musicverifierResults'),
-                 JSON.stringify(self.results), function(err) {if(err)logger.warn('Couldnt write to results file')}); 
-    self.cleanupEverything();
-  }); 
-}
-
-MusicVerifier.prototype.prepInfringement = function (){
-  var self = this;
-  logger.info(self.infringement._id + ': campaign audio ready - get the infringement');
-  self.fetchInfringement().then(function(success){
-    if(success)
-      self.goFingerprint(); // got everything in place, lets match.
-    else
-      self.done(self.infringement._id + ': Problem fetching infringment');
-  });        
-}
-
-MusicVerifier.prototype.oneAtaTime = function(infrg){
-  var self = this;
-  var promise = new Promise.Promise();
-  try{ // don't bother with uris that have not been completed.
-    var link = URI(infrg.uri);
-    if(link.is('relative')){
-      logger.info(self.infringement._id + ': uri is relative - dont go any further' + ' : ' + infrg.uri);
-      promise.resolve();
-      return promise;
-    }
-  } 
-  catch(err){
-    promise.resolve();
-    logger.info(self.infringement._id + ': error making uri from link' +  ' : ' + err );
-    return promise;
-  }
-  self.infringement = infrg;
-  self.fetchInfringement().then(function(success){
-    if(success) {
-      self.goFingerprint().then(function(){
-        promise.resolve();
-      });   
+    if(success){
+      verificationObject = Object.merge (verificationObject,
+                                        {"state" : states.VERIFIED,
+                                         "notes" : "Success but Harry Caul found more than one match where the delta between the matches was > 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}))});
     }
     else{
-      promise.resolve();
+      verificationObject.state = states.FALSE_POSITIVE
+      verificationObject.notes = "Harry Caul found more than one match where the delta between the matches was < 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
+      err = new Error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));      
     }
-  });
-  return promise;
+  }
+  else{ // Else just check for the simple lone match. Write up notes accordingly
+    success = matchedTracks.length === 1; 
+    if(success){
+      verificationObject = Object.merge (verificationObject, 
+                                        {"state" : states.VERIFIED,
+                                         "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
+    }
+    else{
+      verificationObject.state = states.FALSE_POSITIVE;
+      verificationObject.notes = "Harry Caul did not find any match, please examine.";
+    }
+  }
+  return[err, verificationObject];
 }
 
-MusicVerifier.prototype.cleanupEverything = function(err) {
+MusicVerifier.prototype.cleanupEverything = function() {
   var self = this;
   var promise = new Promise.Promise();
   logger.info('cleanupEverything');  
@@ -343,141 +162,281 @@ MusicVerifier.prototype.cleanupEverything = function(err) {
   return promise;
 }
 
+/*
+ * Attempt to clean the file called infringement from each track folder
+ */
 MusicVerifier.prototype.cleanupInfringement = function() {
   var self = this;
   var wrapperPromise = new Promise.Promise();
 
-  var deleteInfringement = function(dir) {
+  function deleteInfringement(dir) {
     var promise = new Promise.Promise();
-    if(!dir){
-      promise.resolve();
-    }
-    else{
+    fs.readdir(dir, function(err, files){
+      if(err){
+        promise.reject(err);
+        return;
+      }
       var matched = false;
-      fs.readdir(dir, function(err, files){
-        if(err){
-          promise.resolve();
-          return;
+      files.each(function(file){
+        if(file.match(/infringement/g)){
+          matched = true;
+          fs.unlink(path.join(dir, file), function (errr) {
+            if(errr){
+              logger.warn('error deleting ' + errr + path.join(dir, file));
+              promise.reject(errr);
+              return;              
+            }
+            promise.resolve();
+          });
         }
-        files.each(function(file){
-          if(file.match(/infringement/g)){
-            fs.unlink(path.join(dir, file), function (errr) {
-              if (errr)
-                logger.warn('error deleting ' + errr + path.join(dir, file));
-            });
-            matched = true;
-            promise.resolve();                    
-          }
-        });
-        // Make sure to resolve the mother even it there isn't a match (failed download or whatever)
-        if(!matched) promise.resolve();
       });
-    }
+      // Make sure to resolve the mother even if there isn't a match (failed download or whatever)
+      if(!matched)promise.resolve();
+    });
     return promise
   }
 
-  if(self.campaign){
-    var promiseArray;
-    promiseArray = self.campaign.metadata.tracks.map(function(track){ return deleteInfringement.bind(self, track.folderPath)});
-    promiseArray.push(deleteInfringement.bind(self, self.tmpDirectory));
-
-    Promise.seq(promiseArray).then(function(){
-      wrapperPromise.resolve()
-    }); 
-  }
-  else{
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){ if(track.folderPath) return deleteInfringement.bind(self, track.folderPath)});
+  Promise.seq(promiseArray).then(function(){
+    logger.info('Finished deleting infringement from track folders...')
     wrapperPromise.resolve();
-  }
+  },
+  function(err){
+    wrapperPromise.reject(err);   
+  });   
   return wrapperPromise;
 }
-//
-// Public
-//
 
-// This needs to not be added to the prototype, that way it's available without
-// having to make an instance of the verifier
-MusicVerifier.getSupportedTypes = function() {
-  return [
-    , 'audio/mpeg'
-    , 'audio/mpeg3'
-    , 'audio/mp3'
-    , 'audio/x-mpeg-3'
-  ];
+/* 
+ * Go through each track for that campaign, create a folder for it.
+ * download it to that location, error if there is ANY error.
+ */
+MusicVerifier.prototype.fetchCampaignAudio = function(done) {
+  var self = this;
+
+  function fetchTrack(track){
+    var promise = new Promise.Promise();
+    var folderName = utilities.genLinkKey(track.title);
+    track.folderPath = path.join(self.tmpDirectory, folderName);
+    track.score = 0.0;
+    fs.mkdirSync(track.folderPath);
+    self.downloadThing(track.uri, path.join(track.folderPath, "original")).then(
+      function(){
+        promise.resolve();
+      },
+      function(err){
+        logger.error(self.infringement._id + ': Unable to fetch file for ' + track.title + ' error : ' + err);
+        promise.reject(err);
+      }
+    );
+    return promise;
+  }
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
+  Promise.seq(promiseArray).then(function(){
+    done();
+  },
+  function(err){
+    done(err)
+  }); 
 }
 
-MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
+MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready, campaign, done){
+  // if we had a different previous campaign, nuke it.
+  var self = this; 
+  var cleansing;
+
+  if(haveRunAlready){
+    cleansing = self.cleanupEverything();
+  }
+  else{
+    cleansing  = new Promise.Promise();
+    cleansing.resolve();
+  }
+
+  cleansing.then(function(){
+    // Only on a new campaign do we overwrite 
+    // (We want to still know about folderpaths etc.)
+    self.campaign = campaign; 
+
+    self.createParentFolder().then(function(){
+      self.fetchCampaignAudio(done);
+    },
+    function(err){
+      self.done(err);
+    });
+  });
+}
+
+MusicVerifier.prototype.prepCampaign = function(campaign, done){
   var self = this;
-  var haveRunAlready = !!self.campaign;
 
   var sameCampaignAsBefore = self.campaign &&
                              (self.campaign._id.client === campaign._id.client &&
                               self.campaign._id.campaign === campaign._id.campaign);
+  if(!sameCampaignAsBefore){
+    logger.info()
+    self.newCampaignChangeOver(!!self.campaign, campaign, done);
+  }
+  else{ // Same campaign as before, keep our one in memory but reset the track.score
+    logger.info("we just processed that campaign, use what has already been downloaded.")
+    self.campaign.metadata.tracks.each(function resetScore(track){
+      track.score = 0.0;
+    });      
+    done();
+  }
+}
 
-  self.done = done;
-  self.infringement = infringement;
+MusicVerifier.prototype.copyDownload = function(download, track){
+  var promise = new Promise.Promise();
+  fs.copy(download.tmpFileLocation,
+          path.join(track.folderPath, 'infringement'),
+          function(err){
+            if(err){
+              logger.error('Error copying file : ' + err);
+              promise.reject(err);
+              return;
+            }
+            promise.resolve();
+          });
+  return promise;
+}
 
-  // FIXME: One infringement could have multiple files to check (i.e. torrent)
-  self.infringementURI = self.storage.getURL(downloads[0].name);
-  self.startedAt = Date.now();
+// TODO refactor somehow
+MusicVerifier.prototype.goMeasureDownload = function(download, done){
+  var self = this;
 
-  logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
-  self.cleanupInfringement().then(function(){    
-    if(!sameCampaignAsBefore){
-      // if we had a different previous campaign, nuke it.
-      var cleansing;
-
-      if(haveRunAlready){
-        cleansing = self.cleanupEverything();
-      }
-      else{
-        cleansing  = new Promise.Promise();
-        cleansing.resolve();
-      }
-
-      cleansing.then(function(){
-        // Only on a new campaign do we overwrite our instance variable
-        // (We want to still know about folderpaths etc.)
-        self.campaign = campaign; 
-
-        var promise = self.createParentFolder();
-        promise.then(function(err){
-          if(err){
-            self.cleanupEverything().then(function(){
-              self.done(err);
-              return;              
-            });
-          }
-          else{
-            self.fetchCampaignAudio();
-          }
-        });
+  function compare(track){
+    var promise = new Promise.Promise();
+    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
+    exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
+      function (error, stdout, stderr){
+        if(stderr && !stderr.match(/Header\smissing/g))
+          logger.error(self.infringement._id + ": Fpeval standard error : " + stderr);
+        if(error && !stderr.match(/Header\smissing/g))
+          logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
+        
+        try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
+          var result = JSON.parse(stdout);
+          logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
+          track.score = result.score;
+        }
+        catch(err){
+          logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
+          track.score = -1;// -1 signifying fpeval failed for some reason.
+        }
+        promise.resolve();
       });
+    return promise;
+  } 
+
+  function doIt(track){
+    var promise = new Promise.Promise();
+    self.copyDownload(download, track).then(function(){
+      compare(track).then(function(){
+        promise.resolve();
+      },
+      function(err){
+        promise.reject(err);
+      });
+    },
+    function(err){
+      promise.reject(err);
+    });
+    return promise;
+  }
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
+  Promise.seq(promiseArray).then(
+    function(){
+      var results = self.examineResults();
+      if(results[0]){
+        self.done(new Error('examine Results returned a nonsensical result'));
+        return;
+      }
+      if(results[1].state === states.VERIFIED){
+        // report back immediately once we are confident we have one match.
+        logger.info('We have found a match ! - return immediately');
+        self.done(null, results[1]);
+      }
+      else{ // Move on to the next track, nothing to report back here.
+        logger.info('moving to the next track');
+        done();
+      }
+    },
+    function(err){
+      done(err);
     }
-    else{ // Same campaign as before, keep our one in memory
-      logger.info("we just processed that campaign, use what has already been downloaded.")
-      self.campaign.metadata.tracks.each(function resetScore(track){
-        track.score = 0.0;
-      });      
-      self.emit('campaign-audio-ready');
-    }
+  );
+}
+
+/*
+ * Fetch a download
+ */
+MusicVerifier.prototype.fetchDownload = function(download, done){
+  var self = this;
+  var uri = self.storage.getURL(download.name);
+  var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
+  download.tmpFileLocation = target;
+  self.downloadThing(uri, target).then(
+    function(){
+      done();
+    },
+    function(err){
+      logger.info(' Problem fetching the file : ' + err);
+      done(err);
   });
 }
 
-
-MusicVerifier.prototype.verifyList = function(campaign, infringementList, done) {
+//
+// Public
+//
+MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
   var self = this;
   self.done = done;
-  self.campaign = campaign;
+  self.infringement = infringement;
   self.startedAt = Date.now();
-  self.createParentFolder().then(function(err){
-    if(err){
-      self.cleanupEverything();
-      self.done(err);
-      return;
-    }
-    self.fetchCampaignAudio();
-  });  
-  self.on('campaign-audio-ready', self.prepInfringementList.bind(self, infringementList));
+
+  logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
+
+  self.prepCampaign(campaign, function(){
+    Seq(downloads)
+      .seqEach(function(download){
+        var that = this;
+        var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
+        if(isAudio){
+          logger.info('fetch Download');
+          self.fetchDownload(download, that);
+        }
+        else
+          that();
+      })
+      .seqEach(function(download){
+        var that = this;
+        if(download.tmpFileLocation){
+          self.cleanupInfringement().then(function(){
+            self.goMeasureDownload(download, that);      
+          },
+          function(err){
+            logger.warn('Problem cleaning infringement %s', err);
+            that();
+          })
+        }
+        else
+          that();// don't evaluate those that were not downloaded (not an audio file)        
+      })
+      .seq(function(){
+        logger.info('Finished multi-file verification, didnt match obviously');
+        self.done();
+      })
+      .catch(function(err) {
+        logger.warn('Unable to process music-verification: %s', err);
+      })    
+    ;
+  });
 }
 
 MusicVerifier.prototype.finish = function(){
@@ -486,4 +445,26 @@ MusicVerifier.prototype.finish = function(){
       self.tmpDirectory = null;
     });
   }
+}
+
+// This needs to not be added to the prototype, that way it's available without
+// having to make an instance of the verifier
+// TODO test each of these formats against fpeval !
+// ensure compatibility
+MusicVerifier.getSupportedTypes = function() {
+  return [
+    , 'audio/mpeg'
+    , 'audio/mpeg3'
+    , 'audio/mp3'
+    , 'audio/x-mpeg-3'
+    , 'audio/x-wav'
+    , 'audio/wav'
+    , 'audio/aiff'
+    , 'audio/x-aiff'
+    , 'audio/ogg'
+    , 'audio/flac'
+    , 'audio/x-flac'
+    , 'audio/m4a'
+    , 'audio/x-aac'
+  ];
 }
