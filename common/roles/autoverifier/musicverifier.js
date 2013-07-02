@@ -429,8 +429,12 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
           that();// don't evaluate those that were not downloaded (not an audio file)        
       })
       .seq(function(){
+<<<<<<< HEAD
         self.finish();
         logger.info('Finished multi-file verification...');
+=======
+        logger.info('Finished multi-file verification, didnt match obviously');
+>>>>>>> 4644889d0e9362c4cb0f8d44c326fc9615585589
         self.done();
       })
       .catch(function(err) {
