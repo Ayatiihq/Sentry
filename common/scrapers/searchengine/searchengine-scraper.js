@@ -160,8 +160,8 @@ GenericSearchEngine.prototype.removeRedundantTerms = function(terms) {
 
 GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var self = this;
-  var trackTitle = self.campaign.metadata.albumTitle;
-  var artist = self.campaign.metadata.artist;
+  var trackTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
+  var artist = '\"' + self.campaign.metadata.artist + '\"';
 
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   done(null, query);
