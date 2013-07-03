@@ -108,7 +108,7 @@ GenericSearchEngine.prototype.buildSearchQuery = function (done) {
 GenericSearchEngine.prototype.buildSearchQueryTV = function (done) {
  var self = this
     , fmt = util.format
-    , channelName = self.campaign.metadata.channelName
+    , channelName = '\"' + self.campaign.metadata.channelName + '\"';
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
     , searchTerms = []
     ;
@@ -160,8 +160,8 @@ GenericSearchEngine.prototype.removeRedundantTerms = function(terms) {
 
 GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var self = this;
-  var trackTitle = self.campaign.metadata.albumTitle;
-  var artist = self.campaign.metadata.artist;
+  var trackTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
+  var artist = '\"' + self.campaign.metadata.artist + '\"';
 
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   done(null, query);
@@ -169,7 +169,7 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
 
 GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
   var self = this
-    , movieTitle = self.campaign.metadata.movieTitle
+    , movieTitle = '\"' + self.campaign.metadata.movieTitle + '\"';
     , year = self.campaign.metadata.year
     , fmt = util.format
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
@@ -232,15 +232,15 @@ GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
 
 GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   var self = this
-    , albumTitle = self.campaign.metadata.albumTitle
-    , artist = self.campaign.metadata.artist
+    , albumTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
+    , artist = '\"' + self.campaign.metadata.artist + '\"';
     , fmt = util.format
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
     , searchTerms = []
     , searchTerms1 = []
     , searchTerms2 = []
     , soundtrack = self.campaign.metadata.soundtrack
-    , tracks = self.campaign.metadata.tracks.map(getValFromObj.bind(null, 'title'))
+    , tracks = self.campaign.metadata.tracks.map(function(){return '\"' + getValFromObj.bind(null, 'title') + '\"'});
     ;
 
   // First is the basic album searches
