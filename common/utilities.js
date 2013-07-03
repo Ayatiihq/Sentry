@@ -284,10 +284,15 @@ Utilities.followRedirects = function(links, promise) {
       Utilities.followRedirects(results, thePromise);
     }
   }
+  // Make sure to populate the referrer and the user-agent in the headers
+  var requestHeaders = {'Referer' : links.length < 2 ? '' : links[links.length - 2],
+                        'User-Agent': 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1'};
+
   // Request just the headers with a long timeout
   // Don't allow redirects to follow on automatically
   request.head(links.last(),
-              {timeout: 30000, followRedirect: false},
+              {timeout: 30000, followRedirect: false,
+               headers: requestHeaders},
               onHeadResponse.bind(null, links, promise));
   return promise;
 }
