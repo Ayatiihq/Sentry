@@ -20,7 +20,8 @@ var acquire = require('acquire')
   , request = require('request')
   , URI = require('URIjs')
   , XRegExp = require('xregexp').XRegExp
-  , urlmatch = acquire('wrangler-rules').urlmatch;
+  , urlmatch = acquire('wrangler-rules').urlmatch
+  , blacklist = acquire('blacklist')
   ;
 
 var Scraper = acquire('scraper')
@@ -60,16 +61,17 @@ util.inherits(GenericSearchEngine, events.EventEmitter);
 
 GenericSearchEngine.prototype.handleResults = function () {
   var self = this;
-  // we sleep 1000ms first to let the page render
+  // we sleep 2500ms first to let the page render
   self.remoteClient.sleep(2500);
 
   self.remoteClient.getPageSource().then(function sourceParser(source) {
-    var newresults = self.getLinksFromSource(source);
+    var newresults = self.filterSearchResults(self.getLinksFromSource(source));
     if (newresults.length < 1) {
       self.emit('error', ERROR_NORESULTS);
       self.cleanup();
     }
     else {
+
       self.emitLinks(newresults);
 
       if (self.checkHasNextPage(source)) {
@@ -85,6 +87,21 @@ GenericSearchEngine.prototype.handleResults = function () {
     }
   });
 };
+
+GenericSearchEngine.prototype.filterSearchResults = function(scrapedLinks){
+  var self = this;
+  var filterOnBlackList = function(scrapedLink){
+    try{
+      var uriInstance = URI(scrapedLink);
+    }
+    catch(error){
+      logger.error('Unable to create URI from scraped link ' + error);
+      return false;
+    }
+    return !blacklist.safeDomains.some(uriInstance.domain());
+  }
+  return scrapedLinks.filter(filterOnBlackList);
+}
 
 GenericSearchEngine.prototype.buildSearchQuery = function (done) {
   var self = this;
@@ -108,7 +125,7 @@ GenericSearchEngine.prototype.buildSearchQuery = function (done) {
 GenericSearchEngine.prototype.buildSearchQueryTV = function (done) {
  var self = this
     , fmt = util.format
-    , channelName = '\"' + self.campaign.metadata.channelName + '\"';
+    , channelName = '\"' + self.campaign.metadata.channelName + '\"'
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
     , searchTerms = []
     ;
@@ -169,7 +186,7 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
 
 GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
   var self = this
-    , movieTitle = '\"' + self.campaign.metadata.movieTitle + '\"';
+    , movieTitle = '\"' + self.campaign.metadata.movieTitle + '\"'
     , year = self.campaign.metadata.year
     , fmt = util.format
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
@@ -232,15 +249,15 @@ GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
 
 GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   var self = this
-    , albumTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
-    , artist = '\"' + self.campaign.metadata.artist + '\"';
+    , albumTitle = '\"' + self.campaign.metadata.albumTitle + '\"'
+    , artist = '\"' + self.campaign.metadata.artist + '\"'
     , fmt = util.format
     , key = fmt('%s.%s.runNumber', self.engineName, self.campaign.name)
     , searchTerms = []
     , searchTerms1 = []
     , searchTerms2 = []
     , soundtrack = self.campaign.metadata.soundtrack
-    , tracks = self.campaign.metadata.tracks.map(function(){return '\"' + getValFromObj.bind(null, 'title') + '\"'});
+    , tracks = self.campaign.metadata.tracks.map(function(track){return '\"' + getValFromObj('title', track) + '\"'});
     ;
 
   // First is the basic album searches
