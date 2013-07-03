@@ -43,7 +43,7 @@ module.exports.shouldIgnoreUri = function (uri) {
 
 };
 
-module.exports.urlmatch = XRegExp( //ignore jslint
+module.exports.urlMatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
   '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +
@@ -124,7 +124,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
                     '.f4v', '.mkv'];
 
-  XRegExp.forEach(source, urlmatch, function (match, i) {
+  XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
     // we can extract lots of information from our regexp
     var check = false;
     check |= protocols.some(match.protocol.toLowerCase());
@@ -146,7 +146,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
 
     request(uri, function (error, response, body) {
       if (!error && response.statusCode === 200) {
-        XRegExp.forEach(body, urlmatch, function (match, i) {
+        XRegExp.forEach(body, module.exports.urlMatch, function (match, i) {
           var check = false;
           check |= protocols.some(match.protocol.toLowerCase());
           if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
@@ -164,7 +164,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
 
   var xmlscrapes = [];
   $('param').each(function onFlashVars() {
-    XRegExp.forEach($(this).toString(), urlmatch, function (match, i) {
+    XRegExp.forEach($(this).toString(), module.exports.urlMatch, function (match, i) {
       if (match.fulluri.toLowerCase().has('xml')) {
         xmlscrapes.push(xmlRule(match.fulluri));
       }
@@ -243,7 +243,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
 var ruleFindExtensions = module.exports.ruleFindExtensions = function (extensionList) {
 
   var retfun = function findExtensions(extensions, $, source, foundItems) {
-    XRegExp.forEach(source, urlmatch, function (match, i) {
+    XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
       // we can extract lots of information from our regexp
       var check = false;
       if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }

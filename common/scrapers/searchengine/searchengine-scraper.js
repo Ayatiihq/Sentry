@@ -20,7 +20,7 @@ var acquire = require('acquire')
   , request = require('request')
   , URI = require('URIjs')
   , XRegExp = require('xregexp').XRegExp
-  , urlmatch = acquire('wrangler-rules').urlmatch
+  , urlmatch = acquire('wrangler-rules').urlMatch
   , blacklist = acquire('blacklist')
   ;
 

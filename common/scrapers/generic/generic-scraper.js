@@ -86,6 +86,20 @@ Generic.prototype.getName = function () {
   return "Generic";
 };
 
+Generic.prototype.search_with_one_url = function (campaign, url) {
+  var self = this;
+  self.campaign = campaign;
+  self.checkURLS = [{uri: url}];
+  self.activeScrapes = 0;
+  self.suspendedScrapes = 0;
+
+  if (campaign.metadata.blacklist)
+    safeDomains.add(campaign.metadata.blacklist);
+ 
+  self.pump(true);
+  self.emit('started');
+}
+
 Generic.prototype.start = function (campaign, job) {
   var self = this;
   self.campaign = campaign;
