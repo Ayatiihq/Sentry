@@ -201,7 +201,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
 
   Seq()
     .seq(function() {
-      self.getFileMimeType(filepath, this);
+      Downloads.getFileMimeType(filepath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
