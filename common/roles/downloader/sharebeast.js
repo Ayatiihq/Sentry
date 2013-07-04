@@ -61,7 +61,7 @@ Sharebeast.prototype.authenticate = function(){
 Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
   var self = this;
   self.remoteClient.findElement(webdriver.By.css('.download-file1')).click().then(function(){
-    self.remoteClient.sleep(5000);
+    self.remoteClient.sleep(3000);
     self.remoteClient.get('chrome://downloads').then(function(){
       self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click().then(function(){    
         self.remoteClient.getPageSource().then(function(source){
@@ -81,6 +81,30 @@ Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
   function(err){
     done(err);
   });
+}
+
+Sharebeast.prototype.checkForFileDownload = function(){
+  var self = this;
+  var promise = new Promise.Promise();
+  self.remoteClient.get('chrome://downloads');
+  self.remoteClient.getPageSource().then(function(source){
+    var $ = cheerio.load(source);
+    var directDownload = null;
+    directDownload = $('a.src-url').attr('href');    
+    if(!directDownload){
+      promise.resolve(null);
+    }
+    else{
+      // This is racey but I really don't know how to avoid that race
+      // Maybe let it download and sleep until remove from list shows up ... 
+      // (but that will introduce the possiblility of another race)
+      self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel')).then(function(present){
+        if(present) self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();          
+      });
+      promise.resolve(directDownload);      
+    }
+  });
+  return promise;
 }
 
 Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
@@ -126,16 +150,25 @@ Sharebeast.prototype.download = function(infringement, pathToUse, done){
     self.authenticate().then(function(){
       self.remoteClient.sleep(5000);
       self.remoteClient.get(infringement.uri).then(function(){
-        self.remoteClient.sleep(7500);
-        self.remoteClient.getPageSource().then(function(source){
-          var $ = cheerio.load(source);
-          if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
-            logger.info('File not available for whatever reason - moving on ...');
-            done();
+        self.remoteClient.sleep(2500);
+        self.checkForFileDownload().then(function(result){
+          if(!result){
+            self.remoteClient.get(infringement.uri).then(function(){
+              self.remoteClient.getPageSource().then(function(source){
+                var $ = cheerio.load(source);
+                if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
+                  logger.info('File not available for whatever reason - moving on ...');
+                  done();
+                }
+                else{
+                  logger.info('Detected a file ...');
+                  self.generateFileDownload(pathToUse, done);
+                }
+              });
+            });
           }
           else{
-            logger.info('Detected a file ...');
-            self.generateFileDownload(pathToUse, done);
+            self.fetchDirectDownload(result, pathToUse, done);
           }
         });
       });  
