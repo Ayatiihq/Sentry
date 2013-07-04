@@ -266,7 +266,6 @@ Utilities.followRedirects = function(links, promise) {
     }
 
     if(!redirect){
-      console.log('no location in the headers : ' + results);
       thePromise.resolve(results);      
       return;      
     }
@@ -313,12 +312,10 @@ Utilities.followRedirects = function(links, promise) {
 Utilities.request = function(url, options, callback) {
 
   if (Object.has(options, 'followRedirects') && !options.followRedirects) {
-    console.log('here 1');
     Utilities.requestURL(url, options, callback);
 
   } else {
     var promise = new Promise();
-    console.log('here 2');
     Utilities.followRedirects([url], promise);
     promise.then(function(links) {
       Utilities.requestURL(links.last(), options, callback);
@@ -588,3 +585,4 @@ Utilities.readAllFiles = function(dir, done) {
     })();
   });
 }
+
