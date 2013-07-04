@@ -29,6 +29,7 @@
   "spiders": "common/spiders.js",
   "states": "common/states.js",
   "storage": "common/storage.js",
+  "useragents": "common/useragents.js",
   "users": "common/users.js",
   "utilities": "common/utilities.js",
   "spidered": "common/spidered.js",

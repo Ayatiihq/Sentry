@@ -55,7 +55,6 @@ function findCollection(collectionName, args){
                                         });                                   
                                 searchPromise.resolve(results);      
                               }); 
-
   });
   return searchPromise;
 }
@@ -65,6 +64,7 @@ function oneAtaTime(results, cyberlocker){
     .seqEach(function(infringement){
       var done = this;
       logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri);
+      //done();
       cyberlocker.download(infringement, '/tmp/hulk', done);
     })
     .catch(function(err){
@@ -78,13 +78,13 @@ function oneAtaTime(results, cyberlocker){
 }
 
 function fetchRegex(downloader){
-  var domain = require('../common/roles/downloader/' + downloader.split('.')[0]).getDomains()[0];
-  var domains = {'4shared.com': /4shared/g, 
-                 'mediafire.com': /mediafire/g,
-                 'sharebeast.com': /sharebeast.com/g,
-                 'rapidshare.com': /rapidshare.com/g,
-                 'hulkshare.com': /hulkshare.com/g};
-  return domains[domain];
+  var domains = {'fourshared': /4shared\.com/g, 
+                 'mediafire': /mediafire\.com/g,
+                 'sharebeast': /sharebeast\.com/g,
+                 'rapidshare': /rapidshare\.com/g,
+                 'hulkshare': /hulkshare\.com/g,
+                 'uploaded-net': /uploaded\.net/g};
+  return domains[downloader];
 }
 
 function main() {
@@ -97,34 +97,30 @@ function main() {
     logger.warn("Usage: node test_cyberlocker-downloader.js <campaignId> <cyberlocker-domain>");
     process.exit(1);
   }
+
   var campaign = parseObject(process.argv[2]);  
-  cyberlockerSupported = ['rapidshare.com',
-                          '4shared.com', 
-                          'mediafire.com', 
-                          'sharebeast.com',
-                          'hulkshare.com'].some(process.argv[3]);
-  // update with new cyberlockers as they we get to support 'em.
-  if(!cyberlockerSupported){
-    logger.error("hmmm we don't support that cyberlocker - " + process.argv[3]);
-    process.exit(1);
-  }
-  var instance = new (require('../common/roles/downloader/' + process.argv[3].split('.')[0]))(campaign);
+  var particularDownloader = process.argv[3];
+
   var uriRegex = null;
 
-  uriRegex = fetchRegex(process.argv[3]);
+  uriRegex = fetchRegex(particularDownloader);
 
-  if(!uriRegex){
-    logger.error("Unable to figure out which regex to use!");
+  var Downloader = require('../common/roles/downloader/' + particularDownloader);
+  
+  var instance = null;
+  instance = new Downloader(campaign);
+
+  if(!uriRegex || !instance || !campaign){
+    logger.error("Unable to figure out which regex to use or no Campaign or no instance ! We must not support that downloader " + particularDownloader);
     process.exit(1);
   }
 
   var searchPromise = findCollection('infringements', 
                                      {'campaign': campaign._id,
-                                      'state': states.infringements.state.NEEDS_DOWNLOAD,
                                       'category': states.infringements.category.CYBERLOCKER,
                                       'uri': uriRegex});
   
-  searchPromise.then(function(payload){ oneAtaTime(payload, instance)},
+  searchPromise.then(function(payload){oneAtaTime(payload, instance)},
                   function(err){
                     console.log('Error querying database ' + err);
                   });

@@ -51,8 +51,8 @@ utilities.getVersion(console.log);
 
 //utilities.notify('hello');
 
-utilities.request('http://torcache.net/torrent/A961BC2B93A2304880F919E304424A14400BA8A2.torrent?title=[kat.ph]gangster.squad.2013.dvdrip.xvid.maxspeed',
-                  {  }, 
+utilities.request('http://www.index-of-mp3s.com/download/lagu/bd076ea5/kanye-west-i-am-god/',
+                  { followRedirects: true }, 
                   function(err, res, body) {
   console.log('requestURL', err ? err : body);
 });

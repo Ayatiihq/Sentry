@@ -24,6 +24,7 @@ var acquire = require('acquire')
   , URL = require('url')
   , util = require('util')
   , zlib = require('zlib')
+  , useragents = acquire('useragents')
   ;
 
 var Promise = require('node-promise').Promise
@@ -265,6 +266,7 @@ Utilities.followRedirects = function(links, promise) {
     }
 
     if(!redirect){
+      console.log('no location in the headers : ' + results);
       thePromise.resolve(results);      
       return;      
     }
@@ -286,7 +288,7 @@ Utilities.followRedirects = function(links, promise) {
   }
   // Make sure to populate the referrer and the user-agent in the headers
   var requestHeaders = {'Referer' : links.length < 2 ? '' : links[links.length - 2],
-                        'User-Agent': 'Mozilla/6.0 (Windows NT 6.2; WOW64; rv:16.0.1) Gecko/20121011 Firefox/16.0.1'};
+                        'User-Agent': useragents.random()};
 
   // Request just the headers with a long timeout
   // Don't allow redirects to follow on automatically
@@ -311,10 +313,12 @@ Utilities.followRedirects = function(links, promise) {
 Utilities.request = function(url, options, callback) {
 
   if (Object.has(options, 'followRedirects') && !options.followRedirects) {
+    console.log('here 1');
     Utilities.requestURL(url, options, callback);
+
   } else {
     var promise = new Promise();
-
+    console.log('here 2');
     Utilities.followRedirects([url], promise);
     promise.then(function(links) {
       Utilities.requestURL(links.last(), options, callback);
@@ -349,7 +353,8 @@ Utilities.requestURL = function(url, options, callback) {
     path: parsed.path,
     port: parsed.port,
     headers: {
-      'accept-encoding': 'gzip,deflate'
+      'accept-encoding': 'gzip,deflate',
+      'User-Agent': useragents.random()
     }
   };
 
@@ -495,7 +500,8 @@ Utilities.requestURLStream = function(url, options, callback) {
     path: parsed.path,
     port: parsed.port,
     headers: {
-      'accept-encoding': 'gzip,deflate'
+      'accept-encoding': 'gzip,deflate',
+      'User-Agent': useragent.random()
     }
   };
 
