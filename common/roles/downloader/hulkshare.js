@@ -10,6 +10,7 @@
 require('sugar');
 var acquire = require('acquire')
   , cheerio = require('cheerio')
+  , config = acquire('config')
   , fs = require('fs-extra')
   , logger = acquire('logger').forFile('hulkshare.js')
   , path = require('path')
@@ -49,7 +50,7 @@ Hulkshare.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.Hulkshare.com/static.php?op=login');

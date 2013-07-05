@@ -10,6 +10,7 @@
 
 require('sugar');
 var acquire = require('acquire')
+  , config = acquire('config')
   , cheerio = require('cheerio')
   , fs = require('fs-extra')
   , logger = acquire('logger').forFile('4shared.js')
@@ -47,7 +48,7 @@ FourShared.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.4shared.com/login.jsp');

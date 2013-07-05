@@ -111,3 +111,6 @@ config.STANDARD_JOB_TIMEOUT_MINUTES = getEnv(process.env.SENTRY_STANDARD_JOB_TIM
 
 // Misc
 config.SELENIUM_HUB_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');
+config.SELENIUM_CONSOLE_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');
+config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS, 'fieldset');
+config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');

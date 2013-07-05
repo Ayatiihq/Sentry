@@ -5,6 +5,7 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
   , util = require('util')
@@ -31,7 +32,7 @@ var BittorrentPortal = function (campaign, types) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 

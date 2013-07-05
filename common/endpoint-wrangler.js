@@ -10,6 +10,7 @@
 require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
+  , config = acquire'config')
   , events = require('events')
   , IFrameExploder = acquire('iframe-exploder')
   , logger = acquire('logger').forFile('endpoint-wrangler.js')
@@ -28,7 +29,7 @@ var Wrangler = module.exports.Wrangler = function (driver) {
   var self = this;
   events.EventEmitter.call(this);
   if (!driver) {
-    self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+    self.driver = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                                .withCapabilities(CAPABILITIES)
                                .build();
   }

@@ -8,6 +8,7 @@
 
 require('sugar');
 var acquire = require('acquire')
+  , config = acquire('config')
 	, fs = require('fs-extra')
   , logger = acquire('logger').forFile('test-cyberlocker-manager.js')
   , Promise = require('node-promise')
@@ -23,7 +24,7 @@ var Sharebeast = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.authenticated = false;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);                           
 };
