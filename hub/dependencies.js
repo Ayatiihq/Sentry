@@ -56,11 +56,11 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       }
     })
     .seq('getHTML', function() {
-      request(config.SELENIUM_HUB_ADDRESS, this);
+      request(config.SELENIUM_CONSOLE_ADDRESS, this);
     })
     .seq('parseHTML', function(res, body) {
       var $ = cheerio.load(body);
-      this(null, $('body').find('fieldset').length, $('body').find('.busy').length);
+      this(null, $('body').find(config.SELENIUM_CONSOLE_PROXY_CLASS).length, $('body').find(config.SELENIUM_CONSOLE_BUSY_CLASS).length);
     })
     .seq('updateCacheAndReturn', function(nAvailable, nBusy) {
       self.seleniumAvailableNodes_ = nAvailable * TABS_PER_NODE;

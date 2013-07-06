@@ -3,6 +3,7 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('zonytv/index.js')
   , util = require('util')
@@ -45,7 +46,7 @@ ZonyTv.prototype.newWrangler = function(){
     self.driver.quit();
     self.driver = null;
   }
-  self.driver = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.driver = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                                        .withCapabilities(CAPABILITIES)
                                        .build();
 

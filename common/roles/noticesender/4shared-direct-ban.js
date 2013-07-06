@@ -8,6 +8,7 @@
 require('sugar');
 var acquire = require('acquire')
   , cheerio = require('cheerio')
+  , config = acquire('config')
   , logger = acquire('logger').forFile('4shared-direct-ban.js')
   , URI = require('URIjs')
   , utilities = acquire('utilities')
@@ -46,7 +47,7 @@ FourSharedDirectBan.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder()//.usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder()//.usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.4shared.com/login.jsp');

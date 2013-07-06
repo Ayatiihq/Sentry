@@ -11,6 +11,7 @@
  */
 
 var acquire = require('acquire')
+  , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('searchengine-scraper.js')
   , util = require('util')
@@ -36,7 +37,7 @@ var GenericSearchEngine = function (campaign) {
   events.EventEmitter.call(this);
   var self = this;
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities(CAPABILITIES).build();
   self.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
   self.settings = new Settings('scraper.searchengine');

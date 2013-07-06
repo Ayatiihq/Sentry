@@ -9,6 +9,7 @@
 
 require('sugar');
 var acquire = require('acquire')
+  , config = acquire('config')
 	, fs = require('fs-extra')
   , logger = acquire('logger').forFile('mediafire.js')
   , Promise = require('node-promise')
@@ -40,7 +41,7 @@ Mediafire.prototype.authenticateWeb = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);
   self.remoteClient.get('https://www.mediafire.com/ssl_login.php?type=login');

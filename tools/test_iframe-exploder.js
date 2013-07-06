@@ -1,5 +1,6 @@
 ﻿require('sugar');
 var acquire = require('acquire')
+  , config = acquire('config')
   , IFrameExploder = acquire('iframe-exploder')
   , webdriver = require('selenium-webdriverjs');
 
@@ -11,7 +12,7 @@ var iframeTester = function () {
   //this.weburl = "http://gordallott.com/test/test.html";
   //this.weburl = "http://www.newtvworld.com/India-Live-Tv-Channels/Channel-One-live-streaming.html"
   this.weburl = "http://www.masteetv.com/zee_tv_live_online_free_channel_streaming_watch_zee_tv_HD.php"
-  this.client = new webdriver.Builder().usingServer('http://hoodoo.cloudapp.net:4444/wd/hub')
+  this.client = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                              .withCapabilities(CAPABILITIES).build();
   this.client.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
   this.foundobjs = [];
