@@ -19,12 +19,18 @@ var acquire = require('acquire')
   , Promise = require('node-promise')   
   , exec = require('child_process').execFile
   , Downloads = acquire('downloads')
-  ;
+  , chromeHelper = acquire('chrome-helper')
+  , when = require('node-promise').when  
+;
 
 var UploadedNet = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.remoteClient = null;
+  self.authenticated = false;
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
 };
 
 UploadedNet.prototype.createURI = function(uri){
@@ -41,20 +47,18 @@ UploadedNet.prototype.createURI = function(uri){
 UploadedNet.prototype.authenticate = function(){
   var self  = this;
 
-  if(self.remoteClient){
+  if(self.authenticated){
     logger.info('We have an active UploadedNet session already - assume we are logged in already');
     var promise = new Promise.Promise();
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.uploaded.net/login');
   self.remoteClient.findElement(webdriver.By.css('input[name=id]'))
     .sendKeys('9818821');
   self.remoteClient.findElement(webdriver.By.css('input[name=pw]'))
     .sendKeys('gcaih1tf');
+  self.authenticated = true;
   return self.remoteClient.findElement(webdriver.By.css('button[type=submit]')).click();
 }
 
@@ -78,15 +82,6 @@ UploadedNet.prototype.fetchDirectDownload = function(uriInstance, target){
   return promise;
 }
 
-UploadedNet.prototype.clearDownloads = function(){
-  var self = this;
-  var p = new Promise.Promise();
-  self.remoteClient.get('chrome://downloads').then(function(){
-    self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();        
-    p.resolve();
-  });
-  return p;
-}
 
 
 // Public API --------------------------------------------------------->
@@ -103,11 +98,14 @@ UploadedNet.prototype.download = function(infringement, pathToUse, done){
   
   Seq()
     .seq(function(){
-      	var that = this;
-        self.authenticate().then(function(){that()},
-        	function(err){
-          	that(err);
-      	});
+    	var that = this;
+      chromeHelper.clearDownloads(self.remoteClient).then(function(){
+        logger.info('finished clearing downloads.')
+      });
+      /*chromeHelper.activateAdBlock(self.remoteClient, logger).then(function(){
+        logger.info('finished activating adblock')
+      });*/
+
     })
     .catch(function(err){
       done(err);
