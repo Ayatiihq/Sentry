@@ -46,6 +46,8 @@ UploadedNet.prototype.createURI = function(uri){
 
 UploadedNet.prototype.authenticate = function(){
   var self  = this;
+  var promArray = []
+  var thePromise = new Promise.Promise();
 
   if(self.authenticated){
     logger.info('We have an active UploadedNet session already - assume we are logged in already');
@@ -53,13 +55,35 @@ UploadedNet.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient.get('http://www.uploaded.net/login');
-  self.remoteClient.findElement(webdriver.By.css('input[name=id]'))
-    .sendKeys('9818821');
-  self.remoteClient.findElement(webdriver.By.css('input[name=pw]'))
-    .sendKeys('gcaih1tf');
-  self.authenticated = true;
-  return self.remoteClient.findElement(webdriver.By.css('button[type=submit]')).click();
+  
+  var username = function(remoteClient){
+    var p = new Promise.Promise();
+    remoteClient.findElement(webdriver.By.css('input[value="Account-ID"]')).click().then(function(){
+      remoteClient.findElement(webdriver.By.css('input[value="Account-ID"]')).sendKeys('9818821');
+      p.resolve();
+    });    
+    return p;
+  }
+
+  var password = function(remoteClientt){
+    var pp = new Promise.Promise();
+    var passwordInput = remoteClientt.findElement(webdriver.By.css('input[value="Password"]'));
+    passwordInput.sendKeys('gcaih1tf');
+    pp.resolve();
+    return pp;
+  }
+
+  self.remoteClient.get('http://www.uploaded.net/#login').then(function(){
+    self.remoteClient.sleep(5000);
+    promArray.push(username.bind(null, self.remoteClient));
+    promArray.push(password.bind(null, self.remoteClient));
+    Promise.seq(promArray).then(function(){
+      self.authenticated = true;
+      self.remoteClient.findElement(webdriver.By.css('button[type="submit"]')).click();
+      thePromise.resolve();
+    });
+  });
+  return thePromise;
 }
 
 UploadedNet.prototype.fetchDirectDownload = function(uriInstance, target){
@@ -99,13 +123,8 @@ UploadedNet.prototype.download = function(infringement, pathToUse, done){
   Seq()
     .seq(function(){
     	var that = this;
-      chromeHelper.clearDownloads(self.remoteClient).then(function(){
-        logger.info('finished clearing downloads.')
-      });
-      /*chromeHelper.activateAdBlock(self.remoteClient, logger).then(function(){
-        logger.info('finished activating adblock')
-      });*/
-
+      var tidyUp = chromeHelper.clearDownloads(self.remoteClient);
+      when(tidyUp, self.authenticate.bind(self));
     })
     .catch(function(err){
       done(err);
