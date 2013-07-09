@@ -51,9 +51,8 @@ UploadedNet.prototype.authenticate = function(){
 
   if(self.authenticated){
     logger.info('We have an active UploadedNet session already - assume we are logged in already');
-    var promise = new Promise.Promise();
-    promise.resolve();
-    return promise;
+    thePromise.resolve();
+    return thePromise;
   }
   
   var username = function(remoteClient){
@@ -68,13 +67,38 @@ UploadedNet.prototype.authenticate = function(){
   var password = function(remoteClientt){
     var pp = new Promise.Promise();
     var passwordInput = remoteClientt.findElement(webdriver.By.css('input[value="Password"]'));
-    passwordInput.sendKeys('gcaih1tf');
-    pp.resolve();
+    passwordInput.click().then(function(){
+      //you need to search again for it, this is a clue as to why it is not working
+      remoteClientt.findElement(webdriver.By.xpath("id('login')/x:form/x:input[2]")).sendKeys('gcaih1tf');
+      pp.resolve();
+    });
     return pp;
   }
+  /*
+  // This doesn't work either
+  var handleInputs = function(remoteClient){
+    var ppp = new Promise.Promise();    
+    var findPromise = remoteClient.findElements(webdriver.By.tagName('input'));
+    findPromise.then(function(elements){
+      console.log('elements an array ? ' + elements.constructor);
+      /*elements.each(function(i, elem){
+        if(i===0)
+          elem.sendKeys('username');
+        else
+          elem.sendKeys('my password');
+      });
+      ppp.resolve();
+    });
+    return ppp;
+  }*/
 
   self.remoteClient.get('http://www.uploaded.net/#login').then(function(){
     self.remoteClient.sleep(5000);
+    /*handleInputs(self.remoteClient).then(function(){
+      self.authenticated = true;
+      self.remoteClient.findElement(webdriver.By.css('button[type="submit"]')).click();
+      thePromise.resolve();
+    })*/
     promArray.push(username.bind(null, self.remoteClient));
     promArray.push(password.bind(null, self.remoteClient));
     Promise.seq(promArray).then(function(){
