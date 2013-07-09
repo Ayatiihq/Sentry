@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , URI = require('URIjs')
   , webdriver = require('selenium-webdriver')
   , utilities = acquire('utilities')   
+  , chromeHelper = acquire('chrome-helper')
   ;
 
 var Sharebeast = module.exports = function (campaign) {
@@ -84,29 +85,6 @@ Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
   });
 }
 
-Sharebeast.prototype.checkForFileDownload = function(){
-  var self = this;
-  var promise = new Promise.Promise();
-  self.remoteClient.get('chrome://downloads');
-  self.remoteClient.getPageSource().then(function(source){
-    var $ = cheerio.load(source);
-    var directDownload = null;
-    directDownload = $('a.src-url').attr('href');    
-    if(!directDownload){
-      promise.resolve(null);
-    }
-    else{
-      // This is racey but I really don't know how to avoid that race
-      // Maybe let it download and sleep until remove from list shows up ... 
-      // (but that will introduce the possiblility of another race)
-      self.remoteClient.isElementPresent(webdriver.By.linkText('Cancel')).then(function(present){
-        if(present) self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click();          
-      });
-      promise.resolve(directDownload);      
-    }
-  });
-  return promise;
-}
 
 Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   var self = this;
@@ -137,22 +115,16 @@ Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
   });
 }
 
-Sharebeast.prototype.clearDownloads = function(){
-  var self = this;
-  self.remoteClient.get('chrome://downloads');
-  return self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();    
-}
-
 
 // Public API
 Sharebeast.prototype.download = function(infringement, pathToUse, done){
   var self = this;
-  self.clearDownloads().then(function(){
+  chromeHelper.clearDownloads(self.remoteClient).then(function(){
     self.authenticate().then(function(){
       self.remoteClient.sleep(5000);
       self.remoteClient.get(infringement.uri).then(function(){
         self.remoteClient.sleep(2500);
-        self.checkForFileDownload().then(function(result){
+        chromeHelper.checkForFileDownload(self.remoteClient).then(function(result){
           if(!result){
             self.remoteClient.get(infringement.uri).then(function(){
               self.remoteClient.getPageSource().then(function(source){

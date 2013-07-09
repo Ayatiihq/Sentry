@@ -19,12 +19,18 @@ var acquire = require('acquire')
   , Promise = require('node-promise')   
   , exec = require('child_process').execFile
   , Downloads = acquire('downloads')
-  ;
+  , chromeHelper = acquire('chrome-helper')
+  , when = require('node-promise').when  
+;
 
 var UploadedNet = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.remoteClient = null;
+  self.authenticated = false;
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
+  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
 };
 
 UploadedNet.prototype.createURI = function(uri){
@@ -40,22 +46,68 @@ UploadedNet.prototype.createURI = function(uri){
 
 UploadedNet.prototype.authenticate = function(){
   var self  = this;
+  var promArray = []
+  var thePromise = new Promise.Promise();
 
-  if(self.remoteClient){
+  if(self.authenticated){
     logger.info('We have an active UploadedNet session already - assume we are logged in already');
-    var promise = new Promise.Promise();
-    promise.resolve();
-    return promise;
+    thePromise.resolve();
+    return thePromise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
-  self.remoteClient.get('http://www.uploaded.net/login');
-  self.remoteClient.findElement(webdriver.By.css('input[name=id]'))
-    .sendKeys('9818821');
-  self.remoteClient.findElement(webdriver.By.css('input[name=pw]'))
-    .sendKeys('gcaih1tf');
-  return self.remoteClient.findElement(webdriver.By.css('button[type=submit]')).click();
+  
+  var username = function(remoteClient){
+    var p = new Promise.Promise();
+    remoteClient.findElement(webdriver.By.css('input[value="Account-ID"]')).click().then(function(){
+      remoteClient.findElement(webdriver.By.css('input[value="Account-ID"]')).sendKeys('9818821');
+      p.resolve();
+    });    
+    return p;
+  }
+
+  var password = function(remoteClientt){
+    var pp = new Promise.Promise();
+    var passwordInput = remoteClientt.findElement(webdriver.By.css('input[value="Password"]'));
+    passwordInput.click().then(function(){
+      //you need to search again for it, this is a clue as to why it is not working
+      remoteClientt.findElement(webdriver.By.xpath("id('login')/x:form/x:input[2]")).sendKeys('gcaih1tf');
+      pp.resolve();
+    });
+    return pp;
+  }
+  /*
+  // This doesn't work either
+  var handleInputs = function(remoteClient){
+    var ppp = new Promise.Promise();    
+    var findPromise = remoteClient.findElements(webdriver.By.tagName('input'));
+    findPromise.then(function(elements){
+      console.log('elements an array ? ' + elements.constructor);
+      /*elements.each(function(i, elem){
+        if(i===0)
+          elem.sendKeys('username');
+        else
+          elem.sendKeys('my password');
+      });
+      ppp.resolve();
+    });
+    return ppp;
+  }*/
+
+  self.remoteClient.get('http://www.uploaded.net/#login').then(function(){
+    self.remoteClient.sleep(5000);
+    /*handleInputs(self.remoteClient).then(function(){
+      self.authenticated = true;
+      self.remoteClient.findElement(webdriver.By.css('button[type="submit"]')).click();
+      thePromise.resolve();
+    })*/
+    promArray.push(username.bind(null, self.remoteClient));
+    promArray.push(password.bind(null, self.remoteClient));
+    Promise.seq(promArray).then(function(){
+      self.authenticated = true;
+      self.remoteClient.findElement(webdriver.By.css('button[type="submit"]')).click();
+      thePromise.resolve();
+    });
+  });
+  return thePromise;
 }
 
 UploadedNet.prototype.fetchDirectDownload = function(uriInstance, target){
@@ -78,15 +130,6 @@ UploadedNet.prototype.fetchDirectDownload = function(uriInstance, target){
   return promise;
 }
 
-UploadedNet.prototype.clearDownloads = function(){
-  var self = this;
-  var p = new Promise.Promise();
-  self.remoteClient.get('chrome://downloads').then(function(){
-    self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click();        
-    p.resolve();
-  });
-  return p;
-}
 
 
 // Public API --------------------------------------------------------->
@@ -103,11 +146,9 @@ UploadedNet.prototype.download = function(infringement, pathToUse, done){
   
   Seq()
     .seq(function(){
-      	var that = this;
-        self.authenticate().then(function(){that()},
-        	function(err){
-          	that(err);
-      	});
+    	var that = this;
+      var tidyUp = chromeHelper.clearDownloads(self.remoteClient);
+      when(tidyUp, self.authenticate.bind(self));
     })
     .catch(function(err){
       done(err);
