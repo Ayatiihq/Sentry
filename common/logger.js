@@ -16,8 +16,6 @@ var cluster = require('cluster')
   , winston = require('winston')
   ;
 
-require('winston-loggly');
-
 var Papertrail = require('winston-papertrail').Papertrail;
 
 var ROLE = "";
