@@ -498,7 +498,7 @@ Utilities.requestURLStream = function(url, options, callback) {
     port: parsed.port,
     headers: {
       'accept-encoding': 'gzip,deflate',
-      'User-Agent': useragent.random()
+      'User-Agent': useragents.random()
     }
   };
 
