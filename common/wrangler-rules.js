@@ -231,7 +231,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
           return; // some dodgy link => move on.
         }
         if (cyberLockers.knownDomains.some(URILink.domain())) {
-          foundItems.push(list);
+          foundItems.push(individual30xs.last());
         }
     });
     promise.resolve(foundItems);
