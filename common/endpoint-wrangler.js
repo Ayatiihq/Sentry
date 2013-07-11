@@ -10,7 +10,7 @@
 require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
-  , config = acquire'config')
+  , config = acquire('config')
   , events = require('events')
   , IFrameExploder = acquire('iframe-exploder')
   , logger = acquire('logger').forFile('endpoint-wrangler.js')
