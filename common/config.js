@@ -53,9 +53,7 @@ config.SENDGRID_USER = getEnv(process.SENTRY_SENDGRID_USER, 'medic');
 config.SENDGRID_KEY = getEnv(process.SENTRY_SENDGRID_KEY, 'H1uUh83AN49313U');
 
 // Mongo
-config.MONGODB_URL = getEnv(process.env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@168.61.5.194:6001,168.61.5.194:6002,168.61.5.194:6003/goldrush?replicaSet=hydros');
-
-config.MONGODB_SERVERS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['hydros.cloudapp.net', 'hydros.cloudapp.net', 'hydros.cloudapp.net']);
+config.MONGODB_URL = getEnv(process.env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@kingslanding0.7kingdoms.me:6001,kingslanding1.7kingdoms.me:6001/goldrush?replicaSet=KingsLanding');
 
 config.MONGODB_PORTS = getEnv(process.env.SENTRY_MONGODB_SERVERS, ['6001', '6002', '6003']);
 
@@ -65,10 +63,10 @@ config.MONGODB_USERNAME = getEnv(process.env.SENTRY_MONGODB_USERNAME, 'scout');
 
 config.MONGODB_PASSWORD = getEnv(process.env.SENTRY_MONGODB_PASSWORD, '3HVb62MG2Yy4mWm');
 
-config.MONGODB_REPLICA_NAME = getEnv(process.env.SENTRY_MONGODB_REPLICA_NAME, 'hydros');
+config.MONGODB_REPLICA_NAME = getEnv(process.env.SENTRY_MONGODB_REPLICA_NAME, 'KingsLanding');
 
 // Hub
-config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, 'hightower.cloudapp.net');
+config.SENTRY_HUB_ADDRESS="kingsguard.7kingdoms.me"
 
 config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 
@@ -108,9 +106,9 @@ config.STANDARD_JOB_TIMEOUT_MINUTES = getEnv(process.env.SENTRY_STANDARD_JOB_TIM
 
 // Verify
 
-
 // Misc
-config.SELENIUM_HUB_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');
-config.SELENIUM_CONSOLE_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_ADDRESS, 'http://hoodoo.cloudapp.net:4444/grid/console');
-config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS, 'fieldset');
+config.SENTRY_SELENIUM_CONSOLE_ADDRESS="http://khaleesi.7kingdoms.me:4444/grid/console"
+config.SENTRY_SELENIUM_HUB_ADDRESS="http://khaleesi.7kingdoms.me:4444/wd/hub"
+config.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS=".proxy"
 config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
+config.NODE_TLS_REJECT_UNAUTHORIZED="0"

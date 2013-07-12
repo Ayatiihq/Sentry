@@ -49,32 +49,7 @@ Database.connect = function(callback) {
     CONNECTING = true;
     WAITING = [];
 
-    mongodb.MongoClient.connect(config.MONGODB_URL, 
-                                { 
-                                  replset: {
-                                    strategy: 'ping',
-                                    rs_name: 'hydros',
-                                    readSecondary: false,
-                                    socketOptions: {
-                                      connectTimeoutMS: 10000,
-                                      socketTimeoutMS: 200000,
-                                      keepAlive: 1
-                                    }
-                                  },
-                                  server: 
-                                  { 
-                                    readPreference: 'primary',
-                                    auto_reconnect: true,
-                                    socketOptions: { 
-                                      connectTimeoutMS: 10000,
-                                      socketTimeoutMS: 200000,
-                                      keepAlive: 1
-                                    }
-                                  },
-                                  db: {
-                                    readPreference: 'primary'
-                                  }
-                                },
+    mongodb.MongoClient.connect(config.MONGODB_URL, {},
                                 function(err, db) {
       if (err && RETRIES < MAX_RETRIES) {
         RETRIES += 1;

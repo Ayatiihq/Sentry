@@ -17,6 +17,25 @@ module.exports.clearDownloads = function(remoteClient){
   return p;
 }
 
+module.exports.get = function(remoteClient, target){
+  var p = new Promise.Promise();
+  remoteClient.get(target).then(function(){
+  	var insert = "if (window.alert.myAlertText == undefined) {window.alert.myAlertText
+= null;  window.alert = function(msg){ window.alert.myAlertText = msg; };}";
+		remoteClient.sleep(5000);
+  	remoteClient.executeScript(insert).then(function(){
+  		p.resolve();
+  	},
+  	function(err){
+  		p.reject();
+  	});
+  },
+  function(err){
+    p.reject();
+  });
+  return p;
+}
+
 module.exports.checkForFileDownload = function(remoteClient){
   var promise = new Promise.Promise();
   remoteClient.get('chrome://downloads');

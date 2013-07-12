@@ -9,6 +9,7 @@
   "engines": [
     "google",
     "bing",
-    "yahoo"
+    "yahoo",
+    "filestube"
   ]
 }
