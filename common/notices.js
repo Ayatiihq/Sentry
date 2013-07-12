@@ -288,7 +288,8 @@ Notices.prototype.getForCampaign = function(campaign, options, callback)
 /**
  * Get notices count for a campaign at the specified points.
  *
- * @param {object}                 campaign         The campaign which we want unverified links for
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {object}                options          Options for the count.
  * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
  */
 Notices.prototype.getCountForCampaign = function(campaign, options, callback)
@@ -341,9 +342,10 @@ Notices.prototype.getForClient = function(client, options, callback)
  * Get notices count for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {object}                options          Options for the count.
  * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
  */
-Notices.prototype.getCountForClient = function(client, callback)
+Notices.prototype.getCountForClient = function(client, options, callback)
 {
   var self = this;
 
