@@ -47,7 +47,7 @@ FourSharedDirectBan.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder()//.usingServer(config.SELENIUM_HUB_ADDRESS)
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.4shared.com/login.jsp');

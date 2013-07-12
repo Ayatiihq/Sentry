@@ -48,7 +48,7 @@ function main() {
 
   if (process.argv.length < 4)
   {
-    logger.warn("Usage: node test_scraper.js <nameOfScraper> <clientId> <campaignId>");
+    logger.warn("Usage: node test_scraper.js <nameOfScraper> <campaignId> <jobId>");
     process.exit(1);
   }
 
