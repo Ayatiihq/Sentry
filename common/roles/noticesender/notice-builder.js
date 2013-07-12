@@ -97,12 +97,31 @@ NoticeBuilder.prototype.prepareContext = function(done) {
       self.prepareMusicAlbumContext(done);
       break;
 
+    case 'movie':
+      self.prepareMovieContext(done);
+      break;
+
     default:
       done(new Error('Type not supported: ' + self.campaign_.type));
   }
 }
 
 NoticeBuilder.prototype.prepareMusicAlbumContext = function(done) {
+  var self = this;
+
+  var context = {
+    date: Date.utc.create().format('{dd} {Month} {yyyy}'),
+    reference: self.hash_,
+    client: self.client_,
+    host: self.host_,
+    campaign: self.campaign_,
+    infringements: self.infringements_
+  };
+
+  done(null, context);
+}
+
+NoticeBuilder.prototype.prepareMovieContext = function(done) {
   var self = this;
 
   var context = {
