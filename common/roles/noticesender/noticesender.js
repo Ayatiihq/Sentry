@@ -86,6 +86,7 @@ NoticeSender.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
+    logger.warn(err.stack);
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -162,6 +163,9 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
   infringements.forEach(function(link) {
     var key = 'unknown';
 
+    if (link.scheme == 'torrent' || link.scheme == 'magnet')
+      return;
+
     if (link.meta) {
       key = link.source;
     } else {
@@ -229,7 +233,7 @@ NoticeSender.prototype.processBatch = function(batch, done) {
         return done();
       
       } else if (!host.noticeDetails) {
-        logger.warn('Host "%s" does not have noticeDetails', batch.key);
+        logger.warn('Host "%s" does not have noticeDetails', batch.key ? batch.key : batch.infringements[0].uri);
         return done();
       }
       batch.host = host;
