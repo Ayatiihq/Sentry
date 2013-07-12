@@ -108,7 +108,7 @@ config.STANDARD_JOB_TIMEOUT_MINUTES = getEnv(process.env.SENTRY_STANDARD_JOB_TIM
 
 // Misc
 config.SENTRY_SELENIUM_CONSOLE_ADDRESS="http://khaleesi.7kingdoms.me:4444/grid/console"
-config.SENTRY_SELENIUM_HUB_ADDRESS="http://khaleesi.7kingdoms.me:4444/wd/hub"
+config.SELENIUM_HUB_ADDRESS="http://khaleesi.7kingdoms.me:4444/wd/hub"
 config.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS=".proxy"
 config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
 config.NODE_TLS_REJECT_UNAUTHORIZED="0"
