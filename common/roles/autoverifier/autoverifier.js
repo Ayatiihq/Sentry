@@ -197,11 +197,10 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
       logger.warn("Nope we don't support any of those mimetypes");
     else
       var verifier = self.supportedMap_[infringement.campaign.type]; 
-
   }
 
   if (!verifier) {
-    var err = util.format("Either campaign type is not supported or one of the mimetypes are not supported for infringement %s",
+    var err = util.format("Either campaign type is not supported or one of the mimetypes for infringement %s",
                            infringement._id);
     return done(new Error(err));
   }
