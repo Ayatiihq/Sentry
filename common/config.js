@@ -66,7 +66,7 @@ config.MONGODB_PASSWORD = getEnv(process.env.SENTRY_MONGODB_PASSWORD, '3HVb62MG2
 config.MONGODB_REPLICA_NAME = getEnv(process.env.SENTRY_MONGODB_REPLICA_NAME, 'KingsLanding');
 
 // Hub
-config.HUB_ADDRESS="kingsguard.7kingdoms.me"
+config.HUB_ADDRESS = getEnv(process.env.SENTRY_HUB_ADDRESS, "kingsguard.7kingdoms.me");
 
 config.HUB_PORT = getEnv(process.env.SENTRY_HUB_PORT, 4444);
 
@@ -104,11 +104,11 @@ config.STANDARD_JOB_EXPIRES_SECONDS = getEnv(process.env.SENTRY_STANDARD_JOB_EXP
 
 config.STANDARD_JOB_TIMEOUT_MINUTES = getEnv(process.env.SENTRY_STANDARD_JOB_TIMEOUT_MINUTES, 10);
 
-// Verify
+// Selenium
+config.SELENIUM_CONSOLE_ADDRESS =  getEnv(process.env.SENTRY_SELENIUM_CONSOLE_ADDRESS, 'http://khaleesi.7kingdoms.me:4444/grid/console');
 
-// Misc
-config.SENTRY_SELENIUM_CONSOLE_ADDRESS="http://khaleesi.7kingdoms.me:4444/grid/console"
-config.SELENIUM_HUB_ADDRESS="http://khaleesi.7kingdoms.me:4444/wd/hub"
-config.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS=".proxy"
+config.SELENIUM_HUB_ADDRESS = getEnv(process.env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://khaleesi.7kingdoms.me:4444/wd/hub');
+
+config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS, '.proxy');
+
 config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(process.env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
-config.NODE_TLS_REJECT_UNAUTHORIZED="0"
