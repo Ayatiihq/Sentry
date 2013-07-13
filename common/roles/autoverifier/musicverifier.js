@@ -406,7 +406,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     Seq(downloads)
       .seqEach(function(download){
         var that = this;
-        var isAudio = MusicVerifier.getSupportedTypes().some(download.mimetype);
+        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimetype);
         if(isAudio){
           logger.info('fetch Download');
           self.fetchDownload(download, that);
@@ -447,11 +447,7 @@ MusicVerifier.prototype.finish = function(){
   }
 }
 
-// This needs to not be added to the prototype, that way it's available without
-// having to make an instance of the verifier
-// TODO test each of these formats against fpeval !
-// ensure compatibility
-MusicVerifier.getSupportedTypes = function() {
+MusicVerifier.getSupportedMimeTypes = function() {
   return [
     , 'audio/mpeg'
     , 'audio/mpeg3'
