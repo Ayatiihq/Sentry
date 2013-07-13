@@ -177,7 +177,7 @@ Verifications.prototype.pop = function(campaign, callback) {
   var query = {
     campaign: campaign,
     category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL]
+      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.CYBERLOCKER, Categories.FILE]
     },
     state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
@@ -186,7 +186,7 @@ Verifications.prototype.pop = function(campaign, callback) {
     }
   };
 
-  var sort = [['category', 1 ], ['created', 1 ] ];
+  var sort = [['category', -1 ], ['created', 1 ] ];
 
   var updates = {
     $set: {
@@ -219,7 +219,7 @@ Verifications.prototype.popClient = function(client, callback) {
   var query = {
     'campaign.client': client,
     category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL]
+      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.CYBERLOCKER, Categories.FILE]
     },
     state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
@@ -228,7 +228,7 @@ Verifications.prototype.popClient = function(client, callback) {
     }
   };
 
-  var sort = [['category', 1 ], ['created', 1 ] ];
+  var sort = [['category', -1 ], ['created', 1 ] ];
 
   var updates = {
     $set: {
