@@ -96,6 +96,7 @@ Blacklist.safeDomains = [
   , 'roughtrade.com'
   , 'tradebit.com'
   , 'virginmega.fr'
+  , 'washingtonpost.com'
   , 'we7.com'
   , 'webstatsdomain.com'
   , 'wikipedia.org'

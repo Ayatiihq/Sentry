@@ -58,26 +58,34 @@ AutoVerifier.prototype.init = function() {
 
 AutoVerifier.prototype.loadVerifiers = function() {
   var self = this
-    , supportedTypes = []
+    , supportedMimeTypes = []
     , supportedMap = {}
-    , verifiers = ['musicverifier']
+    , supportedCampaignTypes = []
     ;
-
-  verifiers.forEach(function(verifier) {
-    var klass = require('./' + verifier)
-      , types = klass.getSupportedTypes()
+  // Static list of what verifiers we support
+  // Note the verifierType should correspond to one of the predefined campaign types in campaigns.js 
+  // {verifierType: filename}
+  var verifiers = {'music': 'musicverifier'} 
+    
+  Object.keys(verifiers).forEach(function(verifierType) {
+    var klass = require('./' + verifiers[verifierType])
       , instance = new klass()
+      , mimeTypes = klass.getSupportedMimeTypes()
       ;
 
-    instance.source = verifier;
-    types.forEach(function(type) {
-      supportedTypes.push(type);
-      supportedMap[type] = instance;
+    supportedMap[verifierType] = instance;
+    
+    // what's this for (source)?
+    instance.source = verifierType;
+    
+    mimeTypes.forEach(function(type) {
+      supportedMimeTypes.push(type);
     });
   });
 
-  self.supportedTypes_ = supportedTypes;
+  self.supportedMimeTypes_ = supportedMimeTypes;
   self.supportedMap_ = supportedMap;
+  self.supportedCampaignTypes_ = supportedCampaignTypes;
 }
 
 AutoVerifier.prototype.finishVerifiers = function() {
@@ -182,12 +190,19 @@ AutoVerifier.prototype.processVerifications = function(done) {
 AutoVerifier.prototype.processVerification = function(infringement, downloads, done) {
   var self = this;
 
-  var types = self.supportedTypes_.intersect(infringement.mimetypes);
-  var verifier = self.supportedMap_[types[0]]; // FIXME: Should be more clever
+  if(self.supportedCampaignTypes_.some(infringement.campaign.type)){
+    logger.info('Infringement has found a valid autoverifier');
+    
+    if(infringement.mimetypes.intersect(self.supportedMimeTypes_).length === 0)
+      logger.warn("Nope we don't support any of those mimetypes");
+    else
+      var verifier = self.supportedMap_[infringement.campaign.type]; 
+
+  }
 
   if (!verifier) {
-    var err = util.format('Mimetype %s is not supported for infringement %s',
-                           infringement.mimetypes[0], infringement._id);
+    var err = util.format("Either campaign type is not supported or one of the mimetypes are not supported for infringement %s",
+                           infringement._id);
     return done(new Error(err));
   }
 

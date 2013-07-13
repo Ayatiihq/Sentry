@@ -37,7 +37,7 @@ var Campaigns = module.exports = function() {
  */
 Campaigns.types = function() {
   // add new campaign types as we add support for them.
-  return ['music.album', 'music.track', 'movie', 'tv.live', 'tv.series'];
+  return ['music', 'music.album', 'music.track', 'movie', 'tv.live', 'tv.series'];
 }
 
 Campaigns.prototype.init = function() {
