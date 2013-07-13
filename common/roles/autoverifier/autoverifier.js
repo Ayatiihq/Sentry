@@ -200,9 +200,9 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
   }
 
   if (!verifier) {
-    var err = util.format("Either campaign type is not supported or one of the mimetypes for infringement %s",
-                           infringement._id);
-    return done(new Error(err));
+    logger.warn(util.format("Either campaign type is not supported or one of the mimetypes for infringement %s",
+                           infringement._id));
+    return done();
   }
 
   logger.info('Verifying %s', infringement.uri);
