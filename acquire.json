@@ -3,7 +3,7 @@
   "basic-endpoint-wrangler": "common/basic-endpoint-wrangler.js",
   "blacklist": "common/blacklist.js",
   "campaigns": "common/campaigns.js",
-  "chrome-helper" : "common/roles/downloader/chrome-helper",
+  "chrome-helper" : "common/roles/downloader/chrome-helper.js",
   "clients": "common/clients.js",
   "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",

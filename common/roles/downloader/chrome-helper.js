@@ -17,7 +17,7 @@ module.exports.clearDownloads = function(remoteClient){
   return p;
 }
 
-module.exports.get = function(remoteClient, target){
+/*module.exports.get = function(remoteClient, target){
   var p = new Promise.Promise();
   remoteClient.get(target).then(function(){
   	var insert = "if (window.alert.myAlertText == undefined) {window.alert.myAlertText
@@ -34,7 +34,7 @@ module.exports.get = function(remoteClient, target){
     p.reject();
   });
   return p;
-}
+}*/
 
 module.exports.checkForFileDownload = function(remoteClient){
   var promise = new Promise.Promise();
