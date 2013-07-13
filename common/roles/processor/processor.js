@@ -636,7 +636,7 @@ Processor.prototype.reducePointsForCommonFalsePositives = function(infringement,
   });
 
   if (positive) {
-    var count = infringement.points.count ? infringement.points.count : 0;
+    var count = infringement.points.total ? infringement.points.total : 0;
     var points = count > 5 ? -1 * (count - 5) : 0;
 
     logger.info('Reducing points of %s: contains low priority words', infringement.uri);
