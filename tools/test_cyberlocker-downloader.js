@@ -65,7 +65,7 @@ function oneAtaTime(results, cyberlocker){
       var done = this;
       logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri);
       //done();
-      cyberlocker.download(infringement, '/tmp/hulk', done);
+      cyberlocker.download(infringement, '/tmp', done);
     })
     .catch(function(err){
       logger.warn('Unable to process download job: %s', err);      
