@@ -431,21 +431,21 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
   switch(state) {
     case iStates.UNAVAILABLE:
       // Don't change state if something has a important tag against it
-      stateNot.push[iStates.VERIFIED, iStates.FALSE_POSITIVE];
+      stateNot.push(iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.SENT_NOTICE, iStates.TAKEN_DOWN);
       break;
 
     case iStates.FALSE_POSITIVE:
-      stateNot.push[iStates.VERIFIED];
+      stateNot.push(iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN);
       break;
 
     case iStates.VERIFIED:
-      stateNot.push[iStates.SENT_NOTICE, iStates.TAKEN_DOWN];
+      stateNot.push(iStates.SENT_NOTICE, iStates.TAKEN_DOWN);
       break;
 
     case iStates.SENT_NOTICE:
     case iStates.TAKEN_DOWN: 
       // Should be same as verified and never propagated as-is
-      stateNot.push[iStates.SENT_NOTICE, iStates.TAKEN_DOWN];
+      stateNot.push(iStates.SENT_NOTICE, iStates.TAKEN_DOWN);
       state = iStates.VERIFIED;
       break;
 
