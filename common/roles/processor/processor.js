@@ -225,6 +225,9 @@ Processor.prototype.run = function(done) {
       self.verifyUnavailable(infringement, mimetype, this);
     })
     .seq(function() {
+      self.reducePointsForCommonFalsePositives(infringement, mimetype, this);
+    })
+    .seq(function() {
       setTimeout(self.run.bind(self, done), 100);
     })
     ;
@@ -608,6 +611,40 @@ Processor.prototype.addTorrentRelation = function(infringement, done) {
       done();
     })
     ;
+}
+
+//
+// This filter looks at the url of the new infringement and reduces points if the url
+// contains words that match a campaigns list of low-priority words
+//
+Processor.prototype.reducePointsForCommonFalsePositives = function(infringement, mimetype, done) {
+  var self = this
+    , matches = self.campaign_.metadata.lowPriorityWordList
+    , positive = false
+    ;
+
+  if (infringement.verified || !matches || !matches.length)
+    return done();
+
+  matches.forEach(function(match) {
+    var regex = new RegExp(match, 'i')
+      , that = this
+      ;
+    if (regex.test(infringement.uri)) {
+      positive = true;
+    }
+  });
+
+  if (positive) {
+    var count = infringement.points.count ? infringement.points.count : 0;
+    var points = count > 5 ? -1 * (count - 5) : 0;
+
+    logger.info('Reducing points of %s: contains low priority words', infringement.uri);
+    self.infringements_.addPoints(infringement, 'reducer', points, '', done);
+
+  } else {
+    done();
+  }
 }
 
 //
