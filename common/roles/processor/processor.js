@@ -241,6 +241,9 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
         processed: {
           $exists: false
         },
+        verified: {
+          $exists: false
+        },
         created: {
           $lt: Date.create('2 minutes ago').getTime()
         },
