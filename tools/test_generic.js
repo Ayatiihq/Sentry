@@ -56,7 +56,7 @@ function main() {
       console.log('\nreceived signal', name);
       Object.values(arguments, function (value) {
         if (Object.isObject(value) || Object.isArray(value))
-          console.log('\t' + JSON.stringify(value));
+          console.log('\t' + JSON.stringify(value, null, '  '));
         else
           console.log('\t' + value);
       });

@@ -222,6 +222,9 @@ Processor.prototype.run = function(done) {
       self.checkBlacklisted(infringement, mimetype, this);
     })
     .seq(function() {
+      self.checkIfDomain(infringement, mimetype, this);
+    })
+    .seq(function() {
       self.verifyUnavailable(infringement, mimetype, this);
     })
     .seq(function() {
@@ -516,6 +519,28 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
   }
 }
 
+Processor.prototype.checkIfDomain = function(infringement, mimetype, done) {
+  var self = this
+    , isDomain = false
+    ;
+
+  if (infringement.scheme == 'torrent' || infringement.scheme == 'magnet' || infringement.verified)
+    return done();
+
+  isDomain = !utilities.uriHasPath(infringement.uri);
+
+  if (isDomain) {
+    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
+    self.verifications_.submit(infringement, verification, function(err) {
+      if (err)
+        logger.warn('Error verifiying domain %s to FALSE POSITIVE: %s', infringement.uri, err);
+      done();
+    });
+  } else {
+    done();
+  }
+}
+
 Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
   var self = this;
 
@@ -566,6 +591,10 @@ Processor.prototype.addInfringementRelations = function(infringement, mimetype, 
   // Check for new torrent files
   if (mimetype.has('torrent') && infringement.scheme != 'torrent' && infringement.scheme != 'magnet') {
     self.addTorrentRelation(infringement, done);
+
+  } else if (infringement.scheme == 'magnet') {
+    self.addMagnetRelation(infringement, done);
+
   } else {
     done();
   }
@@ -614,6 +643,52 @@ Processor.prototype.addTorrentRelation = function(infringement, done) {
       done();
     })
     ;
+}
+
+Processor.prototype.addMagnetRelation = function(infringement, done) {
+  var self = this;
+
+  try {
+    var uri = URI(infringement.uri)
+      , queryString = uri.query()
+      , queryMap = URI.parseQuery(queryString)
+      , hash = queryMap.xt.split(':').last()
+      , torrentURI = 'torrent://' + hash
+      ;
+
+    logger.info('Creating %s for magnet relation to %s', torrentURI, infringement._id);
+
+    Seq()
+      .seq(function() {
+        self.infringements_.add(infringement.campaign,
+                                torrentURI,
+                                infringement.type,
+                                'processor',
+                                State.NEEDS_PROCESSING,
+                                { score: 10 },
+                                {},
+                                this);
+      })
+      .seq(function() {
+        logger.info('Creating relation between %s and %s', infringement.uri, torrentURI);
+        self.infringements_.addRelation(infringement.campaign,
+                                        infringement.uri,
+                                        torrentURI,
+                                        this);
+      })
+      .catch(function(err) {
+        logger.warn('Unable to create relation between %s and %s: %s',
+                    infringement.uri, torrentURI, err);
+        done();
+      })
+      .seq(function() {
+        done();
+      })
+
+  } catch(err) {
+    logger.warn("Unable to parse magnet uri to create relations", infringement._id, infringement.uri);
+    done();
+  }
 }
 
 //

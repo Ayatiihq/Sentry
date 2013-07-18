@@ -46,7 +46,7 @@ module.exports.shouldIgnoreUri = function (uri) {
 module.exports.urlMatch = XRegExp( //ignore jslint
   '(?<fulluri>' +
   '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
-  '(?:://|%3A%2F%2F))                                                                      (?#:// no capture  )' +
+  '(?:://))                                                                                (?#:// no capture  )' +
   '(?:                                                                                     (?#captures domain )' +
   '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
   '|' +
@@ -55,6 +55,14 @@ module.exports.urlMatch = XRegExp( //ignore jslint
   '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )' +
   ')',
   'gix'); // global, ignore case, free spacing 
+ 
+module.exports.magnetMatch = XRegExp( //ignore jslint 
+  '(?<fulluri>' +
+  '(?<protocol>(?:[a-z0-9]+)                                                               (?#protocol        )' +
+  '(?::))                                                                                  (?#: no capture    )' +
+  '(?<paramaters>(?:\\?)[\\.:\\-a-z0-9+&@#/%=~_\\(\\)|]*)                                    (?#paramaters      )' +
+  ')'
+  ,'gix');
 
 
 var Endpoint = function (data) {
@@ -66,7 +74,7 @@ Endpoint.prototype.toString = function () {
   return this.data.toString();
 };
 
-module.exports.ruleEmbed = function DomEmbed($, source, foundItems) {
+module.exports.ruleEmbed = function DomEmbed($, source, uri, foundItems) {
   $('embed').each(function onEmd() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
@@ -84,7 +92,7 @@ module.exports.ruleEmbed = function DomEmbed($, source, foundItems) {
   return foundItems;
 };
 
-module.exports.ruleSwfObject = function SwfObject($, source, foundItems) {
+module.exports.ruleSwfObject = function SwfObject($, source, uri, foundItems) {
   $('script').each(function onScript() {
     var check = false;
     var sanitized = $(this).html().toLowerCase();
@@ -98,7 +106,7 @@ module.exports.ruleSwfObject = function SwfObject($, source, foundItems) {
   return foundItems;
 }
 
-module.exports.ruleObject = function DomObject($, source, foundItems) {
+module.exports.ruleObject = function DomObject($, source, uri, foundItems) {
   $('object').each(function onObj() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
@@ -119,7 +127,7 @@ module.exports.ruleObject = function DomObject($, source, foundItems) {
 /* A more complicated rule, this one needs to be async so instead of returning an array
    it returns a promise and resolves that promise asyncronously
 */
-module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItems) {
+module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foundItems) {
   var protocols = ['rtmp://', 'rtsp://', 'rttp://', 'rtmpe://'];
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
                     '.f4v', '.mkv'];
@@ -190,7 +198,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, foundItem
 };
 
 /* - Rules to identify links to files on a known cyberlocker - */
-module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems) {
+module.exports.ruleCyberLockers = function cyberLockerLink($, source, uri, foundItems) {
   var flattened = [];
   var promise;
   // first Rip out links into an array
@@ -242,7 +250,7 @@ module.exports.ruleCyberLockers = function cyberLockerLink($, source, foundItems
 // finds any links that match the extensions in the extension list
 var ruleFindExtensions = module.exports.ruleFindExtensions = function (extensionList) {
 
-  var retfun = function findExtensions(extensions, $, source, foundItems) {
+  var retfun = function findExtensions(extensions, $, source, uri, foundItems) {
     XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
       // we can extract lots of information from our regexp
       var check = false;
@@ -260,6 +268,157 @@ var ruleFindExtensions = module.exports.ruleFindExtensions = function (extension
   return retfun.bind(null, extensionList);
 };
 
+var searchTypes = {
+  START: 0,
+  MIDDLE: 1,
+  END: 2,
+  DOMAIN: 3
+};
+
+/**
+ * Constructs a list of all possible links before searching for matches from the extensionList
+ * depending on the matching algorithm chosen (searchTypes).
+ */
+var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionList, searchType) {
+
+  var ret = function findExtensions(extensions, searchType, $, source, uri, foundItems) {
+    var hostname = URI(uri).pathname('').href()
+      , links = {}
+      , shortenedLinks = []
+      , promise = new Promise()
+      ;
+
+    // Let's start with getting all links in the page source
+    XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
+      links[match.fulluri.toString().unescapeURL()] = true;
+    });
+
+    // Search fo' magnets
+    XRegExp.forEach(source, module.exports.magnetMatch, function (match, i) {
+      links[match.fulluri.toString()] = true;
+    });
+
+    // Let's then grab all the a links, relative or otherwise
+    $('a').each(function() {
+      var href = $(this).attr('href');
+
+      if (href) {
+        if (href[0] == '/') {
+          links[hostname + href] = true;
+        
+        } else {
+          if (!href.startsWith('magnet:')) // Ignore magnet links from cheerio as it chokes on them
+            links[href] = true;
+        }
+      }
+    });
+
+    // Now let's see if there are any shorteners and, if so, resolve them
+    Object.keys(links, function(link) {
+      // FIXME: We can add a cache here to speed up shortener lookups
+      try {
+        var linkuri = URI(link)
+          , domain = linkuri.domain()
+          ;
+        if (shorteners.knownDomains.some(domain)) {
+          shortenedLinks.push(link);
+        }
+      
+      } catch (err) {
+        logger.warn('Unable to parse %s as URI', link);
+      }
+    });
+
+    var promiseArray = shortenedLinks.map(function(link) {
+      return utilities.followRedirects([ link ], new Promise());
+    });
+
+    all(promiseArray).then(function(lifted30Xs) {
+      lifted30Xs.each(function(single30x) {
+        links[single30x.last()] = true;
+      });
+
+      function linkMatchesExtension(link) {
+        var ret = false;
+
+        switch (searchType) {
+          case searchTypes.START:
+            ret = linkBeginsWith(link, extensions);
+            break;
+
+          case searchTypes.MIDDLE:
+            ret = linkHas(link, extensions);
+            break;
+
+          case searchTypes.END:
+            ret = linkEndsWith(link, extensions);
+            break;
+
+          case searchTypes.DOMAIN:
+            ret = linkIsFrom(link, extensions);
+            break;
+
+          default:
+            logger.warn('Search type %d is not supported', searchType);
+        }
+
+        return ret;
+      }
+
+      // Finally, it's time to search for the useful extentions
+      Object.keys(links, function(link) {
+        if (linkMatchesExtension(link)) {
+          var item = new Endpoint(link);
+          item.isEndpoint = true;
+          foundItems.push(item);
+        }
+      });
+
+      promise.resolve(foundItems);
+    });
+
+    return promise;
+  }
+
+  return ret.bind(null, extensionList, searchType); 
+}
+
+
+function linkBeginsWith(link, prefixes) {
+  for (var i = 0; i < prefixes.length; i++) {
+    if (link.startsWith(prefixes[i]))
+      return true;
+  }
+  return false;
+}
+
+function linkHas(link, matches) {
+  for (var i = 0; i < matches.length; i++) {
+    if (link.indexOf(matches[i]) >= 0)
+      return true;
+  }
+  return false;
+}
+
+function linkEndsWith(link, suffixes) {
+  for (var i = 0; i < suffixes.length; i++) {
+    if (link.endsWith(suffixes[i]))
+      return true;
+  }
+  return false;
+}
+
+function linkIsFrom(link, domains) {
+  try {
+    var domain = URI(link).domain();
+    return domains.some(domain);
+
+  } catch (err) {
+    logger.warn('Unable to parse %s for checking domains: %s', link, err);
+  }
+  return false;
+}
+
 /* - Collections, we create collections of rules here just to make the rule/spider codebases less verbose - */
 module.exports.rulesLiveTV = [module.exports.ruleEmbed
                              , module.exports.ruleObject
@@ -272,18 +431,24 @@ var videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', 
 
 var p2pExtensions = ['.torrent'];
 
+var magnetPrefixs = ['magnet:'];
+
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
-module.exports.rulesDownloadsMusic = [module.exports.ruleCyberLockers,
-                                      ruleFindExtensions(audioExtensions),
-                                      ruleFindExtensions(p2pExtensions),
-                                      ruleFindExtensions(archiveExtensions)];
+module.exports.rulesDownloadsMusic = [
+    ruleSearchAllLinks(cyberLockers.knownDomains, searchTypes.DOMAIN)
+  , ruleSearchAllLinks(audioExtensions, searchTypes.END)
+  , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
+  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
+  , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
+];
 
 module.exports.rulesDownloadsMovie = [
-    module.exports.ruleCyberLockers
-  , ruleFindExtensions(videoExtensions)
-  , ruleFindExtensions(p2pExtensions)
-  , ruleFindExtensions(archiveExtensions)
+    ruleSearchAllLinks(cyberLockers.knownDomains, searchTypes.DOMAIN)
+  , ruleSearchAllLinks(videoExtensions, searchTypes.END)
+  , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
+  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
+  , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
 
 module.exports.typeExtensions = {
