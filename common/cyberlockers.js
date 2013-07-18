@@ -34,6 +34,7 @@ CyberLockers.knownDomains = [
   'cyberlocker.org',
   'depositfiles.com',
   'drawpr.com',
+  'docs.google.com',
   'drive.google.com',
   'dropbox.com',
   'dxr.lanedo.com',
