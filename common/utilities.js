@@ -586,3 +586,19 @@ Utilities.readAllFiles = function(dir, done) {
   });
 }
 
+/**
+ * Check if the uri has a path, or if it's just a domain name
+ *
+ * @uri {string}  uri   The uri to test
+ * @return {boolean}  Whether the URI has a path
+ */
+Utilities.uriHasPath = function(uri) {
+  var ret = true;
+  try {
+    var parsed = url.parse(uri);
+    ret = parsed.path != '/';
+  } catch (err) {
+    ;
+  }
+  return ret;
+}

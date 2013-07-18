@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
+  , utilities = acquire('utilities')
   , url = require('url')
   , sugar = require('sugar')
   , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
@@ -193,18 +194,6 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
-Generic.prototype.getHasPath = function(uri) {
-  var ret = true;
-  try {
-    var parsed = url.parse(uri);
-    ret = parsed.path != '/';
-  } catch (err) {
-    logger.warn('Error parsing uri: %s', err);
-  }
-  
-  return ret;
-}
-
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
@@ -215,7 +204,7 @@ Generic.prototype.checkInfringement = function (infringement) {
     return promise;
   }
 
-  if (!self.getHasPath(infringement.uri)) {
+  if (!utilities.uriHasPath(infringement.uri)) {
     logger.info('%s has no path, not scraping', infringement.uri);
     self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
     promise.resolve();
