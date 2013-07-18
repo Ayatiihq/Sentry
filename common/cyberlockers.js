@@ -110,14 +110,18 @@ CyberLockers.knownDomains = [
   'megaload.it',
   'megashares.com',
   'midupload.com',
-  'minus.com',
   'mixturecloud.com',
+  'movshare.net',
   'movreel.com',
+  'movzap.com',
   'mozy.com',
   'muchshare.net',
+  'multiup.org',
+  'multiupload.nl',
   'novafile.com',
   'novamov.com',
   'nowdownload.eu',
+  'nowvideo.eu',
   'obligao.com',
   'oteupload.com',
   'peejeshare.com',
@@ -169,6 +173,9 @@ CyberLockers.knownDomains = [
   'uptobox.com',
   'usaupload.net',
   'verzend.be',
+  'videobam.com',
+  'videoweed.es',
+  'vidto.me',
   'vip-file.com',
   'vreer.com',
   'wikisend.com',
@@ -178,7 +185,8 @@ CyberLockers.knownDomains = [
   'yousendit.com',
   'ziddu.com',
   'zippyshare.com',
-  'zomgupload.com'
+  'zomgupload.com',
+  'zuzvideo.com'
 ];
 
 

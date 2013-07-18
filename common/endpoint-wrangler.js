@@ -105,7 +105,7 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   var self = this;
   self.processing++;
 
-  var pagemods = self.modules.map(function (rule) { return rule.bind(null, $, source); });
+  var pagemods = self.modules.map(function (rule) { return rule.bind(null, $, source, uri); });
 
   var previousReturn = [];
   pagemods.each(function (rule) {
