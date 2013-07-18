@@ -222,6 +222,9 @@ Processor.prototype.run = function(done) {
       self.checkBlacklisted(infringement, mimetype, this);
     })
     .seq(function() {
+      self.checkIfDomain(infringement, mimetype, this);
+    })
+    .seq(function() {
       self.verifyUnavailable(infringement, mimetype, this);
     })
     .seq(function() {
@@ -509,6 +512,28 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
     self.verifications_.submit(infringement, verification, function(err) {
       if (err)
         logger.warn('Error verifiying %s to FALSE POSITIVE: %s', infringement.uri, err);
+      done();
+    });
+  } else {
+    done();
+  }
+}
+
+Processor.prototype.checkIfDomain = function(infringement, mimetype, done) {
+  var self = this
+    , isDomain = false
+    ;
+
+  if (infringement.scheme == 'torrent' || infringement.scheme == 'magnet' || infringement.verified)
+    return done();
+
+  isDomain = !utilities.uriHasPath(infringement.uri);
+
+  if (domain) {
+    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
+    self.verifications_.submit(infringement, verification, function(err) {
+      if (err)
+        logger.warn('Error verifiying domain %s to FALSE POSITIVE: %s', infringement.uri, err);
       done();
     });
   } else {
