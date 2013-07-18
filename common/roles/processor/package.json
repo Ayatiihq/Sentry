@@ -3,5 +3,12 @@
   "main": "./processor.js",
   "dependencies": {
   },
+  "engines": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4"
+  ],
   "intervalMinutes": 5
 }
