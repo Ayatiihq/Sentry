@@ -529,7 +529,7 @@ Processor.prototype.checkIfDomain = function(infringement, mimetype, done) {
 
   isDomain = !utilities.uriHasPath(infringement.uri);
 
-  if (domain) {
+  if (isDomain) {
     var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
     self.verifications_.submit(infringement, verification, function(err) {
       if (err)
