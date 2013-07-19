@@ -88,6 +88,11 @@ function main() {
     infringements.getNeedsScrapingCount(campaign, log);
   }
 
+  if (action === 'getOneNeedsScraping') {
+    var campaign = require(argv[3]);
+    infringements.getOneNeedsScraping(campaign, log);
+  }
+
   if (action === 'getForCampaign') {
     var campaign = require(argv[3]);
     var skip = Number(argv[4]);

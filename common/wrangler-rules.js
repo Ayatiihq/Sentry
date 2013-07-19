@@ -290,7 +290,12 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
 
     // Let's start with getting all links in the page source
     XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
-      links[match.fulluri.toString().unescapeURL()] = true;
+      var url = match.fulluri.toString();
+      try {
+        url = url.unescapeURL()
+      } catch (err) {}
+
+      links[url] = true;
     });
 
     // Search fo' magnets

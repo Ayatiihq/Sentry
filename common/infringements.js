@@ -457,6 +457,44 @@ Infringements.prototype.getNeedsScraping = function(campaign, limit, callback)
 }
 
 /**
+ * Gets one infringement that needs scraping
+ *
+ * @param {object}           campaign         The campaign which we want unverified links for
+ * @param {function(err)}    callback         A callback to handle errors.
+*/
+Infringements.prototype.getOneNeedsScraping = function(campaign, callback)
+{
+  var self = this
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getOneNeedsScraping, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: states.infringements.state.NEEDS_SCRAPE,
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [['created', 1 ]];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new : true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
+}
+
+/**
  * Gets the number of links that need scraping
  *
  * @param  {object}                campaign      The campaign for which to search links.
@@ -690,3 +728,18 @@ Infringements.prototype.getNeedsDownloadForCampaign = function(campaign, categor
 
   self.infringements_.find(query, project).toArray(callback);
 } 
+
+/**
+ * Update the popped timestamp for the infringement to the current time.
+ *
+ * @infringement {object}   The infringement to touch.
+ * @return  {null}
+ */
+Infringements.prototype.touch = function(infringement) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.touch, Object.values(arguments)]);
+
+  self.infringements_.update({ _id: infringement._id }, { $set: { popped: Date.now() } });
+}

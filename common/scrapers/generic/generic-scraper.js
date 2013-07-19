@@ -47,7 +47,8 @@ Generic.prototype.init = function () {
   self.activeScrapes = 0;
   self.maxActive = 10;
   self.numInfringementsChecked = 0;
-  self.checkURLS = [];
+  self.activeInfringements = [];
+  self.touchId_ = 0;
 };
 
 Generic.prototype.emitInfringementUpdates = function (infringement, parents, extradata) {
@@ -106,28 +107,21 @@ Generic.prototype.start = function (campaign, job) {
   self.campaign = campaign;
   self.job = job;
 
-  self.infringements.getNeedsScraping(campaign, MAX_INFRINGEMENTS, function (error, results) {
-    if (error) {
-      logger.error("Generic Scraper: Can't fetch links that need scraping: %s", error);
-      self.stop();
-      return;
-    }
+  self.activeInfringements = [];
+  self.activeScrapes = 0;
+  self.suspendedScrapes = 0;
 
-    if (results.length < 1) {
-      logger.info('No results to scrape');
-      self.stop();
-      return;
-    }
+  if (campaign.metadata.blacklist)
+    safeDomains.add(campaign.metadata.blacklist);
 
-    self.checkURLS = results;
-    self.activeScrapes = 0;
-    self.suspendedScrapes = 0;
-
-    if (campaign.metadata.blacklist)
-      safeDomains.add(campaign.metadata.blacklist);
+  self.touchId_ = setInterval(function() {
+    self.activeInfringements.forEach(function(infringement) {
+      self.infringements.touch(infringement);
+    });
+  }, 10 * 60 * 1000);
    
-    self.pump(true);
-  });
+  self.pump(true);
+  
   self.emit('started');
 };
 
@@ -136,36 +130,38 @@ Generic.prototype.pump = function (firstRun) {
 
   if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0 && !firstRun) {
     logger.info('Finishing up, no more urls to check');
+    if (self.touchId_)
+      clearInterval(self.touchId_);
+    
     self.stop();
     return;
   }
 
   var check = self.activeScrapes < self.maxActive;              // we don't have more than maxActive currently running scrapes
-  check &= self.checkURLS.length > 0;                           // we still have urls to check
   check &= self.numInfringementsChecked <= MAX_INFRINGEMENTS;   // we have checked less than MAX_INFRINGEMENTS infringements
 
   if (check) {
-    var infringement = self.checkURLS.pop();
-    while (infringement.uri[0] === '/') {
-      logger.error('infringement %s is not valid', infringement.uri);
-      infringement = self.checkURLS.pop();
-      if (!infringement) { return; }
-    }
-    self.numInfringementsChecked = self.numInfringementsChecked + 1;
-    self.activeScrapes = self.activeScrapes + 1;
+    self.infringements.getOneNeedsScraping(self.campaign, function(err, infringement) {
 
-    logger.info('starting infrigement: %s (%d/%d) [%d-%d/%d]', infringement.uri, 
-                                                               MAX_INFRINGEMENTS - self.numInfringementsChecked, 
-                                                               self.numInfringementsChecked,
-                                                               self.activeScrapes, self.suspendedScrapes,
-                                                               self.maxActive);
+      if (!infringement || !infringement.uri)
+        return;
 
-    self.checkInfringement(infringement).then(function () {
-      self.pump();
+      self.numInfringementsChecked = self.numInfringementsChecked + 1;
+      self.activeScrapes = self.activeScrapes + 1;
+      self.activeInfringements.push(infringement);
+
+      logger.info('starting infrigement: %s (%d/%d) [%d-%d/%d]', infringement.uri, 
+                                                                 MAX_INFRINGEMENTS - self.numInfringementsChecked, 
+                                                                 self.numInfringementsChecked,
+                                                                 self.activeScrapes, self.suspendedScrapes,
+                                                                 self.maxActive);
+
+      self.checkInfringement(infringement).then(function () {
+        self.pump();
+      });
+
+      self.pump(); // pump again
     });
-
-
-    self.pump(); // pump again
   }
 };
 
@@ -190,6 +186,8 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   else {
     self.suspendedScrapes = self.suspendedScrapes - 1;
   }
+
+  self.activeInfringements.remove(infringement);
 
   promise.resolve(items);
 };
