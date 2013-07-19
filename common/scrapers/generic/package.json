@@ -7,5 +7,12 @@
     "movie": ".*"
   },
   "dispatcher": "generic",
-  "intervalMinutes": 5 
+  "intervalMinutes": 5,
+  "engines": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4"
+  ]
 }
