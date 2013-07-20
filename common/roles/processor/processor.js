@@ -312,7 +312,7 @@ Processor.prototype.isCyberlocker = function(uri, hostname) {
   var ret = false;
 
   Cyberlockers.forEach(function(domain) {
-    ret = ret || hostname.endsWith(domain);
+    ret = ret || hostname == domain;
   });
 
   return ret;
