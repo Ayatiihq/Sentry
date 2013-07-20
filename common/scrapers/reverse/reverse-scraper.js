@@ -112,7 +112,11 @@ ReverseScraper.prototype.run = function() {
       self.engine_.getSearchTerm(runNumber, self.infringements_, this);
     })
     .seq(function(searchTerm) {
-      console.log(searchTerm);
+      if (searchTerm == '') {
+        // Probably no valid hits
+        this();
+      }
+      self.scrape(searchTerm, this);
     })
     .seq(function() {
       logger.info('Successfully completed scraper run');
@@ -163,6 +167,110 @@ ReverseScraper.prototype.getRunNumber = function(done) {
   });
 }
 
+ReverseScraper.prototype.scrape = function(searchTerm, done) {
+  var self = this;
+
+  self.scrapeDoneCallback_ = done;
+
+  logger.info('Searching Google for %s', searchTerm);
+  self.remoteClient_.get('http://www.google.com');
+  self.remoteClient_.findElement(webdriver.By.css('input[name=q]'))
+                    .sendKeys(searchTerm)
+                    ;
+  self.remoteClient_.findElement(webdriver.By.css('input[name=q]'))
+                    .submit()
+                    ;
+  self.remoteClient_.findElement(webdriver.By.css('#search')).then(function(element) {
+    if (!element) {
+      logger.warn('No results returned for %s', searchTerm);
+      return done();
+    }
+
+    self.scrapeSearchResults();
+  });
+}
+
+ReverseScraper.prototype.scrapeSearchResults = function() {
+  var self = this
+    , source = ''
+    ;
+
+  self.remoteClient_.sleep(2500); // page render
+
+  Seq()
+    .seq(function() {
+      self.remoteClient_.getPageSource().then(this.bind(null, null));
+    })
+    .seq(function(source_) {
+      source = source_;
+      self.scrapeLinksFromSource(source, this);
+    })
+    .seq(function(links) {
+      self.emitLinks(links);
+      if (self.checkHasNextPage(source)) {
+        var randomTime = Number.random(self.idleTime_[0], self.idleTime_[1]);
+        setTimeout(this, randomTime * 1000);
+      } else {
+        logger.info('Finished scraping');
+        self.scrapeDoneCallback_(null);
+      }
+    })
+    .seq(function() {
+      self.pageNumber_ += 1;
+      
+      if (self.pageNumber_ > self.maxPages_) {
+        logger.info('Reached maximum number of pages', self.maxPages_);
+        return self.scrapeDoneCallback_();
+      }
+
+      logger.info('Going to next page');
+      self.remoteClient_.findElement(webdriver.By.css('#pnnext')).click().then(this.bind(null, null));
+    })
+    .seq(function() {
+      self.scrapeSearchResults();
+    })
+    .catch(function(err) {
+      self.scrapeDoneCallback_(err);
+    })
+    ;
+}
+
+ReverseScraper.prototype.emitLinks = function(links) {
+  var self = this
+    , points = {
+        engine: self.engineName_,
+        score: MAX_SCRAPER_POINTS,
+        source: 'reverse',
+        message: ''
+      }
+    ;
+
+  links.forEach(function(link){
+    if (link[0] == '/')
+      return;
+
+    self.emit('metaInfringement', link, points);
+  });
+}
+
+ReverseScraper.prototype.scrapeLinksFromSource = function(source, done) {
+  var links = []
+    , $ = cheerio.load(source)
+    ;
+  
+  $('#search').find('#ires').find('#rso').children().each(function () {
+    links.push($(this).find('a').attr('href'));
+  });
+  
+  done(links ? null : new Error('No results for this search term'), links);
+}
+
+ReverseScraper.prototype.checkHasNextPage = function (source) {
+  var $ = cheerio.load(source);
+  if ($('a#pnnext').length < 1) { return false; }
+  return true;
+};
+
 //
 // Overrides
 //
@@ -171,7 +279,7 @@ ReverseScraper.prototype.getName = function() {
 }
 
 ReverseScraper.prototype.getSourceName = function() {
-  return this.engineName_;
+  return 'searchengine.google';
 }
 
 ReverseScraper.prototype.start = function(campaign, job) {
@@ -183,6 +291,8 @@ ReverseScraper.prototype.start = function(campaign, job) {
   self.job_ = job;
 
   self.run();
+
+  self.emit('started');
 }
 
 ReverseScraper.prototype.stop = function() {
