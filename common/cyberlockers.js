@@ -75,7 +75,6 @@ CyberLockers.knownDomains = [
   'filesnack.com',
   'filesocial.com',
   'filestay.com',
-  'filestube.com',
   'fileswap.com',
   'filevelocity.com',
   'firstclass-download.com',
