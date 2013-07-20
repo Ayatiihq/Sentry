@@ -47,7 +47,7 @@ var ReverseScraper = module.exports = function() {
   this.remoteClient_ = null;
   this.idleTime_ = [5, 10];
   this.resultsCount_ = 0;
-  this.maxPages_ = 25;
+  this.maxPages_ = 15;
   this.pageNumber_ = 1;
 
   this.cachedCalls_ = [];
