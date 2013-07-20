@@ -281,6 +281,7 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
 
 Processor.prototype.categorizeInfringement = function(infringement, done) {
   var self = this
+    , domain = utilities.getDomain(infringement.uri)
     , hostname = utilities.getHostname(infringement.uri)
     , meta = infringement.meta
     , uri = infringement.uri
@@ -293,7 +294,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
   } else if (scheme == 'torrent' || scheme == 'magnet') {
     infringement.category = Categories.TORRENT;
   
-  } else if (self.isCyberlocker(uri, hostname)) {
+  } else if (self.isCyberlocker(uri, domain)) {
     infringement.category = Categories.CYBERLOCKER;
   
   } else if (self.isSocialNetwork(uri, hostname)) {
