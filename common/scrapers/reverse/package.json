@@ -6,6 +6,7 @@
     "movie": ".*"
   },
   "engines": [
-    "bittorrent"
+    "bittorrent",
+    "cyberlocker"
   ]
 }
