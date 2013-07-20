@@ -1,0 +1,11 @@
+{
+  "name": "reverse",
+  "main": "./reverse-scraper.js",
+  "types": {
+    "music": ".*",
+    "movie": ".*"
+  },
+  "engines": [
+    "bittorrent"
+  ]
+}
