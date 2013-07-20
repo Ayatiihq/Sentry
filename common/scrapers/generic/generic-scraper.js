@@ -33,7 +33,7 @@ var Generic = module.exports = function () {
 
 util.inherits(Generic, Scraper);
 
-var MAX_SCRAPER_POINTS = 20;
+var MAX_SCRAPER_POINTS = 50;
 var MAX_INFRINGEMENTS = 100;
 
 var safeDomains = blacklist.safeDomains;
