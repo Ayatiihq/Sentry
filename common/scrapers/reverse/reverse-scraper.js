@@ -10,8 +10,9 @@
 
 var acquire = require('acquire')
   , blacklist = acquire('blacklist')
-  , config = acquire('config')
+  , categories = acquire('states').infringements.category
   , cheerio = require('cheerio')
+  , config = acquire('config')
   , database = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('reverse-scraper.js')
@@ -109,7 +110,7 @@ ReverseScraper.prototype.run = function() {
       self.getRunNumber(this);
     })
     .seq(function(runNumber) {
-      self.engine_.getSearchTerm(runNumber, self.infringements_, this);
+      self.engine_.getSearchTerm(runNumber, this);
     })
     .seq(function(searchTerm) {
       if (searchTerm == '') {
@@ -142,7 +143,7 @@ ReverseScraper.prototype.loadEngine = function(done) {
     if (!Klass)
        throw new Error(self.engineName_ +' is not a valid engine name');
 
-    engine = new Klass(self.campaign_, self.job_);
+    engine = new Klass(self.campaign_, self.infringements_);
   } catch (err) {
     err = err;
   }
@@ -315,7 +316,7 @@ var BittorrentScraper = ENGINES['bittorrent'] = function(campaign, infringements
   this.infringements_ = infringements;
 }
 
-BittorrentScraper.prototype.getSearchTerm = function(runNumber, infringements, done) {
+BittorrentScraper.prototype.getSearchTerm = function(runNumber, done) {
   var self = this
     , query = {
         campaign: self.campaign_._id,
@@ -325,11 +326,11 @@ BittorrentScraper.prototype.getSearchTerm = function(runNumber, infringements, d
           $in: [states.VERIFIED, states.SENT_NOTICE, states.TAKEN_DOWN]
         }
       }
-    , project = { _id: 1, uri: 1, parents: 1 }
+    , project = { _id: 1, uri: 1 }
     , sort = { created: 1 }
     ;
 
-  infringements.find(query, project).sort(sort).toArray(function(err, torrents) {
+  self.infringements_.find(query, project).sort(sort).toArray(function(err, torrents) {
     var searchTerm = '';
 
     if (err)
@@ -345,4 +346,60 @@ BittorrentScraper.prototype.getSearchTerm = function(runNumber, infringements, d
 
     done(null, searchTerm);
   });
+}
+
+//
+//
+// CYBERLOCKER SCRAPER
+//
+//
+var CyberlockerScraper = ENGINES['cyberlocker'] = function(campaign, infringements) {
+  this.campaign_ = campaign;
+  this.infringements_ = infringements;
+}
+
+CyberlockerScraper.prototype.getSearchTerm = function(runNumber, done) {
+  var self = this
+    , query = {
+        campaign: self.campaign_._id,
+        category: categories.CYBERLOCKER,
+        'children.count': 0,
+        state: {
+          $in: [states.VERIFIED, states.SENT_NOTICE, states.TAKEN_DOWN]
+        }
+      }
+    , project = { _id: 1, uri: 1 }
+    , sort = { created: 1 }
+    ;
+
+  self.infringements_.find(query, project).sort(sort).toArray(function(err, infringements) {
+    var searchTerm = ''
+      , cyberlockers = self.getDomainList(infringements)
+      ;
+
+    if (err)
+      return done(err);
+
+    if (cyberlockers.length) {
+      var cyberlocker = cyberlockers[runNumber % cyberlockers.length];
+
+      searchTerm = util.format('%s +\"%s\"', self.campaign_.name, cyberlocker);
+    }
+
+    done(null, searchTerm);
+  });
+}
+
+CyberlockerScraper.prototype.getDomainList = function(infringements) {
+  var self = this
+    , domains = {}
+    ;
+
+  infringements.forEach(function(infringement) {
+    var domain = utilities.getDomain(infringement.uri);
+    if (domain)
+      domains[domain] = true;
+  });
+
+  return Object.keys(domains);
 }
