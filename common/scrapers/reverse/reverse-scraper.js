@@ -114,7 +114,7 @@ ReverseScraper.prototype.run = function() {
     .seq(function(searchTerm) {
       if (searchTerm == '') {
         // Probably no valid hits
-        this();
+        return this();
       }
       self.scrape(searchTerm, this);
     })
