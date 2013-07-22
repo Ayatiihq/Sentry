@@ -214,7 +214,9 @@ NoticeSender.prototype.processBatches = function(batches, done) {
 }
 
 NoticeSender.prototype.processBatch = function(batch, done) {
-  var self = this;
+  var self = this
+    , categoryFilters = self.campaign_.metadata.noticeCategoryFilters
+    ;
 
   Seq()
     .seq(function() {
@@ -234,6 +236,10 @@ NoticeSender.prototype.processBatch = function(batch, done) {
       
       } else if (!host.noticeDetails) {
         logger.warn('Host "%s" does not have noticeDetails', batch.key ? batch.key : batch.infringements[0].uri);
+        return done();
+      
+      } else if (categoryFilters && !categoryFilters.some(host.category)) {
+        logger.info('Host %s (%s) does not match allowed noticing categories.', host._id, states.infringements.categoryNames[host.category]);
         return done();
       }
       batch.host = host;

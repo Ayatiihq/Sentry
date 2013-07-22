@@ -37,7 +37,16 @@ exports.infringements = {
     FILE: 3,
     TORRENT: 4,
     SOCIAL: 5
-  }
+  },
+
+  categoryNames: [
+    'Website',
+    'Search Result',
+    'Cyberlocker',
+    'File',
+    'Torrent',
+    'Social'
+  ]
 };
 
 exports.hub = {
