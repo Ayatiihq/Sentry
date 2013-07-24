@@ -20,6 +20,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , CyberLockers = acquire('cyberlockers')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -84,7 +85,7 @@ Verifier.prototype.processJob = function(err, job) {
   self.jobs_.start(job);
   logger.info('%j', job);
 
-  logger.info('Choosing engine');
+  logger.info('Choosing consumer');
 
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
@@ -320,8 +321,6 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
   }, 
   config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
 
-
-
   Seq()
     .seq(function() {
       database.connectAndEnsureCollection('infringements', this);
@@ -350,10 +349,18 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
 }
 
 Verifier.prototype.loadKnownEngines = function(campaign) {
-  var self = this;
-  return [
-    self.torrentEngine.bind(self)
-  ];
+  var self = this
+    , engines = []
+    ;
+
+  //engines.push(self.torrentEngine.bind(self));
+  
+  // Add in the cyberlock engines
+  Object.values(CyberLockers.idMatchers, function(matcher) {
+    engines.push(self.cyberlockerEngine.bind(self, matcher));
+  });
+
+  return engines;
 }
 
 Verifier.prototype.torrentEngine = function(infringements, done) {
@@ -372,7 +379,8 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
                                      scheme: 'torrent',
                                      state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
                                      'children.count': 0
-                                   });
+                                   },
+                                   { uri: 1 });
       cur.toArray(this);
     })
     // From the torrent://foobarbaz, extract the hash for each one
@@ -395,7 +403,8 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
                                      'children.count': 0,
                                      state: { $in: [ iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ] },
                                      uri: new RegExp(hash, 'i')
-                                   });
+                                   },
+                                   { uri: 1 });
       cur.toArray(function(err, results) {
         if (err)
           return that(err);
@@ -414,6 +423,84 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     .seq(function() {
       logger.info('Torrent known id verifier finished');
       done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to complete torrent known id verification: %s', err);
+      done(err);
+    })
+    ;
+}
+
+Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
+  var self = this
+    , verifiedIdObj = {}
+    , verifiedIds = []
+    , needsVerifying = []
+    , iStates = states.infringements.state
+    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
+    ;
+
+  logger.info('Starting %s known id verifier', matcher.domain);
+
+  Seq()
+    // Find verified torrent:// endpoints so we can get a list of hashes
+    .seq(function() {
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     category: states.infringements.category.CYBERLOCKER,
+                                     state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
+                                     'children.count': 0,
+                                     uri: new RegExp(matcher.domain +'\/')
+                                   },
+                                   { uri: 1 });
+      cur.toArray(this);
+    })
+    // Grab the unique id for the cyberlocker upload
+    .seq(function(infringements) {
+      infringements.forEach(function(infringement) {
+        var id = matcher.getId(infringement.uri);
+        if (id)
+          verifiedIdObj[id] = true;
+      });
+      // Just use a object in the middle so we don't search for the same id twice (or more)
+      verifiedIds.add(Object.keys(verifiedIdObj));
+      this();
+    })
+    // Make the array of ids our context
+    .set(verifiedIds)
+    // Now find matching, non verified, infringements for each id
+    .seqEach(function(id) {
+      var that = this
+        , regex = util.format('%s.*%s', matcher.domain, id)
+        ;
+
+      logger.info('Searching for id %s on %s', id, matcher.domain);
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     state: { $in: [ iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ] },
+                                     uri: new RegExp(regex, 'i')
+                                   },
+                                   { uri: 1 });
+      cur.toArray(function(err, results) {
+        if (err)
+          return that(err);
+
+        needsVerifying.add(results);
+        that();
+      });
+    })
+    // Set those as our context
+    .set(needsVerifying)
+    // Go through each one and mark as verified
+    .seqEach(function(infringement) {
+      logger.info('Verifying %s', infringement.uri);
+      self.verifications_.submit(infringement, verification, this);
+    })
+    .seq(function() {
+      logger.info('%s known-id verifier finished', matcher.domain);
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to complete %s known-id verification: %s', matcher.domain, err);
+      done(err);
     })
     ;
 }

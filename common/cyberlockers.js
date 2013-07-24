@@ -189,4 +189,14 @@ CyberLockers.knownDomains = [
   'zuzvideo.com'
 ];
 
+CyberLockers.idMatchers = {
 
+  'videoweed.es': {
+    domain: 'videoweed.es',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{13}/);
+      return id ? id[0] : null;
+    }
+  }
+
+};
