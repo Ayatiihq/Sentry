@@ -16,6 +16,7 @@ var acquire = require('acquire')
   , Seq = require('seq')
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -350,13 +351,71 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
 
 Verifier.prototype.loadKnownEngines = function(campaign) {
   var self = this;
-
-  return [self.torrentEngine.bind(self)];
+  return [
+    self.torrentEngine.bind(self)
+  ];
 }
 
 Verifier.prototype.torrentEngine = function(infringements, done) {
+  var self = this
+    , verifiedhashes = []
+    , needsVerifying = []
+    , iStates = states.infringements.state
+    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
+    ;
+
   logger.info('Starting Torrent engine');
-  done();
+  Seq()
+    // Find verified torrent:// endpoints so we can get a list of hashes
+    .seq(function() {
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     scheme: 'torrent',
+                                     state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
+                                     'children.count': 0
+                                   });
+      cur.toArray(this);
+    })
+    // From the torrent://foobarbaz, extract the hash for each one
+    .seq(function(torrents) {
+      torrents.forEach(function(torrent) {
+        var hash = utilities.getDomain(torrent.uri);
+        if (hash)
+          verifiedhashes.push(hash);
+      });
+      this();
+    })
+    // Make the array of hashes our context
+    .set(verifiedhashes)
+    // For each hash, search for uris that have the hash in them and don't have a final state
+    .seqEach(function(hash) {
+      var that = this;
+
+      logger.info('Searching for hash %s', hash);
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     'children.count': 0,
+                                     state: { $in: [ iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ] },
+                                     uri: new RegExp(hash, 'i')
+                                   });
+      cur.toArray(function(err, results) {
+        if (err)
+          return that(err);
+
+        needsVerifying.add(results);
+        that();
+      });
+    })
+    // Set those as our context
+    .set(needsVerifying)
+    // Go through each one and mark as verified
+    .seqEach(function(infringement) {
+      logger.info('Verifying %s', infringement.uri);
+      self.verifications_.submit(infringement, verification, this);
+    })
+    .seq(function() {
+      logger.info('Torrent known id verifier finished');
+      done();
+    })
+    ;
 }
 
 //
