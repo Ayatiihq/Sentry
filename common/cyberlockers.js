@@ -189,4 +189,63 @@ CyberLockers.knownDomains = [
   'zuzvideo.com'
 ];
 
+CyberLockers.idMatchers = {
 
+  'hostingbulk.com': {
+    domain: 'hostingbulk.com',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{12}/);
+      return id ? id[0] : null;
+    }
+  },
+
+  'movshare.net': {
+    domain: 'movshare.net',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{13}/);
+      return id ? id[0] : null;
+    }
+  },
+
+  'movzap.com': {
+    domain: 'movzap.com',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{12}/);
+      return id ? id[0] : null;
+    }
+  },
+
+  'novamov.com': {
+    domain: 'novamov.com',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{13}/);
+      return id ? id[0] : null;
+    }
+  },
+
+  'nowvideo.eu': {
+    domain: 'nowvideo.eu',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{13}/);
+      return id ? id[0] : null;
+    }
+  },
+
+
+  'vidto.me': {
+    domain: 'vidto.me',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{12}/);
+      return id ? id[0] : null;
+    }
+  },
+
+  'videoweed.es': {
+    domain: 'videoweed.es',
+    getId: function(uri) {
+      var id = uri.match(/[a-zA-Z0-9]{13}/);
+      return id ? id[0] : null;
+    }
+  }
+
+};

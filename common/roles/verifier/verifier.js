@@ -10,14 +10,17 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('verifier.js')
   , Seq = require('seq')
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Campaigns = acquire('campaigns')
+  , CyberLockers = acquire('cyberlockers')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -33,6 +36,8 @@ var Verifier = module.exports = function() {
   this.settings_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
+
+  this.campaign_ = null;
 
   this.started_ = false;
 
@@ -80,22 +85,33 @@ Verifier.prototype.processJob = function(err, job) {
   self.jobs_.start(job);
   logger.info('%j', job);
 
+  logger.info('Choosing consumer');
+
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
       self.emit('error', err);
       return;
     }
 
-    if (job._id.consumer.endsWith('rtl'))
-      self.verifyRTL(campaign, job);
+    self.campaign_ = campaign;
+    var consumer = job._id.consumer;
+
+    if (consumer.has('known-ids'))
+      self.verifyKnownIDs(self.campaign_, job);
+    else if (consumer.has('rtl'))
+      self.verifyRTL(self.campaign_, job);
     else
-      self.verifyLTR(campaign, job);
+      self.verifyLTR(self.campaign_, job);
   });
 }
 
 Verifier.prototype.getCampaignKey = function(campaign) {
   return util.format('%s.%s.%s', campaign.name, campaign.created, 'timestamp');
 }
+
+//
+// RTL Verifications (parent <- child)
+//
 
 Verifier.prototype.verifyRTL = function(campaign, job) {
   var self = this
@@ -215,7 +231,7 @@ Verifier.prototype.updateParentState = function(campaign, endpoint, parentUri, d
 }
 
 //
-// LTR
+// LTR Verifications (parent -> child)
 //
 
 Verifier.prototype.verifyLTR = function(campaign, job) {
@@ -289,6 +305,203 @@ Verifier.prototype.processAllLTRVerifications = function(campaign, done, lastId)
   });
 }
 
+//
+// Known IDs Verifier
+//
+Verifier.prototype.verifyKnownIDs = function(campaign, job) {
+  var self = this
+    , engines = self.loadKnownEngines(campaign)
+    , infringements = null
+    ;
+
+  logger.info('Verifying known torrent and cyberlocker ids');
+
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, 
+  config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+  Seq()
+    .seq(function() {
+      database.connectAndEnsureCollection('infringements', this);
+    })
+    .seq(function(db, collection) {
+      infringements = collection;
+      this();
+    })
+    .set(engines)
+    .seqEach(function(engine) {
+      engine(infringements, this);
+    })
+    .seq(function() {
+      logger.info('Completed verifying known ids');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to mine links for %j: %s', campaign._id, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Verifier.prototype.loadKnownEngines = function(campaign) {
+  var self = this
+    , engines = []
+    ;
+
+  engines.push(self.torrentEngine.bind(self));
+  
+  // Add in the cyberlock engines
+  Object.values(CyberLockers.idMatchers, function(matcher) {
+    engines.push(self.cyberlockerEngine.bind(self, matcher));
+  });
+
+  return engines;
+}
+
+Verifier.prototype.torrentEngine = function(infringements, done) {
+  var self = this
+    , verifiedhashes = []
+    , needsVerifying = []
+    , iStates = states.infringements.state
+    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
+    ;
+
+  logger.info('Starting Torrent engine');
+  Seq()
+    // Find verified torrent:// endpoints so we can get a list of hashes
+    .seq(function() {
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     scheme: 'torrent',
+                                     state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
+                                     'children.count': 0
+                                   },
+                                   { uri: 1 });
+      cur.toArray(this);
+    })
+    // From the torrent://foobarbaz, extract the hash for each one
+    .seq(function(torrents) {
+      torrents.forEach(function(torrent) {
+        var hash = utilities.getDomain(torrent.uri);
+        if (hash)
+          verifiedhashes.push(hash);
+      });
+      this();
+    })
+    // Make the array of hashes our context
+    .set(verifiedhashes)
+    // For each hash, search for uris that have the hash in them and don't have a final state
+    .seqEach(function(hash) {
+      var that = this;
+
+      logger.info('Searching for hash %s', hash);
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     'children.count': 0,
+                                     state: { $in: [ iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ] },
+                                     uri: new RegExp(hash, 'i')
+                                   },
+                                   { uri: 1 });
+      cur.toArray(function(err, results) {
+        if (err)
+          return that(err);
+
+        needsVerifying.add(results);
+        that();
+      });
+    })
+    // Set those as our context
+    .set(needsVerifying)
+    // Go through each one and mark as verified
+    .seqEach(function(infringement) {
+      logger.info('Verifying %s', infringement.uri);
+      self.verifications_.submit(infringement, verification, this);
+    })
+    .seq(function() {
+      logger.info('Torrent known id verifier finished');
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to complete torrent known id verification: %s', err);
+      done(err);
+    })
+    ;
+}
+
+Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
+  var self = this
+    , verifiedIdObj = {}
+    , verifiedIds = []
+    , needsVerifying = []
+    , iStates = states.infringements.state
+    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
+    ;
+
+  logger.info('Starting %s known id verifier', matcher.domain);
+
+  Seq()
+    // Find verified torrent:// endpoints so we can get a list of hashes
+    .seq(function() {
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     category: states.infringements.category.CYBERLOCKER,
+                                     state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
+                                     'children.count': 0,
+                                     uri: new RegExp(matcher.domain +'\/')
+                                   },
+                                   { uri: 1 });
+      cur.toArray(this);
+    })
+    // Grab the unique id for the cyberlocker upload
+    .seq(function(verified) {
+      verified.forEach(function(infringement) {
+        var id = matcher.getId(infringement.uri);
+        if (id)
+          verifiedIdObj[id] = true;
+      });
+      // Just use a object in the middle so we don't search for the same id twice (or more)
+      verifiedIds.add(Object.keys(verifiedIdObj));
+      this();
+    })
+    // Now find matching, non verified, infringements for each id
+    .seq(function() {
+      var cur = infringements.find({ campaign: self.campaign_._id,
+                                     category: states.infringements.category.CYBERLOCKER,
+                                     state: { $in: [iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ]},
+                                     uri: new RegExp(matcher.domain +'\/')
+                                   },
+                                   { uri: 1 });
+      cur.toArray(this);
+    })
+    // See if we can get a match of any of the ids on the unverified list
+    .seq(function(unverified) {
+      unverified.forEach(function(infringement) {
+        var id = matcher.getId(infringement.uri);
+        
+        if (verifiedIds.some(id))
+          needsVerifying.push(infringement);
+      });
+      this();
+    })
+    // Set those as our context
+    .set(needsVerifying)
+    // Go through each one and mark as verified
+    .seqEach(function(infringement) {
+      logger.info('Verifying %s', infringement.uri);
+      self.verifications_.submit(infringement, verification, this);
+    })
+    .seq(function() {
+      logger.info('%s known-id verifier finished', matcher.domain);
+      done();
+    })
+    .catch(function(err) {
+      logger.warn('Unable to complete %s known-id verification: %s', matcher.domain, err);
+      done(err);
+    })
+    ;
+}
 
 //
 // Overrides

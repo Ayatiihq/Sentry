@@ -5,7 +5,8 @@
   },
   "engines": [
     "rtl",
-    "ltr"
+    "ltr",
+    "known-ids"
   ],
-  "intervalMinutes": 5
+  "intervalMinutes": 15
 }
