@@ -10,6 +10,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')
   , events = require('events')
   , logger = acquire('logger').forFile('verifier.js')
   , Seq = require('seq')
@@ -33,6 +34,8 @@ var Verifier = module.exports = function() {
   this.settings_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
+
+  this.campaign_ = null;
 
   this.started_ = false;
 
@@ -80,22 +83,33 @@ Verifier.prototype.processJob = function(err, job) {
   self.jobs_.start(job);
   logger.info('%j', job);
 
+  logger.info('Choosing engine');
+
   self.campaigns_.getDetails(job._id.owner, function(err, campaign) {
     if (err) {
       self.emit('error', err);
       return;
     }
 
-    if (job._id.consumer.endsWith('rtl'))
-      self.verifyRTL(campaign, job);
+    self.campaign_ = campaign;
+    var consumer = job._id.consumer;
+
+    if (consumer.has('known-ids'))
+      self.verifyKnownIDs(self.campaign_, job);
+    else if (consumer.has('rtl'))
+      self.verifyRTL(self.campaign_, job);
     else
-      self.verifyLTR(campaign, job);
+      self.verifyLTR(self.campaign_, job);
   });
 }
 
 Verifier.prototype.getCampaignKey = function(campaign) {
   return util.format('%s.%s.%s', campaign.name, campaign.created, 'timestamp');
 }
+
+//
+// RTL Verifications (parent <- child)
+//
 
 Verifier.prototype.verifyRTL = function(campaign, job) {
   var self = this
@@ -215,7 +229,7 @@ Verifier.prototype.updateParentState = function(campaign, endpoint, parentUri, d
 }
 
 //
-// LTR
+// LTR Verifications (parent -> child)
 //
 
 Verifier.prototype.verifyLTR = function(campaign, job) {
@@ -289,6 +303,61 @@ Verifier.prototype.processAllLTRVerifications = function(campaign, done, lastId)
   });
 }
 
+//
+// Known IDs Verifier
+//
+Verifier.prototype.verifyKnownIDs = function(campaign, job) {
+  var self = this
+    , engines = self.loadKnownEngines(campaign)
+    , infringements = null
+    ;
+
+  logger.info('Verifying known torrent and cyberlocker ids');
+
+  self.touchId_ = setInterval(function() {
+    self.jobs_.touch(job);
+  }, 
+  config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+
+
+  Seq()
+    .seq(function() {
+      database.connectAndEnsureCollection('infringements', this);
+    })
+    .seq(function(db, collection) {
+      infringements = collection;
+      this();
+    })
+    .set(engines)
+    .seqEach(function(engine) {
+      engine(infringements, this);
+    })
+    .seq(function() {
+      logger.info('Completed verifying known ids');
+      self.jobs_.complete(job);
+      clearInterval(self.touchId_);
+      self.emit('finished');
+    })
+    .catch(function(err) {
+      logger.warn('Unable to mine links for %j: %s', campaign._id, err);
+      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      clearInterval(self.touchId_);
+      self.emit('error', err);
+    })
+    ;
+}
+
+Verifier.prototype.loadKnownEngines = function(campaign) {
+  var self = this;
+
+  return [self.torrentEngine.bind(self)];
+}
+
+Verifier.prototype.torrentEngine = function(infringements, done) {
+  logger.info('Starting Torrent engine');
+  done();
+}
 
 //
 // Overrides
