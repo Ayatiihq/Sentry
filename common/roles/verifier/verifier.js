@@ -353,7 +353,7 @@ Verifier.prototype.loadKnownEngines = function(campaign) {
     , engines = []
     ;
 
-  //engines.push(self.torrentEngine.bind(self));
+  engines.push(self.torrentEngine.bind(self));
   
   // Add in the cyberlock engines
   Object.values(CyberLockers.idMatchers, function(matcher) {
@@ -455,8 +455,8 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
       cur.toArray(this);
     })
     // Grab the unique id for the cyberlocker upload
-    .seq(function(infringements) {
-      infringements.forEach(function(infringement) {
+    .seq(function(verified) {
+      verified.forEach(function(infringement) {
         var id = matcher.getId(infringement.uri);
         if (id)
           verifiedIdObj[id] = true;
@@ -465,27 +465,25 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
       verifiedIds.add(Object.keys(verifiedIdObj));
       this();
     })
-    // Make the array of ids our context
-    .set(verifiedIds)
     // Now find matching, non verified, infringements for each id
-    .seqEach(function(id) {
-      var that = this
-        , regex = util.format('%s.*%s', matcher.domain, id)
-        ;
-
-      logger.info('Searching for id %s on %s', id, matcher.domain);
+    .seq(function() {
       var cur = infringements.find({ campaign: self.campaign_._id,
-                                     state: { $in: [ iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ] },
-                                     uri: new RegExp(regex, 'i')
+                                     category: states.infringements.category.CYBERLOCKER,
+                                     state: { $in: [iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ]},
+                                     uri: new RegExp(matcher.domain +'\/')
                                    },
                                    { uri: 1 });
-      cur.toArray(function(err, results) {
-        if (err)
-          return that(err);
-
-        needsVerifying.add(results);
-        that();
+      cur.toArray(this);
+    })
+    // See if we can get a match of any of the ids on the unverified list
+    .seq(function(unverified) {
+      unverified.forEach(function(infringement) {
+        var id = matcher.getId(infringement.uri);
+        
+        if (verifiedIds.some(id))
+          needsVerifying.push(infringement);
       });
+      this();
     })
     // Set those as our context
     .set(needsVerifying)
