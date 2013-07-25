@@ -244,6 +244,7 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
 }
 
 Mediafire.prototype.finish = function(){
+  var self = this;
   if(self.remoteClient)
     remoteClient.quit();
 }
