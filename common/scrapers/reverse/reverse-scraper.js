@@ -247,7 +247,7 @@ ReverseScraper.prototype.emitLinks = function(links) {
     ;
 
   links.forEach(function(link){
-    if (link[0] == '/')
+    if (link && link[0] == '/')
       return;
 
     self.emit('metaInfringement', link, points);
