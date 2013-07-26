@@ -9,7 +9,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , execFile = require('child_process').execFile
+  , downloads = acquire('downloads')
   , fs = require('fs')
   , knox = require('knox')
   , logger = acquire('logger').forFile('storage.js')
@@ -68,25 +68,6 @@ Storage.prototype.getContainerName = function() {
   return this.container_;
 }
 
-Storage.prototype.uploadLargeFile = function(name, filename, options, callback) {
-  var self = this
-    , child
-    , cmd = path.join(process.cwd(), './bin/upload-large-file-to-azure.py')
-    , args = [self.container_, name, filename]
-    ;
-
-  child = execFile(cmd, args, function(err, stdout, stderr) {
-    var success = false;
-    try {
-      success = JSON.parse(stdout).success;
-    } catch(e) {
-      success = false;
-    }
-
-    callback(success ? null : err || stderr || stdout || 'unknown issue with upload script');
-  });
-}
-
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already exists.
  *
@@ -133,19 +114,50 @@ Storage.prototype.createFromText = function(name, text, options, callback) {
  * @param  {function(err)}     callback           A callback to receive an err, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromFile = function(name, filename, options, callback) {
-  var self = this;
+Storage.prototype.createFromFile = function(name, filepath, options, callback) {
+  var self = this
+    , headers = self.defaultHeaders_
+    , objPath = util.format('/%s/%s', self.container_, name)
+    ;
 
   callback = callback ? callback : defaultCallback;
 
+  Seq()
+    .seq(function() {
+      downloads.getFileMimeType(filepath, this);
+    })
+    .seq(function(mimetype) {
+      headers['Content-Type'] = mimetype;
+      
+      fs.stat(filepath, this);
+    })
+    .seq(function(stat) {
+      headers['Content-Length'] = stat.size;
+      if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {
+        this();
 
+      } else {
+        self.client_.putFile(filepath, objPath, headers, this);
+      }
+    })
+    .seq(function() {
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
+
+/*
   fs.stat(filename, function(err, stat) {
     if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {
       self.uploadLargeFile(name, filename, options, callback);    
+    
     } else {
       self.blobService_.createBlockBlobFromFile(self.container_, name, filename, callback);
     }
   });
+*/
 }
 
 /*

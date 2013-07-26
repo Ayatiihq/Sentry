@@ -48,7 +48,9 @@ function main() {
   }
 
   if (action === 'createFromFile') {
-    storage.createFromFile(arg0, arg1, {}, log.bind(null, fmt('https://qarth.s3.amazonaws.com/%s/%s', collection, arg0)));
+    storage.createFromFile(arg0, arg1, {}, function(err) {
+      log(err, fmt('https://qarth.s3.amazonaws.com/%s/%s', collection, arg0));
+    });
   }
 
   // node ./tools/test-storage.js createFromURL torrent testShortener http://bit.ly/Z4buW2
