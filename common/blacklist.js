@@ -51,6 +51,7 @@ Blacklist.safeDomains = [
   , 'india-forums.com'
   , 'indicine.com'
   , 'intoday.in'
+  , 'in.reuters.com'
   , 'itunes.apple.com'
   , 'kexp.org'
   , 'koimoi.com'
