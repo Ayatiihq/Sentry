@@ -128,13 +128,21 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
     })
     .seq(function(mimetype) {
       headers['Content-Type'] = mimetype;
-      
+
       fs.stat(filepath, this);
     })
     .seq(function(stat) {
       headers['Content-Length'] = stat.size;
-      if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {
-        this();
+      
+      if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {       
+        var upload = new MultipartUpload({
+            client: self.client_,
+            objectName: objPath,
+            file: filepath,
+            batchSize: 5
+          },
+          this);
+        upload.on('uploaded', function(info) { logger.info('Uploaded part %d of %s', info.part, filepath); });
 
       } else {
         self.client_.putFile(filepath, objPath, headers, this);
@@ -147,17 +155,6 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
       callback(err);
     })
     ;
-
-/*
-  fs.stat(filename, function(err, stat) {
-    if (stat.size > MAX_SINGLE_UPLOAD_SIZE) {
-      self.uploadLargeFile(name, filename, options, callback);    
-    
-    } else {
-      self.blobService_.createBlockBlobFromFile(self.container_, name, filename, callback);
-    }
-  });
-*/
 }
 
 /*
