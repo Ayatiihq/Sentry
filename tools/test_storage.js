@@ -7,6 +7,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , fmt = require('util').format
   , fs = require('fs')
   , logger = acquire('logger')
   , sugar = require('sugar')
@@ -43,17 +44,17 @@ function main() {
   var storage = new Storage(collection);
 
   if (action === 'createFromText') {
-    storage.createFromText(arg0, arg1, false, log);
+    storage.createFromText(arg0, arg1, {}, log);
   }
 
   if (action === 'createFromFile') {
-    storage.createFromFile(arg0, arg1, false, log.bind(null, 'http://goldrush.blob.core.windows.net/media/' + arg0));
+    storage.createFromFile(arg0, arg1, {}, log.bind(null, fmt('https://qarth.s3.amazonaws.com/%s/%s', collection, arg0)));
   }
 
   // node ./tools/test-storage.js createFromURL torrent testShortener http://bit.ly/Z4buW2
   // and then check goldrush blobl storage under 'torrent'
   if (action === 'createFromURL') {
-    storage.createFromURL(arg0, arg1, false, log);
+    storage.createFromURL(arg0, arg1, {}, log);
   }
 
   if (action === 'getToText') {

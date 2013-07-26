@@ -8,10 +8,10 @@
  */
 
 var acquire = require('acquire')
-  , azure = require('azure')
   , config = acquire('config')
   , execFile = require('child_process').execFile
   , fs = require('fs')
+  , knox = require('knox')
   , logger = acquire('logger').forFile('storage.js')
   , path = require('path')
   , sugar = require('sugar')
@@ -19,9 +19,10 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var Seq = require('seq');
+var MultipartUpload = require('knox-mpu')
+  , Seq = require('seq');
 
-var MAX_SINGLE_UPLOAD_SIZE = 17 * 1024 * 1024; // As per my tests
+var MAX_SINGLE_UPLOAD_SIZE = 99 * 1024 * 1024; // As per my tests
 
 /**
  * Wraps the blob storage.
@@ -30,10 +31,10 @@ var MAX_SINGLE_UPLOAD_SIZE = 17 * 1024 * 1024; // As per my tests
  * @return {object}
  */
 var Storage = module.exports = function(container) {
-  this.blobService_ = null;
+  this.client_ = null;
   this.container_ = container;
 
-  this.cachedCalls_ = [];
+  this.defaultHeaders_ = {};
 
   this.init();
 }
@@ -41,20 +42,13 @@ var Storage = module.exports = function(container) {
 Storage.prototype.init = function() {
   var self = this;
 
-
-  var service = azure.createBlobService(config.AZURE_CORE_ACCOUNT,
-                                              config.AZURE_CORE_KEY);
-  service.createContainerIfNotExists(self.container_, { publicAccessLevel: 'blob' }, function(err) {
-    if (err)
-      return logger.warn('Unable to create container %s: %s', self.container_, err);
-
-    self.blobService_ = service;
-
-    self.cachedCalls_.forEach(function(call) {
-      call[0].apply(self, call[1]);
-    });
-    self.cachedCalls_ = [];
+  self.client_ = knox.createClient({
+      key: config.AWS_KEY
+    , secret: config.AWS_SECRET
+    , bucket: config.AWS_BUCKET
   });
+
+  self.defaultHeaders_ = { 'x-amz-acl': 'public-read' };
 }
 
 function defaultCallback(err) {
@@ -104,14 +98,27 @@ Storage.prototype.uploadLargeFile = function(name, filename, options, callback) 
  * @return {undefined}
  */
 Storage.prototype.createFromText = function(name, text, options, callback) {
-  var self = this;
-
-  if (!self.blobService_)
-    return self.cachedCalls_.push([self.createFromText, Object.values(arguments)]);
+  var self = this
+    , headers = self.defaultHeaders_
+    , objPath = util.format('/%s/%s', self.container_, name)
+    ;
 
   callback = callback ? callback : defaultCallback;
 
-  self.blobService_.createBlockBlobFromText(self.container_, name, text, callback);
+  headers['Content-Length'] = text.length;
+  headers['Content-Type'] = options['Content-Type'] || 'text/plain';
+  
+  var req = self.client_.put(objPath, headers);
+  req.on('response', function(res) {
+    if (res.statusCode == 200)
+      return callback();
+
+    callback(new Error('Text upload failed with status code %d', res.statusCode));
+  });
+  req.on('error', function(err) {
+    callback(new Error('Text upload failed: %s', err));
+  });
+  req.end(text);
 }
 
 
@@ -128,9 +135,6 @@ Storage.prototype.createFromText = function(name, text, options, callback) {
  */
 Storage.prototype.createFromFile = function(name, filename, options, callback) {
   var self = this;
-
-  if (!self.blobService_)
-    return self.cachedCalls_.push([self.createFromFile, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
@@ -159,34 +163,47 @@ Storage.prototype.createFromURL = function(name, url, options, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
-  if (!self.blobService_)
-    return self.cachedCalls_.push([self.createFromURL, Object.values(arguments)]);
-
   utilities.request(url, options, function(err, res, body) {
     if (err)
       return callback(err);
+
+    options['Content-Type'] = res.headers['content-type'];
 
     self.createFromText(name, body, options, callback);
   });
 }
 
 /*
- * Create a new file in storage from a URL, optionally overwrite an existing one.
+ * Get a file from storage as text
  *
- * @param  {string}           name                 The content's name.
- * @param  {object}           options              The options object.
- * @param  {function(err)}    callback             A callback to receive an error, if one occurs.
+ * @param  {string}                name                 The content's name.
+ * @param  {object}                options              The options object.
+ * @param  {function(err,text)}    callback             A callback to receive an error, if one occurs.
  * @return {undefined}
  */
 Storage.prototype.getToText = function(name, options, callback) {
-  var self = this;
+  var self = this
+    , objPath = util.format('/%s/%s', self.container_, name)
+    ;
+  
   callback = callback ? callback : defaultCallback;
 
-  if (!self.blobService_)
-    return self.cachedCalls_.push([self.getToText, Object.values(arguments)]);
+  self.client_.getFile(objPath, function(err, res) {
+    var data = '';
 
-  self.blobService_.getBlobToText(self.container_, name, options, function(err, text) {
-    callback(err, text);
+    if (err)
+      return callback(err);
+
+    if (res.statusCode != 200)
+      return callback(new Error('Cannot get file %s: Unknown status code %d', objPath, res.statusCode));
+
+    res.setEncoding('utf-8');
+    res.on('data', function(chunk) {
+      data += chunk;
+    });
+    res.on('end', function() {
+      callback(null, data);
+    });
   });
 }
 
@@ -199,7 +216,7 @@ Storage.prototype.getToText = function(name, options, callback) {
  */
 Storage.prototype.getURL = function(name) {
   var self = this
-    , template = 'http://goldrush.blob.core.windows.net/%s/%s'
+    , template = 'https://qarth.s3.amazonaws.com/%s/%s'
     ;
 
   return util.format(template, self.container_, name);
