@@ -49,6 +49,7 @@ Blacklist.safeDomains = [
   , 'flipkart.com'
   , 'imdb.com'
   , 'india-forums.com'
+  , 'in.reuters.com'
   , 'indicine.com'
   , 'intoday.in'
   , 'itunes.apple.com'
