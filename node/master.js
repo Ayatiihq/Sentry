@@ -170,10 +170,24 @@ Master.prototype.loop = function() {
   if (!self.connected_ ||
       self.hubState_ === hubStates.PAUSING ||
       self.hubState_ === hubStates.PAUSED ||
-      self.hubState_ === hubStates.NEEDS_UPDATE ||
-      self.nodeState_ === nodeStates.PAUSING ||
+      self.hubState_ === hubStates.NEEDS_UPDATE) {
+    logger.info('Hub not ready');
+    
+    if (!self.connected_) {
+      self.noConnectionCount_ += 1;
+      if (self.noConnectionCount_ > 5) {
+        logger.warn('Haven\'t been able to connection to Hub for 5 minutes, restarting');
+        process.exit(1);
+      }
+    } else {
+      self.noConnectionCount_ = 0;
+    }
+    return;
+  }
+
+  if (self.nodeState_ === nodeStates.PAUSING ||
       self.nodeState_ === nodeStates.PAUSED) {
-    logger.info('Hub/Node not ready');
+    logger.info('Node not ready, state: %s', self.nodeState_ === nodeStates.PAUSING ? 'Pausing' : 'Paused');
     return;
   }
 
