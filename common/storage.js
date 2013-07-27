@@ -9,7 +9,6 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , downloads = acquire('downloads')
   , fs = require('fs')
   , knox = require('knox')
   , logger = acquire('logger').forFile('storage.js')
@@ -19,7 +18,8 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var MultipartUpload = require('knox-mpu')
+var Downloads = acquire('downloads')
+  , MultipartUpload = require('knox-mpu')
   , Seq = require('seq');
 
 var MAX_SINGLE_UPLOAD_SIZE = 99 * 1024 * 1024; // As per my tests
@@ -124,7 +124,7 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
 
   Seq()
     .seq(function() {
-      downloads.getFileMimeType(filepath, this);
+      Downloads.getFileMimeType(filepath, this);
     })
     .seq(function(mimetype) {
       headers['Content-Type'] = mimetype;
@@ -208,7 +208,7 @@ Storage.prototype.getToText = function(name, options, callback) {
 
     res.setEncoding('utf-8');
     res.on('data', function(chunk) {
-      data += chunk;
+      data += chunk
     });
     res.on('end', function() {
       callback(null, data);
