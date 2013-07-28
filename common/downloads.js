@@ -280,24 +280,7 @@ Downloads.prototype.addLocalFile = function(infringement, filepath, started, fin
  * @return {undefined}
  */
 Downloads.getFileMimeType = function(filepath, callback) {
-  var mimetype = '';
-
-  Seq()
-    .seq(function() {
-      exec('file --mime-type ' + filepath, this);
-    })
-    .seq(function(stdout) {
-      mimetype = stdout.split(' ')[1];
-      exec('xdg-mime query filetype ' + filepath, this);
-    })
-    .seq(function(stdout) {
-      mimetype = stdout;
-      callback(null, mimetype.compact());
-    })
-    .catch(function(err) {
-      callback(mimetype == '' ? err : null, mimetype.compact());
-    })
-    ;
+  utilities.getFileMimeType(filepath, callback);
 }
 
 /**

@@ -18,8 +18,7 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var Downloads = acquire('downloads')
-  , MultipartUpload = require('knox-mpu')
+var MultipartUpload = require('knox-mpu')
   , Seq = require('seq');
 
 var MAX_SINGLE_UPLOAD_SIZE = 99 * 1024 * 1024; // As per my tests
@@ -124,7 +123,7 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
 
   Seq()
     .seq(function() {
-      Downloads.getFileMimeType(filepath, this);
+      utilities.getFileMimeType(filepath, this);
     })
     .seq(function(mimetype) {
       headers['Content-Type'] = mimetype;

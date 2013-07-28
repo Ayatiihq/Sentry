@@ -602,3 +602,31 @@ Utilities.uriHasPath = function(uri) {
   }
   return ret;
 }
+
+/**
+ * Find the mimetype of the file as best as possible using different tools.
+ *
+ * @param  {string}                    filepath    The file to test.
+ * @param  {function(err,mimetype)}    callback    A callback to receive the mimetype, or an error.
+ * @return {undefined}
+ */
+Utilities.getFileMimeType = function(filepath, callback) {
+  var mimetype = '';
+
+  Seq()
+    .seq(function() {
+      exec('file --mime-type ' + filepath, this);
+    })
+    .seq(function(stdout) {
+      mimetype = stdout.split(' ')[1];
+      exec('xdg-mime query filetype ' + filepath, this);
+    })
+    .seq(function(stdout) {
+      mimetype = stdout;
+      callback(null, mimetype.compact());
+    })
+    .catch(function(err) {
+      callback(mimetype == '' ? err : null, mimetype.compact());
+    })
+    ;
+}
