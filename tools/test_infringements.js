@@ -21,6 +21,22 @@ function setupSignals() {
   });
 }
 
+function parseObject(arg) {
+  var ret = arg;
+  try {
+    ret = require(arg);
+  } catch (err) {
+    if (arg.endsWith('.json'))
+      console.error(err);
+    try {
+      ret = JSON.parse(arg);
+    } catch (err) { 
+      console.log(err); 
+    }
+  }
+  return ret;
+}
+
 function log(err) {
   if (err)
     console.warn(err);
@@ -108,6 +124,12 @@ function main() {
   if (action === 'getNeedsDownloadForCampaign') {
     var campaign = require(argv[3]);
     infringements.getNeedsDownloadForCampaign(campaign, Number(argv[4]), log);
+  }
+  if (action === 'setMetadata') {
+    var infringement = parseObject(argv[3]);
+    var key = 'MatchedTracks';
+    var value = ['matchedTrack-1.mp3', 'matchedTrack-2.mp3'];
+    infringements.setMetadata(infringement, key, value);  
   }
 }
 

@@ -746,7 +746,6 @@ Infringements.prototype.touch = function(infringement) {
 
 /**
  * Update the metadata on the infringement with the new key value pair.
- *
  * @infringement {object}   The infringement to update
  * @key {string} key which to add to the metaData property
  * @value {object} value for the new key
@@ -757,6 +756,7 @@ Infringements.prototype.setMetadata = function(infringement, key, value, callbac
   var self = this;
   tempMetadata = infringement.metadata ? infringement.metadata : {};
   tempMetadata.key = value;
+ 
   callback = callback ? callback : defaultCallback;
 
   self.infringements_.update({ _id: infringement._id },
