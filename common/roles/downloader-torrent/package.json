@@ -3,5 +3,6 @@
   "main": "./downloader-torrent.js",
   "dependencies": {},
   "intervalMinutes": 5,
-  "longRunning": true
+  "longRunning": true,
+  "unique": true
 }
