@@ -29,7 +29,7 @@ function main() {
 
   var capacitor = new FluxCapacitor();
   setTimeout(function() {
-    capacitor.getWork(function(work) {
+    capacitor.getWork(JSON.parse(process.argv[2]), function(work) {
       console.log(work);
     });
   }, 1000 * 2);

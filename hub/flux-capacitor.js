@@ -18,7 +18,6 @@ var Dependencies = require('./dependencies')
   , Seq = require('seq')
   ;
 
-
 var FluxCapacitor = module.exports = function() {
   this.dependencies_ = null;
   this.roles_ = null;
@@ -91,14 +90,44 @@ FluxCapacitor.prototype.getRoleDependenciesAvailable = function(role, callback) 
 //
 // Public
 //
-FluxCapacitor.prototype.getWork = function(callback) {
+FluxCapacitor.prototype.getWork = function(nodeState, callback) {
   var self = this
     , roles = self.roles_.getRoles()
+    , nodeState = nodeState || { runningRoles: [] }
     ;
 
   callback = callback ? callback : function() {};
 
   Seq(roles)
+    // Filter out those that the node can't handle
+    .parFilter(function(role) {
+      var keep = true;
+      
+      if (nodeState.excludeRoles && nodeState.excludeRoles.some(role.name)) {
+        logger.info('Node excludes %s', role.name);
+        keep = false;
+      }
+
+      if (nodeState.includeRoles && !nodeState.includeRoles.some(role.name)) {
+        logger.info('Node ignores %s', role.name);
+        keep = false;
+      }
+
+      this(null, keep);
+    })
+    // Filter out unique roles
+    .parFilter(function(role) {
+      var keep = true;
+
+      if (role.unique) {
+        if (nodeState.runningRoles.some(role.name)) {
+          logger.info('Role %s ignored as already running on this node and is unique', role.name);
+          keep = false;
+        }
+      }
+
+      this(null, keep);
+    })
     // Filter out those without work to do
     .parFilter(function(role) {
       var that = this;
