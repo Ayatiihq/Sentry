@@ -116,8 +116,13 @@ config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_PROXY_C
 config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
 
 // AWS
-config.AWS_KEY = getEnv(env.AWS_KEY, 'AKIAJ5FEXAYDYSTM2DMQ');
+config.AWS_KEY = getEnv(env.SENTRY_AWS_KEY, 'AKIAJ5FEXAYDYSTM2DMQ');
 
-config.AWS_SECRET = getEnv(env.AWS_SECRET, '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');
+config.AWS_SECRET = getEnv(env.SENTRY_AWS_SECRET, 'L+gbibcc64DzwqXnt8whbF1yWQzWMpeJP1mSbFoU');
 
-config.AWS_BUCKET = getEnv(env.AWS_BUCKET, 'qarth');
+config.AWS_BUCKET = getEnv(env.SENTRY_AWS_BUCKET, 'qarth');
+
+// Torrent
+config.RTORRENT_HOST = getEnv(env.SENTRY_RTORRENT_HOST, 'localhost');
+
+config.RTORRENT_PORT = getEnv(env.SENTRY_RTORRENT_PORT, '5000');

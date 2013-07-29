@@ -9,6 +9,7 @@
  */
 require('sugar');
 var acquire = require('acquire')
+  , config = acquire('config')
   , Promise = require('node-promise')
   , events = require('events')
   , fs = require('fs')
@@ -32,8 +33,8 @@ var errorCodes = module.exports.errorCodes = {
 
 var EXTRADEBUG = false; // if this is on in a merge request, yell at me. 
 
-var RPCHOST = 'localhost';
-var RPCPORT = 80
+var RPCHOST = config.RTORRENT_HOST;
+var RPCPORT = config.RTORRENT_PORT;
 var POLLDELAY = 5;
 var magnetMatch = XRegExp('xt=urn:btih:(?<infohash>[0-9a-h]+)[$&]', 'gix'); // global, ignore case, free spacing 
 var MAXNOPROGRESSTIME = 10 * 60;
