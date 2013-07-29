@@ -621,11 +621,11 @@ Utilities.getFileMimeType = function(filepath, callback) {
 
   Seq()
     .seq(function() {
-      exec('file --mime-type ' + filepath, this);
+      exec('file --mime-type "' + filepath + '"', this);
     })
     .seq(function(stdout) {
       mimetype = stdout.split(' ')[1];
-      exec('xdg-mime query filetype ' + filepath, this);
+      exec('xdg-mime query filetype "' + filepath + '"', this);
     })
     .seq(function(stdout) {
       mimetype = stdout;
