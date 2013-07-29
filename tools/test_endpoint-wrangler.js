@@ -2,6 +2,7 @@
 var acquire = require('acquire')
   , Wrangler = acquire('endpoint-wrangler').Wrangler
   , rulesDownloadsMusic = acquire('wrangler-rules').rulesDownloadsMusic;
+  , rulesLiveTV = acquire('wrangler-rules').rulesLiveTV;
 
 var testWrangler = function () {
   var self = this;
@@ -18,13 +19,6 @@ var testWrangler = function () {
     console.log(error);
   });
 
-  /* we add the scrapersLiveTV scraper collection to the wrangler, this is a collection of scrapers, 
-   * as of right now it is defined as:
-   
-      module.exports.scrapersLiveTV = [module.exports.scraperEmbed,
-                                       module.exports.scraperObject,
-                                       module.exports.scraperRegexStreamUri];
-   */
   this.wrangler.addRule(rulesDownloadsMusic);
 
   /* the page we search on 
