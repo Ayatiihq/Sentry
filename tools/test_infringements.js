@@ -127,7 +127,7 @@ function main() {
   }
   if (action === 'setMetadata') {
     var infringement = parseObject(argv[3]);
-    var key = 'MatchedTracks';
+    var key = 'matchedTracks';
     var value = ['matchedTrack-1.mp3', 'matchedTrack-2.mp3'];
     infringements.setMetadata(infringement, key, value);  
   }
