@@ -212,7 +212,7 @@ Socket.prototype.getWork = function(socket, message, reply) {
   if (self.state_ !== states.hub.state.RUNNING)
     return reply();
 
-  self.fluxCapacitor_.getWork(function(work) {
+  self.fluxCapacitor_.getWork(message.nodeState, function(work) {
     reply(work);
   });
 }

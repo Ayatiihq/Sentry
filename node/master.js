@@ -210,9 +210,8 @@ Master.prototype.getSomeWork = function() {
   // Stagger requests for work
   setTimeout(function() {
 
-    // FIXME: Normally msg would contain any limitations of this node
-    // such as which roles it can execute, we don't support that
-    // right now as all nodes are equal.
+    msg.nodeState = self.getNodeState();
+
     logger.info('Asking Hub for some work to do');
     self.hub_.emit('getWork', msg, function(work) {
       if (!work) {
@@ -272,4 +271,20 @@ Master.prototype.printWorkers = function() {
     logger.info('Worker %s is a %j. Running for %s minutes',
                 worker.id, worker.work, Date.create().minutesSince(worker.created));
   });
+}
+
+Master.prototype.getNodeState = function() {
+  var self = this
+    , ret = {}
+    ;
+
+  ret.excludeRoles = config.EXCLUDE_ROLES;
+  ret.includeRoles = config.INCLUDE_ROLES;
+
+  ret.runningRoles = [];
+  Object.values(cluster.workers, function(worker) {
+    runningRoles.push(worker.work.rolename);
+  });
+
+  return ret;
 }
