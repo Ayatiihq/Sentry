@@ -116,7 +116,7 @@ MusicVerifier.prototype.examineResults = function(){
   var success;
   // Update the DB with the matched tracks (regardless of what we decide on below)
   var matchedCombined = self.infringement.metadata.matchedTracks ? self.infringement.metadata.matchedTracks.union(matchedTracks) : matchedTracks;
-  self.infringements.setMeta(self.infringement, 'matchedTracks', matchedCombined);
+  self.infringements.setMetadata(self.infringement, 'matchedTracks', matchedCombined);
   // At this point if we have more than 1 track which matched successfully we want to make sure the delta between the scores
   // is greater than 0.2 inorder to be confident that we have a genuine match. Deltas which are less than 0.2 indicate a very
   // inaccurate and fuzzy resultset => mark unsuccessfull
