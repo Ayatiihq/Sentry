@@ -41,6 +41,7 @@ FourShared.prototype.createURI = function(uri){
 
 FourShared.prototype.authenticate = function(){
   var self  = this;
+  var promise = new Promise.Promise();
 
   if(self.remoteClient){
     logger.info('We have an active 4shared session already - assume we are logged in already');
@@ -49,16 +50,31 @@ FourShared.prototype.authenticate = function(){
     return promise;
   }
   self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
-  self.remoteClient.get('http://www.4shared.com/login.jsp');
-  self.remoteClient.findElement(webdriver.By.css('#loginfield'))
-    .sendKeys('conor@ayatii.com');
-  self.remoteClient.findElement(webdriver.By.css('#passfield'))
-    .sendKeys('ayatiian');
-  // xpath generated from firebug (note to self use click and not submit for such forms,
-  // submit was not able to highlight the correct input element).
-  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
+  self.remoteClient.get('http://www.4shared.com');
+  self.remoteClient.sleep(5000);
+  self.remoteClient.findElement(webdriver.By.css('div[class="llink textlink sprite1 gaClick"]')).click();
+  self.remoteClient.isElementPresent(webdriver.By.css(".jsInputLogin")).then(function(present){
+    if(present){
+      self.remoteClient.findElement(webdriver.By.css(".jsInputLogin"))
+      .sendKeys('conor@ayatii.com');
+      self.remoteClient.findElement(webdriver.By.css('.jsInputPassword'))
+      .sendKeys('ayatiian');
+      self.remoteClient.findElement(webdriver.By.css('input[class="submit-light round4 gaClick"]')).click().then(function(){
+        self.remoteClient.sleep(5000);
+        promise.resolve();        
+      });        
+    }
+    else{
+      logger.info('cant find the login field');
+      promise.reject(new Error('login field not present'));
+    }
+  },
+  function(err){
+     promise.reject(err);
+  });
+  return promise;
 }
 
 FourShared.prototype.investigate = function(infringement, pathToUse, done){

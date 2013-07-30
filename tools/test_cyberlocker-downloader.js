@@ -78,7 +78,7 @@ function oneAtaTime(results, cyberlocker){
 }
 
 function fetchRegex(downloader){
-  var domains = {'fourshared': /4shared\.com/g, 
+  var domains = {'4shared': /4shared\.com/g, 
                  'mediafire': /mediafire\.com/g,
                  'sharebeast': /sharebeast\.com/g,
                  'rapidshare': /rapidshare\.com/g,
