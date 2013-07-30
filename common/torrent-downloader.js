@@ -344,7 +344,7 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
 
     // wait until we find the infohash of this torrent in rtorrent, then tell it to set a directory and start
     self.waitUntilFound(infohash).then(function () {
-      self.callMethod('d.set_directory', infohash, downloadDir).then(function () {
+      self.callMethod('d.set_directory_base', infohash, downloadDir).then(function () {
         self.callMethod('d.start', infohash).then(function () {
           self.callMethod('d.open', infohash);
         });

@@ -4,5 +4,8 @@
   "dependencies": {},
   "intervalMinutes": 5,
   "longRunning": true,
-  "unique": true
+  "unique": true,
+  "types": {
+    "music": ".*"
+  }
 }

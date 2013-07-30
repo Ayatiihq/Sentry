@@ -274,13 +274,13 @@ Utilities.followRedirects = function(links, promise) {
     var circularCheck = results.some(redirect.toString()); 
 
     if(circularCheck){
-      logger.info('clocked a circular reference - finish up');
+      //logger.info('clocked a circular reference - finish up');
       thePromise.resolve(results);
     }
     else{
       // push this link into our results  
       results.push(redirect.toString());
-      logger.info('request redirect location : ' + redirect.toString());
+      //logger.info('request redirect location : ' + redirect.toString());
       // go again.
       Utilities.followRedirects(results, thePromise);
     }

@@ -457,5 +457,11 @@ module.exports.rulesDownloadsMovie = [
 ];
 
 module.exports.typeExtensions = {
-  'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
+    'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
+  , 'movie': [].include(videoExtensions).include(p2pExtensions).include(archiveExtensions)
+}
+
+module.exports.typeMediaExtensions = {
+    'music.album': [].include(audioExtensions).include(archiveExtensions)
+  , 'movie': [].include(videoExtensions).include(archiveExtensions)
 }

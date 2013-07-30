@@ -125,4 +125,4 @@ config.AWS_BUCKET = getEnv(env.SENTRY_AWS_BUCKET, 'qarth');
 // Torrent
 config.RTORRENT_HOST = getEnv(env.SENTRY_RTORRENT_HOST, 'localhost');
 
-config.RTORRENT_PORT = getEnv(env.SENTRY_RTORRENT_PORT, '5000');
+config.RTORRENT_PORT = getEnv(env.SENTRY_RTORRENT_PORT, '80');
