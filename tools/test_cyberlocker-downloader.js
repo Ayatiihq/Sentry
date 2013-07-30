@@ -83,7 +83,8 @@ function fetchRegex(downloader){
                  'sharebeast': /sharebeast\.com/g,
                  'rapidshare': /rapidshare\.com/g,
                  'hulkshare': /hulkshare\.com/g,
-                 'uploaded-net': /uploaded\.net/g};
+                 'uploaded-net': /uploaded\.net/g,
+                 'zippyshare': /zippyshare\.com/g};
   return domains[downloader];
 }
 
