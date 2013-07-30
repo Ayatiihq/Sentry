@@ -49,25 +49,31 @@ FourShared.prototype.authenticate = function(){
     promise.resolve();
     return promise;
   }
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
+  self.remoteClient = new webdriver.Builder()//.usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
-  self.remoteClient.get('http://www.4shared.com/login.jsp');
-
-  self.remoteClient.wait(function(){
-    self.remoteClient.isElementPresent(webdriver.By.css('#regloginfield')).then(function(present){
-      if(present){
-        self.remoteClient.findElement(webdriver.By.css('#regloginfield')).click();
-        self.remoteClient.findElement(webdriver.By.css('#regloginfield'))
-        .sendKeys('conor@ayatii.com');
-        self.remoteClient.findElement(webdriver.By.css('#regpassfield')).click();
-        self.remoteClient.findElement(webdriver.By.css('#regpassfield'))
-        .sendKeys('ayatiian');
-        self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();        
-        promise.resolve();
-      }
-    });
-  }, 5000);
+  self.remoteClient.get('http://www.4shared.com');
+  self.remoteClient.sleep(5000);
+  self.remoteClient.findElement(webdriver.By.css('div[class="llink textlink sprite1 gaClick"]')).click();
+  self.remoteClient.isElementPresent(webdriver.By.css(".jsInputLogin")).then(function(present){
+    if(present){
+      self.remoteClient.findElement(webdriver.By.css(".jsInputLogin"))
+      .sendKeys('conor@ayatii.com');
+      self.remoteClient.findElement(webdriver.By.css('.jsInputPassword'))
+      .sendKeys('ayatiian');
+      self.remoteClient.findElement(webdriver.By.css('input[class="submit-light round4 gaClick"]')).click().then(function(){
+        self.remoteClient.sleep(5000);
+        promise.resolve();        
+      });        
+    }
+    else{
+      logger.info('cant find the login field');
+      promise.reject(new Error('login field not present'));
+    }
+  },
+  function(err){
+     promise.reject(err);
+  });
   return promise;
 }
 
@@ -256,9 +262,7 @@ FourShared.prototype.finish = function(){
 
 // No prototype so we can access without creating instance of module
 FourShared.getDomains = function() {
-  //return ['4shared.com'];
-  // TODO don't return any domain for this downloader (because it doesn't work)
-  return [];
+  return ['4shared.com'];
 }
 
 // REST API - lets see if they can shed some light on the why the authentication fails.
