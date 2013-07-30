@@ -76,7 +76,6 @@ Zippyshare.prototype.download = function(infringement, pathToUse, done){
       self.remoteClient.isElementPresent(webdriver.By.css('#dlbutton')).then(function(present){
         if(present){ 
           self.remoteClient.findElement(webdriver.By.css('#dlbutton')).click();          
-          self.remoteClient.sleep(1000);
           chromeHelper.checkForFileDownload(self.remoteClient).then(function(directPath){
             if(directPath)
               self.fetchDirectDownload(directPath, pathToUse, done);
