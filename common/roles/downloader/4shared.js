@@ -41,6 +41,7 @@ FourShared.prototype.createURI = function(uri){
 
 FourShared.prototype.authenticate = function(){
   var self  = this;
+  var promise = new Promise.Promise();
 
   if(self.remoteClient){
     logger.info('We have an active 4shared session already - assume we are logged in already');
@@ -52,13 +53,22 @@ FourShared.prototype.authenticate = function(){
                           .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000); 
   self.remoteClient.get('http://www.4shared.com/login.jsp');
-  self.remoteClient.findElement(webdriver.By.css('#loginfield'))
-    .sendKeys('conor@ayatii.com');
-  self.remoteClient.findElement(webdriver.By.css('#passfield'))
-    .sendKeys('ayatiian');
-  // xpath generated from firebug (note to self use click and not submit for such forms,
-  // submit was not able to highlight the correct input element).
-  return self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();
+
+  self.remoteClient.wait(function(){
+    self.remoteClient.isElementPresent(webdriver.By.css('#regloginfield')).then(function(present){
+      if(present){
+        self.remoteClient.findElement(webdriver.By.css('#regloginfield')).click();
+        self.remoteClient.findElement(webdriver.By.css('#regloginfield'))
+        .sendKeys('conor@ayatii.com');
+        self.remoteClient.findElement(webdriver.By.css('#regpassfield')).click();
+        self.remoteClient.findElement(webdriver.By.css('#regpassfield'))
+        .sendKeys('ayatiian');
+        self.remoteClient.findElement(webdriver.By.xpath('/html/body/div/div/div[4]/div/div/form/div/div[8]/input')).click();        
+        promise.resolve();
+      }
+    });
+  }, 5000);
+  return promise;
 }
 
 FourShared.prototype.investigate = function(infringement, pathToUse, done){
@@ -246,7 +256,9 @@ FourShared.prototype.finish = function(){
 
 // No prototype so we can access without creating instance of module
 FourShared.getDomains = function() {
-  return ['4shared.com'];
+  //return ['4shared.com'];
+  // TODO don't return any domain for this downloader (because it doesn't work)
+  return [];
 }
 
 // REST API - lets see if they can shed some light on the why the authentication fails.

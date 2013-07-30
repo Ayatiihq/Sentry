@@ -163,5 +163,7 @@ UploadedNet.prototype.finish = function(){
 }
 
 UploadedNet.getDomains = function() {
-  return ['uploaded.net'];
+  //return ['uploaded.net'];
+  // TODO return no domains for this downloader until its fixed.
+  return []
 }

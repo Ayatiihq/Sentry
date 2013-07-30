@@ -67,7 +67,7 @@ search for adblock
 install adblock
 continue with Session
 
-hopefilly google will start to support custom profiles with the chromedriver shortly
+hopefully google will start to support custom profiles with the chromedriver shortly
 ridding ourselves of this PITA every session.
 **/
 module.exports.activateAdBlock = function(remoteClient, logger){
