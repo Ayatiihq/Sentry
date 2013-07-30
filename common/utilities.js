@@ -274,13 +274,13 @@ Utilities.followRedirects = function(links, promise) {
     var circularCheck = results.some(redirect.toString()); 
 
     if(circularCheck){
-      logger.info('clocked a circular reference - finish up');
+      //logger.info('clocked a circular reference - finish up');
       thePromise.resolve(results);
     }
     else{
       // push this link into our results  
       results.push(redirect.toString());
-      logger.info('request redirect location : ' + redirect.toString());
+      //logger.info('request redirect location : ' + redirect.toString());
       // go again.
       Utilities.followRedirects(results, thePromise);
     }
@@ -371,10 +371,10 @@ Utilities.requestURL = function(url, options, callback) {
   },
   REQ_TIMEOUT);
 
-  req.on('response', function(response) {
-    var body = ''
-      , stream = null
-      ;
+  req.on('response', function (response) {
+    var body = (options.returnBuffer) ? [] : ''
+    , stream = null
+    ;
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
@@ -391,8 +391,13 @@ Utilities.requestURL = function(url, options, callback) {
         stream = response;
     }
 
-    stream.on('data', function(chunk) {
-      body += chunk;
+    stream.on('data', function (chunk) {
+      if (options.returnBuffer) {
+        body.push(chunk);
+      }
+      else {
+        body += chunk;
+      }
       
       if (options.maxLength) {
         if (body.length > options.maxLength) {
@@ -402,7 +407,8 @@ Utilities.requestURL = function(url, options, callback) {
       }
     });
 
-    stream.on('end', function() {
+    stream.on('end', function () {
+      body = Buffer.concat(body);
       clearTimeout(timeoutId);
       callback(err, response, body);
     });
@@ -615,11 +621,11 @@ Utilities.getFileMimeType = function(filepath, callback) {
 
   Seq()
     .seq(function() {
-      exec('file --mime-type ' + filepath, this);
+      exec('file --mime-type "' + filepath + '"', this);
     })
     .seq(function(stdout) {
       mimetype = stdout.split(' ')[1];
-      exec('xdg-mime query filetype ' + filepath, this);
+      exec('xdg-mime query filetype "' + filepath + '"', this);
     })
     .seq(function(stdout) {
       mimetype = stdout;

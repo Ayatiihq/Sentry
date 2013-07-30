@@ -28,6 +28,7 @@
     "URIjs":"1.x.x",
     "winston": "0.x.x",
     "winston-papertrail": "*",
+    "xmlrpc": "1.1.x",
     "xregexp": "2.0.x"
   },
   

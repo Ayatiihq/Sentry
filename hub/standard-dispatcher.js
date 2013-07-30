@@ -58,6 +58,18 @@ StandardDispatcher.prototype.checkRoles = function(campaign) {
     if (role.dispatcher)
       return;
 
+    if (role.types) {
+      var supported = false;
+      Object.keys(role.types, function(type) {
+        if (campaign.type.startsWith(type))
+          supported = true;
+      });
+      if (!supported) {
+        logger.info('%s does not support %s (%s)', role.name, campaign.name, campaign.type);
+        return;
+      }
+    }
+
     if (role.engines && role.engines.length) {
       role.engines.forEach(function(engine) {
         self.checkRole(campaign, role, getRoleConsumerId(role.name, engine));
@@ -105,6 +117,9 @@ StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, role, jobs
       return false;
 
     case states.STARTED:
+      if (role.longRunning)
+        return false;
+
       var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
       if (tooLong)
         jobs.close(lastJob, states.ERRORED, new Error('Timed out'));

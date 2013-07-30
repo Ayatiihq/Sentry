@@ -1,0 +1,11 @@
+{
+  "name": "downloader-torrent",
+  "main": "./downloader-torrent.js",
+  "dependencies": {},
+  "intervalMinutes": 5,
+  "longRunning": true,
+  "unique": true,
+  "types": {
+    "music": ".*"
+  }
+}
