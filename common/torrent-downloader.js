@@ -174,13 +174,13 @@ TorrentDownloader.prototype.addInfohashToWatch = function (infohash) {
     'promise': promise
   };
 
-  if (Object.has(self.watchHashes, infohash)) { promise.reject(new Error('infohash ' + infohash + 'already added')); return promise; }
+  if (Object.has(self.watchHashes, infohash)) { promise.reject(new Error('infohash ' + infohash + ' already added')); return promise; }
   self.watchHashes[infohash] = info;
   return promise;
 }
 
 // infohash, can send in as many values as you want after info hash, they will be passed on
-TorrentDownloader.prototype.resolveInfohash = function (infohash) {
+TorrentDownloader.prototype.resolveInfohash = function (infohash, directory) {
   var self = this;
   if (!Object.has(self.watchHashes, infohash)) { logger.error('could not find infohash %s to resolve', infohash); return; }
 
@@ -269,9 +269,12 @@ TorrentDownloader.prototype.torrentUpdate = function (info) {
   }
   else {
     // torrent complete
-    logger.info('torrent complete:\t %s', self.watchHashes[hash].name);
-    self.callMethod('d.erase', hash).then(function () {
-      self.resolveInfohash(hash);
+    logger.info('Torrent complete:\t %s', self.watchHashes[hash].name);
+    self.callMethod('d.get_directory_base', hash).then(function(directory) {
+      self.callMethod('d.erase', hash).then(function () {
+        logger.info('Torrent download finished for %s, directory %s', hash, directory);
+        self.resolveInfohash(hash, directory);
+      });
     });
   }
 }
@@ -331,7 +334,7 @@ TorrentDownloader.prototype.waitUntilFound = function (infohash) {
 // given a URI will return a promise, if this uri is succesfully added to the backend
 // then that promise will resolve to another promise that can be used to track the download.
 // otherwise it is rejected, usually because its a .torrent that 404'ed
-TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
+TorrentDownloader.prototype.addFromURI = function (URI) {
   var promise = new Promise.Promise();
   var self = this;
 
@@ -344,10 +347,8 @@ TorrentDownloader.prototype.addFromURI = function (downloadDir, URI) {
 
     // wait until we find the infohash of this torrent in rtorrent, then tell it to set a directory and start
     self.waitUntilFound(infohash).then(function () {
-      self.callMethod('d.set_directory_base', infohash, downloadDir).then(function () {
-        self.callMethod('d.start', infohash).then(function () {
-          self.callMethod('d.open', infohash);
-        });
+      self.callMethod('d.start', infohash).then(function () {
+        self.callMethod('d.open', infohash);
       });
     }, self.rejectInfohashBuilder(infohash));
 
@@ -364,7 +365,7 @@ module.exports.getNumActiveTorrents = function () {
   return getTorrentDownloader().getNumActiveTorrents();
 }
 
-module.exports.addFromURI = function (uri, downloadDir) {
+module.exports.addFromURI = function (uri) {
   //TODO!! - add uri checks before sending to torrent downloader
   var check = null; // check go here
   if (check) {
@@ -375,7 +376,7 @@ module.exports.addFromURI = function (uri, downloadDir) {
     return promise;
   }
   else {
-    return getTorrentDownloader().addFromURI(uri, downloadDir);
+    return getTorrentDownloader().addFromURI(uri);
   }
 };
 
@@ -383,6 +384,9 @@ module.exports.addFromURI = function (uri, downloadDir) {
 // for testing
 if (require.main === module) {
   var tDownloder = getTorrentDownloader();
-  tDownloder.addFromURI("/tmp/dl", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  //tDownloder.addFromURI("/tmp/dl", "magnet:?xt=urn:btih:335990d615594b9be409ccfeb95864e24ec702c7&dn=Ubuntu+12.10+Quantal+Quetzal+%2832+bits%29&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
   //tDownloder.addFromURI("/tmp/", "magnet:?xt=urn:btih:786e6bac12504ada2db0054fe375c3912c2af249&dn=beini-1.2.3.zip&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A80&tr=udp%3A%2F%2Ftracker.publicbt.com%3A80&tr=udp%3A%2F%2Ftracker.istole.it%3A6969&tr=udp%3A%2F%2Ftracker.ccc.de%3A80&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
+  
+  // A 2MB book for quick testing
+  tDownloder.addFromURI("magnet:?xt=urn:btih:C4126CE2EF1E75A35626FB2A8DCFAF3F1259D0F6&dn=the+200+best+home+businesses+easy+to+start+fun+to+run+highly+profitable+mantesh&tr=udp%3A%2F%2Ffr33domtracker.h33t.com%3A3310%2Fannounce&tr=udp%3A%2F%2Fopen.demonii.com%3A1337");
 }

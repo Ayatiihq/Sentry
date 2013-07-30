@@ -171,96 +171,81 @@ DownloaderTorrent.prototype.getTorrent = function() {
     , infringement = null
     ;
 
-  Seq()
-    .seq(function() {
-      if (!self.foo)
-        self.popInfringement(this);
-      self.foo = true;
-    })
-    .seq(function(infringement_) {
-      infringement = infringement_;
-      
-      if (infringement) {
-        this();
-        return;
-      }
+  self.popInfringement(function(err, infringement) {
+    if (err)
+      return logger.warn('Unable to get infringement to download: %s', err);
 
-      logger.info('No more torrents to process');
-    })
-    .seq(function() {
-      // Hold onto the lock for the infringement
-      infringement.downloadTimer = setInterval(self.infringements_.touch.bind(self.infringements_, infringement), 5 * 60 * 1000);
-      this();
-    })
-    .seq(function() {
-      infringement.downloadStarted = Date.now();
-      self.torrentClient_.add(infringement);
-    })
-    .catch(function(err) {
-      logger.warn('Unable to prepare infringement to download: %s', err.message);
-    })
-    ;
+    if (!infringement)
+      return logger.info('No infringements to process');
+
+    // Hold onto the lock for the infringement
+    infringement.downloadTimer = setInterval(self.infringements_.touch.bind(self.infringements_, infringement),
+                                             5 * 60 * 1000);
+    infringement.downloadStarted = Date.now();
+    self.torrentClient_.add(infringement);
+  });
 }
 
 DownloaderTorrent.prototype.popInfringement = function(callback) {
   var self = this;
 
-  logger.warn('********', module.exports.hello ? module.exports.hello += 1 : module.exports.hello = 1);
-  
-  // We can't trust what comes through the DB as we're picking up torrents left, right
-  // and centre. So we use the same techniques that are in processor and verifier to
-  // get good stuff
-  Seq()
-    .seq(function() {
-      self.popOne(this);
-    })
-    .catch(function(err) {
-      logger.warn('Unable to pop torrent for download: %s', err);
-      callback(err);
-    })
-    .seq(function(infringement) {
-      var that = this;
+  self.popOne(function(err, infringement) {
+    if (err) {
+      logger.warn('Unable to get infringement from database %s', err)
+      logger.info('Attempting to get another infringement');
+      setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
+      return;
+    }
+    
+    if (!infringement)
+      return callback();
 
-      if (!infringement) {
-        callback();
+    self.getTorrentDetails(infringement, function(err, details) {
+      if (err) {
+        logger.warn('Getting torrent details failed: %s', err);
+        self.infringements_.setStateBy(infringement, State.UNAVAILABLE, 'downloader-torrent', function(err) {
+          if (err)
+            logger.warn('Unable to update state for %s: %s', infringement._id, err);
+        });
+        logger.info('Attempting to get another infringement');
+        setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
         return;
       }
 
-      self.getTorrentDetails(infringement, function(err, details) {
-        that(err, infringement, details)
-      });
-    })
-    .seq(function(infringement, details) {
-      var that = this;
-
       if (!details) {
-        this(util.format('Torrent details could not be loaded for %s', infringement ? infringement._id : 'unknown'));
+        logger.warn('Unable to load torrent details for %s, setting up for manual verification', infringement._id);
+        self.infringements_.setStateBy(infringement, State.DEFERRED, 'downloader-torrent', function(err) {
+          if (err)
+            logger.warn('Unable to update state for %s: %s', infringement._id, err);
+        });
+
+        logger.info('Attempting to get another infringement');
+        setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
         return;
       }
 
       self.checkIfTorrentIsGoodFit(details, infringement, function(err, good, reason) {
-        that(err, infringement, good, reason);
+        if (err) {
+          logger.warn('Unable to process %s for good fit: %s', infringement._id, err)
+          logger.info('Attempting to get another infringement');
+          setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
+          return;
+        }
+
+        if (!good) {
+          logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
+          var verification = { state: State.FALSE_POSITIVE, who: 'downloader-torrent', notes: reason, started: Date.now(), finished: Date.now() };
+          self.verifications_.submit(infringement, verification, function(err) { if (err) logger.warn(err) });
+          
+          logger.info('Attempting to get another infringement');
+          setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
+          return;
+        }
+
+        callback(null, infringement);
       });
-    })
-    .seq(function(infringement, good, reason) {
-      if (good) {
-        done(null, infringement);
-        return;
-      }
-      
-      logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
-      
-      var verification = { state: State.FALSE_POSITIVE, who: 'downloader-torrent', reason: reason, started: Date.now(), finished: Date.now() };
-      //self.verifications_.submit(infringement, verification, this.ok);
-      logger.warn('Timeout set');
-      setTimeout(self.popInfringement.bind(self, callback), 1000 * 5);
-    })
-    .catch(function(err) {
-      logger.warn('Unable to get torrent for download: %s. Trying again', err);
-      logger.warn('Timeout set');
-      setTimeout(self.popInfringement.bind(self, callback), 1000 * 5);
-    })
-    ;
+    });
+  });
 }
 
 DownloaderTorrent.prototype.popOne = function(done) {
@@ -339,7 +324,11 @@ DownloaderTorrent.prototype.getTorrentDetails = function(infringement, done) {
         return;
       }
 
-      readTorrent(filename, done);
+      readTorrent(filename, this);
+    })
+    .seq(function(details) {
+      rimraf(filename, this.ok);
+      done(null, details);
     })
     .catch(function(err) {
       done(err);
@@ -361,6 +350,8 @@ DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringe
     , requiredExentions = []
     , points = 0
     ;
+
+  logger.info('Checking if %s is a good fit', torrent.name);
 
   // Load up the basics
   torrent.files.forEach(function(file) {
@@ -416,29 +407,26 @@ DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringe
   done(null, true);
 }
 
-DownloaderTorrent.prototype.torrentFinished = function(infringement) {
+DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) {
   var self = this;
 
-  logger.info('Infringement %s has finished downloading, registering new files', infringement._id);
+  logger.info('Infringement %s has finished downloading to %s, registering new files', infringement._id, directory);
 
   clearInterval(infringement.downloadTimer);
 
   Seq()
     .seq(function() {
       self.downloads_.addLocalDirectory(infringement,
-                                        infringement.downloadDir,
+                                        directory,
                                         infringement.downloadStarted,
                                         Date.now(),
                                         this);
     })
     .seq(function() {
-      rimraf(infringement.downloadDir, this.ok);
+      rimraf(directory, this.ok);
     })
     .seq(function() {
-      self.infringements_.processedBy(infringement, 'downloader-torrent', this);
-    })
-    .seq(function() {
-      self.infringements_.setState(infringement, states.infringements.state.UNVERIFIED, this);
+      self.infringements_.setStateBy(infringement, states.infringements.state.UNVERIFIED, 'downloader-torrent', this);
     })
     .seq(function() {
       logger.info('Sucessfully registered downloads for %s', infringement._id);
@@ -454,8 +442,7 @@ DownloaderTorrent.prototype.torrentErrored = function(err, infringement) {
   var self = this;
 
   logger.warn('Unable to download %s (%s): %s', infringement._id, infringement.uri, err);
-
-  // FIXME: We should record this somewhere
+  self.infringements_.setStateBy(infringement, states.infringements.state.UNVERIFIED, 'downloader-torrent', function(err) { if (err) logger.warn(err); });
 }
 
 DownloaderTorrent.prototype.clientFinished = function() {
