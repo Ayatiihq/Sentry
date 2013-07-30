@@ -60,12 +60,14 @@ StandardDispatcher.prototype.checkRoles = function(campaign) {
 
     if (role.types) {
       var supported = false;
-      Object.keys(roles.types, function(type) {
+      Object.keys(role.types, function(type) {
         if (campaign.type.startsWith(type))
           supported = true;
       });
-      if (!supported)
+      if (!supported) {
+        logger.info('%s does not support %s (%s)', role.name, campaign.name, campaign.type);
         return;
+      }
     }
 
     if (role.engines && role.engines.length) {
