@@ -10,7 +10,7 @@ require('sugar');
 var acquire = require('acquire')
   , config = acquire('config')
 	, fs = require('fs-extra')
-  , logger = acquire('logger').forFile('test-cyberlocker-manager.js')
+  , logger = acquire('logger').forFile('sharebeast.js')
   , Promise = require('node-promise')
   , path = require('path')
   , request = require('request')
