@@ -23,7 +23,7 @@ var Zippyshare = module.exports = function (campaign) {
   var self = this;
   self.campaign = campaign;
   self.authenticated = false;
-  self.remoteClient = new webdriver.Builder()//.usingServer(config.SELENIUM_HUB_ADDRESS)
+  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
                           .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);                           
 };
