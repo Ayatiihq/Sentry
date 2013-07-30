@@ -283,7 +283,7 @@ Master.prototype.getNodeState = function() {
 
   ret.runningRoles = [];
   Object.values(cluster.workers, function(worker) {
-    runningRoles.push(worker.work.rolename);
+    ret.runningRoles.push(worker.work.rolename);
   });
 
   return ret;

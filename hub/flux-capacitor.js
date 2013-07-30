@@ -93,7 +93,7 @@ FluxCapacitor.prototype.getRoleDependenciesAvailable = function(role, callback) 
 FluxCapacitor.prototype.getWork = function(nodeState, callback) {
   var self = this
     , roles = self.roles_.getRoles()
-    , nodeState = nodeState || { runningRoles: [] }
+    , nodeState = nodeState || { excludeRoles: [], includeRoles: [], runningRoles: [] }
     ;
 
   callback = callback ? callback : function() {};
@@ -103,12 +103,12 @@ FluxCapacitor.prototype.getWork = function(nodeState, callback) {
     .parFilter(function(role) {
       var keep = true;
       
-      if (nodeState.excludeRoles && nodeState.excludeRoles.some(role.name)) {
+      if (nodeState.excludeRoles.length && nodeState.excludeRoles.some(role.name)) {
         logger.info('Node excludes %s', role.name);
         keep = false;
       }
 
-      if (nodeState.includeRoles && !nodeState.includeRoles.some(role.name)) {
+      if (nodeState.includeRoles.length && !nodeState.includeRoles.some(role.name)) {
         logger.info('Node ignores %s', role.name);
         keep = false;
       }
