@@ -165,28 +165,45 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
  * @return {undefined}
  */
 Verifications.prototype.pop = function(campaign, callback) {
+  var self = this;
+
+  self.popCyberlocker(campaign, function(err, infringement) {
+    if (err || !infringement) {
+      if (err) logger.warn('Error getting cyberlocker infringement: %s', err);
+      return self.popBasic(campaign, callback);
+    }
+    callback(err, infringement);
+  });
+}
+
+Verifications.prototype.popCyberlocker = function(campaign, callback) {
   var self = this
-    , then = Date.create('30 minutes ago').getTime()
+    , name = campaign.name
+    , then = Date.create('15 minutes ago').getTime()
     ;
 
   if (!self.infringements_)
-    return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.popCyberlocker, Object.values(arguments)]);
 
   campaign = normalizeCampaign(campaign);
 
   var query = {
     campaign: campaign,
-    category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.CYBERLOCKER, Categories.FILE]
+    category: Categories.CYBERLOCKER,
+    state: {
+      $in : [states.infringements.state.NEEDS_DOWNLOAD, states.infringements.state.UNVERIFIED]
     },
-    state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
+    $or: [
+      { uri: new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') },
+      { 'parents.uris': new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') }
+    ],
     popped: {
       $lt: then
     }
   };
 
-  var sort = [['category', -1 ], ['points.total', -1 ], ['created', 1 ] ];
+  var sort = [['state', -1], ['parents.count', -1 ], ['points.total', -1 ] ];
 
   var updates = {
     $set: {
@@ -197,6 +214,58 @@ Verifications.prototype.pop = function(campaign, callback) {
   var options = { new: true };
 
   self.infringements_.findAndModify(query, sort, updates, options, callback);
+}
+
+Verifications.prototype.popBasic = function(campaign, callback) {
+  var self = this
+    , name = campaign.name
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    category: {
+      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.FILE]
+    },
+    state: states.infringements.state.UNVERIFIED,
+    'children.count': 0,
+    $or: [
+      { uri: new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') },
+      { 'parents.uris': new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') }
+    ],
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [['category', -1 ], ['parents.count', -1 ], ['points.total', -1 ], ['created', 1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  // Try the clever search (with the regexes) first
+  self.infringements_.findAndModify(query, sort, updates, options, function(err, infringement) {
+    if (infringement)
+      return callback(null, infringement);
+
+    if (err)
+      logger.warn('Unable to perform first basic search: %s', err);
+
+    // As it did't work, let's try the very basic search
+    query = Object.reject(query, '$or');
+
+    self.infringements_.findAndModify(query, sort, updates, options, callback);
+  });
 }
 
 /**
