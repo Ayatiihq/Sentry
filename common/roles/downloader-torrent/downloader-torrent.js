@@ -347,6 +347,7 @@ DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringe
     , totalSize = 0
     , filenames = []
     , minSize = 0
+    , maxSize = 4 * 1024 * 1024 //4GB for video file
     , requiredExentions = []
     , points = 0
     ;
@@ -373,6 +374,7 @@ DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringe
   // Setup the per-type contraints
   if (type.startsWith('music')) {
     minSize = 3 * 1024 * 1024;
+    maxSize = 300 * 1024 * 1024;
     requiredExentions.add(Extensions[type]) 
   
   } else if (type.startsWith('movie')) {
@@ -386,10 +388,15 @@ DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringe
 
   // Check type constraints
   if (totalSize < minSize) {
-    done(null, false, util.format('%s size is too small (%d < %d', name, totalSize, minSize));
+    done(null, false, util.format('%s size is too small (%d < %d)', name, totalSize, minSize));
     return;
   }
 
+  if (totalSize > maxSize) {
+    done(null, false, util.format('%s size is too large (%d > %d)', name, totalSize, maxSize));
+    return;
+  }
+  
   var oneMatched = false;
   filenames.forEach(function(filename) {
     requiredExentions.forEach(function(ext) {
