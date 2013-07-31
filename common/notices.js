@@ -313,7 +313,7 @@ Notices.prototype.getCountForCampaign = function(campaign, options, callback)
  *
  * @param {object}                campaign         The campaign which we want unverified links for
  * @param {integer}               rangeStart       Number of days ago from which to start
- * @param {integer}               rangeEnd       Number of days ago from which to end
+ * @param {integer}               rangeEnd         Number of days ago from which to end
  * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
  */
 Notices.prototype.getPendingForCampaign = function(campaign, rangeStart, rangeEnd, callback)
