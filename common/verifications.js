@@ -190,7 +190,9 @@ Verifications.prototype.popCyberlocker = function(campaign, callback) {
   var query = {
     campaign: campaign,
     category: Categories.CYBERLOCKER,
-    state: states.infringements.state.NEEDS_DOWNLOAD,
+    state: {
+      $in : [states.infringements.state.NEEDS_DOWNLOAD, states.infringements.state.UNVERIFIED]
+    },
     'children.count': 0,
     $or: [
       { uri: new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') },
