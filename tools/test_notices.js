@@ -22,6 +22,7 @@ function setupSignals() {
 }
 
 function log(err) {
+  console.log("here");
   if (err)
     console.warn(err);
   else
@@ -53,6 +54,10 @@ function main() {
 
   if (action === 'getCountForCampaign')
     notices.getCountForCampaign(require(arg0), log);
+  
+  if (action === 'getPendingForCampaign')
+    notices.getPendingForCampaign(require(arg0), parseInt(argv[4]), parseInt(argv[5]), log);
+
 }
 
 main()
