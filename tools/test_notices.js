@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , Promise = require('node-promise')  
   , database = acquire('database')
+  , fs = require('fs')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -35,6 +36,8 @@ function log(err) {
   process.exit();
 }
 
+
+
 function expandInfrgs(infrg_ids, db){
   promise = new Promise.Promise();
   ids = [];
@@ -42,48 +45,7 @@ function expandInfrgs(infrg_ids, db){
     ids.push({'_id': infr_id});
   });
   var args = {'$or' : ids};
-  console.log('about to query with ' + JSON.stringify(args));
   return findInfringements(args, db);
-}
-
-function preparePendingReport(err, notices){
-  console.log('found ' + notices.length + ' notices.');
-  
-  function databaseConnection(){
-    var x = new Promise.Promise();
-    database.connect(function(err, db) {
-      if(err){
-        console.log('Trouble connecting to db: ' +  err);
-        x.reject(err);
-        return;
-      }
-      x.resolve(db);
-    });
-    return x;
-  }
-
-  function prepareNotice(notice, db){
-    var p = new Promise.Promise();
-    expandInfrgs(notice.infringements, db).then(function(completeInfringements){
-      console.log('return completed infringements ' + JSON.stringify(completeInfringements));
-      notice.infringments = completeInfringements;
-      p.resolve();
-    });
-    return p;
-  }
-
-  databaseConnection().then(function(db){
-    var promArray = [];
-    promArray = notices.map(function(notice){ return prepareNotice.bind(null, notice, db)});
-
-    Promise.seq(promArray).then(function(){
-      console.log('completed notices ');
-      db.close(function(err){
-                if(err)
-                  console.log('Error closing db connection !');
-              });                                   
-    });    
-  });
 }
 
 function findInfringements(args, db){
@@ -98,6 +60,50 @@ function findInfringements(args, db){
                               searchPromise.resolve(results);      
                             }); 
   return searchPromise;
+}
+
+function prepareNotice(notice, db){
+  var p = new Promise.Promise();
+  expandInfrgs(notice.infringements, db).then(function(completeInfringements){
+    notice.infringments = completeInfringements;
+    p.resolve();
+  });
+  return p;
+}
+
+function databaseConnection(){
+  var x = new Promise.Promise();
+  database.connect(function(err, db) {
+    if(err){
+      console.log('Trouble connecting to db: ' +  err);
+      x.reject(err);
+      return;
+    }
+    x.resolve(db);
+  });
+  return x;
+}
+
+
+function preparePendingReport(err, notices){
+  console.log('found ' + notices.length + ' notices.');
+  
+  databaseConnection().then(function(db){
+    var promArray = [];
+    promArray = notices.map(function(notice){ return prepareNotice.bind(null, notice, db)});
+
+    Promise.seq(promArray).then(function(){
+      writeReport(notices);
+      db.close(function(err){
+                if(err)
+                  console.log('Error closing db connection !');
+              });                                   
+    });
+  });
+}
+
+function writeReport(notices){
+  
 }
 
 function main() {
