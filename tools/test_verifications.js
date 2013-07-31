@@ -60,6 +60,11 @@ function main() {
     verifications.pop(campaign, log);
   }
 
+  if (action === 'popBasic') {
+    var campaign = require(argv[3]);
+    verifications.popBasic(campaign, log);
+  }
+
   if (action === 'popType') {
     var campaign = require(argv[3]);
     var type = argv[4];
