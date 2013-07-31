@@ -12,7 +12,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , Promise = require('node-promise')  
   , database = acquire('database')
-  , fs = require('fs')
+  , Handlebars = require('handlebars')
   ;
 
 var Campaigns = acquire('campaigns')
