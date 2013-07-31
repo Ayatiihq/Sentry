@@ -246,7 +246,7 @@ Mediafire.prototype.download = function(infringement, pathToUse, done){
 Mediafire.prototype.finish = function(){
   var self = this;
   if(self.remoteClient)
-    remoteClient.quit();
+    self.remoteClient.quit();
 }
 
 // No prototype so we can access without creating instance of module
