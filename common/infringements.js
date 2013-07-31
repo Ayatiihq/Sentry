@@ -741,7 +741,9 @@ Infringements.prototype.touch = function(infringement) {
   if (!self.infringements_)
     return self.cachedCalls_.push([self.touch, Object.values(arguments)]);
 
-  self.infringements_.update({ _id: infringement._id }, { $set: { popped: Date.now() } });
+  callback = callback ? callback : defaultCallback;
+
+  self.infringements_.update({ _id: infringement._id }, { $set: { popped: Date.now() } }, callback);
 }
 
 /**
