@@ -408,7 +408,9 @@ Utilities.requestURL = function(url, options, callback) {
     });
 
     stream.on('end', function () {
-      body = Buffer.concat(body);
+      if (options.returnBuffer) {
+        body = Buffer.concat(body);
+      }
       clearTimeout(timeoutId);
       callback(err, response, body);
     });
