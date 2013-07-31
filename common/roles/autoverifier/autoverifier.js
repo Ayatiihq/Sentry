@@ -159,7 +159,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     done();
   }
 
-  self.verifications_.popType(self.campaign_, self.supportedTypes_, PROCESSOR, function(err, infringement) {
+  self.verifications_.popType(self.campaign_, self.supportedMimeTypes_, PROCESSOR, function(err, infringement) {
     if (err)
       return done(err);
 
