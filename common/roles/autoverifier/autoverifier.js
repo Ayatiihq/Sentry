@@ -84,6 +84,7 @@ AutoVerifier.prototype.loadVerifiers = function() {
     mimeTypes.forEach(function(type) {
       supportedMimeTypes.push(type);
     });
+    supportedCampaignTypes.push(verifierType);
   });
 
   self.supportedMimeTypes_ = supportedMimeTypes;
