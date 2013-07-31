@@ -264,6 +264,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   // First is the basic album searches
   if (soundtrack) {
     searchTerms1.push(fmt('%s song download', albumTitle));
+    searchTerms1.push(fmt('%s songs download', albumTitle));
     searchTerms1.push(fmt('%s mp3 torrent', albumTitle));
     searchTerms2.push(fmt('%s mp3', albumTitle));
   } else {
