@@ -232,6 +232,7 @@ Processor.prototype.run = function(done) {
     })
     .seq(function() {
       setTimeout(self.run.bind(self, done), 100);
+      this();
     })
     ;
 }
@@ -642,6 +643,7 @@ Processor.prototype.addTorrentRelation = function(infringement, done) {
     .seq(function() {
       rimraf(tmpFile, function(e) { if (e) console.log(e); });
       done();
+      this();
     })
     ;
 }
@@ -684,6 +686,7 @@ Processor.prototype.addMagnetRelation = function(infringement, done) {
       })
       .seq(function() {
         done();
+        this();
       })
 
   } catch(err) {

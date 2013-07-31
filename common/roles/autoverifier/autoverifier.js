@@ -65,7 +65,10 @@ AutoVerifier.prototype.loadVerifiers = function() {
   // Static list of what verifiers we support
   // Note the verifierType should correspond to one of the predefined campaign types in campaigns.js 
   // {verifierType: filename}
-  var verifiers = {'music': 'musicverifier'} 
+  var verifiers = {
+    'music': 'musicverifier',
+    'music.album': 'musicverifier'
+  };
     
   Object.keys(verifiers).forEach(function(verifierType) {
     var klass = require('./' + verifiers[verifierType])
@@ -159,7 +162,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
     done();
   }
 
-  self.verifications_.popType(self.campaign_, self.supportedTypes_, PROCESSOR, function(err, infringement) {
+  self.verifications_.popType(self.campaign_, self.supportedMimeTypes_, PROCESSOR, function(err, infringement) {
     if (err)
       return done(err);
 
@@ -177,6 +180,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
       })
       .seq(function() {
         setTimeout(self.processVerifications.bind(self, done), 100);
+        this();
       })
       .catch(function(err) {
         logger.warn(err);

@@ -5,5 +5,8 @@
   },
   "engines": [
   ],
-  "intervalMinutes": 5
+  "intervalMinutes": 5,
+  "types": {
+    "music": ".*"
+  }
 }
