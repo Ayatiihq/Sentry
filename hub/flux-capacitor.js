@@ -104,12 +104,12 @@ FluxCapacitor.prototype.getWork = function(nodeState, callback) {
       var keep = true;
       
       if (nodeState.excludeRoles.length && nodeState.excludeRoles.some(role.name)) {
-        logger.info('Node excludes %s', role.name);
+        //logger.info('Node excludes %s', role.name);
         keep = false;
       }
 
       if (nodeState.includeRoles.length && !nodeState.includeRoles.some(role.name)) {
-        logger.info('Node ignores %s', role.name);
+        //logger.info('Node ignores %s', role.name);
         keep = false;
       }
 
@@ -121,7 +121,7 @@ FluxCapacitor.prototype.getWork = function(nodeState, callback) {
 
       if (role.unique) {
         if (nodeState.runningRoles.some(role.name)) {
-          logger.info('Role %s ignored as already running on this node and is unique', role.name);
+          //logger.info('Role %s ignored as already running on this node and is unique', role.name);
           keep = false;
         }
       }
