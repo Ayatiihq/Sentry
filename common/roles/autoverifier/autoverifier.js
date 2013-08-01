@@ -209,7 +209,7 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
   logger.info('Verifying %s', infringement._id);
 
   try {
-    verifier[0].verify(self.campaign_, infringement, downloads, function(err, verification) {
+    verifiers[0].verify(self.campaign_, infringement, downloads, function(err, verification) {
       var iStates = states.infringements.state;
 
       if (err)
