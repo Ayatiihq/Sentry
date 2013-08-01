@@ -733,9 +733,10 @@ Infringements.prototype.getNeedsDownloadForCampaign = function(campaign, categor
  * Update the popped timestamp for the infringement to the current time.
  *
  * @infringement {object}   The infringement to touch.
+ * @callback {function(err)}  A callback to receive the error, if one occurs
  * @return  {null}
  */
-Infringements.prototype.touch = function(infringement) {
+Infringements.prototype.touch = function(infringement, callback) {
   var self = this;
 
   if (!self.infringements_)
