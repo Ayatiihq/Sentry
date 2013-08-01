@@ -4,7 +4,7 @@
  * (C) 2012 Ayatii Limited
  *
  */
-
+require('sugar')
 var acquire = require('acquire')
   , config = acquire('config')
   , logger = acquire('logger')
@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , Promise = require('node-promise')  
   , database = acquire('database')
   , Handlebars = require('handlebars')
+  , fs = require('fs')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -35,8 +36,6 @@ function log(err) {
 
   process.exit();
 }
-
-
 
 function expandInfrgs(infrg_ids, db){
   promise = new Promise.Promise();
@@ -65,7 +64,7 @@ function findInfringements(args, db){
 function prepareNotice(notice, db){
   var p = new Promise.Promise();
   expandInfrgs(notice.infringements, db).then(function(completeInfringements){
-    notice.infringments = completeInfringements;
+    notice.infringements = completeInfringements;
     p.resolve();
   });
   return p;
@@ -103,7 +102,24 @@ function preparePendingReport(err, notices){
 }
 
 function writeReport(notices){
-  
+  fs.readFile('/home/ronoc/sandbox/afive/sentry/notice-pending.template',
+              'utf8',
+              function (err,data) {
+                if(err){
+                  logger.info('problem opening template file');
+                  return;
+                }
+                var template = Handlebars.compile(data);
+                var context = {'notices': notices};
+                var output = template(context);
+                console.log('notice looks like : ' + JSON.stringify(notices[0]));
+                fs.writeFile('/home/ronoc/sandbox/afive/sentry/' + reportName,
+                              output,
+                              function(err){
+                                if(err)
+                                  logger.info('problem writing pending notices report to disk');
+                            });                
+              });
 }
 
 function main() {
@@ -135,8 +151,11 @@ function main() {
 
   if (action === 'generatePendingReport'){
     var campaign = require(arg0);
-    reportName = 'pendingNoticesFor' + campaign.name + 'From' + argv[4] + 'DaysAgoTo' + argv[5] + 'DaysAgo.html' 
-    notices.getPendingForCampaign(campaign, parseInt(argv[4]), parseInt(argv[5]), preparePendingReport);
+    reportName = campaign.name.replace(/\s/g, '') + '' + argv[4] + 'DaysAgoTo' + argv[5] + 'DaysAgo.html'; 
+    notices.getPendingForCampaign(campaign,
+                                  parseInt(argv[4]),
+                                  parseInt(argv[5]),
+                                  preparePendingReport);
   }
 }
 
