@@ -207,7 +207,7 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
   }
 
   logger.info('Verifying %s', infringement._id);
-  process.exit(1);
+
   try {
     verifier[0].verify(self.campaign_, infringement, downloads, function(err, verification) {
       var iStates = states.infringements.state;
