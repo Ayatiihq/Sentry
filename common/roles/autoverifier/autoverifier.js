@@ -36,6 +36,9 @@ var AutoVerifier = module.exports = function() {
 
   this.campaign_ = null;
 
+  this.verifierInstances_ = [];
+  this.supportedMimeTypes_ = [];
+
   this.started_ = 0;
   this.touchId_ = 0;
 
@@ -52,51 +55,41 @@ AutoVerifier.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
-
-  self.loadVerifiers();
 }
 
-AutoVerifier.prototype.loadVerifiers = function() {
+AutoVerifier.prototype.loadVerifiers = function(done) {
   var self = this
+    , verifiers = {
+        'music': ['musicverifier'],
+        'music.album': ['musicverifier']
+      }
+    , supportedVerifiers = verifiers[self.campaign_.type] 
+    , verifierInstances = []
     , supportedMimeTypes = []
     , supportedMap = {}
-    , supportedCampaignTypes = []
     ;
-  // Static list of what verifiers we support
-  // Note the verifierType should correspond to one of the predefined campaign types in campaigns.js 
-  // {verifierType: filename}
-  var verifiers = {
-    'music': 'musicverifier',
-    'music.album': 'musicverifier'
-  };
-    
-  Object.keys(verifiers).forEach(function(verifierType) {
-    var klass = require('./' + verifiers[verifierType])
-      , instance = new klass()
-      , mimeTypes = klass.getSupportedMimeTypes()
+
+  supportedVerifiers.forEach(function(verifier) {
+    var Klass = require('./' + verifier)
+      , instance = new Klass()
+      , mimetypes = Klass.getSupportedMimeTypes()
       ;
 
-    supportedMap[verifierType] = instance;
-    
-    // what's this for (source)?
-    instance.source = verifierType;
-    
-    mimeTypes.forEach(function(type) {
-      supportedMimeTypes.push(type);
-    });
-    supportedCampaignTypes.push(verifierType);
+    verifierInstances.push( { verifier: instance, mimetypes: mimetypes });
+    supportedMimeTypes.add(mimetypes);
   });
 
+  self.verifierInstances_ = verifierInstances;
   self.supportedMimeTypes_ = supportedMimeTypes;
-  self.supportedMap_ = supportedMap;
-  self.supportedCampaignTypes_ = supportedCampaignTypes;
+
+  done();
 }
 
 AutoVerifier.prototype.finishVerifiers = function() {
   var self = this;
 
-  Object.values(self.supportedMap).forEach(function(verifier) {
-    verifier.finish();
+  Object.values(self.verifierInstances_).forEach(function(instanceObj) {
+    instanceObj.verifier.finish();
   });
 }
 
@@ -137,6 +130,9 @@ AutoVerifier.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.loadVerifiers(this);
+    })
+    .seq(function() {
       self.processVerifications(this);
     })
     .seq(function() {
@@ -158,9 +154,9 @@ AutoVerifier.prototype.processJob = function(err, job) {
 AutoVerifier.prototype.processVerifications = function(done) {
   var self = this;
 
-  if (self.started_.isBefore('20 minutes ago')) {
+  if (self.started_.isBefore('30 minutes ago')) {
     logger.info('Been running for long enough, quitting');
-    done();
+    return done();
   }
 
   self.verifications_.popType(self.campaign_, self.supportedMimeTypes_, PROCESSOR, function(err, infringement) {
@@ -168,53 +164,52 @@ AutoVerifier.prototype.processVerifications = function(done) {
       return done(err);
 
     if (!infringement || !infringement.uri) {
-      logger.info('No work to do');
+      logger.info('Ran out of infringements to process');
       return done();
     }
 
-    Seq()
-      .seq(function() {
-        self.downloads_.getInfringementDownloads(infringement, this);
-      })
-      .seq(function(downloads) {
-        self.processVerification(infringement, downloads, this);
-      })
-      .seq(function() {
-        setTimeout(self.processVerifications.bind(self, done), 100);
-        this();
-      })
-      .catch(function(err) {
-        logger.warn(err);
-        self.infringements_.processedBy(infringement, PROCESSOR);
-        setTimeout(self.processVerifications.bind(self, done), 100);
-      })
-      ;
+    function closeAndGotoNext(err, infringement) {
+      logger.warn('Unable to process %s for autoverification: %s', infringement._id, err);
+      self.infringements_.processedBy(infringement, PROCESSOR);
+      setTimeout(self.processVerifications.bind(self, done), 1000);
+      return;
+    }
+
+    self.downloads_.getInfringementDownloads(infringement, function(err, downloads) {
+      if (err)
+        return closeAndGotoNext(err, infringement);
+
+      self.processVerification(infringement, downloads, function(err) {
+        if (err)
+          return closeAndGotoNext(err, infringement);
+
+        setTimeout(self.processVerifications.bind(self, done), 1000);
+      });
+    });
   });
 }
 
 AutoVerifier.prototype.processVerification = function(infringement, downloads, done) {
-  var self = this;
+  var self = this
+    , verifiers = []
+    ;
 
-  if(self.supportedCampaignTypes_.some(infringement.campaign.type)){
-    logger.info('Infringement has found a valid autoverifier');
-    
-    if(infringement.mimetypes.intersect(self.supportedMimeTypes_).length === 0)
-      logger.warn("Nope we don't support any of those mimetypes");
-    else
-      var verifier = self.supportedMap_[infringement.campaign.type]; 
-  }
+  // Find some verifiers that fit the bill for this infringement
+  self.verifierInstances_.forEach(function(instanceObj) {
+    if (instanceObj.mimetypes.intersect(infringement.mimetypes)) {
+      verifiers.push(instanceObj.verifier);
+    }
+  });
 
-  if (!verifier) {
-    logger.warn(util.format("Either campaign type is not supported or one of the mimetypes for infringement %s",
-                           infringement._id));
+  if (!verifiers.length) {
+    logger.warn(util.format("Not supported verifiers found for %s", infringement._id));
     return done();
   }
 
-  logger.info('Verifying %s', infringement.uri);
-
+  logger.info('Verifying %s', infringement._id);
+  process.exit(1);
   try {
-
-    verifier.verify(self.campaign_, infringement, downloads, function(err, verification) {
+    verifier[0].verify(self.campaign_, infringement, downloads, function(err, verification) {
       var iStates = states.infringements.state;
 
       if (err)
