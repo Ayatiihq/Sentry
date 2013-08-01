@@ -243,10 +243,6 @@ Verifications.prototype.popBasic = function(campaign, callback) {
     }
   };
 
-  // FIXME: We should have a nicer way to do this
-  if (campaign.type.startsWith('movie'))
-    query.category.$in.push(Categories.FILE);
-
   var sort = [['category', -1 ], ['parents.count', -1 ], ['points.total', -1 ], ['created', 1 ] ];
 
   var updates = {
