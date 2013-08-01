@@ -230,7 +230,7 @@ Verifications.prototype.popBasic = function(campaign, callback) {
   var query = {
     campaign: campaign,
     category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.FILE]
+      $in: [Categories.WEBSITE, Categories.SOCIAL]
     },
     state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
@@ -242,6 +242,10 @@ Verifications.prototype.popBasic = function(campaign, callback) {
       $lt: then
     }
   };
+
+  // FIXME: We should have a nicer way to do this
+  if (campaign.type.startsWith('movie'))
+    query.category.$in.push(Categories.FILE);
 
   var sort = [['category', -1 ], ['parents.count', -1 ], ['points.total', -1 ], ['created', 1 ] ];
 
