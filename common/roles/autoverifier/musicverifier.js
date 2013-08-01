@@ -444,6 +444,8 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
 }
 
 MusicVerifier.prototype.finish = function(){
+  var self = this;
+  
   if(self.tmpDirectory) {
     self.cleanupEverything().then(function(){
       self.tmpDirectory = null;
@@ -453,7 +455,7 @@ MusicVerifier.prototype.finish = function(){
 
 MusicVerifier.getSupportedMimeTypes = function() {
   return [
-    , 'audio/mpeg'
+      'audio/mpeg'
     , 'audio/mpeg3'
     , 'audio/mp3'
     , 'audio/x-mpeg-3'
