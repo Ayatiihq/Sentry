@@ -35,6 +35,7 @@ var PLUGINS = [
   , 'sharebeast'
   , 'rapidshare'
   , 'hulkshare'
+  , 'zippyshare'
 ];
 
 var Downloader = module.exports = function() {
