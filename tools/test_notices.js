@@ -63,6 +63,7 @@ function findInfringements(args, db){
 
 function prepareNotice(notice, db){
   var p = new Promise.Promise();
+  notice.created = Date.create(notice.created).format();
   expandInfrgs(notice.infringements, db).then(function(completeInfringements){
     notice.infringements = completeInfringements;
     p.resolve();
@@ -85,6 +86,10 @@ function databaseConnection(){
 
 
 function preparePendingReport(err, notices){
+  if(err){
+    logger.error('Error generating pending report : ' + err);
+    return;
+  }
   console.log('found ' + notices.length + ' notices.');
   
   databaseConnection().then(function(db){
@@ -110,9 +115,9 @@ function writeReport(notices){
                   return;
                 }
                 var template = Handlebars.compile(data);
-                var context = {'notices': notices};
+                var context = {'title': 'Pending Notices for ' + reportName.replace(/\.html/, ''),
+                               'notices': notices};
                 var output = template(context);
-                console.log('notice looks like : ' + JSON.stringify(notices[0]));
                 fs.writeFile('/home/ronoc/sandbox/afive/sentry/' + reportName,
                               output,
                               function(err){
@@ -151,7 +156,9 @@ function main() {
 
   if (action === 'generatePendingReport'){
     var campaign = require(arg0);
-    reportName = campaign.name.replace(/\s/g, '') + '' + argv[4] + 'DaysAgoTo' + argv[5] + 'DaysAgo.html'; 
+    reportName = campaign.name.replace(/\s/g, '') +
+                 '-' + (parseInt(argv[4])).daysAgo().format('{Weekday}{d}{Month}') + 
+                 '-' + (parseInt(argv[5])).daysAgo().format('{Weekday}{d}{Month}') + '.html'; 
     notices.getPendingForCampaign(campaign,
                                   parseInt(argv[4]),
                                   parseInt(argv[5]),

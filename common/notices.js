@@ -328,8 +328,7 @@ Notices.prototype.getPendingForCampaign = function(campaign, rangeStart, rangeEn
   var query = {
     campaign: campaign,
     state: 0,
-    created: {$lt: (rangeStart).daysAgo().getTime()},
-    created: {$gt: (rangeEnd).daysAgo().getTime()}
+    created: {$gt: (rangeStart).daysAgo().getTime(), $lt: (rangeEnd).daysAgo().getTime()}
   };
 
   var options = {
