@@ -29,9 +29,8 @@ function setupSignals() {
 }
 
 function log(err) {
-  console.log("here");
   if (err)
-    console.warn(err);
+    logger.warn(err);
   else
     console.log.apply(null, Object.values(arguments).slice(1));
 
@@ -39,7 +38,6 @@ function log(err) {
 }
 
 function expandInfrgs(infrg_ids, db){
-  promise = new Promise.Promise();
   ids = [];
   infrg_ids.each(function(infr_id){
     ids.push({'_id': infr_id});
@@ -53,7 +51,7 @@ function findInfringements(args, db){
   var table = db.collection('infringements');
   table.find(args).toArray(function(err, results){
                            if(err){
-                                console.log('Couldnt search: ' + err);
+                                logger.warn('Couldnt search: ' + err);
                                 searchPromise.reject(err);
                                 return;
                               }
@@ -76,7 +74,7 @@ function databaseConnection(){
   var x = new Promise.Promise();
   database.connect(function(err, db) {
     if(err){
-      console.log('Trouble connecting to db: ' +  err);
+      logger.error('Trouble connecting to db: ' +  err);
       x.reject(err);
       return;
     }
@@ -91,7 +89,6 @@ function preparePendingReport(err, notices){
     logger.error('Error generating pending report : ' + err);
     return;
   }
-  console.log('found ' + notices.length + ' notices.');
   
   databaseConnection().then(function(db){
     var promArray = [];
@@ -101,7 +98,7 @@ function preparePendingReport(err, notices){
       writeReport(notices);
       db.close(function(err){
                 if(err)
-                  console.log('Error closing db connection !');
+                  logger.error('Error closing db connection !');
               });                                   
     });
   });
