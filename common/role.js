@@ -47,10 +47,12 @@ Role.prototype.getDisplayName = function() {
 
 Role.prototype.start = function() {
   var self = this;
-  logger.warn(self.getName() + " has no start method");
+  logger.error(self.getName() + " has no start method");
+  process.exit();
 }
 
 Role.prototype.end = function() {
   var self = this;
-  logger.warn(self.getName() + " has no end method");
+  logger.error(self.getName() + " has no end method");
+  process.exit();
 }

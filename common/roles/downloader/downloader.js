@@ -195,6 +195,9 @@ Downloader.prototype.createInfringementMap = function(done) {
 Downloader.prototype.run = function(done) {
   var self = this;
 
+  if (!self.started_)
+    return done();
+
   if (Date.create(self.started_).isBefore('30 minutes ago')) {
     logger.info('Running for too long, stopping');
     return done();
@@ -339,8 +342,6 @@ Downloader.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
-
-  self.emit('ended');
 }
 
 if (process.argv[1] && process.argv[1].endsWith('downloader.js')) {

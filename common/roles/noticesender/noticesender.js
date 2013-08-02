@@ -416,9 +416,5 @@ NoticeSender.prototype.start = function() {
 }
 
 NoticeSender.prototype.end = function() {
-  var self = this;
-
-  self.started_ = false;
-
-  self.emit('ended');
+  // Don't do anything, just let noticesender finish as normal, it's pretty fast
 }

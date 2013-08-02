@@ -350,5 +350,11 @@ Scraper.prototype.start = function() {
 
 Scraper.prototype.end = function() {
   var self = this;
-  self.emit('ended');
+
+  if (!self.runningScrapers_.length)
+    return self.emit('ended');
+
+  self.runningScrapers_.forEach(function(scraper) {
+    scraper.stop();
+  });
 }
