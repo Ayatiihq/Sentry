@@ -50,4 +50,4 @@ function main() {
     hosts.add(require(arg0), log);
 }
 
-main()
+main();

@@ -6,7 +6,7 @@
  * (C) 2012 Ayatii Limited
  *
  */
-
+require('sugar');
 var acquire = require('acquire')
   , config = acquire('config')
   , database = acquire('database')
@@ -309,6 +309,36 @@ Notices.prototype.getCountForCampaign = function(campaign, options, callback)
 }
 
 /**
+ * Get Pending notices for a campaign within a certain time span.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {integer}               rangeStart       Number of days ago from which to start
+ * @param {integer}               rangeEnd         Number of days ago from which to end
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+ */
+Notices.prototype.getPendingForCampaign = function(campaign, rangeStart, rangeEnd, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getPendingForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: 0,
+    created: {$gt: (rangeStart).daysAgo().getTime(), $lt: (rangeEnd).daysAgo().getTime()}
+  };
+
+  var options = {
+    sort: { created: -1 }
+  };
+
+  self.notices_.find(query, options).toArray(callback);
+}
+
+/**
  * Get notices for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
@@ -360,3 +390,4 @@ Notices.prototype.getCountForClient = function(client, options, callback)
 
   self.notices_.find(query).count(callback);
 }
+
