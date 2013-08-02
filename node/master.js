@@ -93,6 +93,7 @@ Master.prototype.onConnection = function() {
       logger.warn(reply)
       logger.warn(self.version_)
       self.nodeState_ = states.node.state.NEEDS_UPDATE;
+      self.stopWorkers();
       self.announce();
     }
 
@@ -287,4 +288,12 @@ Master.prototype.getNodeState = function() {
   });
 
   return ret;
+}
+
+Master.prototype.stopWorkers = function() {
+  var self = this;
+
+  Object.values(cluster.workers, function(worker) {
+    worker.send({ type: 'end' });
+  });
 }

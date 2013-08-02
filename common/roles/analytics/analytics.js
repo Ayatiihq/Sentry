@@ -261,11 +261,7 @@ Analytics.prototype.start = function() {
 }
 
 Analytics.prototype.end = function() {
-  var self = this;
-
-  self.started_ = false;
-
-  self.emit('ended');
+  // We don't loop or anything, so just let the analytics finish and role will stop
 }
 
 if (process.argv[1] && process.argv[1].endsWith('analytics.js')) {

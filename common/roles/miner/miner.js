@@ -136,6 +136,9 @@ Miner.prototype.processAllLinks = function(campaign, from, done) {
 
   logger.info('Mining links for %j from timestamp %s', campaign._id, from);
 
+  if (!self.started_)
+    return done();
+
   self.links_.getLinks(campaign.type, Date.create(from), MAX_LINKS, function(err, links) {
     if (err || links.length == 0)
       return done(err, self.lastTimestamp_);
@@ -239,6 +242,4 @@ Miner.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
-
-  self.emit('ended');
 }

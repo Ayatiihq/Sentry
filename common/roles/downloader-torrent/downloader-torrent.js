@@ -476,6 +476,31 @@ DownloaderTorrent.prototype.tryMakeDir = function(name, done) {
 }
 
 //
+// Overrides
+//
+DownloaderTorrent.prototype.getName = function() {
+  return "downloader-torrent";
+}
+
+DownloaderTorrent.prototype.start = function() {
+  var self = this;
+
+  self.started_ = Date.create();
+  self.jobs_.pop(self.processJob.bind(self));
+  
+  self.emit('started');
+}
+
+DownloaderTorrent.prototype.end = function() {
+  var self = this;
+
+  self.started_ = false;
+
+  // FIXME: ADD API TO REMOVE ALL RUNNING TORRENTS
+  self.emit('ended');
+}
+
+//
 // Neil's lazy work-without-a-real-job hack
 //
 if (process.argv[1] && process.argv[1].endsWith('downloader-torrent.js')) {

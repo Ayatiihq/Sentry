@@ -520,9 +520,5 @@ Verifier.prototype.start = function() {
 }
 
 Verifier.prototype.end = function() {
-  var self = this;
-
-  self.started_ = false;
-
-  self.emit('ended');
+  // Just let it finish as normal, it's pretty fast
 }
