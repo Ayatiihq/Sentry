@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , Promise = require('node-promise')  
   , database = acquire('database')
+  , Storage = acquire('storage')
   , Handlebars = require('handlebars')
   , fs = require('fs')
   ;
@@ -107,24 +108,25 @@ function preparePendingReport(err, notices){
 }
 
 function writeReport(notices){
-  fs.readFile('/home/ronoc/sandbox/afive/sentry/notice-pending.template',
-              'utf8',
-              function (err,data) {
-                if(err){
-                  logger.info('problem opening template file');
-                  return;
-                }
-                var template = Handlebars.compile(data);
-                var context = {'title': 'Pending Notices for ' + reportName.replace(/\.html/, ''),
-                               'notices': notices};
-                var output = template(context);
-                fs.writeFile('/home/ronoc/sandbox/afive/sentry/' + reportName,
-                              output,
-                              function(err){
-                                if(err)
-                                  logger.info('problem writing pending notices report to disk');
-                            });                
-              });
+  storage = new Storage('reports');
+
+  storage.getToText('notices.pending.template', {},
+                    function(err, data){
+                      if(err){
+                        logger.info('problem opening template file');
+                        return;
+                      }
+                      var template = Handlebars.compile(data);
+                      var context = {'title': 'Pending Notices for ' + reportName.replace(/\.html/, ''),
+                                     'notices': notices};
+                      var output = template(context);
+                      fs.writeFile('/home/ronoc/sandbox/afive/sentry/' + reportName,
+                                    output,
+                                    function(err){
+                                      if(err)
+                                        logger.info('problem writing pending notices report');
+                                  });                
+                    });
 }
 
 function main() {
