@@ -42,7 +42,7 @@ Mediafire.prototype.authenticateWeb = function(){
     return promise;
   }
   self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities({ browserName: 'firefox', seleniumProtocol: 'WebDriver' }).build();
+                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
   self.remoteClient.manage().timeouts().implicitlyWait(30000);
   self.remoteClient.get('https://www.mediafire.com/ssl_login.php?type=login');
   self.remoteClient.findElement(webdriver.By.css('#login_email'))

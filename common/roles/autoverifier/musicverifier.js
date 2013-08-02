@@ -146,7 +146,7 @@ MusicVerifier.prototype.examineResults = function(){
     }
     else{
       verificationObject.state = states.FALSE_POSITIVE;
-      verificationObject.notes = "Harry Caul did not find any match, please examine.";
+      verificationObject.notes = "Harry Caul did not find any match.";
     }
   }
   return[err, verificationObject];
@@ -434,7 +434,11 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       })
       .seq(function(){
         logger.info('Finished multi-file verification, didnt match obviously');
-        self.done();
+        self.done(null, {started : self.startedAt,
+                         who : "MusicVerifer AKA Harry Caul",
+                         finished : Date.now(),
+                         state: states.FALSE_POSITIVE,
+                         notes: 'Harry Caul failed to match'});
       })
       .catch(function(err) {
         logger.warn('Unable to process music-verification: %s', err);
