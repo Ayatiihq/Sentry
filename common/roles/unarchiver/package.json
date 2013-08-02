@@ -1,0 +1,13 @@
+{
+  "name": "unarchiver",
+  "main": "./unarchiver.js",
+  "dependencies": {
+  },
+  "engines": [
+  ],
+  "intervalMinutes": 30,
+  "types": {
+    "music": ".*",
+    "movie": ".*"
+  }
+}
