@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , path = require('path')
   , rimraf = require('rimraf')
   , states = acquire('states')
+  , util = require('util')  
   , utilities = acquire('utilities')
   , exec = require('child_process').execFile
   ;
@@ -186,7 +187,7 @@ Transcoder.prototype.processVerification = function(infringement, downloads, don
     , inputFiles = []
     ;
 
-  var isMusic = infringement.campaign.type.match(/music/);
+  var isMusic = infringement.type.match(/music/);
   
   downloads.forEach(function(download) {
     if (self.supportedMimeTypes_.some(download.mimetype) && isMusic)
@@ -234,7 +235,9 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
       stream.pipe(tmpFileStream);
       stream.on('error', done);
       stream.on('end', function() {
-          self.convert(tmpFile, tmpDir function(err){
+        self.convert(tmpFile, tmpDir, function(err){
+          if(err) return done(err)
+
           logger.info('Uploading %s', tmpDir)
      
           self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
@@ -250,19 +253,15 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
   });
 }
 
-Transcode.prototype.convert = function(tmpFile, tmpDir, done){
+Transcoder.prototype.convert = function(tmpFile, tmpDir, done){
   var self = this;
-
-  exec('ffmpeg',
-       ['-i', path.join(tmpDir, tmpFile), path.join(tmpDir, tmpFile, '.mp3')],
-        function (err, stdout, stderr){
+  exec('avconv',
+       ['-i', tmpFile, path.join(tmpDir, 'output.mp3')],
+       function (err, stdout, stderr){
           if (err) return done(err);
-          if (stderr) return done(stderr);
+          if (stderr) logger.warn(stderr);
           if (stdout) logger.info(stdout);
-          fs.rename(path.join(tmpDir, tmpFile, '.mp3'),
-                    path.join(tmpDir, tmpFile), function(err){
-                      done(err);
-                    });
+          done();
         });
 }
 //
