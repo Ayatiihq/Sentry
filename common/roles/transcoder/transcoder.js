@@ -19,6 +19,7 @@ var acquire = require('acquire')
   , rimraf = require('rimraf')
   , states = acquire('states')
   , utilities = acquire('utilities')
+  , exec = require('child_process').execFile
   ;
 
 var Campaigns = acquire('campaigns')
@@ -216,9 +217,54 @@ Transcoder.prototype.transcodeAll = function(infringement, inputFiles, done) {
 
 Transcoder.prototype.transcode = function(infringement, input, done) {
   var self = this
+    , tmpFile = path.join(os.tmpDir(), 'input-'+ infringement._id + '-' + input.name)
+    , tmpFileStream = fs.createWriteStream(tmpFile)
+    , tmpDir = path.join(os.tmpDir(), 'transcoder-'+ infringement._id + '-' + input.name)
+    , uri = self.storage_.getURL(input.name)
+    , started = Date.now()
+    ;
 
+  fs.mkdir(tmpDir, function(err) {
+    if (err) return done(err);
+
+    logger.info('Downloading %s', uri);
+    utilities.requestStream(uri, {}, function(err, req, res, stream) {
+      if (err) return done(err);
+
+      stream.pipe(tmpFileStream);
+      stream.on('error', done);
+      stream.on('end', function() {
+          self.convert(tmpFile, tmpDir function(err){
+          logger.info('Uploading %s', tmpDir)
+     
+          self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
+
+            rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
+            rimraf(tmpDir, function(err) { if (err) logger.warn(err); });
+
+            done(err);
+          });
+        });
+      });
+    });
+  });
 }
 
+Transcode.prototype.convert = function(tmpFile, tmpDir, done){
+  var self = this;
+
+  exec('ffmpeg',
+       ['-i', path.join(tmpDir, tmpFile), path.join(tmpDir, tmpFile, '.mp3')],
+        function (err, stdout, stderr){
+          if (err) return done(err);
+          if (stderr) return done(stderr);
+          if (stdout) logger.info(stdout);
+          fs.rename(path.join(tmpDir, tmpFile, '.mp3'),
+                    path.join(tmpDir, tmpFile), function(err){
+                      done(err);
+                    });
+        });
+}
 //
 // Overrides
 //
