@@ -160,7 +160,7 @@ Transcoder.prototype.processVerifications = function(done) {
     }
 
     function closeAndGotoNext(err, infringement) {
-      logger.warn('Unable to process %s for unarchiving: %s', infringement._id, err);
+      logger.warn('Unable to process %s for transcoding: %s', infringement._id, err);
       self.infringements_.processedBy(infringement, PROCESSOR);
       setTimeout(self.processVerifications.bind(self, done), 1000);
       return;
