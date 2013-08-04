@@ -459,7 +459,7 @@ MusicVerifier.prototype.finish = function(){
 
 MusicVerifier.getSupportedMimeTypes = function() {
   return [
-      'audio/mpeg'
+      'audio/mpeg' // default mime-type
     , 'audio/mpeg3'
     , 'audio/mp3'
     , 'audio/x-mpeg-3'

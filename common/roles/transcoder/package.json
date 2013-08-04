@@ -1,0 +1,12 @@
+{
+  "name": "transcoder",
+  "main": "./transcoder.js",
+  "dependencies": {
+  },
+  "engines": [
+  ],
+  "intervalMinutes": 30,
+  "types": {
+    "music": ".*"
+  }
+}
