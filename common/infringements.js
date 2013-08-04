@@ -557,6 +557,10 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
    query.mimetypes = { $in: options.mimetypes };
   }
 
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
   self.infringements_.find(query, opts).toArray(callback); 
 }
 
