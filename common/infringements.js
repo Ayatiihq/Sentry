@@ -561,6 +561,10 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
     query.created = { $gt: options.after };
   }
 
+  if (options.search && options.search.length > 3) {
+    query.uri = new Regex('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
+  }
+
   self.infringements_.find(query, opts).toArray(callback); 
 }
 
@@ -639,6 +643,10 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
 
   if (options.after) {
     query.created = { $gt: options.after };
+  }
+
+  if (options.search && options.search.length > 3) {
+    query.uri = new Regex('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
   }
 
   self.infringements_.find(query).count(callback);
