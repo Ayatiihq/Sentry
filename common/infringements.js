@@ -545,7 +545,9 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
     sort: { created: -1 }
   };
 
-  if (options.state > -2) {
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
   }
 
@@ -557,7 +559,18 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
    query.mimetypes = { $in: options.mimetypes };
   }
 
-  self.infringements_.find(query, opts).toArray(callback); 
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
+  if (options.search && options.search.length > 3) {
+    query.uri = new RegExp('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
+  }
+
+  if (options.project)
+    self.infringements_.find(query, options.project, opts).toArray(callback);
+  else
+    self.infringements_.find(query, opts).toArray(callback);
 }
 
 /**
@@ -588,9 +601,12 @@ Infringements.prototype.getForClient = function(client, options, callback)
     sort: { created: -1 }
   };
 
-  if (options.state > -2) {
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
   }
+
   if (options.category > -1) {
     query.category = options.category;
   }
@@ -622,8 +638,11 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
     campaign: campaign
   };
 
-  if (options.state > -2)
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
+  }
   
   if (options.category > -1) {
     query.category = options.category;
@@ -631,6 +650,14 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
 
   if (options.mimetypes) {
    query.mimetypes = { $in: options.mimetypes };
+  }
+
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
+  if (options.search && options.search.length > 3) {
+    query.uri = new RegExp('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
   }
 
   self.infringements_.find(query).count(callback);
@@ -656,8 +683,11 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
     'campaign.client': client
   };
 
-  if (options.state > -2)
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
+  }
 
   if (options.category > -1) {
     query.category = options.category;

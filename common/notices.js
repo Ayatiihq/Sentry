@@ -282,6 +282,14 @@ Notices.prototype.getForCampaign = function(campaign, options, callback)
     sort: { created: -1 }
   };
 
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
+  if (options.search && options.search.length > 3) {
+    query.host = new RegExp(options.search, 'i');
+  }
+
   self.notices_.find(query, options).toArray(callback); 
 }
 
@@ -304,6 +312,14 @@ Notices.prototype.getCountForCampaign = function(campaign, options, callback)
   var query = {
     campaign: campaign
   };
+
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
+  if (options.search && options.search.length > 3) {
+    query.host = new RegExp(options.search, 'i');
+  }
 
   self.notices_.find(query).count(callback);
 }
