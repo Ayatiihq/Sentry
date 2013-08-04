@@ -565,7 +565,10 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
     query.uri = new RegExp('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
   }
 
-  self.infringements_.find(query, opts).toArray(callback); 
+  if (options.project)
+    self.infringements_.find(query, options.project, opts).toArray(callback);
+  else
+    self.infringements_.find(query, opts).toArray(callback);
 }
 
 /**
