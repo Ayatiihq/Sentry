@@ -545,7 +545,9 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
     sort: { created: -1 }
   };
 
-  if (options.state > -2) {
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
   }
 
@@ -599,9 +601,12 @@ Infringements.prototype.getForClient = function(client, options, callback)
     sort: { created: -1 }
   };
 
-  if (options.state > -2) {
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
   }
+
   if (options.category > -1) {
     query.category = options.category;
   }
@@ -633,8 +638,11 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
     campaign: campaign
   };
 
-  if (options.state > -2)
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
+  }
   
   if (options.category > -1) {
     query.category = options.category;
@@ -675,8 +683,11 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
     'campaign.client': client
   };
 
-  if (options.state > -2)
+  if (Object.isArray(options.state)) {
+    query.state = { $in: options.state };
+  } else if (options.state > -2) {
     query.state = options.state;
+  }
 
   if (options.category > -1) {
     query.category = options.category;
