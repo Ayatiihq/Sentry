@@ -637,6 +637,10 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
    query.mimetypes = { $in: options.mimetypes };
   }
 
+  if (options.after) {
+    query.created = { $gt: options.after };
+  }
+
   self.infringements_.find(query).count(callback);
 }
 
