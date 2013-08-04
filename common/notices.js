@@ -287,7 +287,7 @@ Notices.prototype.getForCampaign = function(campaign, options, callback)
   }
 
   if (options.search && options.search.length > 3) {
-    query.host = new RegExp('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
+    query.host = new RegExp(options.search, 'i');
   }
 
   self.notices_.find(query, options).toArray(callback); 
@@ -318,7 +318,7 @@ Notices.prototype.getCountForCampaign = function(campaign, options, callback)
   }
 
   if (options.search && options.search.length > 3) {
-    query.host = new RegExp('(' + options.search.replace(/\ /gi, '|') + ')', 'i');
+    query.host = new RegExp(options.search, 'i');
   }
 
   self.notices_.find(query).count(callback);
