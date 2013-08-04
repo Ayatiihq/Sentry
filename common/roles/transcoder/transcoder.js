@@ -188,7 +188,7 @@ Transcoder.prototype.processVerification = function(infringement, downloads, don
     ;
   
   downloads.forEach(function(download) {
-    if (self.supportedMimeTypes_.some(download.mimetype) && isMusic)
+    if (self.supportedMimeTypes_.some(download.mimetype))
       inputFiles.push(download);
   });
 
