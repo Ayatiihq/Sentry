@@ -7,7 +7,6 @@
   ],
   "intervalMinutes": 30,
   "types": {
-    "music": ".*",
-    "movie": ".*"
+    "music": ".*"
   }
 }

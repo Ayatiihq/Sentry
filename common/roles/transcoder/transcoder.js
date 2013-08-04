@@ -186,8 +186,6 @@ Transcoder.prototype.processVerification = function(infringement, downloads, don
   var self = this
     , inputFiles = []
     ;
-
-  var isMusic = infringement.type.match(/music/);
   
   downloads.forEach(function(download) {
     if (self.supportedMimeTypes_.some(download.mimetype) && isMusic)
