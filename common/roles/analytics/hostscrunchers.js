@@ -378,7 +378,7 @@ categoryData.forEach(function(data) {
       ;
 
     logger.info(name + ': Running job');
-    collection.find({ campaign: campaign._id, category: category })
+    collection.find({ campaign: campaign._id, category: category, state: { $in: [1, 3, 4]} })
               .count(function(err, count) {
       if (err)
         return done(name + ': Error counting number of links with category ' + category + ': ' + err);
@@ -725,7 +725,7 @@ categoryData.forEach(function(data) {
       ;
 
     logger.info(method + ': Running job');
-    collection.find({ 'campaign.client': campaign.client, category: category })
+    collection.find({ 'campaign.client': campaign.client, category: category, state: { $in: [1, 3, 4]} })
               .count(function(err, count) {
       if (err)
         return done(method + ': Error counting number of links with category ' + category + ': ' + err);
