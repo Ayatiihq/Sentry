@@ -10,6 +10,8 @@
   "intervalMinutes": 15,
   "engines": [
     "0",
-    "1"
+    "1",
+    "2",
+    "3"
   ]
 }
