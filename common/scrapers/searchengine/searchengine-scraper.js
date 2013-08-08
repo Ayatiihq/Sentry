@@ -263,24 +263,29 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
 
   // First is the basic album searches
   if (soundtrack) {
-    searchTerms1.push(fmt('%s song download', albumTitle));
-    searchTerms1.push(fmt('%s songs download', albumTitle));
-    searchTerms1.push(fmt('%s mp3 torrent', albumTitle));
-    searchTerms2.push(fmt('%s mp3', albumTitle));
+    searchTerms1.push(fmt('"%s" song download', albumTitle));
+    searchTerms1.push(fmt('"%s" songs download', albumTitle));
+    searchTerms1.push(fmt('"%s" mp3 torrent', albumTitle));
+    searchTerms2.push(fmt('"%s" mp3', albumTitle));
   } else {
-    searchTerms1.push(fmt('%s %s download', artist, albumTitle));
-    searchTerms1.push(fmt('%s %s torrent', artist, albumTitle));
-    searchTerms1.push(fmt('%s mp3', artist, albumTitle));
+    searchTerms1.push(fmt('"%s" "%s" download', artist, albumTitle));
+    searchTerms1.push(fmt('"%s" "%s" torrent', artist, albumTitle));
+    searchTerms1.push(fmt('"%s" mp3', artist, albumTitle));
   }
 
   // Now the tracks
   tracks.forEach(function(track) {
     if (soundtrack) {
-      searchTerms1.push(fmt('%s song download', track));
-      searchTerms2.push(fmt('%s mp3', track));
+      if (track.searchWithAlbum) {
+        searchTerms1.push(fmt('"%s" %s song download', track, albumTitle));
+        searchTerms2.push(fmt('"%s" %s mp3', track, albumTitle));
+      } else {
+        searchTerms1.push(fmt('"%s" song download', track));
+        searchTerms2.push(fmt('"%s" mp3', track));
+      }
     } else {
-      searchTerms1.push(fmt('%s %s song download', artist, track));
-      searchTerms2.push(fmt('%s %s mp3', artist, track));
+      searchTerms1.push(fmt('"%s" "%s" song download', artist, track));
+      searchTerms2.push(fmt('"%s" "%s" mp3', artist, track));
     }
   });
 
