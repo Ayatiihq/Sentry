@@ -29,7 +29,7 @@ var Scraper = acquire('scraper')
   ;
 
 var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' }
-  , MAX_SCRAPER_POINTS = 100
+  , MAX_SCRAPER_POINTS = 50
   ;
 
 var ENGINES = {}; // This is the object engines register themselves in
@@ -47,7 +47,7 @@ var ReverseScraper = module.exports = function() {
   this.remoteClient_ = null;
   this.idleTime_ = [5, 10];
   this.resultsCount_ = 0;
-  this.maxPages_ = 15;
+  this.maxPages_ = 5;
   this.pageNumber_ = 1;
 
   this.cachedCalls_ = [];
@@ -291,6 +291,9 @@ ReverseScraper.prototype.start = function(campaign, job) {
   self.campaign_ = campaign;
   self.job_ = job;
 
+  if (campaign.metadata.searchengineMaxPages)
+    self.maxPages_ = (campaign.metadata.searchengineMaxPages / 3).ceil();
+
   self.run();
 
   self.emit('started');
@@ -304,7 +307,6 @@ ReverseScraper.prototype.stop = function() {
 ReverseScraper.prototype.isAlive = function(cb) {
   cb();
 }
-
 
 //
 //
@@ -382,8 +384,8 @@ CyberlockerScraper.prototype.getSearchTerm = function(runNumber, done) {
 
     if (cyberlockers.length) {
       var cyberlocker = cyberlockers[runNumber % cyberlockers.length];
-
-      searchTerm = util.format('%s +\"%s\"', self.campaign_.name, cyberlocker);
+      
+      searchTerm = self.getSearchTermForCampaign(self.campaign_, cyberlocker)
     }
 
     done(null, searchTerm);
@@ -402,4 +404,26 @@ CyberlockerScraper.prototype.getDomainList = function(infringements) {
   });
 
   return Object.keys(domains);
+}
+
+
+CyberlockerScraper.prototype.getSearchTermForCampaign = function(campaign, id) {
+  var type = campaign.type
+    , metadata = campaign.metadata
+    ;
+
+  if (type == 'music.album') {
+    if (metadata.tracks.length == 1) { //Single
+      var track = metadata.tracks[0];
+      if (track.searchWithAlbum) {
+        return util.format('"%s" %s %s', track.title, metadata.albumTitle, id)
+      } else {
+        return util.format('"%s" +%s', track.title, id)
+      }
+    } else {
+      return util.format('"%s" +%s', campaign.albumTitle, id);
+    }
+  }
+
+  return util.format('"%s" +%s', campaign.name, campaign.albumTitle);
 }
