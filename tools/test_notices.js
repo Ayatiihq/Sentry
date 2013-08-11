@@ -15,6 +15,7 @@ var acquire = require('acquire')
   , Storage = acquire('storage')
   , Handlebars = require('handlebars')
   , fs = require('fs')
+  , path = require('path')  
   ;
 
 var Campaigns = acquire('campaigns')
@@ -61,6 +62,7 @@ function findInfringements(args, db){
 }
 
 function prepareNotice(notice, db){
+  logger.info('Expand ' + notice.infringements.length + ' infringements for notice ' + notice._id);
   var p = new Promise.Promise();
   notice.created = Date.create(notice.created).format();
   expandInfrgs(notice.infringements, db).then(function(completeInfringements){
@@ -89,41 +91,54 @@ function preparePendingReport(err, notices){
     logger.error('Error generating pending report : ' + err);
     return;
   }
+
+  logger.info('Notices total : ' + notices.length);
   
   databaseConnection().then(function(db){
     var promArray = [];
+    logger.info('Go expand');
     promArray = notices.map(function(notice){ return prepareNotice.bind(null, notice, db)});
 
     Promise.seq(promArray).then(function(){
-      writeReport(notices);
-      db.close(function(err){
-                if(err)
-                  logger.error('Error closing db connection !');
-              });                                   
+      logger.info('write the report');
+      writeReport(notices).then(function(){
+        db.close(function(err){
+                  if(err)
+                    logger.error('Error closing db connection !');
+                });
+        });
     });
   });
 }
 
 function writeReport(notices){
+  var p = new Promise.Promise();
+
   storage = new Storage('reports');
 
   storage.getToText('notices.pending.template', {},
                     function(err, data){
                       if(err){
-                        logger.info('problem opening template file');
+                        logger.warn('problem fetching template file');
+                        p.resolve();
                         return;
                       }
                       var template = Handlebars.compile(data);
-                      var context = {'title': 'Pending Notices for ' + reportName.replace(/\.html/, ''),
+                      var context = {'title':  reportName.replace(/\.html/, ''),
                                      'notices': notices};
                       var output = template(context);
-                      fs.writeFile('/home/ronoc/sandbox/afive/sentry/' + reportName,
+                      var target = path.join(process.cwd(), 'tmp', reportName);
+                      logger.info('about to write ' + target);
+                      fs.writeFile( target,
                                     output,
                                     function(err){
                                       if(err)
                                         logger.info('problem writing pending notices report');
+                                      logger.info('done');
+                                      p.resolve();
                                   });                
                     });
+  return p;
 }
 
 function main() {
@@ -155,9 +170,8 @@ function main() {
 
   if (action === 'generatePendingReport'){
     var campaign = require(arg0);
-    reportName = campaign.name.replace(/\s/g, '') +
-                 '-' + (parseInt(argv[4])).daysAgo().format('{Weekday}{d}{Month}') + 
-                 '-' + (parseInt(argv[5])).daysAgo().format('{Weekday}{d}{Month}') + '.html'; 
+    reportName = (parseInt(argv[4])).daysAgo().format('{Weekday}-{d}-{Month}') + 
+                 '-' + (parseInt(argv[5])).daysAgo().format('{Weekday}-{d}-{Month}') + '-' + campaign.name.dasherize().toLowerCase() + '.html'; 
     notices.getPendingForCampaign(campaign,
                                   parseInt(argv[4]),
                                   parseInt(argv[5]),
