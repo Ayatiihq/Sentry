@@ -62,7 +62,10 @@ function findInfringements(args, db){
 }
 
 function prepareNotice(notice, db){
-  logger.info('Expand ' + notice.infringements.length + ' infringements for notice ' + notice._id);
+  logger.info('Expand ' + notice.infringements.length 
+              + '\ninfringements for notice ' 
+              + notice._id + '\ndated : ' 
+              + Date.create(notice.created));
   var p = new Promise.Promise();
   notice.created = Date.create(notice.created).format();
   expandInfrgs(notice.infringements, db).then(function(completeInfringements){
@@ -100,7 +103,7 @@ function preparePendingReport(err, notices){
     promArray = notices.map(function(notice){ return prepareNotice.bind(null, notice, db)});
 
     Promise.seq(promArray).then(function(){
-      logger.info('write the report');
+      logger.info('write the report \ntotal notices: ' + notices.length);
       writeReport(notices).then(function(){
         db.close(function(err){
                   if(err)
