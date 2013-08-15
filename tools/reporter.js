@@ -78,7 +78,11 @@ function databaseConnection(){
 function preparePendingReport(notices, name){
 
   logger.info('Notices total : ' + notices.length);
-  
+  if(notices.length === 0){
+    logger.info('nothing to report here, results are empty');
+    process.exit();
+  }
+
   databaseConnection().then(function(db){
     var promArray = [];
     logger.info('Go expand');
