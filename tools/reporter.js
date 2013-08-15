@@ -256,8 +256,8 @@ function fetchMostLikelyNotices(hostEmail, howManyDaysFromToday){
 
   var getNoticesInfo = findFilteredCollection('notices', noticeArgs);
   getNoticesInfo.then(function(notices){
-  	var name = 'notices-for-' + hostEmail + '.html';
-  	preparePendingReport(notices, name);
+    var name = 'notices-for-' + hostEmail + '.html';
+    preparePendingReport(notices, name);
   });
 }
 
@@ -375,6 +375,29 @@ function main() {
     fetchMostLikelyNotices(process.argv[3])
   }
 
+  if (action === 'pendingNotices'){
+    if(process.argv.length < 6){
+      logger.info('not enough args');
+      process.exit();
+    }
+    var notices_ = new Notices();
+    var campaign = parseObject(process.argv[3]);
+    reportName = (parseInt(process.argv[4])).daysAgo().format('{Weekday}-{d}-{Month}') + 
+                  '-' + (parseInt(process.argv[5])).daysAgo().format('{Weekday}-{d}-{Month}') +
+                  '-' + campaign.name.dasherize().toLowerCase() + '.html'; 
+
+    databaseConnection().then(function(err, db){
+      notices_.getPendingForCampaign(campaign,
+                                     parseInt(process.argv[4]),
+                                     parseInt(process.argv[5]),
+                                     function(err, notices){
+                                       preparePendingReport(notices, reportName);
+                                     });
+    },
+    function(err){
+      logger.info('error connecting to db');
+    });
+  }
 }
 
 main();
