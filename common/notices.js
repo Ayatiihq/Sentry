@@ -214,6 +214,38 @@ Notices.prototype.updateInfringement = function(notice, infringement, callback) 
 }
 
 /**
+ * Set a notice's state
+ * @param  {object}          notice      A valid notice
+ * @param  {integer}         newState    A valid state from states.notices.state enum
+ * @param  {function(err)}   callback    A callback to receive an error, if one occurs
+ * @return {undefined}
+ **/
+Notices.prototype.setNoticeState = function(notice, newState, callback){
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.setNoticeState, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  var allStateValues = Object.keys(states.notices.state).map(function(key){ return states.notices.state[key]});
+  console.log('all state values ' + JSON.stringify(allStateValues));
+  
+  if (!allStateValues.some(newState))
+    return callback(new Error('new state is not a valid notice state : ' + newState));
+
+  self.notices_.findOne(notice, function(err, notice) {
+        logger.info('Setting notice %s to needs-escalating', notice._id);
+        self.notices_.update({ _id: notice._id },
+                             {
+                               $set: {
+                                 state: newState
+                               }
+                             },
+                             callback);
+  });
+}
+
+/**
  * Sets a notice and it's infringements to the 'taken down' state
  *
  * @param  {object}          notice      A valid notice
@@ -238,13 +270,9 @@ Notices.prototype.setTakenDown = function(notice, callback) {
       })
       .seq(function() {
         logger.info('Setting notice %s to accepted', notice._id);
-        self.notices_.update({ _id: notice._id },
-                            {
-                              $set: {
-                                state: states.notices.state.PROCESSED
-                              }
-                            },
-                            this);
+        self.setNoticeState (notice, 
+                             states.notices.state.PROCESSED,
+                             this);                            
       })
       .seq(function() {
         callback();
@@ -355,6 +383,33 @@ Notices.prototype.getPendingForCampaign = function(campaign, rangeStart, rangeEn
 }
 
 /**
+ * Get notices that have state 'needs-escalting' for a campaign.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {function(err,list)}    callback         A callback to receive the notices, or an error;
+ */
+Notices.prototype.getNeedsEscalatingForCampaign = function(campaign, callback)
+{
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.getNeedsEscalatingForCampaign, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    state: 2,
+  };
+
+  var options = {
+    sort: { created: -1 }
+  };
+
+  self.notices_.find(query, options).toArray(callback);
+}
+
+/**
  * Get notices for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
@@ -405,32 +460,4 @@ Notices.prototype.getCountForClient = function(client, options, callback)
   };
 
   self.notices_.find(query).count(callback);
-}
-
-/**
- * Set a notice's state to NEEDS_ESCALATING
- * @param  {object}          notice      A valid notice
- * @param  {function(err)}   callback    A callback to receive an error, if one occurs
- * @return {undefined}
- **/
-Notices.prototype.escalate = function(notice, callback)
-{
-  var self = this;
-
-  if (!self.infringements_ || !self.notices_)
-    return self.cachedCalls_.push([self.escalate, Object.values(arguments)]);
-
-  callback = callback ? callback : defaultCallback;
-
-  self.notices_.findOne(notice, function(err, notice) {
-        logger.info('Setting notice %s to needs-escalating', notice._id);
-        self.notices_.update({ _id: notice._id },
-                             {
-                               $set: {
-                                 state: states.notices.state.NEEDS_ESCALATING
-                               }
-                             },
-                             callback);
-
-  });
 }

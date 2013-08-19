@@ -107,6 +107,9 @@ NoticeSender.prototype.processJob = function(err, job) {
       self.client_ = client;
       self.getInfringements(this);
     })
+    .seq(function(client) {
+      self.sendEscalatedNotices(this);
+    })    
     .seq(function() {
       logger.info('Finished sending notices');
       self.jobs_.complete(job);
@@ -127,7 +130,7 @@ NoticeSender.prototype.getInfringements = function(done) {
 
   // If a client doesn't have the required information, we skip it
   if (!self.client_.authorization || !self.client_.copyrightContact) {
-    logger.info('Client %s does not have the reuired information to process notices', self.client_.name);
+    logger.info('Client %s does not have the required information to process notices', self.client_.name);
     return done();
   }
 
@@ -399,6 +402,39 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
   });
 }
 
+NoticeSender.prototype.sendEscalatedNotices = function(done){
+  var self = this;
+
+  // If a client doesn't have the required information, we skip it
+  if (!self.client_.authorization || !self.client_.copyrightContact) {
+    logger.info('Client %s does not have the required information to process notices', self.client_.name);
+    return done();
+  }
+
+  if (self.campaign_.monitoring) {
+    logger.info('Campaign %s is for monitoring only', self.campaign_.name);
+    return done();
+  }
+
+  self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
+    if(err){
+      logger.warn('Error fetching notices that need-escalating : ' + err);
+      return done();
+    }
+
+    Seq(results)
+      var that = this;
+      .seqEach(function(notice){
+        done();
+      })
+      .catch(function(err) {
+        done(err)
+      })
+      ;
+
+  });
+}
+
 //
 // Overrides
 //
@@ -414,6 +450,7 @@ NoticeSender.prototype.start = function() {
   
   self.emit('started');
 }
+
 
 NoticeSender.prototype.end = function() {
   // Don't do anything, just let noticesender finish as normal, it's pretty fast
