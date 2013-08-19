@@ -407,3 +407,30 @@ Notices.prototype.getCountForClient = function(client, options, callback)
   self.notices_.find(query).count(callback);
 }
 
+/**
+ * Set a notice's state to NEEDS_ESCALATING
+ * @param  {object}          notice      A valid notice
+ * @param  {function(err)}   callback    A callback to receive an error, if one occurs
+ * @return {undefined}
+ **/
+Notices.prototype.escalate = function(notice, callback)
+{
+  var self = this;
+
+  if (!self.infringements_ || !self.notices_)
+    return self.cachedCalls_.push([self.escalate, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.notices_.findOne(notice, function(err, notice) {
+        logger.info('Setting notice %s to needs-escalating', notice._id);
+        self.notices_.update({ _id: notice._id },
+                             {
+                               $set: {
+                                 state: states.notices.state.NEEDS_ESCALATING
+                               }
+                             },
+                             callback);
+
+  });
+}
