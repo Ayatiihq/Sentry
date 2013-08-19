@@ -68,6 +68,9 @@ function main() {
 
   if (action === 'setState')
     notices.setNoticeState({ _id: arg0 }, states.notices.state.NEEDS_ESCALATING, log);
+
+  if (action === 'getNeedsEscalatingForCampaign')
+    notices.getNeedsEscalatingForCampaign(require(arg0), log);
 }
 
 main()

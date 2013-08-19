@@ -20,12 +20,12 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns')
   , Clients = acquire('clients')
   , Hosts = acquire('hosts')
-  , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Notices = acquire('notices')
   , Role = acquire('role')
   , Settings = acquire('settings')
   , Seq = require('seq')
+  , database = acquire('database')  
   ;
 
 var EmailEngine = require('./email-engine')
@@ -36,7 +36,6 @@ var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
   this.clients_ = null;
   this.hosts_ = null;
-  this.infringements_ = null;
   this.jobs_ = null;
   this.notices_ = null;
   this.settings_ = null;
@@ -62,7 +61,6 @@ NoticeSender.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.clients_ = new Clients();
   self.hosts_ = new Hosts();
-  self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('noticesender');
   self.notices_ = new Notices();
   self.settings_ = new Settings('role.noticesender');
@@ -327,7 +325,7 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
   return triggered;
 }
 
-NoticeSender.prototype.sendNotice = function(host, infringements, done) {
+NoticeSender.prototype.sendNotice = function(host, infringements, done, escalate) {
   var self =  this
     , details = host.noticeDetails
     , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
@@ -338,13 +336,13 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   Seq()
     .seq(function() {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
-      builder.build(this);
+      builder.build(this, escalate);
     })
     .seq(function(hash, message) {
       self.loadEngineForHost(host, infringements, hash, message, this);
     })
     .seq(function(engine) {
-      engine.post(this);
+      engine.post(this, escalate);
     })
     .seq(function(notice) {
       self.processNotice(host, notice, this);
@@ -404,7 +402,6 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
 
 NoticeSender.prototype.sendEscalatedNotices = function(done){
   var self = this;
-
   // If a client doesn't have the required information, we skip it
   if (!self.client_.authorization || !self.client_.copyrightContact) {
     logger.info('Client %s does not have the required information to process notices', self.client_.name);
@@ -419,19 +416,64 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
   self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
     if(err){
       logger.warn('Error fetching notices that need-escalating : ' + err);
-      return done();
+      return done(err);
     }
 
     Seq(results)
-      var that = this;
+      // expand the host information on the notice.
       .seqEach(function(notice){
+        var that = this;
+        self.hosts_.get(notice.metadata.host, function(err, host){
+          if(err)
+            return that(err);
+          notice.metadata.host = host;
+          that();
+        });
+      })
+      // filter out notices that have hosts that don't have hostedBy
+      .seqFilter(function(notice){
+        if(!notice.host.hostedBy){
+          logger.info('Want to escalate notice for ' + host.name " but don't have hostedBy information.")
+          return false;          
+        }
+        return true;
+      }) 
+      // expand all infringements on the valid notices to be escalated 
+      .seqEach(function(notice){
+        var that = this;
+        var ids = [];
+        notice.infringements.each(function(infr_id){
+          ids.push({'_id': infr_id});
+        });
+        database.connectAndEnsureCollection('infringements', function(err, db, collection){
+          if(err)
+            return that(err);
+          collection.find({'$or' : ids}, function(err, results){
+            if(err)
+              return that(err);
+            notice.infringements = results;
+            that();
+          });
+        });
+      })
+      // send escalated notices to the hosts of the domain
+      .seqEach(function(notice){
+        var that = this;
+        logger.info('sending escalated notice for ' + notice.host.name);
+        self.sendNotice(notice.host, notice.infringements, that, true);
+      })
+      // set each notice to escalated
+      .seqEach(function(notice){
+        self.notices_.setState(notice, states.notices.state.ESCALATED, this);
+      })      
+      .seq(function(){
+        logger.info('finished with escalating notices');
         done();
       })
       .catch(function(err) {
         done(err)
       })
       ;
-
   });
 }
 

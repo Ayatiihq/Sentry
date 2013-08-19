@@ -41,7 +41,7 @@ EmailEngine.prototype.init = function() {
   self.sendgrid_ = new SendGrid(config.SENDGRID_USER, config.SENDGRID_KEY);
 }
 
-EmailEngine.prototype.post = function(done) {
+EmailEngine.prototype.post = function(done, escalate) {
   var self = this
     , details = self.host_.noticeDetails
     , notice = self.prepareNotice()
@@ -52,7 +52,7 @@ EmailEngine.prototype.post = function(done) {
     subject = 'TODO: ' + subject;
 
   self.sendgrid_.send({
-    to: details.metadata.to,
+    to: escalated ? details.metadata.hostedBy : details.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
     bcc: ['neilpatel@ayatii.com'],
