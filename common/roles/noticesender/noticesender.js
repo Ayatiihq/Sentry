@@ -272,7 +272,7 @@ NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
         logger.info('None of the triggers are met for %s, moving on', host._id);
         return done();
       }
-      self.sendNotice(host, infringements, this);
+      self.sendFirstNotice(host, infringements, this);
     })
     .seq(function() {
       done();
@@ -325,24 +325,35 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
   return triggered;
 }
 
-NoticeSender.prototype.sendNotice = function(host, infringements, done, escalate) {
-  var self =  this
-    , details = host.noticeDetails
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
-    ;
+NoticeSender.prototype.sendNotice = function(host, infringements, done) {
+  var self =  this;
 
-  logger.info('Sending notice to %s', host._id);
+  logger.info('Sending notice for %s', host._id);
 
   Seq()
     .seq(function() {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
-      builder.build(this, escalate);
+      builder.build(this);
     })
     .seq(function(hash, message) {
       self.loadEngineForHost(host, infringements, hash, message, this);
     })
     .seq(function(engine) {
-      engine.post(this, escalate);
+      engine.post(done);
+    })
+    ;
+}
+
+NoticeSender.prototype.sendFirstNotice = function(host, infringements, done) {
+  var self =  this
+    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    ;
+
+  logger.info('Sending First notice to %s', host._id);
+
+  Seq()
+    .seq(function() {
+      self.sendNotice(host, infringements, this);
     })
     .seq(function(notice) {
       self.processNotice(host, notice, this);
@@ -359,6 +370,95 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done, escalate
       done(err);
     })
     ;
+}
+
+NoticeSender.prototype.sendEscalatedNotices = function(done){
+  var self = this;
+  // If a client doesn't have the required information, we skip it
+  if (!self.client_.authorization || !self.client_.copyrightContact) {
+    logger.info('Client %s does not have the required information to process notices',
+                 self.client_.name);
+    return done();
+  }
+
+  if (self.campaign_.monitoring) {
+    logger.info('Campaign %s is for monitoring only', self.campaign_.name);
+    return done();
+  }
+
+  self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
+    if(err){
+      logger.warn('Error fetching notices that need-escalating : ' + err);
+      return done(err);
+    }
+
+    Seq(results)
+      // expand the host information on the notice.
+      .seqEach(function(notice){
+        var that = this;
+        self.hosts_.get(notice.host, function(err, host){
+          if(err)
+            return that(err);
+          notice.host = host;
+          that();
+        });
+      })
+      // filter out notices that have hosts that don't have hostedBy
+      .seqFilter(function(notice){
+        if(!notice.host || !notice.host.hostedBy){
+          logger.info('Want to escalate notice for ' + host.name " but don't have hostedBy information.")
+          return false;          
+        }
+        return true;
+      }) 
+      // expand the hostedBy information on the notice.
+      .seqEach(function(notice){
+        var that = this;
+        self.hosts_.get(notice.host.hostedBy, function(err, host){
+          if(err)
+            return that(err);
+          notice.hostedBy = host;
+          that();
+        });
+      })
+      // expand all infringements on the valid notices to be escalated 
+      .seqEach(function(notice){
+        var that = this;
+        var ids = [];
+        notice.infringements.each(function(infr_id){
+          ids.push({'_id': infr_id});
+        });
+        database.connectAndEnsureCollection('infringements', function(err, db, collection){
+          if(err)
+            return that(err);
+          collection.find({'$or' : ids}).toArray().each(function(err, results){
+            if(err)
+              return that(err);
+            notice.infringements = results;
+            that();
+          });
+        });
+      })
+      // send escalated notices to the hosts of the domain
+      .seqEach(function(notice){
+        var that = this;
+        logger.info('sending escalated notice for ' + notice.host.name + ' to ' + notice.hostedBy.name);
+        self.sendNotice(notice.hostedBy,
+                        notice.infringements,
+                        function(err, escalatedNotice){
+                          if(err)
+                            return that(err);
+                          self.notices_.addEscalated(notice, escalatedNotice, that)
+                        });
+      .seq(function(){
+        logger.info('finished with escalating notices');
+        done();
+      })
+      .catch(function(err) {
+        done(err)
+      })
+      ;
+  });
 }
 
 NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, message, done) {
@@ -397,83 +497,6 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
       logger.info('Successfully added notice %s', notice._id);
     }
     done();
-  });
-}
-
-NoticeSender.prototype.sendEscalatedNotices = function(done){
-  var self = this;
-  // If a client doesn't have the required information, we skip it
-  if (!self.client_.authorization || !self.client_.copyrightContact) {
-    logger.info('Client %s does not have the required information to process notices', self.client_.name);
-    return done();
-  }
-
-  if (self.campaign_.monitoring) {
-    logger.info('Campaign %s is for monitoring only', self.campaign_.name);
-    return done();
-  }
-
-  self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
-    if(err){
-      logger.warn('Error fetching notices that need-escalating : ' + err);
-      return done(err);
-    }
-
-    Seq(results)
-      // expand the host information on the notice.
-      .seqEach(function(notice){
-        var that = this;
-        self.hosts_.get(notice.metadata.host, function(err, host){
-          if(err)
-            return that(err);
-          notice.metadata.host = host;
-          that();
-        });
-      })
-      // filter out notices that have hosts that don't have hostedBy
-      .seqFilter(function(notice){
-        if(!notice.host.hostedBy){
-          logger.info('Want to escalate notice for ' + host.name " but don't have hostedBy information.")
-          return false;          
-        }
-        return true;
-      }) 
-      // expand all infringements on the valid notices to be escalated 
-      .seqEach(function(notice){
-        var that = this;
-        var ids = [];
-        notice.infringements.each(function(infr_id){
-          ids.push({'_id': infr_id});
-        });
-        database.connectAndEnsureCollection('infringements', function(err, db, collection){
-          if(err)
-            return that(err);
-          collection.find({'$or' : ids}, function(err, results){
-            if(err)
-              return that(err);
-            notice.infringements = results;
-            that();
-          });
-        });
-      })
-      // send escalated notices to the hosts of the domain
-      .seqEach(function(notice){
-        var that = this;
-        logger.info('sending escalated notice for ' + notice.host.name);
-        self.sendNotice(notice.host, notice.infringements, that, true);
-      })
-      // set each notice to escalated
-      .seqEach(function(notice){
-        self.notices_.setState(notice, states.notices.state.ESCALATED, this);
-      })      
-      .seq(function(){
-        logger.info('finished with escalating notices');
-        done();
-      })
-      .catch(function(err) {
-        done(err)
-      })
-      ;
   });
 }
 

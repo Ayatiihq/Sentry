@@ -187,6 +187,27 @@ Notices.prototype.add = function(campaign, notice, callback) {
 }
 
 /**
+ * Adds an escalated notice to its original
+ *
+ * @param {object}               notice     The original notice .
+ * @param {object}               notice     The escalated notice .
+ * @param {function(err, doc)}   callback   A callback to receive an error, if one occurs, otherwise the inserted documents.
+ * @return {undefined}
+ */
+Notices.prototype.addEscalated = function(original, escalation, callback) {
+  var self = this;
+
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.addEscalated, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var update = original.escalated ? original.escalated.push(escalation) : [escalation]
+
+  self.notices_.update({ _id: original._id }, { $set: { escalated: update } }, callback);
+
+}
+/**
  * Updates an infringement with notice details.
  *
  * @param {object}          notices        The notice this infringement is referenced in.
@@ -227,22 +248,18 @@ Notices.prototype.setNoticeState = function(notice, newState, callback){
     return self.cachedCalls_.push([self.setNoticeState, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
-  var allStateValues = Object.keys(states.notices.state).map(function(key){ return states.notices.state[key]});
-  console.log('all state values ' + JSON.stringify(allStateValues));
-  
-  if (!allStateValues.some(newState))
+
+  if (newState >= Object.size(states.notices.state))
     return callback(new Error('new state is not a valid notice state : ' + newState));
 
-  self.notices_.findOne(notice, function(err, notice) {
-        logger.info('Setting notice %s to needs-escalating', notice._id);
-        self.notices_.update({ _id: notice._id },
-                             {
-                               $set: {
-                                 state: newState
-                               }
-                             },
-                             callback);
-  });
+  logger.info('Setting notice ' + notice._id + );
+  self.notices_.update({ _id: notice._id },
+                       {
+                         $set: {
+                           state: newState
+                         }
+                       },
+                       callback);
 }
 
 /**
@@ -399,7 +416,7 @@ Notices.prototype.getNeedsEscalatingForCampaign = function(campaign, callback)
 
   var query = {
     campaign: campaign,
-    state: 2,
+    state: states.notices.state.NEEDS_ESCALATING,
   };
 
   var options = {

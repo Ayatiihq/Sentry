@@ -41,10 +41,10 @@ EmailEngine.prototype.init = function() {
   self.sendgrid_ = new SendGrid(config.SENDGRID_USER, config.SENDGRID_KEY);
 }
 
-EmailEngine.prototype.post = function(done, escalate) {
+EmailEngine.prototype.post = function(done) {
   var self = this
     , details = self.host_.noticeDetails
-    , notice = self.prepareNotice()
+    , notice = self.prepareNotice(escalate)
     , subject = 'DMCA & EUCD Notice of Copyright Infringements'
     ;
 
@@ -52,7 +52,7 @@ EmailEngine.prototype.post = function(done, escalate) {
     subject = 'TODO: ' + subject;
 
   self.sendgrid_.send({
-    to: escalated ? details.metadata.hostedBy : details.metadata.to,
+    to: notice.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
     bcc: ['neilpatel@ayatii.com'],
@@ -78,13 +78,12 @@ EmailEngine.prototype.prepareNotice = function() {
 
   notice._id = self.hash_;
   notice.metadata = {
-    to: self.host_.noticeDetails.metadata.to
+    to: escalate ? self.host_.noticeDetails.metadata.to
   };
   notice.host = self.host_._id;
   notice.infringements = [];
   self.infringements_.forEach(function(infringement) {
     notice.infringements.push(infringement._id);
   });
-
   return notice;
 }
