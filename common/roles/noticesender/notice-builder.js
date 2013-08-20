@@ -39,14 +39,14 @@ NoticeBuilder.prototype.init = function() {
   self.storage_ = new Storage('notices');
 }
 
-NoticeBuilder.prototype.createHash = function(escalate) {
+NoticeBuilder.prototype.createHash = function() {
   var self = this;
-  var input = escalate ? JSON.stringify(self.campaign_._id) + '-escalate' : JSON.stringify(self.campaign_._id);
+  var input = JSON.stringify(self.campaign_._id);
   return utilities.genLinkKey(input,
                               Date.now());
 }
 
-NoticeBuilder.prototype.build = function(done, escalate) {
+NoticeBuilder.prototype.build = function(done) {
   var self = this
      , campaign = self.campaign_
      , host = self.host_
@@ -56,7 +56,7 @@ NoticeBuilder.prototype.build = function(done, escalate) {
      ;
 
   self.done_ = done;
-  self.hash_ = self.createHash(escalate);
+  self.hash_ = self.createHash();
 
   Seq()
     .seq('getTemplate', function() {

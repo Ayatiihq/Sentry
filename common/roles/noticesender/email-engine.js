@@ -44,7 +44,7 @@ EmailEngine.prototype.init = function() {
 EmailEngine.prototype.post = function(done) {
   var self = this
     , details = self.host_.noticeDetails
-    , notice = self.prepareNotice(escalate)
+    , notice = self.prepareNotice()
     , subject = 'DMCA & EUCD Notice of Copyright Infringements'
     ;
 
@@ -78,7 +78,7 @@ EmailEngine.prototype.prepareNotice = function() {
 
   notice._id = self.hash_;
   notice.metadata = {
-    to: escalate ? self.host_.noticeDetails.metadata.to
+    to: self.host_.noticeDetails.metadata.to
   };
   notice.host = self.host_._id;
   notice.infringements = [];
