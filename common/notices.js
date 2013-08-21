@@ -252,7 +252,7 @@ Notices.prototype.setNoticeState = function(notice, newState, callback){
   if (newState >= Object.size(states.notices.state))
     return callback(new Error('new state is not a valid notice state : ' + newState));
 
-  logger.info('Setting notice ' + notice._id + );
+  logger.info('Setting notice ' + notice._id + ' to ' + newState);
   self.notices_.update({ _id: notice._id },
                        {
                          $set: {
