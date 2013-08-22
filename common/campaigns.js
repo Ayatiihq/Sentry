@@ -261,6 +261,5 @@ Campaigns.prototype.sweep = function(campaign, turnOn, callback){
   
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
-  console.log('id : ' + JSON.stringify(id) + ' turnOn : ' + turnOn);
   self.campaigns_.update({_id : id}, { $set: {'sweep' : turnOn} }, callback);
 }
