@@ -82,6 +82,12 @@ function main() {
       process.exit();
     });
   }
+  if (action === 'toggle') {
+    console.log('process : ' + JSON.stringify(argv));
+
+    var campaign = require(argv[3]);
+    campaigns.toggleOnOff(campaign._id, argv[4] === 'on' ? true : false);
+  }
 }
 
 main();
