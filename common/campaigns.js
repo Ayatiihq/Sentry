@@ -253,14 +253,14 @@ Campaigns.prototype.save = function(campaign, callback) {
  * @param {function(err)}   callback      A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.toggleOnOff = function(campaign, turnOn, callback){
+Campaigns.prototype.sweep = function(campaign, turnOn, callback){
   var self = this;
 
   callback = callback ? callback : defaultCallback;
   var id = Object.isString(campaign) ? JSON.parse(campaign) : campaign;
   
   if (!self.campaigns_)
-    return self.cachedCalls_.push([self.toggleOnOff, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
   console.log('id : ' + JSON.stringify(id) + ' turnOn : ' + turnOn);
   self.campaigns_.update({_id : id}, { $set: {'sweep' : turnOn} }, callback);
 }
