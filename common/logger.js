@@ -16,6 +16,7 @@ var cluster = require('cluster')
   , winston = require('winston')
   ;
 
+require('sugar');
 var Papertrail = require('winston-papertrail').Papertrail;
 
 var ROLE = "";
@@ -46,8 +47,19 @@ Logger.prototype.warn = function() {
 }
 
 Logger.prototype.error = function() {
+  var args = Array.prototype.slice.call(arguments, 0);
   var string = util.format.apply(null, arguments);
-  winston.error(this.prefix_ + ROLE + lineNumber() + ': ' +  string);
+  var errorString = this.prefix_ + ROLE + lineNumber() + ': ' +  string;
+
+  var error = args.find(function (v) { return v instanceof Error; });
+  if (!!error) {
+  	// an error was passed into the arguments list, so lets sugar the 
+  	// displayed message with a little more than an error message.
+  	errorString += "\n"
+  	errorString += error.stack;
+  }
+
+  winston.error(errorString);
 }
 
 Logger.prototype.setRole = function(role) {
