@@ -32,23 +32,23 @@ var Logger = function(filename) {
 }
 
 Logger.prototype.info = function() {
-  var string = util.format.apply(null, arguments);
+  var string = format.apply(null, arguments);
   winston.info(this.prefix_ + ':' + ROLE + string);
 }
 
 Logger.prototype.debug = function() {
-  var string = util.format.apply(null, arguments);
+  var string = format.apply(null, arguments);
   winston.debug(this.prefix_ + ROLE + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.warn = function() {
-  var string = util.format.apply(null, arguments);
+  var string = format.apply(null, arguments);
   winston.warn(this.prefix_ + ROLE + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.error = function() {
   var args = Array.prototype.slice.call(arguments, 0);
-  var string = util.format.apply(null, arguments);
+  var string = format.apply(null, arguments);
   var errorString = this.prefix_ + ROLE + lineNumber() + ': ' +  string;
 
   var error = args.find(function (v) { return v instanceof Error; });
@@ -83,4 +83,42 @@ exports.initServer = function() {
 
 function lineNumber() {
   return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
+}
+
+// calls dictFormat and util.format intelligently depending on the input
+function format() {
+  var args = Array.prototype.slice.call(arguments, 0);
+  if (args.length === 2) {
+  	if (!checkDictFormat.apply(null, args)) {
+      // good match
+      return dictFormat.apply(null, args);
+  	}
+  }
+
+  return util.format.apply(null, arguments);
+
+}
+
+// basically a templating system, pass in a string with ${key} and i'll replace with the value from the dictionary for that key
+// for example:
+// dictFormat("testing ${owner} ${name} ${garbled}ifiction", {owner: 'gord', name:'Format', garbled:'californ'});
+//   => testing gord Format californifiction
+function dictFormat(string, formatDictionary) {
+  var re = new RegExp("\\$\\{(\\w+)\\}", 'g');
+  return string.replace(re, function(subString, subGroup) { return Object.has(formatDictionary, subGroup) ? formatDictionary[subGroup] : subString });
+}
+
+// relates to the above function, tells us if we have a good match of string to dictionary
+function checkDictFormat(string, formatDictionary) {
+  var re = new RegExp("\\$\\{(\\w+)\\}", 'g');
+  if (!re.test(string)) { return new Error('no matches'); }
+  try {
+  	// we just use .replace because its an easy way of itterating over regular expression results
+  	string.replace(re, function(subString, subGroup) { if (!Object.has(formatDictionary, subGroup)) { throw new Error(subGroup); } });
+  }
+  catch (err) {
+  	return err;
+  }
+
+  return;
 }
