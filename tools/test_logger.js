@@ -18,8 +18,8 @@ function testerror() {
 
 
 function main() {
-  logger.info('info message');
-  logger.warn('warn message');
+  logger.info('info message ${name} loves ${treat}s', {name:'gord', treat:'hi-chew'});
+  logger.warn('warn message: %d', 10);
   logger.error('error message');
 
   try { testerror(); }
