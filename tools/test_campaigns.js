@@ -82,10 +82,10 @@ function main() {
       process.exit();
     });
   }
-  if (action === 'toggle') {
+  if (action === 'sweep') {
     console.log('process : ' + JSON.stringify(argv));
     var campaign = require(argv[3]);
-    campaigns.toggleOnOff(campaign._id, argv[4] === 'on' ? true : false);
+    campaigns.sweep(campaign._id, argv[4] === 'on' ? true : false, log);
   }
 }
 
