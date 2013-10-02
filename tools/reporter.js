@@ -195,11 +195,11 @@ function normalizeClient(campaign) {
  * Mark as TakenDown all search engine notices over 2 days old for a given campaign
  *
  */
-function markTakeDownSearchEngines(campaign){
+function markReliablesAsTakeDown(campaign){
   var c = parseObject(campaign)._id;
 
   var notices_ = new Notices();
-  findFilteredCollection('notices', {'host': /searchengine\.[bing|google]/,
+  findFilteredCollection('notices', {'host': /searchengine\.[bing|google|dailymotion|soundcloud]/,
                              'campaign' : c,
                              'state' : 0,
                              'created': {$lt: (2).daysAgo().getTime()}}).then(function(notices){
@@ -363,12 +363,12 @@ function main() {
     });
   }
 
-  if (action === 'SETakedowns'){
+  if (action === 'automaticTakeDowns'){
     if(process.argv.length < 4){
       logger.info('not enough args');
       process.exit();
     }
-    markTakeDownSearchEngines(process.argv[3]);  
+    markReliablesAsTakeDown(process.argv[3]);  
   }
 
   if (action === 'investigateEmail'){
