@@ -79,6 +79,19 @@ function defaultCallback(err) {
     logger.warn('Reply Error: %s', err);
 }
 
+function normalizeCampaign(campaign) {
+  if (Object.isString(campaign)) {
+    // It's the _id of the campaign stringified
+    return JSON.parse(campaign);
+  } else if (campaign._id) {
+    // It's an entire campaign row
+    return campaign._id;
+  } else {
+    // It's just the _id object
+    return campaign;
+  }
+}
+
 //
 // Public Methods
 //
@@ -137,7 +150,9 @@ Downloads.prototype.add = function(infringement, name, origName, mimetype, size,
       size: size,
       created: Date.now(),
       started: started,
-      finished: finished
+      finished: finished,
+      popped: 0,
+      processedBy : []
     }
   , infringementQuery = {
       _id: infringement._id
@@ -302,3 +317,118 @@ Downloads.prototype.getInfringementDownloads = function(infringement, options, c
   
   self.downloads_.find({ infringement: infringement._id }).toArray(callback);
 }   
+
+/**
+ * Get all downloads by campaign
+ *
+ * @param {object}                    campaign                 A Campaign
+ * @param {object}                    options                  An options object
+ * @param {array}                     options.mimetypes        Mimetypes to filter on
+ * @param {string}                    options.notProcessedBy   Name of a processor to ignore
+ * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
+ * @return {undefined}
+ */
+Downloads.prototype.popForCampaign = function(campaign, options, callback) {
+  var self = this
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.popForCampaign, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  options = options || {};
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign,
+    $or: [
+      { popped: { $lt: then } },
+      { popped: { $exists: false } }
+    ]
+  };
+
+  if (options.mimetypes)
+    query.mimetype = { $in: options.mimetypes };
+
+  if (options.notProcessedBy)
+    query.processedBy = { $ne: options.notProcessedBy };
+
+  var sort = [[ 'created', 1 ]];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  console.log(query);
+
+  options = { new: true };
+
+  self.downloads_.findAndModify(query, sort, updates, options, callback);
+}
+
+/**
+ * Get all downloads associated with a given set of MimeTypes.
+ *
+ * @param {object}                    mimetypes       MimeTypes to search with.
+ * @param {object}                    [options]       An optional options object.
+ * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
+ * @return {undefined}
+ */
+Downloads.prototype.getDownloadsByMimeType = function(mimetypes, options, callback) {
+  var self = this;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.getDownloadsByMimeType, Object.values(arguments)]);
+
+  callback = callback ? callback : options;
+  callback = callback ? callback : defaultCallback;
+  
+  self.downloads_.find({ mimetype: {'$or' : mimetypes}}).toArray(callback);
+}
+
+/**
+ * Add an element to the processedBy attribute
+ * @param {object}                    download        The download to set.
+ * @param string                      role            name of role or whatever that has just done its business.
+ * @param {function(err)}             callback        A callback to receive the error if there is one.
+ * @return {undefined}
+ */
+Downloads.prototype.processedBy = function(download, processor, callback){
+  var self = this;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.processedBy, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $push: {
+      'processedBy': processor
+    }
+  };
+
+  self.downloads_.update({ _id: download._id }, updates, callback);
+}
+
+/**
+ * Update the popped timestamp for the download to the current time.
+ *
+ * @param {object}         download   The download to touch.
+ * @param {function(err)}  callback   A callback to receive the error, if one occurs
+ * @return  {null}
+ */
+Downloads.prototype.touch = function(download, callback) {
+  var self = this;
+
+  if (!self.downloads_)
+    return self.cachedCalls_.push([self.touch, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.downloads_.update({ _id: download._id },
+                         { $set: { popped: Date.now() } },
+                         defaultCallback);
+}
