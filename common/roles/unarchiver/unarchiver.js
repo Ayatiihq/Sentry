@@ -31,7 +31,6 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   , Seq = require('seq')
   , Storage = acquire('storage')
-  , Verifications = acquire('verifications')
   ;
 
 var PROCESSOR = 'unarchiver';
@@ -63,11 +62,10 @@ Unarchiver.prototype.init = function() {
   self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('unarchiver');
-  self.verifications_ = new Verifications();
   self.storage_ = new Storage('downloads');
 }
 
-Unarchiver.prototype.loadVerifiers = function(done) {
+Unarchiver.prototype.loadMimetypes = function(done) {
   var self = this;
 
   self.supportedMimeTypes_ = [
@@ -76,7 +74,7 @@ Unarchiver.prototype.loadVerifiers = function(done) {
     //, 'application/x-gzip'
       'application/x-rar'
     , 'application/x-rar-compressed'
-    //, 'application/zip'
+    , 'application/zip'
   ];
 
   done();
@@ -119,10 +117,10 @@ Unarchiver.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.loadVerifiers(this);
+      self.loadMimetypes(this);
     })
     .seq(function() {
-      self.processVerifications(this);
+      self.processDownloads(this);
     })
     .seq(function() {
       logger.info('Finished unarchiving session');
@@ -139,7 +137,7 @@ Unarchiver.prototype.processJob = function(err, job) {
     ;
 }
 
-Unarchiver.prototype.processVerifications = function(done) {
+Unarchiver.prototype.processDownloads = function(done) {
   var self = this;
 
   if (!self.started_)
@@ -150,67 +148,42 @@ Unarchiver.prototype.processVerifications = function(done) {
     return done();
   }
 
-  self.verifications_.popType(self.campaign_, self.supportedMimeTypes_, PROCESSOR, function(err, infringement) {
+  var options = {};
+  options.mimetypes = self.supportedMimeTypes_;
+  options.notProcessedBy = PROCESSOR;
+  
+  self.downloads_.popForCampaign(self.campaign_, options, function(err, download) {
     if (err)
       return done(err);
 
-    if (!infringement || !infringement.uri) {
-      logger.info('Ran out of infringements to process');
+    if (!download) {
+      logger.info('Ran out of downloads to process');
       return done();
     }
 
-    function closeAndGotoNext(err, infringement) {
-      logger.warn('Unable to process %s for unarchiving: %s', infringement._id, err);
-      self.infringements_.processedBy(infringement, PROCESSOR);
-      setTimeout(self.processVerifications.bind(self, done), 1000);
+    function closeAndGotoNext(err, download, infringement) {
+      logger.warn('Unable to process %s for unarchiving: %s', download._id, err);
+      self.downloads_.processedBy(download, PROCESSOR);
+      setTimeout(self.processDownloads.bind(self, done), 1000);
       return;
     }
 
-    self.downloads_.getInfringementDownloads(infringement, function(err, downloads) {
+    // Get the related infringement, we'll need it to register the extracted files
+    self.infringements_.getOneInfringement(download.infringement, function(err, infringement) {
       if (err)
-        return closeAndGotoNext(err, infringement);
+        return closeAndGotoNext(err, download, infringement);
 
-      self.processVerification(infringement, downloads, function(err) {
+      if (!infringement)
+        return closeAndGotoNext('Infringement does not exist', download, infringement);
+
+      self.unarchive(infringement, download, function(err) {
         if (err)
-          return closeAndGotoNext(err, infringement);
+          return closeAndGotoNext(download, infringement);
 
-        self.infringements_.processedBy(infringement, PROCESSOR);
-
-        setTimeout(self.processVerifications.bind(self, done), 1000);
+        self.downloads_.processedBy(download, PROCESSOR);
+        setTimeout(self.processDownloads.bind(self, done), 1000);
       });
     });
-  });
-}
-
-Unarchiver.prototype.processVerification = function(infringement, downloads, done) {
-  var self = this
-    , archives = []
-    ;
-
-  downloads.forEach(function(download) {
-    if (self.supportedMimeTypes_.some(download.mimetype))
-      archives.push(download);
-  });
-
-  if (!archives.length)
-    return done(fmt('Has no downloads that we can unarchive', infringement._id));
-
-  logger.info('Unarchiving %d links for %s', archives.length, infringement._id);
-  self.unarchiveAll(infringement, archives, done);
-}
-
-Unarchiver.prototype.unarchiveAll = function(infringement, archives, done) {
-  var self = this;
-
-  var archive = archives.pop();
-  self.unarchive(infringement, archive, function(err) {
-    if (err)
-      logger.warn(fmt('Unable to unarchive %s for %s: %s', archive.name, infringement._id, err));
-    
-    if (archives.length)
-      setTimeout(self.unarchiveAll.bind(self, infringement, archives, done), 1000);
-    else
-      done(err);
   });
 }
 

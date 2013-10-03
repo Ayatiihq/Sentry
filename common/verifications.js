@@ -187,6 +187,13 @@ Verifications.prototype.popCyberlocker = function(campaign, callback) {
 
   campaign = normalizeCampaign(campaign);
 
+  if (campaign.type == 'music.album') {
+    // We want to include tracks in here
+    campaign.metadata.tracks.forEach(function(track) {
+      name += track.title + ' ';
+    });
+  }
+
   var query = {
     campaign: campaign,
     category: Categories.CYBERLOCKER,
@@ -226,6 +233,13 @@ Verifications.prototype.popBasic = function(campaign, callback) {
     return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
 
   campaign = normalizeCampaign(campaign);
+
+  if (campaign.type == 'music.album') {
+    // We want to include tracks in here
+    campaign.metadata.tracks.forEach(function(track) {
+      name += track.title + ' ';
+    });
+  }
 
   var query = {
     campaign: campaign,
@@ -371,6 +385,9 @@ Verifications.prototype.submit = function(infringement, verification, callback) 
 
   if (!self.infringements_ || !self.verifications_)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
+
+  if (!infringement || !infringement._id)
+    return callback('Invalid infringement');
 
   // First add the verification to the verifications table. Do an upsert because we're cool
   verification.created = Date.now();
