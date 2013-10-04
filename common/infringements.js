@@ -796,3 +796,15 @@ Infringements.prototype.setMetadata = function(infringement, key, value, callbac
                              { $set: { metadata: tempMetadata} },
                              callback);
 }
+
+Infringements.prototype.getOneInfringement = function(infringementID, callback) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getOneInfringement, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;  
+
+  self.infringements_.findOne({_id: infringementID}, callback);
+}
+

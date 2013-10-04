@@ -131,6 +131,10 @@ function main() {
     var value = ['matchedTrack-1.mp3', 'matchedTrack-2.mp3'];
     infringements.setMetadata(infringement, key, value);  
   }
+
+  if(action === 'getOneInfringement'){
+    infringements.getOneInfringement('a71e8587239e6e91c477f92b26bf58f337811768', log);   
+  }
 }
 
 main()
