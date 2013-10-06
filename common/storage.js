@@ -224,7 +224,7 @@ Storage.prototype.getToText = function(name, options, callback) {
  */
 Storage.prototype.getURL = function(name) {
   var self = this
-    , template = 'https://qarth.s3.amazonaws.com/%s/%s'
+    , template = 'https://s3/amazonaws.com/qarth/%s/%s'
     ;
 
   return util.format(template, self.container_, name);
