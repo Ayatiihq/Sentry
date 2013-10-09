@@ -187,27 +187,6 @@ Notices.prototype.add = function(campaign, notice, callback) {
 }
 
 /**
- * Adds an escalated notice to its original
- *
- * @param {object}               notice     The original notice .
- * @param {object}               notice     The escalated notice .
- * @param {function(err, doc)}   callback   A callback to receive an error, if one occurs, otherwise the inserted documents.
- * @return {undefined}
- */
-Notices.prototype.addEscalated = function(original, escalation, callback) {
-  var self = this;
-
-  if (!self.notices_)
-    return self.cachedCalls_.push([self.addEscalated, Object.values(arguments)]);
-
-  callback = callback ? callback : defaultCallback;
-
-  var update = original.escalated ? original.escalated.push(escalation) : [escalation]
-
-  self.notices_.update({ _id: original._id }, { $set: { escalated: update } }, callback);
-
-}
-/**
  * Updates an infringement with notice details.
  *
  * @param {object}          notices        The notice this infringement is referenced in.

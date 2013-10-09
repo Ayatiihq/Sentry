@@ -52,7 +52,7 @@ EmailEngine.prototype.post = function(done) {
     subject = 'TODO: ' + subject;
 
   self.sendgrid_.send({
-    to: notice.metadata.to,
+    to: details.metadata.to,
     from: 'neilpatel@ayatii.com',
     fromname: 'Neil Patel',
     bcc: ['neilpatel@ayatii.com'],
@@ -85,5 +85,6 @@ EmailEngine.prototype.prepareNotice = function() {
   self.infringements_.forEach(function(infringement) {
     notice.infringements.push(infringement._id);
   });
+  
   return notice;
 }

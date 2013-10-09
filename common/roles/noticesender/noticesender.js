@@ -25,7 +25,6 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   , Settings = acquire('settings')
   , Seq = require('seq')
-  , database = acquire('database')  
   ;
 
 var EmailEngine = require('./email-engine')
@@ -409,6 +408,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
       }) 
       // Simply send original notice to the hostedBy details.
       .seqEach(function(notice){
+
       })
       .seq(function(){
         logger.info('finished with escalating notices');

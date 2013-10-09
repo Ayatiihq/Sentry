@@ -41,9 +41,7 @@ NoticeBuilder.prototype.init = function() {
 
 NoticeBuilder.prototype.createHash = function() {
   var self = this;
-  var input = JSON.stringify(self.campaign_._id);
-  return utilities.genLinkKey(input,
-                              Date.now());
+  return utilities.genLinkKey(JSON.stringify(self.campaign_._id),
 }
 
 NoticeBuilder.prototype.build = function(done) {
