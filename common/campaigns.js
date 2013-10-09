@@ -253,7 +253,7 @@ Campaigns.prototype.save = function(campaign, callback) {
  * @param {function(err)}   callback      A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.sweep = function(campaign, turnOn, callback){
+Campaigns.prototype.sweep = function(campaign, update, callback){
   var self = this;
 
   callback = callback ? callback : defaultCallback;
@@ -261,5 +261,6 @@ Campaigns.prototype.sweep = function(campaign, turnOn, callback){
   
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
-  self.campaigns_.update({_id : id}, { $set: {'sweep' : turnOn} }, callback);
+
+  self.campaigns_.update({_id : id}, { $set: {'sweep' : update} }, callback);
 }
