@@ -272,7 +272,7 @@ NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
         logger.info('None of the triggers are met for %s, moving on', host._id);
         return done();
       }
-      self.sendFirstNotice(host, infringements, this);
+      self.sendNotice(host, infringements, this);
     })
     .seq(function() {
       done();
@@ -326,9 +326,12 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 }
 
 NoticeSender.prototype.sendNotice = function(host, infringements, done) {
-  var self =  this;
+  var self =  this
+    , details = host.noticeDetails
+    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    ;
 
-  logger.info('Sending notice for %s', host._id);
+  logger.info('Sending notice to %s', host._id);
 
   Seq()
     .seq(function() {
@@ -339,21 +342,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       self.loadEngineForHost(host, infringements, hash, message, this);
     })
     .seq(function(engine) {
-      engine.post(done);
-    })
-    ;
-}
-
-NoticeSender.prototype.sendFirstNotice = function(host, infringements, done) {
-  var self =  this
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
-    ;
-
-  logger.info('Sending First notice to %s', host._id);
-
-  Seq()
-    .seq(function() {
-      self.sendNotice(host, infringements, this);
+      engine.post(this);
     })
     .seq(function(notice) {
       self.processNotice(host, notice, this);
@@ -405,51 +394,22 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
       })
       // filter out notices that have hosts that don't have hostedBy
       .seqFilter(function(notice){
-        if(!notice.host || !notice.host.hostedBy){
-          logger.info('Want to escalate notice for ' + host.name " but don't have hostedBy information.")
-          return false;          
+        if(!notice.host.hostedBy || !notice.host.hostedBy === ''){
+          logger.warn('Want to escalate notice for ' + host.name +  "but don't have hostedBy information.");
+          return false;
         }
-        return true;
+        return self.hosts_.get(notice.host.hostedBy, function(err, hostedByHost){
+          // just because we a hostedBy doesn't necessarily mean we have the full host info for the hostedBy
+          // Yes its starting to get ridiculous.
+          if(err || !hostedByHost)
+            return false;
+          notice.hostedBy = hostedByHost;
+          return true;
+        });         
       }) 
-      // expand the hostedBy information on the notice.
+      // Simply send original notice to the hostedBy details.
       .seqEach(function(notice){
-        var that = this;
-        self.hosts_.get(notice.host.hostedBy, function(err, host){
-          if(err)
-            return that(err);
-          notice.hostedBy = host;
-          that();
-        });
       })
-      // expand all infringements on the valid notices to be escalated 
-      .seqEach(function(notice){
-        var that = this;
-        var ids = [];
-        notice.infringements.each(function(infr_id){
-          ids.push({'_id': infr_id});
-        });
-        database.connectAndEnsureCollection('infringements', function(err, db, collection){
-          if(err)
-            return that(err);
-          collection.find({'$or' : ids}).toArray().each(function(err, results){
-            if(err)
-              return that(err);
-            notice.infringements = results;
-            that();
-          });
-        });
-      })
-      // send escalated notices to the hosts of the domain
-      .seqEach(function(notice){
-        var that = this;
-        logger.info('sending escalated notice for ' + notice.host.name + ' to ' + notice.hostedBy.name);
-        self.sendNotice(notice.hostedBy,
-                        notice.infringements,
-                        function(err, escalatedNotice){
-                          if(err)
-                            return that(err);
-                          self.notices_.addEscalated(notice, escalatedNotice, that)
-                        });
       .seq(function(){
         logger.info('finished with escalating notices');
         done();
