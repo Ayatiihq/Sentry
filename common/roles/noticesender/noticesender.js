@@ -26,6 +26,7 @@ var Campaigns = acquire('campaigns')
   , Storage = acquire('storage')   
   , Settings = acquire('settings')
   , Seq = require('seq')
+  , Handlebars = require('handlebars')
   ;
 
 var EmailEngine = require('./email-engine')
@@ -471,7 +472,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       engine.post(notice.host.hostedBy, message, notice, this);
     })
     .seq(function(notice) {
-      // set it to escalated.
+      self.notices_.setNoticeState(notice, states.notices.state.ESCALATED, this);
     })
     .seq(function(){
       logger.info('successfully escalated notice ' + notice._id + ' to ' + notice.host.hostedBy.name);
@@ -481,6 +482,32 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       done(err)
     })
     ;    
+}
+
+NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, done){
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.storage_.getToText('dmca.escalate', {}, this);
+    })
+    .seq(function(template) {
+      try {
+        template = Handlebars.compile(template);
+        context = {host: notice.host.hostedBy,
+                   originalNotice: originalMsg,
+                   date: Date.utc.create().format('{dd} {Month} {yyyy}')};
+        this(null, template(context));
+      } catch (err) {
+        this(err);
+      }
+    })
+    .seq(function(message){
+      done(null, message, notice);
+    })
+    .catch(function(err) {
+      done(err);
+    })    
+    ;
 }
 
 NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
