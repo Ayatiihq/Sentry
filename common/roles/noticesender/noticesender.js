@@ -338,20 +338,10 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       builder.build(this);
     })
     .seq(function(hash, message) {
-      // flesh out the notice for later
-      notice = {};
-      notice._id = hash;
-      notice.metadata = {
-        to: host.noticeDetails.metadata.to
-      };
-      notice.host = host._id;
-      notice.infringements = [];
-      infringements_.forEach(function(infringement) {
-        notice.infringements.push(infringement._id);
-      });  
-      self.loadEngineForHost(host, notice, message, this);
+      var notice = self.prepareNotice(hash, host, infringements);
+      self.loadEngineForHost(host, message, notice, this);
     })
-    .seq(function(engine, message) {
+    .seq(function(engine, message, notice) {
       engine.post(host, message, notice, this);
     })
     .seq(function(notice) {
@@ -369,6 +359,22 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       done(err);
     })
     ;
+}
+
+NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
+  var self = this
+    , notice = {}
+    ;
+  notice._id = hash;
+  notice.metadata = {
+    to: host.noticeDetails.metadata.to
+  };
+  notice.host = host._id;
+  notice.infringements = [];
+  infringements.forEach(function(infringement) {
+    notice.infringements.push(infringement._id);
+  }); 
+  return notice;
 }
 
 NoticeSender.prototype.sendEscalatedNotices = function(done){
@@ -439,7 +445,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
   });
 }
 
-NoticeSender.prototype.loadEngineForHost = function(host, notice, message, done) {
+NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
   var self = this
     , engine = null
     , err = null
@@ -456,7 +462,7 @@ NoticeSender.prototype.loadEngineForHost = function(host, notice, message, done)
       err = new Error(msg);
   }
 
-  done(err, engine, notice, message);
+  done(err, engine, message, notice);
 }
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {
