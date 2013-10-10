@@ -20,16 +20,7 @@ var SendGrid = require('sendgrid').SendGrid
   , Seq = require('seq')
   ;
 
-var EmailEngine = module.exports = function(client, campaign, host, infringements, hash, message) {
-  this.client_ = client;
-  this.campaign_ = campaign;
-  this.host_ = host;
-  this.infringements_ = infringements;
-  this.hash_ = hash;
-  this.message_ = message;
-  
-  this.sendgrid_ = null;
-
+var EmailEngine = module.exports = function() {
   this.init();
 }
 
@@ -41,10 +32,9 @@ EmailEngine.prototype.init = function() {
   self.sendgrid_ = new SendGrid(config.SENDGRID_USER, config.SENDGRID_KEY);
 }
 
-EmailEngine.prototype.post = function(done) {
+EmailEngine.prototype.post = function(host, message, notice, done) {
   var self = this
-    , details = self.host_.noticeDetails
-    , notice = self.prepareNotice()
+    , details = host.noticeDetails
     , subject = 'DMCA & EUCD Notice of Copyright Infringements'
     ;
 
@@ -57,7 +47,7 @@ EmailEngine.prototype.post = function(done) {
     fromname: 'Neil Patel',
     bcc: ['neilpatel@ayatii.com'],
     subject: subject,
-    text: self.message_,
+    text: message,
     replyto: 'neilpatel@ayatii.com',
     date: new Date()
   },
@@ -69,22 +59,4 @@ EmailEngine.prototype.post = function(done) {
     else
       done(success ? null :msg, notice);
   });
-}
-
-EmailEngine.prototype.prepareNotice = function() {
-  var self = this
-    , notice = {}
-    ;
-
-  notice._id = self.hash_;
-  notice.metadata = {
-    to: self.host_.noticeDetails.metadata.to
-  };
-  notice.host = self.host_._id;
-  notice.infringements = [];
-  self.infringements_.forEach(function(infringement) {
-    notice.infringements.push(infringement._id);
-  });
-  
-  return notice;
 }

@@ -338,10 +338,21 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       builder.build(this);
     })
     .seq(function(hash, message) {
-      self.loadEngineForHost(host, infringements, hash, message, this);
+      // flesh out the notice for later
+      notice = {};
+      notice._id = hash;
+      notice.metadata = {
+        to: host.noticeDetails.metadata.to
+      };
+      notice.host = host._id;
+      notice.infringements = [];
+      infringements_.forEach(function(infringement) {
+        notice.infringements.push(infringement._id);
+      });  
+      self.loadEngineForHost(host, notice, message, this);
     })
-    .seq(function(engine) {
-      engine.post(this);
+    .seq(function(engine, message) {
+      engine.post(host, message, notice, this);
     })
     .seq(function(notice) {
       self.processNotice(host, notice, this);
@@ -391,22 +402,29 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
           that();
         });
       })
-      // filter out notices that have hosts that don't have hostedBy
+      // filter out notices that have hosts that don't have full hostedBy info.
       .seqFilter(function(notice){
         if(!notice.host.hostedBy || !notice.host.hostedBy === ''){
-          logger.warn('Want to escalate notice for ' + host.name +  "but don't have hostedBy information.");
+          logger.warn('Want to escalate notice for ' + notice.host.name +  "but don't have hostedBy information.");
           return false;
         }
         return self.hosts_.get(notice.host.hostedBy, function(err, hostedByHost){
-          // just because we a hostedBy doesn't necessarily mean we have the full host info for the hostedBy
-          // Yes its starting to get ridiculous.
-          if(err || !hostedByHost)
+          // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
+          if(err || !hostedByHost){
+            // Be verbose.
+            logger.warn('Want to escalate notice to ' +
+                        notice.host.hostedBy ' for ' +
+                        notice.host.name +  
+                        " but don't have " + 
+                        notice.host.hostedBy + 'information');
+
             return false;
+          }
           notice.hostedBy = hostedByHost;
           return true;
         });         
       }) 
-      // Simply send original notice to the hostedBy details.
+      // Escalate original notice to the hostedBy details.
       .seqEach(function(notice){
 
       })
@@ -421,7 +439,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
   });
 }
 
-NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, message, done) {
+NoticeSender.prototype.loadEngineForHost = function(host, notice, message, done) {
   var self = this
     , engine = null
     , err = null
@@ -429,7 +447,7 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, m
 
   switch (host.noticeDetails.type) {
     case 'email':
-      engine = new EmailEngine(self.client_, self.campaign_, host, infringements, hash, message);
+      engine = new EmailEngine();
       break;
 
     default:
@@ -438,13 +456,12 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, m
       err = new Error(msg);
   }
 
-  done(err, engine);
+  done(err, engine, notice, message);
 }
-
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {
   var self = this;
-
+  
   if (host.noticeDetails.testing) {
     logger.info('Ignoring notice %s, this is a test run', notice._id);
     return done();
