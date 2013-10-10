@@ -23,6 +23,7 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Notices = acquire('notices')
   , Role = acquire('role')
+  , Storage = acquire('storage')   
   , Settings = acquire('settings')
   , Seq = require('seq')
   ;
@@ -48,6 +49,7 @@ var NoticeSender = module.exports = function() {
 
   this.job_ = null;
   this.campaign_ = null;
+  this.storage_ = null;
 
   this.init();
 }
@@ -61,6 +63,7 @@ NoticeSender.prototype.init = function() {
   self.clients_ = new Clients();
   self.hosts_ = new Hosts();
   self.jobs_ = new Jobs('noticesender');
+  self.storage_ = new Storage('notices'); 
   self.notices_ = new Notices();
   self.settings_ = new Settings('role.noticesender');
 }
@@ -393,46 +396,13 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
 
   self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
     if(err){
-      logger.warn('Error fetching notices that need-escalating : ' + err);
+      logger.warn('Error fetching notices that need escalating : ' + err);
       return done(err);
     }
 
     Seq(results)
-      // expand the host information on the notice.
       .seqEach(function(notice){
-        var that = this;
-        self.hosts_.get(notice.host, function(err, host){
-          if(err)
-            return that(err);
-          notice.host = host;
-          that();
-        });
-      })
-      // filter out notices that have hosts that don't have full hostedBy info.
-      .seqFilter(function(notice){
-        if(!notice.host.hostedBy || !notice.host.hostedBy === ''){
-          logger.warn('Want to escalate notice for ' + notice.host.name +  "but don't have hostedBy information.");
-          return false;
-        }
-        return self.hosts_.get(notice.host.hostedBy, function(err, hostedByHost){
-          // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
-          if(err || !hostedByHost){
-            // Be verbose.
-            logger.warn('Want to escalate notice to ' +
-                        notice.host.hostedBy ' for ' +
-                        notice.host.name +  
-                        " but don't have " + 
-                        notice.host.hostedBy + 'information');
-
-            return false;
-          }
-          notice.hostedBy = hostedByHost;
-          return true;
-        });         
-      }) 
-      // Escalate original notice to the hostedBy details.
-      .seqEach(function(notice){
-
+        self.escalateNotice(notice, this);
       })
       .seq(function(){
         logger.info('finished with escalating notices');
@@ -443,6 +413,74 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
       })
       ;
   });
+}
+
+NoticeSender.prototype.escalateNotice = function(notice, done){
+  var self = this;
+  
+  Seq()
+    .seq(function(){
+      // Flesh out the original host
+      var that = this;
+      self.hosts_.get(notice.host, function(err, host){
+        if(err){
+          logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice');
+          done(err);
+        }
+        notice.host = host;
+        that(notice);
+      });
+    })
+    .seq(function(noticeWithHost){
+      // Flesh out the hostedby host.
+      var that = this;
+      if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
+        logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
+        done();      
+      }
+      self.hosts_.get(noticeWithHost.host.hostedBy, function(err, hostedByHost){
+        // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
+        if(err || !hostedByHost){
+          // Be verbose.
+          logger.warn('Want to escalate notice to ' +
+                      noticeWithHost.host.hostedBy ' for ' +
+                      noticeWithHost.host.name +  
+                      " but don't have " + 
+                      noticeWithHost.host.hostedBy + ' information');
+          done();
+        }
+        noticeWithHost.host.hostedBy = hostedByHost;
+        that(noticeWithHost);
+      })
+    })
+    .seq(function(noticeWithHostedBy){
+      // Prepare escalation text
+      var that = this;
+      self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
+        if(err){
+          logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
+          done(err);
+        }
+        self.prepareEscalationText(noticeWithHostedBy, originalMsg, that);
+      })      
+    })
+    .seq(function(escalationText, prepdNotice){
+      self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
+    })
+    .seq(function(engine, message, notice) {
+      engine.post(notice.host.hostedBy, message, notice, this);
+    })
+    .seq(function(notice) {
+      // set it to escalated.
+    })
+    .seq(function(){
+      logger.info('successfully escalated notice ' + notice._id + ' to ' + notice.host.hostedBy.name);
+      done();
+    })
+    .catch(function(err) {
+      done(err)
+    })
+    ;    
 }
 
 NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
