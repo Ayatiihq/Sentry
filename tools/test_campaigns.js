@@ -82,6 +82,10 @@ function main() {
       process.exit();
     });
   }
+  if (action === 'sweep') {
+    var campaign = require(argv[3]);
+    campaigns.sweep(campaign._id, argv[4] === 'on' ? true : false, log);
+  }
 }
 
 main();

@@ -20,12 +20,13 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns')
   , Clients = acquire('clients')
   , Hosts = acquire('hosts')
-  , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Notices = acquire('notices')
   , Role = acquire('role')
+  , Storage = acquire('storage')   
   , Settings = acquire('settings')
   , Seq = require('seq')
+  , Handlebars = require('handlebars')
   ;
 
 var EmailEngine = require('./email-engine')
@@ -36,7 +37,6 @@ var NoticeSender = module.exports = function() {
   this.campaigns_ = null;
   this.clients_ = null;
   this.hosts_ = null;
-  this.infringements_ = null;
   this.jobs_ = null;
   this.notices_ = null;
   this.settings_ = null;
@@ -50,6 +50,7 @@ var NoticeSender = module.exports = function() {
 
   this.job_ = null;
   this.campaign_ = null;
+  this.storage_ = null;
 
   this.init();
 }
@@ -62,8 +63,8 @@ NoticeSender.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.clients_ = new Clients();
   self.hosts_ = new Hosts();
-  self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('noticesender');
+  self.storage_ = new Storage('notices'); 
   self.notices_ = new Notices();
   self.settings_ = new Settings('role.noticesender');
 }
@@ -108,6 +109,9 @@ NoticeSender.prototype.processJob = function(err, job) {
       self.getInfringements(this);
     })
     .seq(function() {
+      self.sendEscalatedNotices(this);
+    })    
+    .seq(function() {
       logger.info('Finished sending notices');
       self.jobs_.complete(job);
       clearInterval(self.touchId_);
@@ -127,7 +131,7 @@ NoticeSender.prototype.getInfringements = function(done) {
 
   // If a client doesn't have the required information, we skip it
   if (!self.client_.authorization || !self.client_.copyrightContact) {
-    logger.info('Client %s does not have the reuired information to process notices', self.client_.name);
+    logger.info('Client %s does not have the required information to process notices', self.client_.name);
     return done();
   }
 
@@ -338,10 +342,11 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       builder.build(this);
     })
     .seq(function(hash, message) {
-      self.loadEngineForHost(host, infringements, hash, message, this);
+      var notice = self.prepareNotice(hash, host, infringements);
+      self.loadEngineForHost(host, message, notice, this);
     })
-    .seq(function(engine) {
-      engine.post(this);
+    .seq(function(engine, message, notice) {
+      engine.post(host, message, notice, this);
     })
     .seq(function(notice) {
       self.processNotice(host, notice, this);
@@ -360,7 +365,154 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     ;
 }
 
-NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, message, done) {
+NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
+  var self = this
+    , notice = {}
+    ;
+  notice._id = hash;
+  notice.metadata = {
+    to: host.noticeDetails.metadata.to
+  };
+  notice.host = host._id;
+  notice.infringements = [];
+  infringements.forEach(function(infringement) {
+    notice.infringements.push(infringement._id);
+  }); 
+  return notice;
+}
+
+NoticeSender.prototype.sendEscalatedNotices = function(done){
+  var self = this;
+  // If a client doesn't have the required information, we skip it
+  if (!self.client_.authorization || !self.client_.copyrightContact) {
+    logger.info('Client %s does not have the required information to process notices',
+                 self.client_.name);
+    return done();
+  }
+
+  if (self.campaign_.monitoring) {
+    logger.info('Campaign %s is for monitoring only', self.campaign_.name);
+    return done();
+  }
+
+  self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
+    if(err){
+      logger.warn('Error fetching notices that need escalating : ' + err);
+      return done(err);
+    }
+
+    Seq(results)
+      .seqEach(function(notice){
+        self.escalateNotice(notice, this);
+      })
+      .seq(function(){
+        logger.info('finished with escalating notices');
+        done();
+      })
+      .catch(function(err) {
+        done(err)
+      })
+      ;
+  });
+}
+
+NoticeSender.prototype.escalateNotice = function(notice, done){
+  var self = this;
+  
+  Seq()
+    .seq(function(){
+      // Flesh out the original host
+      var that = this;
+      self.hosts_.get(notice.host, function(err, host){
+        if(err){
+          logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
+          return done();
+        }
+        notice.host = host;
+        that(notice);
+      });
+    })
+    .seq(function(noticeWithHost){
+      // Flesh out the hostedby host.
+      var that = this;
+      if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
+        logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
+        return done();      
+      }
+      self.hosts_.get(noticeWithHost.host.hostedBy, function(err, hostedByHost){
+        // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
+        if(err || !hostedByHost){
+          // Be verbose.
+          logger.warn('Want to escalate notice to ' +
+                      noticeWithHost.host.hostedBy ' for ' +
+                      noticeWithHost.host.name +  
+                      " but don't have " + 
+                      noticeWithHost.host.hostedBy + ' information');
+          return done();
+        }
+        noticeWithHost.host.hostedBy = hostedByHost;
+        that(noticeWithHost);
+      })
+    })
+    .seq(function(noticeWithHostedBy){
+      // Prepare escalation text
+      var that = this;
+      self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
+        if(err){
+          logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
+          return done();
+        }
+        self.prepareEscalationText(noticeWithHostedBy, originalMsg, that);
+      })      
+    })
+    .seq(function(escalationText, prepdNotice){
+      self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
+    })
+    .seq(function(engine, message, notice) {
+      engine.post(notice.host.hostedBy, message, notice, this);
+    })
+    .seq(function(notice) {
+      self.notices_.setNoticeState(notice, states.notices.state.ESCALATED, this);
+    })
+    .seq(function(){
+      logger.info('successfully escalated notice ' + notice._id + ' to ' + notice.host.hostedBy.name);
+      done();
+    })
+    .catch(function(err) {
+      // Don't error, let it move onto the next escalation.
+      done();
+    })
+    ;    
+}
+
+NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, done){
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.storage_.getToText('dmca.escalate', {}, this);
+    })
+    .seq(function(template) {
+      var that = this;
+      try {
+        template = Handlebars.compile(template);
+        context = {host: notice.host.hostedBy,
+                   originalNotice: originalMsg,
+                   date: Date.utc.create().format('{dd} {Month} {yyyy}')};
+        that(null, template(context));
+      } catch (err) {
+        that(err);
+      }
+    })
+    .seq(function(message){
+      done(null, message, notice);
+    })
+    .catch(function(err) {
+      done(err);
+    })    
+    ;
+}
+
+NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
   var self = this
     , engine = null
     , err = null
@@ -368,7 +520,7 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, m
 
   switch (host.noticeDetails.type) {
     case 'email':
-      engine = new EmailEngine(self.client_, self.campaign_, host, infringements, hash, message);
+      engine = new EmailEngine();
       break;
 
     default:
@@ -377,13 +529,12 @@ NoticeSender.prototype.loadEngineForHost = function(host, infringements, hash, m
       err = new Error(msg);
   }
 
-  done(err, engine);
+  done(err, engine, message, notice);
 }
-
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {
   var self = this;
-
+  
   if (host.noticeDetails.testing) {
     logger.info('Ignoring notice %s, this is a test run', notice._id);
     return done();
@@ -414,6 +565,7 @@ NoticeSender.prototype.start = function() {
   
   self.emit('started');
 }
+
 
 NoticeSender.prototype.end = function() {
   // Don't do anything, just let noticesender finish as normal, it's pretty fast

@@ -69,6 +69,8 @@ exports.node = {
 exports.notices = {
   state: {
     PENDING: 0,
-    PROCESSED: 1
+    PROCESSED: 1,
+    NEEDS_ESCALATING: 2,
+    ESCALATED: 3
   }
 };
