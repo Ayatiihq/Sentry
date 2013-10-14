@@ -426,7 +426,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       self.hosts_.get(notice.host, function(err, host){
         if(err){
           logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
-          done();
+          return done();
         }
         notice.host = host;
         that(notice);
@@ -437,7 +437,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
         logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
-        done();      
+        return done();      
       }
       self.hosts_.get(noticeWithHost.host.hostedBy, function(err, hostedByHost){
         // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
@@ -448,7 +448,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
                       noticeWithHost.host.name +  
                       " but don't have " + 
                       noticeWithHost.host.hostedBy + ' information');
-          done();
+          return done();
         }
         noticeWithHost.host.hostedBy = hostedByHost;
         that(noticeWithHost);
@@ -460,7 +460,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
         if(err){
           logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
-          done();
+          return done();
         }
         self.prepareEscalationText(noticeWithHostedBy, originalMsg, that);
       })      

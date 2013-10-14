@@ -199,7 +199,7 @@ function normalizeClient(campaign) {
 function markReliablesAsTakeDown(campaign){
   var c = parseObject(campaign)._id;
   var notices_ = new Notices();
-  findFilteredCollection('notices', {'host': /[searchengine\.[bing|google]|dailymotion|soundcloud]/,
+  findFilteredCollection('notices', {'host': /searchengine\.[bing|google]|dailymotion|soundcloud/,
                          'campaign' : c,
                          'state' : states.notices.state.PENDING,
                          'created': {$lt: (2).daysAgo().getTime()}}).then(function(notices){
