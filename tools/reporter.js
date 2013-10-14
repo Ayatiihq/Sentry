@@ -21,6 +21,7 @@ var acquire = require('acquire')
   , Handlebars = require('handlebars')  
   , fs = require('fs')
   , path = require('path')    
+  , states = acquire('states')
   ;
 
 function findInfringements(args, db){
@@ -200,7 +201,7 @@ function markReliablesAsTakeDown(campaign){
   var notices_ = new Notices();
   findFilteredCollection('notices', {'host': /[searchengine\.[bing|google]|dailymotion|soundcloud]/,
                          'campaign' : c,
-                         'state' : 0,
+                         'state' : states.notices.state.PENDING,
                          'created': {$lt: (2).daysAgo().getTime()}}).then(function(notices){
                             Seq(notices)
                               .seqEach(function(notice){

@@ -21,6 +21,7 @@ var SendGrid = require('sendgrid').SendGrid
   ;
 
 var EmailEngine = module.exports = function() {
+  this.sendgrid_ = null;
   this.init();
 }
 

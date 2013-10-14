@@ -108,7 +108,7 @@ NoticeSender.prototype.processJob = function(err, job) {
       self.client_ = client;
       self.getInfringements(this);
     })
-    .seq(function(client) {
+    .seq(function() {
       self.sendEscalatedNotices(this);
     })    
     .seq(function() {
@@ -425,8 +425,8 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       var that = this;
       self.hosts_.get(notice.host, function(err, host){
         if(err){
-          logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice');
-          done(err);
+          logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
+          done();
         }
         notice.host = host;
         that(notice);
@@ -460,7 +460,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
         if(err){
           logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
-          done(err);
+          done();
         }
         self.prepareEscalationText(noticeWithHostedBy, originalMsg, that);
       })      
@@ -479,7 +479,8 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       done();
     })
     .catch(function(err) {
-      done(err)
+      // Don't error, let it move onto the next escalation.
+      done();
     })
     ;    
 }
@@ -491,14 +492,15 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
       self.storage_.getToText('dmca.escalate', {}, this);
     })
     .seq(function(template) {
+      var that = this;
       try {
         template = Handlebars.compile(template);
         context = {host: notice.host.hostedBy,
                    originalNotice: originalMsg,
                    date: Date.utc.create().format('{dd} {Month} {yyyy}')};
-        this(null, template(context));
+        that(null, template(context));
       } catch (err) {
-        this(err);
+        that(err);
       }
     })
     .seq(function(message){

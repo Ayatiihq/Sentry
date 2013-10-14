@@ -67,7 +67,7 @@ function main() {
     notices.getPendingForCampaign(require(arg0), parseInt(argv[4]), parseInt(argv[5]), log);
 
   if (action === 'setState')
-    notices.setNoticeState({ _id: arg0 }, states.notices.state.NEEDS_ESCALATING, log);
+    notices.setNoticeState({ _id: arg0 }, parseInt(argv[4]), log);
 
   if (action === 'getNeedsEscalatingForCampaign')
     notices.getNeedsEscalatingForCampaign(require(arg0), log);
