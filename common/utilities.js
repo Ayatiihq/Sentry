@@ -688,5 +688,10 @@ Utilities.buildLineRegexString = function(line, options) {
  */
 Utilities.simplifyForRegex = function(string) {
   var ret = string;
-  return ret.unescapeURL().parameterize().replace(/(\-|\_)/i, ' ');
+  try {
+    ret = ret.unescapeURL();
+  } catch(err) {
+  }
+  
+  return ret.parameterize().replace(/(\-|\_)/i, ' ');
 }
