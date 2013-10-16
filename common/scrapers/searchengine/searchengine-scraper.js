@@ -48,16 +48,31 @@ var GenericSearchEngine = function (campaign) {
   self.maxPages = campaign.metadata.searchengineMaxPages ? campaign.metadata.searchengineMaxPages : 15;
   self.pageNumber = 1;
 
-  if (!self.keywords) {
-    if (Object.has(self.campaign.metadata, 'engineKeywords')) {
-      self.keywords = self.campaign.metadata.engineKeywords;
-    }
-    else {
-      self.keywords = [];
-    }
-  }
+  self.buildWordMatchess();
 };
 util.inherits(GenericSearchEngine, events.EventEmitter);
+
+GenericSearchEngine.prototype.buildWordMatchess = function() {
+  var self = this
+    , campaign = self.campaign
+    ;
+
+  self.excludeWordMatches = campaign.metadata.lowPriorityWordMatches || [];
+  self.includeMatchMatches = [];
+
+  // Load up the simple ones first
+  self.includeMatchMatches.push(campaign.name);
+  self.includeMatchMatches.add(campaign.names || []);
+
+  if (campaign.type == 'movie') {
+    // Nothing special yet for movies
+
+  } else if (campaign.type == 'music.album') {
+
+  } else {
+    logger.warn('Campaign type %s has no special case word lists', campaign.type);
+  }
+}
 
 
 GenericSearchEngine.prototype.handleResults = function () {
@@ -181,7 +196,7 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var trackTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
   var artist = '\"' + self.campaign.metadata.artist + '\"';
 
-  var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
+  var query = util.format('"%s" "%s" %s', artist, trackTitle, 'download');
   done(null, query);
 };
 
@@ -362,7 +377,6 @@ GenericSearchEngine.prototype.checkHasNextPage = function (source) {
 /* -- Google Scraper */
 var GoogleScraper = function (campaign) {
   var self = this;
-  //self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
 
   self.constructor.super_.call(self, campaign);
   self.engineName = 'google';
@@ -409,8 +423,19 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
   var links = [];
   var $ = cheerio.load(source);
   $('#search').find('#ires').find('#rso').children().each(function () {
-    links.push($(this).find('a').attr('href'));
+    // Find out if this is a link we really want
+    var text = $(this).find('a').text().toLower()
+      , url = $(this).find('a').attr('href')
+      ;
+
+    // First check if any of the excluded words are in the title or url
+    if (self.excludeWordMatches.some(function(excludedMatch) { return excludedMatch.test(text) || excludedMatch.test(url); }))
+      return;
+
+    if (self.includeMatchMatches.some(function(includeMatch) { return includeMatch.test(text) || includeMatch.test(url); }))
+      links.push(url);
   });
+
   return links;
 };
 

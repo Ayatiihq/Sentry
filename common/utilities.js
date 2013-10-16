@@ -638,3 +638,4 @@ Utilities.getFileMimeType = function(filepath, callback) {
     })
     ;
 }
+
