@@ -11,18 +11,19 @@
  */
 
 var acquire = require('acquire')
+  , blacklist = acquire('blacklist')
+  , cheerio = require('cheerio')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('searchengine-scraper.js')
-  , util = require('util')
-  , webdriver = require('selenium-webdriver')
-  , sugar = require('sugar')
-  , cheerio = require('cheerio')
   , request = require('request')
+  , sugar = require('sugar')
   , URI = require('URIjs')
-  , XRegExp = require('xregexp').XRegExp
   , urlmatch = acquire('wrangler-rules').urlMatch
-  , blacklist = acquire('blacklist')
+  , util = require('util')
+  , utilities = acquire('utilities')
+  , webdriver = require('selenium-webdriver')
+  , XRegExp = require('xregexp').XRegExp
   ;
 
 var Scraper = acquire('scraper')
@@ -47,17 +48,44 @@ var GenericSearchEngine = function (campaign) {
   self.engineName = 'UNDEFINED';
   self.maxPages = campaign.metadata.searchengineMaxPages ? campaign.metadata.searchengineMaxPages : 15;
   self.pageNumber = 1;
+  self.oldestResultDate = Date.create(campaign.metadata.releaseDate).rewind({ week: 1 });
 
-  if (!self.keywords) {
-    if (Object.has(self.campaign.metadata, 'engineKeywords')) {
-      self.keywords = self.campaign.metadata.engineKeywords;
-    }
-    else {
-      self.keywords = [];
-    }
-  }
+  self.buildWordMatchess();
 };
 util.inherits(GenericSearchEngine, events.EventEmitter);
+
+GenericSearchEngine.prototype.buildWordMatchess = function() {
+  var self = this
+    , campaign = self.campaign
+    ;
+
+  self.excludeWordMatches =  [];
+  self.includeMatchMatches = [];
+
+  // First let's do excluded words
+  campaign.metadata.lowPriorityWordList.forEach(function(word) {
+    // They are already regex aware
+    self.excludeWordMatches.push(new RegExp(word, 'i'));
+  });
+
+  // Load up the simple ones first
+  self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(campaign.name, { anyWord: false }), 'i'));
+  campaign.names.forEach(function(name) {
+    self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(name, { anyWord: false }), 'i'));
+  });
+
+  if (campaign.type == 'movie') {
+    // Nothing special yet for movies
+
+  } else if (campaign.type == 'music.album') {
+    // FIXME: Add track support
+    campaign.metadata.tracks.forEach(function(track) {
+      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.name, { anyWord: false }), 'i'));
+    });
+  } else {
+    logger.warn('Campaign type %s has no special case word lists', campaign.type);
+  }
+}
 
 
 GenericSearchEngine.prototype.handleResults = function () {
@@ -181,7 +209,7 @@ GenericSearchEngine.prototype.buildSearchQueryTrack = function (done) {
   var trackTitle = '\"' + self.campaign.metadata.albumTitle + '\"';
   var artist = '\"' + self.campaign.metadata.artist + '\"';
 
-  var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
+  var query = util.format('"%s" "%s" %s', artist, trackTitle, 'download');
   done(null, query);
 };
 
@@ -223,7 +251,7 @@ GenericSearchEngine.prototype.buildSearchQueryMovie = function(done) {
   if (language != 'english')
     searchTerms3.push(fmt('%s %s free download', movieTitle, language));
 
-  ['bdrip', '720p', 'screener', 'dvdrip', 'cam'].forEach(function(type) {
+  ['bdrip', '720p', 'screener', 'dvdrip', 'cam', 'scam rip'].forEach(function(type) {
     searchTerms1.push(fmt('%s %s download', movieTitle, type));
     searchTerms2.push(fmt('%s %s %s download', movieTitle, year, type));
     if (language != 'english')
@@ -359,10 +387,37 @@ GenericSearchEngine.prototype.checkHasNextPage = function (source) {
   throw new Error('Stub!');
 };
 
+GenericSearchEngine.prototype.checkResultRelevancy = function(title, url, date) {
+  var self = this
+    , matchString = utilities.simplifyForRegex(title + ' ' + url)
+    ;
+
+  // First let's check the date as it's the fastest way to discriminate
+  if (Object.isDate(date) && date.isBefore(self.oldestResultDate)) {
+    return false;
+  }
+
+  // We don't like noticing entire websites
+  if (!utilities.uriHasPath(url)) {
+    return false;
+  } 
+
+  // Then check if any of the excluded words are in the title or url
+  if (self.excludeWordMatches.some(function(excludedMatch) { return excludedMatch.test(matchString); })) {
+    return false;
+  }
+
+  // Finally confirm the title or url have words we care about
+  if (self.includeMatchMatches.some(function(includedMatch) { return includedMatch.test(matchString); })) {
+    return true;
+  }
+
+  return false;
+}
+
 /* -- Google Scraper */
 var GoogleScraper = function (campaign) {
   var self = this;
-  //self.keywords = campaign.type.has('live') ? '~live ~stream' : '~free ~download';
 
   self.constructor.super_.call(self, campaign);
   self.engineName = 'google';
@@ -406,11 +461,23 @@ GoogleScraper.prototype.beginSearch = function () {
 
 
 GoogleScraper.prototype.getLinksFromSource = function (source) {
-  var links = [];
-  var $ = cheerio.load(source);
+  var self = this
+    , links = []
+    , $ = cheerio.load(source)
+    ;
+  
   $('#search').find('#ires').find('#rso').children().each(function () {
-    links.push($(this).find('a').attr('href'));
+    // Find out if this is a link we really want
+    var title = $(this).find('a').text()
+      , url = $(this).find('a').attr('href')
+      , dateString = $(this).find('span.f').text().parameterize().replace('min', 'minute')
+      , date = dateString.length > 8 ? Date.create(dateString) : null
+      ;
+
+    if (self.checkResultRelevancy(title, url, date))
+      links.push(url);
   });
+
   return links;
 };
 
@@ -480,11 +547,19 @@ YahooScraper.prototype.beginSearch = function () {
 };
 
 YahooScraper.prototype.getLinksFromSource = function (source) {
-  var links = [];
-  var $ = cheerio.load(source);
+  var self = this
+    , links = []
+    , $ = cheerio.load(source)
+    ;
+
   $('div#web').find('ol').children('li').each(function () {
-    links.push($(this).find('a').attr('href'));
+    var url = $(this).find('a').attr('href');
+    var title = $(this).find('a').text().replace(/cached/i, '');
+
+    if (self.checkResultRelevancy(title, url))
+      links.push(url);
   });
+
   return links;
 };
 
@@ -552,10 +627,17 @@ BingScraper.prototype.beginSearch = function () {
 };
 
 BingScraper.prototype.getLinksFromSource = function (source) {
-  var links = [];
-  var $ = cheerio.load(source);
+  var self = this
+    , links = []
+    , $ = cheerio.load(source)
+    ;
+
   $('#results').find('ul#wg0').children('li.sa_wr').each(function () {
-    links.push($(this).find('a').attr('href'));
+    var url = $(this).find('a').attr('href');
+    var title = $(this).find('a').text().replace(/cached/i, '');
+
+    if (self.checkResultRelevancy(title, url))
+      links.push(url);
   });
   return links;
 };

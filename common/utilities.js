@@ -638,3 +638,55 @@ Utilities.getFileMimeType = function(filepath, callback) {
     })
     ;
 }
+
+/**
+ * Create a regex from the line that is passed in with options as to how the regex will behave
+ *
+ * @param  {string}       line               A line to construct a regex from
+ * @param  {object}       options
+ * @param  {boolean}      options.anyWord    Match on any word in the line (default: false)
+ * @return {#RegExp}
+ */
+Utilities.buildLineRegexString = function(line, options) {
+  options = options || {};
+
+  // Sanitize the line, this makes the-line-look-like-this
+  line = line.parameterize();
+
+  // Get an array of useful words
+  var words = line.split('-').filter(function(word) { return word.length > 1; });
+
+  // Depending on options, construct the right regex
+  var regexString = "";
+  if (options.anyWord) {
+    regexString = '(';
+    for (var i = 0; i < words.length; i++) {
+      if (i)
+        regexString += '|';
+      regexString += RegExp.escape(words[i]);
+    }
+    regexString += ')';
+
+  } else {
+    regexString = "^";
+    for (var i = 0; i < words.length; i++) {
+      regexString += '(?=.*\\b';
+      regexString += RegExp.escape(words[i]);
+      regexString += !i ? '\\b)' : ')';
+    }
+    regexString += '.*$';
+  }
+
+  return regexString;
+}
+
+/**
+ * This takes an awkard string (like a url) and simplifies it for regex word matching
+ *
+ * @param  {string}       string      String to simplify
+ * @return {string}                   Simplified string
+ */
+Utilities.simplifyForRegex = function(string) {
+  var ret = string;
+  return ret.unescapeURL().parameterize().replace(/(\-|\_)/i, ' ');
+}
