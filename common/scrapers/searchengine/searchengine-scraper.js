@@ -627,10 +627,17 @@ BingScraper.prototype.beginSearch = function () {
 };
 
 BingScraper.prototype.getLinksFromSource = function (source) {
-  var links = [];
-  var $ = cheerio.load(source);
+  var self = this
+    , links = []
+    , $ = cheerio.load(source)
+    ;
+
   $('#results').find('ul#wg0').children('li.sa_wr').each(function () {
-    links.push($(this).find('a').attr('href'));
+    var url = $(this).find('a').attr('href');
+    var title = $(this).find('a').text().replace(/cached/i, '');
+
+    if (self.checkResultRelevancy(title, url))
+      links.push(url);
   });
   return links;
 };
