@@ -444,7 +444,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
         if(err || !hostedByHost){
           // Be verbose.
           logger.warn('Want to escalate notice to ' +
-                      noticeWithHost.host.hostedBy ' for ' +
+                      noticeWithHost.host.hostedBy + ' for ' +
                       noticeWithHost.host.name +  
                       " but don't have " + 
                       noticeWithHost.host.hostedBy + ' information');

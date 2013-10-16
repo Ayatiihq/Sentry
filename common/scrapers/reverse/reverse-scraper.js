@@ -47,7 +47,7 @@ var ReverseScraper = module.exports = function() {
   this.remoteClient_ = null;
   this.idleTime_ = [5, 10];
   this.resultsCount_ = 0;
-  this.maxPages_ = 5;
+  this.maxPages_ = 15;
   this.pageNumber_ = 1;
 
   this.cachedCalls_ = [];
@@ -218,11 +218,6 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
     })
     .seq(function() {
       self.pageNumber_ += 1;
-      
-      if (self.pageNumber_ > self.maxPages_) {
-        logger.info('Reached maximum number of pages', self.maxPages_);
-        return self.scrapeDoneCallback_();
-      }
 
       logger.info('Going to next page');
       self.remoteClient_.findElement(webdriver.By.css('#pnnext')).click().then(this.bind(null, null));

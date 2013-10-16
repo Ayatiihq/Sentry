@@ -69,7 +69,7 @@ function main() {
   });
 
   var campaign = parseObject(process.argv[3]);
-  var job = process.argv[4] ? parseObject(process.argv[4]) : {};
+  var job = parseObject(process.argv[4]);
 
   if (Object.isObject(campaign)) {
     instance.start(campaign, job);
