@@ -1,7 +1,7 @@
 /*
- * reporter.js: generate quick reports
+ * swiss-army-knife.js: generate quick reports
  *
- * (C) 2012 Ayatii Limited
+ * (C) 2013 Ayatii Limited
  *
  */
 
@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , Infringements = acquire('infringements')
   , utilities = acquire('utilities')  
   , Verifications = acquire('verifications')
-  , logger = acquire('logger').forFile('reporter.js')  
+  , logger = acquire('logger').forFile('swiss-army-knife.js')  
   , Storage = acquire('storage')
   , Handlebars = require('handlebars')  
   , fs = require('fs')
