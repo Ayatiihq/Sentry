@@ -187,13 +187,6 @@ Verifications.prototype.popCyberlocker = function(campaign, callback) {
 
   campaign = normalizeCampaign(campaign);
 
-  if (campaign.type == 'music.album') {
-    // We want to include tracks in here
-    campaign.metadata.tracks.forEach(function(track) {
-      name += track.title + ' ';
-    });
-  }
-
   var query = {
     campaign: campaign,
     category: Categories.CYBERLOCKER,
@@ -201,10 +194,6 @@ Verifications.prototype.popCyberlocker = function(campaign, callback) {
       $in : [states.infringements.state.NEEDS_DOWNLOAD, states.infringements.state.UNVERIFIED]
     },
     'children.count': 0,
-    $or: [
-      { uri: new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') },
-      { 'parents.uris': new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') }
-    ],
     popped: {
       $lt: then
     }
@@ -234,24 +223,13 @@ Verifications.prototype.popBasic = function(campaign, callback) {
 
   campaign = normalizeCampaign(campaign);
 
-  if (campaign.type == 'music.album') {
-    // We want to include tracks in here
-    campaign.metadata.tracks.forEach(function(track) {
-      name += track.title + ' ';
-    });
-  }
-
   var query = {
     campaign: campaign,
     category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL]
+      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.FILE]
     },
     state: states.infringements.state.UNVERIFIED,
     'children.count': 0,
-    $or: [
-      { uri: new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') },
-      { 'parents.uris': new RegExp('(' + name.replace(/\ /gi, '|') + ')', 'i') }
-    ],
     popped: {
       $lt: then
     }
@@ -267,19 +245,7 @@ Verifications.prototype.popBasic = function(campaign, callback) {
 
   var options = { new: true };
 
-  // Try the clever search (with the regexes) first
-  self.infringements_.findAndModify(query, sort, updates, options, function(err, infringement) {
-    if (infringement)
-      return callback(null, infringement);
-
-    if (err)
-      logger.warn('Unable to perform first basic search: %s', err);
-
-    // As it did't work, let's try the very basic search
-    query = Object.reject(query, '$or');
-
-    self.infringements_.findAndModify(query, sort, updates, options, callback);
-  });
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
 }
 
 /**
