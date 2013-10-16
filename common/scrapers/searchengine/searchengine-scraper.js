@@ -486,7 +486,7 @@ GoogleScraper.prototype.nextPage = function () {
   var self = this;
 
   self.pageNumber += 1;
-  if (self.pageNumber > self.maxPages && 0) {
+  if (self.pageNumber > self.maxPages) {
     logger.info('Reached maximum of %d pages', self.maxPages);
     self.cleanup();
     return;
@@ -547,11 +547,19 @@ YahooScraper.prototype.beginSearch = function () {
 };
 
 YahooScraper.prototype.getLinksFromSource = function (source) {
-  var links = [];
-  var $ = cheerio.load(source);
+  var self = this
+    , links = []
+    , $ = cheerio.load(source)
+    ;
+
   $('div#web').find('ol').children('li').each(function () {
-    links.push($(this).find('a').attr('href'));
+    var url = $(this).find('a').attr('href');
+    var title = $(this).find('a').text().replace(/cached/i, '');
+
+    if (self.checkResultRelevancy(title, url))
+      links.push(url);
   });
+
   return links;
 };
 
