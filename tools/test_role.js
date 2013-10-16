@@ -32,6 +32,7 @@ function main() {
   });
   instance.on('finished', function() {
     logger.info('Finished ' + instance.getDisplayName());
+    process.exit();
   });
   instance.on('error', function(err) {
     logger.info('Error %s: %s', instance.getDisplayName(), err);
