@@ -65,6 +65,9 @@ function main() {
         else
           console.log('\t' + value);
       });
+
+      if (name == 'finished')
+        process.exit();
     });
   });
 
