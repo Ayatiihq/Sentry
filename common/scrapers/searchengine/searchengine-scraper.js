@@ -614,7 +614,7 @@ BingScraper.prototype.beginSearch = function () {
     logger.info('searching Bing with search query: ' + self.searchTerm);
 
     // waits for a #search selector
-    self.remoteClient.findElement(webdriver.By.css('div#results')).then(function gotSearchResults(element) {
+    self.remoteClient.findElement(webdriver.By.css('div#b_content')).then(function gotSearchResults(element) {
       if (element) {
         self.handleResults();
       }
@@ -632,7 +632,7 @@ BingScraper.prototype.getLinksFromSource = function (source) {
     , $ = cheerio.load(source)
     ;
 
-  $('#results').find('ul#wg0').children('li.sa_wr').each(function () {
+  $('ol#b_results').children('li.b_algo').each(function () {
     var url = $(this).find('a').attr('href');
     var title = $(this).find('a').text().replace(/cached/i, '');
 
@@ -769,4 +769,18 @@ SearchEngine.prototype.isAlive = function (cb) {
 //
 function getValFromObj(key, obj) {
   return obj[key];
+}
+
+if (require.main === module) {
+  var engine = new BingScraper({
+    'metadata': {'lowPriorityWordList': ['blah', 'blah', 'meh']},
+    'name': 'foo',
+    'names': ['foo', 'meh', 'jsisdumb'],
+    'type': 'movie'
+  });
+
+  engine.on('found-link', console.log);
+  engine.on('error', console.log);
+
+  engine.beginSearch();
 }
