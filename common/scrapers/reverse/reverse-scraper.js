@@ -144,6 +144,8 @@ ReverseScraper.prototype.loadEngine = function(done) {
        throw new Error(self.engineName_ +' is not a valid engine name');
 
     engine = new Klass(self.campaign_, self.infringements_);
+    if (engine.maxPages_)
+      self.maxPages_ = engine.maxPages_;
   } catch (err) {
     err = err;
   }
@@ -311,6 +313,7 @@ ReverseScraper.prototype.isAlive = function(cb) {
 var BittorrentScraper = ENGINES['bittorrent'] = function(campaign, infringements) {
   this.campaign_ = campaign;
   this.infringements_ = infringements;
+  this.maxPages_ = 40;
 }
 
 BittorrentScraper.prototype.getSearchTerm = function(runNumber, done) {
