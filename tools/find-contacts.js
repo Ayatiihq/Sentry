@@ -35,10 +35,13 @@ function transformEmail(match) {
 }
 
 function saveJson(json, name) {
+  var promise = new Promise.Promise();
   require('fs').writeFile('json/' + name + '.json', JSON.stringify(json), function (err) {
     if (err) { console.log(err); }
     else { console.log("Json Saved to: " + name + '.json'); }
+    promise.resolve();
   });
+  return promise;
 }
 
 function getResponse(message) {
@@ -82,7 +85,12 @@ function multiChoose(message, things, defaultIndex) {
     getResponse('Is the default correct? (y/n): ').then(function (result) {
       if (result.toLowerCase() === 'y') { promise.resolve(things[defaultIndex]); }
       else {
-        changeChoice();
+        if (things.length < 2) {
+          promise.resolve();
+        }
+        else {
+          changeChoice();
+        }
       }
     });
   }
@@ -114,7 +122,9 @@ function reverseIP(ip) {
 
 function unfuckTracerouteAPI(hops) {
   // christ, what a retard.
+  hops = hops.compact(true);
   var newHops = hops.map(function (hop) {
+    try { Object.keys(hop); } catch (err) { console.log(hops); }
     return Object.keys(hop)[0];
   });
 
@@ -258,7 +268,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
   var promise = new Promise.Promise();
   var weburi = self.hostname;
 
-  console.log('scraping information...');
+  console.log(self.hostname, 'scraping information...');
 
   // some uris didn't start with www but the site needed www because its developed by idiots
   // we should get the full hostname in future but for now, this hacky hack.
@@ -278,20 +288,20 @@ SiteInfoBuilder.prototype.collectInfo = function () {
     self.addEmails(newEmails);
     self.addContactPages(newContactPages);
 
-    console.log('scraped main page...');
+    console.log(self.hostname, 'scraped main page...');
   });
 
   // looks up the whois
   var whoisPromise = doWhois(self.hostname).then(function onWhoisDone(newEmails) {
     self.addEmails(newEmails);
 
-    console.log('scraped whois...');
+    console.log(self.hostname, 'scraped whois...');
   });
 
   // look up traceroute
   var tracePromise = doTraceRoute(self.hostname).then(findNameOfTraceroute).then(function (results) {
     self.hops = results;
-    console.log('scraped traceroute...');
+    console.log(self.hostname, 'scraped traceroute...');
   });
 
   Promise.all([mainPagePromise, whoisPromise, tracePromise]).then(function onDone() {
@@ -310,7 +320,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
           self.addEmails(newEmails);
         });
 
-        console.log('scraped contact pages...');
+        console.log(self.hostname, 'scraped contact pages...');
 
         promise.resolve();
       });
@@ -322,6 +332,8 @@ SiteInfoBuilder.prototype.collectInfo = function () {
 
 SiteInfoBuilder.prototype.talkToUser = function() {
   var self = this;
+  var promise = new Promise.Promise();
+
   var formattedEmails = self.emails.map(function (data) { return [data.address, data.source]; });
   var formattedHops = self.hops.map(function (data) {
     if (data.title === undefined) { return ''; }
@@ -346,7 +358,7 @@ SiteInfoBuilder.prototype.talkToUser = function() {
     if (defaultIndex < 0) { defaultIndex = 0; } 
     
     questions.push(function () {
-      return multiChoose('collected emails', formattedEmails, defaultIndex).then(function (email) {
+      return multiChoose(self.hostname + ': collected emails', formattedEmails, defaultIndex).then(function (email) {
         if (email) {
           chosenEmail = email[0];
         }
@@ -357,7 +369,7 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   if (formattedHops.length > 0) {
     var defaultIndex = (formattedHops.length === 1) ? 0 : (formattedHops.length - 2);
     questions.push(function () {
-      return multiChoose('collected hosts', formattedHops, defaultIndex).then(function (host) {
+      return multiChoose(self.hostname + ': collected hosts', formattedHops, defaultIndex).then(function (host) {
         if (host) {
           chosenHost = host[1];
         }
@@ -366,10 +378,12 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   }
 
   if (questions.length < 1) {
-    console.log('Could not find any useful information, info dump:');
-    console.log(self.emails);
-    console.log(self.hops);
-    console.log(self.contactPages);
+    
+    console.log(self.hostname + ': Could not find any useful information, info dump:');
+    console.log('emails: ', self.emails);
+    console.log('hops: ', self.hops);
+    console.log('contact pages: ', self.contactPages);
+    promise.resolve();
   }
   else {
     Promise.seq(questions).then(function () {
@@ -393,21 +407,55 @@ SiteInfoBuilder.prototype.talkToUser = function() {
         "hostedBy": chosenHost
       };
 
-      saveJson(basicJson, self.hostname);
+      saveJson(basicJson, self.hostname).then(promise.resolve.bind(promise));
     });
   }
+
+  return promise;
 }
 
 
 if (require.main === module) {
+
   if (process.argv.length < 3) {
     console.log("Usage: node find-contacts.js websiteurl");
   }
   else {
+
+    console.log('Wait a minute, scraping information for all the hosts...');
+    var siteInfos = [];
+    var collectedPromises = [];
+    process.argv.each(function onSite(site, index) {
+      if (index < 2) { return; }
+      var hostname = process.argv[index];
+      var info = new SiteInfoBuilder(hostname);
+      siteInfos.push(info);
+      collectedPromises.push(info.collectInfo());
+    });
+
+    var index = 0;
+    var nextQuestions = function () {
+      if (index >= siteInfos.length) {
+        return;
+      }
+      console.log('New host: ' + siteInfos[index].hostname);
+
+      siteInfos[index].talkToUser().then(function() {
+        index++;
+        nextQuestions();
+      });
+    };
+
+    Promise.all(collectedPromises).then(nextQuestions);
+    
+    //nextQuestions();
+
+    /*
     var hostname = process.argv[2];
 
     var siteInfo = new SiteInfoBuilder(hostname);
     siteInfo.collectInfo().then(siteInfo.talkToUser.bind(siteInfo));
+    */
   }
   
 }
