@@ -334,10 +334,14 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   var chosenHost = undefined;
 
   if (formattedEmails.length > 0) {
+    var match = /contact|dmca|abuse/;
     var defaultIndex = formattedEmails.findIndex(function (email) {
-      var match = /contact|dmca|abuse/;
-      return (match.exec(email[0]) || match.exec(email[1]));
+      return match.exec(email[0]);
     });
+
+    if (defaultIndex < 0) {
+      return match.exec(email[1]);
+    }
 
     if (defaultIndex < 0) { defaultIndex = 0; } 
     
