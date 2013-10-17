@@ -326,12 +326,6 @@ function main() {
     }
     fetchMostLikelyNotices(process.argv[3])
   }
-  if (action === 'escalateWhenPossible'){
-
-  }
-  if (action === 'gatherHostedBy'){
-    
-  }
 
   if (action === 'pendingNotices'){
     if(process.argv.length < 6){

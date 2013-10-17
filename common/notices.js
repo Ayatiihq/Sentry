@@ -266,9 +266,9 @@ Notices.prototype.setTakenDown = function(notice, callback) {
       })
       .seq(function() {
         logger.info('Setting notice %s to accepted', notice._id);
-        self.setNoticeState (notice, 
-                             states.notices.state.PROCESSED,
-                             this);                            
+        self.setState (notice, 
+                       states.notices.state.PROCESSED,
+                       this);                            
       })
       .seq(function() {
         callback();
