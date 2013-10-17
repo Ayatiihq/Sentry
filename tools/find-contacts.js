@@ -338,6 +338,8 @@ SiteInfoBuilder.prototype.talkToUser = function() {
       var match = /contact|dmca|abuse/;
       return (match.exec(email[0]) || match.exec(email[1]));
     });
+
+    if (defaultIndex < 0) { defaultIndex = 0; } 
     
     questions.push(function () {
       return multiChoose('collected emails', formattedEmails, defaultIndex).then(function (email) {
