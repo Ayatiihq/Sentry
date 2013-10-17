@@ -102,3 +102,16 @@ Hosts.prototype.add = function(host, callback)
 
   self.hosts_.update({ _id: host._id }, { $set: Object.reject(host, '_id') }, { upsert: true }, callback);
 }
+
+/**
+ * Check if we can automatically escalate with this host
+ *
+ * @param {object}                host           The host which we need to determine if it we can automatically escalate.
+ */
+Hosts.prototype.canAutomateEscalation = function(host)
+{
+  var noValidDirect = !host.metadata || host.metadata.to.replace(/\s/g,"") === "";
+  var validHostedBy = host.hostedBy && host.hostedBy !== "";
+
+  return noValidDirect && validHostedBy;
+}

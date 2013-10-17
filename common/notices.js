@@ -220,11 +220,11 @@ Notices.prototype.updateInfringement = function(notice, infringement, callback) 
  * @param  {function(err)}   callback    A callback to receive an error, if one occurs
  * @return {undefined}
  **/
-Notices.prototype.setNoticeState = function(notice, newState, callback){
+Notices.prototype.setState = function(notice, newState, callback){
   var self = this;
 
   if (!self.notices_)
-    return self.cachedCalls_.push([self.setNoticeState, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 

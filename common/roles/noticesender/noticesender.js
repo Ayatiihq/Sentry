@@ -343,14 +343,29 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     })
     .seq(function(hash, message) {
       var notice = self.prepareNotice(hash, host, infringements);
+      self.processNotice(host, notice, function(err){
+        if(err){
+          logger.warn('Error processing notice ' + notice_id + ' err : ' + err);
+          return done();
+        }
+        //  first check to see if we can escalate this mother
+        if(self.hosts_.canAutomateEscalation(host)){
+          logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
+          self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
+        }
+        // otherwise send it out as per usual
+        else{
+          this(null, message, notice);
+        }
+      });
+    })
+    .seq(function(message, notice) {
       self.loadEngineForHost(host, message, notice, this);
     })
     .seq(function(engine, message, notice) {
       engine.post(host, message, notice, this);
     })
-    .seq(function(notice) {
-      self.processNotice(host, notice, this);
-    })
+
     .seq(function() {
       if (!details.testing) {
         host.settings.lastTriggered = Date.now();
@@ -363,22 +378,6 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       done(err);
     })
     ;
-}
-
-NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
-  var self = this
-    , notice = {}
-    ;
-  notice._id = hash;
-  notice.metadata = {
-    to: host.noticeDetails.metadata.to
-  };
-  notice.host = host._id;
-  notice.infringements = [];
-  infringements.forEach(function(infringement) {
-    notice.infringements.push(infringement._id);
-  }); 
-  return notice;
 }
 
 NoticeSender.prototype.sendEscalatedNotices = function(done){
@@ -472,7 +471,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       engine.post(notice.host.hostedBy, message, notice, this);
     })
     .seq(function(notice) {
-      self.notices_.setNoticeState(notice, states.notices.state.ESCALATED, this);
+      self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })
     .seq(function(){
       logger.info('successfully escalated notice ' + notice._id + ' to ' + notice.host.hostedBy.name);
@@ -548,6 +547,22 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
     }
     done();
   });
+}
+
+NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
+  var self = this
+    , notice = {}
+    ;
+  notice._id = hash;
+  notice.metadata = {
+    to: host.noticeDetails.metadata.to
+  };
+  notice.host = host._id;
+  notice.infringements = [];
+  infringements.forEach(function(infringement) {
+    notice.infringements.push(infringement._id);
+  }); 
+  return notice;
 }
 
 //
