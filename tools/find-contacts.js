@@ -232,7 +232,7 @@ function doMainPage(uri) {
 
 var SiteInfoBuilder = function (hostname) {
   var self = this;
-  self.hostname = hostname;
+  self.hostname = hostname.strip();;
   self.emails = [];
   self.contactPages = [];
   self.hops = [];
