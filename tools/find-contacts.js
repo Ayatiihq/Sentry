@@ -324,6 +324,7 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   var self = this;
   var formattedEmails = self.emails.map(function (data) { return [data.address, data.source]; });
   var formattedHops = self.hops.map(function (data) {
+    if (data.title === undefined) { return ''; }
     return (data.title.trim() !== '' && !data.ip.startsWith('192.168')) ? [data.ip, data.title.trim()] : '';
   }).compact(true);
  
@@ -334,7 +335,8 @@ SiteInfoBuilder.prototype.talkToUser = function() {
 
   if (formattedEmails.length > 0) {
     var defaultIndex = formattedEmails.findIndex(function (email) {
-      return /contact|dmca/.exec(email[0]);
+      var match = /contact|dmca|abuse/;
+      return (match.exec(email[0]) || match.exec(email[1]));
     });
     
     questions.push(function () {
