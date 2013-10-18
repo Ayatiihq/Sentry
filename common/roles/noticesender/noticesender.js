@@ -336,29 +336,25 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
 
   logger.info('Sending notice to %s', host._id);
   var notice = null;
+  var message = null;
 
   Seq()
     .seq(function() {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
       builder.build(this);
     })
-    .seq(function(hash, message) {
+    .seq(function(hash, msg) {
       notice = self.prepareNotice(hash, host, infringements);
-      self.processNotice(host, notice, function(err){
-        if(err){
-          logger.warn('Error processing notice ' + notice_id + ' err : ' + err);
-          return done();
-        }
-        //  first check to see if we can escalate this mother
-        if(self.hosts_.canAutomateEscalation(host)){
-          logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
-          self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
-        }
-        // otherwise send it out as per usual
-        else{
-          this(null, message, notice);
-        }
-      });
+      message = msg;
+      self.processNotice(host, notice, this);
+    })
+    .seq(function(){
+      //  first check to see if we can escalate this mother
+      if(self.hosts_.canAutomateEscalation(host)){
+        logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
+        self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
+      }        
+      this(null, message, notice);
     })
     .seq(function(message, notice) {
       self.loadEngineForHost(host, message, notice, this);
@@ -376,9 +372,9 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     })
     .catch(function(err) {
       logger.warn('Unable to send notice to %s: %s', host._id, err);
-      if(notice)
-        self.notices_.remove(notice);
-      done(err);
+      if(notice){
+        self.notices_.revert(notice, done.bind(err));
+      }
     })
     ;
 }

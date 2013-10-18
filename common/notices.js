@@ -458,9 +458,52 @@ Notices.prototype.getCountForClient = function(client, options, callback)
   self.notices_.find(query).count(callback);
 }
 
-Notices.prototype.remove = function(notice){
+/**
+ * Revert an infringement with notice details.
+ *
+ * @param {object}          notices        The notice this infringement is referenced in.
+ * @param {object}          infringement   The infringement to revert.
+ * @param {function(err)}   callback       A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Notices.prototype.revertInfringement = function(notice, infringement, callback) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.updateInfringement, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $set: {
+      noticed: "",
+      noticeId: "",
+      state: states.infringements.state.VERIFIED
+    }
+  };
+
+  self.infringements_.update({ _id: infringement }, updates, callback);
+}
+
+/**
+ * Remove a notice.
+ *
+ * @param {object}               notice             The notice .
+ * @param {object}               infringements      The infringements .
+ * @param {function(err, doc)}   callback           A callback to receive an error, if one occurs, otherwise the inserted documents.
+ * @return {undefined}
+ */
+Notices.prototype.revert = function(notice, infringements){
   var self = this;
   if (!self.notices_)
     return self.cachedCalls_.push([self.remove, Object.values(arguments)]);  
-  self.notices_.remove({_id: notice._id})
+  
+  Seq(notice.infringements)
+    .seqEach(function(infringement) {
+      self.revertInfringement(notice, infringement, this.ok);
+    })
+    .seq(function(){
+      self.notices_.remove({_id: notice._id})    
+    })
+  ;
 }
