@@ -350,9 +350,10 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     })
     .seq(function(){
       //  first check to see if we can escalate this mother
-      if(self.hosts_.canAutomateEscalation(host)){
+      if(self.hosts_.shouldAutomateEscalation(host)){
         logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
         self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
+        return;
       }        
       this(null, message, notice);
     })
@@ -373,7 +374,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     .catch(function(err) {
       logger.warn('Unable to send notice to %s: %s', host._id, err);
       if(notice){
-        self.notices_.revert(notice, done.bind(err));
+        self.notices_.revert(notice, done.bind(null, err));
       }
     })
     ;

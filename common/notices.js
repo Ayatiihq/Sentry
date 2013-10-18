@@ -493,7 +493,7 @@ Notices.prototype.revertInfringement = function(notice, infringement, callback) 
  * @param {function(err, doc)}   callback           A callback to receive an error, if one occurs, otherwise the inserted documents.
  * @return {undefined}
  */
-Notices.prototype.revert = function(notice, infringements){
+Notices.prototype.revert = function(notice, done){
   var self = this;
   if (!self.notices_)
     return self.cachedCalls_.push([self.remove, Object.values(arguments)]);  
@@ -503,7 +503,12 @@ Notices.prototype.revert = function(notice, infringements){
       self.revertInfringement(notice, infringement, this.ok);
     })
     .seq(function(){
-      self.notices_.remove({_id: notice._id})    
+      self.notices_.remove({_id: notice._id});  
+      done();  
+    })
+    .catch(function(err) {
+      logger.warn('Failed to revert notice - ' + notice._id + ' err - ' + err);
+      done(err);
     })
   ;
 }
