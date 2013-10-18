@@ -346,7 +346,7 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   var promise = new Promise.Promise();
 
   var formattedEmails = self.emails.map(function (data) { return [data.address, data.source]; });
-  formattedEmails = formattedEmails.exclude(function (email) { return /(privacyprotect|privatewhois|domainsbyproxy|contactprivacy|whoisguard)/g.exec(email[0]); }); // removes guarded emails
+  formattedEmails = formattedEmails.exclude(function (email) { return /(privacyprotect|privatewhois|domainsbyproxy|contactprivacy|whoisguard|privacyguardian)/g.exec(email[0]); }); // removes guarded emails
 
   var formattedHops = self.hops.map(function (data) {
     if (data.title === undefined) { return ''; }
