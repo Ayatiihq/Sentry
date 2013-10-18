@@ -417,7 +417,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
 
 NoticeSender.prototype.escalateNotice = function(notice, done){
   var self = this;
-  
+  logger.info('escalate notice - ' + notice._id);
   Seq()
     .seq(function(){
       // Flesh out the original host
@@ -427,12 +427,17 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
           return done();
         }
+        if(!host.serverInfo || !host.serverInfo.ipAddress || host.serverInfo.ipAddress.replace(/\s/g, "") === ""){
+          logger.warn("We don't have the server ip for " + host.name + ' - cancelling escalation until we do have that IP.');
+          return done(); 
+        }
         notice.host = host;
-        that(notice);
+        that(null, notice);
       });
     })
     .seq(function(noticeWithHost){
       // Flesh out the hostedby host.
+      logger.info('escalate notice - have host');
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
         logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
@@ -450,10 +455,11 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           return done();
         }
         noticeWithHost.host.hostedBy = hostedByHost;
-        that(noticeWithHost);
+        that(null, noticeWithHost);
       })
     })
     .seq(function(noticeWithHostedBy){
+      logger.info('escalate notice - have host.hostedBy');
       // Prepare escalation text
       var that = this;
       self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
@@ -465,12 +471,14 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       })      
     })
     .seq(function(escalationText, prepdNotice){
+      logger.info('escalate notice - have host.hostedBy');
       self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
     })
     .seq(function(engine, message, notice) {
       engine.post(notice.host.hostedBy, message, notice, this);
     })
-    .seq(function(notice) {
+    .seq(function(notice, target) {
+      self.notices_.addEscalated(notice, target);
       self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })
     .seq(function(){
@@ -479,6 +487,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     })
     .catch(function(err) {
       // Don't error, let it move onto the next escalation.
+      logger.warn('Escalation failed : ' +  err);
       done();
     })
     ;    
@@ -494,7 +503,9 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
       var that = this;
       try {
         template = Handlebars.compile(template);
-        context = {host: notice.host.hostedBy,
+        context = {hostedBy: notice.host.hostedBy, 
+                   website: notice.host,
+                   offendingIP: notice.host.serverInfo.ip,
                    originalNotice: originalMsg,
                    date: Date.utc.create().format('{dd} {Month} {yyyy}')};
         that(null, template(context));

@@ -405,6 +405,19 @@ Notices.prototype.getNeedsEscalatingForCampaign = function(campaign, callback)
   self.notices_.find(query, options).toArray(callback);
 }
 
+Notices.prototype.addEscalated = function(notice, target, callback)
+{
+  var self = this;
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.addEscalated, Object.values(arguments)]);  
+
+  callback = callback ? callback : defaultCallback;
+
+  var entry = {created: Date.now(), to: target};
+  
+  self.notices_.update({_id: notice._id}, {$push : {escalatedTo: entry}}, callback);
+}
+
 /**
  * Get notices for a campaign at the specified points.
  *
