@@ -16,12 +16,26 @@ var all = require('node-promise').all
 
 // most readable regular expression ever.
 // basically it just matches foo@bar.com and foo [ at ] bar [ dot ] com
-var emailRegex = XRegExp("(?<name>[A-Za-z0-9_\\.]+)[ \t]*(@|\\[[ \t]*at[ \t]*\\]|\\([ \t]*at[ \t]*\\))[ \t]*(?<domain>[A-Za-z0-9_\\-]+)[ \t]*(\\.|\\[[ \t]*dot[ \t]*\\]|\\([ \t]*dot[ \t]*\\))[ \t]*(?<tld>[A-Za-z]+)", "gi");
+var regbuild = function (leftspecialchars, rightspecialchars, word) {
+  var leftchars = "";
+  var rightchars = "";
+  leftspecialchars.chars(function (char) {
+    leftchars = leftchars + "\\" + char + "|";
+  });
+  rightspecialchars.chars(function (char) { rightchars = rightchars + "\\" + char + "|"; });
+  return "(" + leftchars.slice(0, -1) + ")[ \t]*" + word + "[ \t]*(" + rightchars.slice(0, -1) + ")";
+}
+
+var emailRegex = XRegExp("(?<name>[A-Za-z0-9_\\.]+)[ \t]*(@|"
+                          + regbuild('[({', '])}', 'at') 
+                          + ")[ \t]*(?<domain>[A-Za-z0-9_\\-]+)[ \t]*(\\.|" 
+                          + regbuild('[({', '])}', 'dot')
+                          + ")[ \t]*(?<tld>[A-Za-z]+)", "gi");
 
 /*
 var teststring = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.  contact [at] world4freeus.com  Vestibulum sollicitudin contact @ test . com velit iaculis odio facilisis semper. contact@test.com  Mauris in ipsum nibh. Ut elementum rutrum mi, vel dictum tortor cursus ac. Donec tempor, velit in ornare volutpat, justo eros tincidunt sapien, sit amet auctor tellus est ut urna. Integer dictum adipiscing nisi porttitor elementum. Maecenas non porttitor lacus. Mauris vestibulum egestas erat.\
 Phasellus bibendum dolor a tristique vehicula. Etiam id euismod tortor. Maecenas et posuere tortor. Quisque sagittis, eros vel eleifend bibendum, eros enim lobortis quam, volutpat luctus nibh erat non odio. Aliquam consequat vehicula risus eu semper. Etiam eget euismod massa. Nullam mollis sapien purus, sit amet feugiat sapien cursus et. Curabitur at fermentum nulla. Aliquam aliquam risus et lectus tincidunt, sed bibendum nisl porttitor. Vivamus fermentum pharetra odio vel vehicula. Cras id urna eget enim bibendum aliquam a eget metus. Aliquam id aliquam arcu.\
-Duis non malesuada leo. Nullam laoreet porta vulputate. Cras pharetra purus risus, ut laoreet est euismod id. Vestibulum et cursus urna. Maecenas at support @ filecloud.io leo vitae sem fermentum varius tempor vel neque. Nullam lacinia a sapien sit amet rhoncus. Phasellus sodales ac quam a rhoncus. Maecenas at libero ac mi sollicitudin sodales in eu urna. Quisque laoreet luctus neque, quis commodo magna suscipit sit amet. Sed at condimentum est. Curabitur neque dolor, euismod ac sollicitudin in, posuere ac mi. Donec tempor purus elementum malesuada varius. Nunc eu viverra urna. Pellentesque nulla justo, sagittis vitae molestie eu, laoreet id velit. Integer pulvinar nec nibh id fringilla.\
+Duis non malesuada leo. Nullam laoreet porta vulputate. Cras pharetra purus foo.com{at}hotmail.com risus, ut laoreet est euismod id. Vestibulum et cursus urna. Maecenas at support @ filecloud.io leo vitae sem fermentum varius tempor vel neque. Nullam lacinia a sapien sit amet rhoncus. Phasellus sodales ac quam a rhoncus. Maecenas at libero ac mi sollicitudin sodales in eu urna. Quisque laoreet luctus neque, quis commodo magna suscipit sit amet. Sed at condimentum est. Curabitur neque dolor, euismod ac sollicitudin in, posuere ac mi. Donec tempor purus elementum malesuada varius. Nunc eu viverra urna. Pellentesque nulla justo, sagittis vitae molestie eu, laoreet id velit. Integer pulvinar nec nibh id fringilla.\
 Suspendisse iaculis leo ac dolor pellentesque, vel porttitor quam ullamcorper. contact [at] test [dot] com tIn dapibus magna in risus vulputate, at contact [at] world4freeus.com porttitor orci semper. Praesent ultrices, elit nec consectetur venenatis, quam purus tristique arcu, et dignissim risus neque non dui. Duis vitae consequat urna, facilisis adipiscing orci. Donec gravida nisi non dignissim interdum. Suspendisse potenti. Praesent eget leo ac lorem mattis pellentesque. Nam diam mauris, ultrices id risus sed, ultricies eleifend est. Proin vitae enim rhoncus dui semper lobortis vitae vitae dolor. Mauris id auctor tortor, sit amet tincidunt dui. Pellentesque viverra, nulla eget feugiat eleifend, nulla arcu interdum eros, at vehicula lorem elit id nisl. Nullam vehicula volutpat elit vel porta. Aenean vehicula felis libero, nec interdum urna sollicitudin id. Maecenas tristique velit neque, quis rhoncus metus commodo vitae.\
 Quisque congue ultricies suscipit. Integer dapibus nulla at urna gravida foo ( at ) roar [ dot ] com molestie. Proin eu ligula ante. Vivamus vel risus et elit elementum congue ut sit amet nisl. Integer facilisis turpis sit amet justo tincidunt tincidunt id nec ipsum. Nunc scelerisque augue nulla. Donec condimentum dolor eget sapien interdum tempor. "
 
@@ -62,10 +76,6 @@ function getResponse(message) {
 function multiChoose(message, things, defaultIndex) {
   var promise = new Promise.Promise();
   console.log(message);
-  var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
 
   things.each(function (thing, index) {
     var check = '[' + ((index === defaultIndex) ? 'x' : ' ') + '] '
@@ -177,7 +187,10 @@ function doWhois(uri) {
   var promise = new Promise.Promise();
   var collectedEmails = [];
   // no good emails yet, look at whois.
+  var doneret = false;
   whois.lookup(uri, function (whoisErr, whoisBody) {
+    if (doneret === true) { console.log(whoisErr, whoisBody); }
+    doneret = true;
     XRegExp.forEach(whoisBody, emailRegex, function (match) {
       collectedEmails.push({ address: transformEmail(match), source: 'whois' });
     });
@@ -352,7 +365,9 @@ SiteInfoBuilder.prototype.talkToUser = function() {
     });
 
     if (defaultIndex < 0) {
-      return match.exec(email[1]);
+      var defaultIndex = formattedEmails.findIndex(function (email) {
+        return match.exec(email[1]);
+      });
     }
 
     if (defaultIndex < 0) { defaultIndex = 0; } 
@@ -386,28 +401,33 @@ SiteInfoBuilder.prototype.talkToUser = function() {
     promise.resolve();
   }
   else {
-    Promise.seq(questions).then(function () {
-      var basicJson = {
-        "_id": self.hostname,
-        "name": self.hostname,
-        "uri": self.hostname,
-        "noticeDetails": {
-          "batch": true,
-          "batchMaxSize": 0,
-          "metadata": {
-            "template": "dmca",
-            "to": chosenEmail
-          },
-          "triggers": {
-            "minutesSinceLast": 180
-          },
-          "type": "email",
-          "testing": false
-        },
-        "hostedBy": chosenHost
-      };
 
-      saveJson(basicJson, self.hostname).then(promise.resolve.bind(promise));
+    Promise.seq(questions).then(function () {
+      if (!chosenHost && !chosenEmail) {
+        promise.resolve();
+      } else {
+        var basicJson = {
+          "_id": self.hostname,
+          "name": self.hostname,
+          "uri": self.hostname,
+          "noticeDetails": {
+            "batch": true,
+            "batchMaxSize": 0,
+            "metadata": {
+              "template": "dmca",
+              "to": chosenEmail
+            },
+            "triggers": {
+              "minutesSinceLast": 180
+            },
+            "type": "email",
+            "testing": false
+          },
+          "hostedBy": chosenHost
+        };
+
+        saveJson(basicJson, self.hostname).then(promise.resolve.bind(promise));
+      }
     });
   }
 
