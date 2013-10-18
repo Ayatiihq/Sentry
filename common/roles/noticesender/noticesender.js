@@ -428,7 +428,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           return done();
         }
         if(!host.serverInfo || !host.serverInfo.ipAddress || host.serverInfo.ipAddress.replace(/\s/g, "") === ""){
-          logger.warn("We don't have the server ip for " + host + ' - cancelling escalation until we do have that IP.');
+          logger.warn("We don't have the server ip for " + host.name + ' - cancelling escalation until we do have that IP.');
           return done(); 
         }
         notice.host = host;
@@ -494,7 +494,7 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
     .seq(function(){
       self.storage_.getToText('dmca.escalate', {}, this);
     })
-    .seq(function() {
+    .seq(function(template) {
       var that = this;
       try {
         template = Handlebars.compile(template);
