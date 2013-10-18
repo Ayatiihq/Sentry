@@ -502,7 +502,7 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
       try {
         template = Handlebars.compile(template);
         context = {hostedBy: notice.host.hostedBy, 
-                   website: notice.host 
+                   website: notice.host,
                    offendingIP: notice.host.serverInfo.ip,
                    originalNotice: originalMsg,
                    date: Date.utc.create().format('{dd} {Month} {yyyy}')};
