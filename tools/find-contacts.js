@@ -16,13 +16,11 @@ var all = require('node-promise').all
 
 // most readable regular expression ever.
 // basically it just matches foo@bar.com and foo [ at ] bar [ dot ] com
-var regbuild = function (leftspecialchars, rightspecialchars, word) {
+function regbuild(leftspecialchars, rightspecialchars, word) {
   var leftchars = "";
   var rightchars = "";
-  leftspecialchars.chars(function (char) {
-    leftchars = leftchars + "\\" + char + "|";
-  });
-  rightspecialchars.chars(function (char) { rightchars = rightchars + "\\" + char + "|"; });
+  leftspecialchars.chars(function (c) { leftchars = leftchars + "\\" + c + "|"; });
+  rightspecialchars.chars(function (c) { rightchars = rightchars + "\\" + c + "|"; });
   return "(" + leftchars.slice(0, -1) + ")[ \t]*" + word + "[ \t]*(" + rightchars.slice(0, -1) + ")";
 }
 
@@ -348,6 +346,8 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   var promise = new Promise.Promise();
 
   var formattedEmails = self.emails.map(function (data) { return [data.address, data.source]; });
+  formattedEmails = formattedEmails.exclude(/@.*(privacyprotect|privatewhois|domainsbyproxy|contactprivacy|whoisguard)/g); // removes guarded emails
+
   var formattedHops = self.hops.map(function (data) {
     if (data.title === undefined) { return ''; }
     return (data.title.trim() !== '' && !data.ip.startsWith('192.168')) ? [data.ip, data.title.trim()] : '';
@@ -360,16 +360,18 @@ SiteInfoBuilder.prototype.talkToUser = function() {
 
   if (formattedEmails.length > 0) {
     var match = /contact|dmca|abuse/;
-    var defaultIndex = formattedEmails.findIndex(function (email) {
-      return match.exec(email[0]);
-    });
-
-    if (defaultIndex < 0) {
-      var defaultIndex = formattedEmails.findIndex(function (email) {
-        return match.exec(email[1]);
-      });
+    // create a new array of sorted emails, so we can rank and default to one
+    var rank = function (test) {
+      if (/dmca/.exec(test[0])) { return 0; }
+      if (/abuse/.exec(test[0])) { return 1; }
+      if (/contact/.exec(test[0])) { return 2; }
+      if (/dmca/.exec(test[1])) { return 3; }
+      if (/abuse/.exec(test[1])) { return 4; }
+      if (/contact/.exec(test[1])) { return 5; }
+      return 6;
     }
-
+    var sortedEmails = formattedEmails.sortBy(rank);
+    var defaultIndex = formattedEmails.findIndex(sortedEmails[0]);
     if (defaultIndex < 0) { defaultIndex = 0; } 
     
     questions.push(function () {
@@ -467,15 +469,6 @@ if (require.main === module) {
     };
 
     Promise.all(collectedPromises).then(nextQuestions);
-    
-    //nextQuestions();
-
-    /*
-    var hostname = process.argv[2];
-
-    var siteInfo = new SiteInfoBuilder(hostname);
-    siteInfo.collectInfo().then(siteInfo.talkToUser.bind(siteInfo));
-    */
   }
   
 }
