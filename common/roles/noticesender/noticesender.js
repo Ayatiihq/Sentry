@@ -417,7 +417,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
 
 NoticeSender.prototype.escalateNotice = function(notice, done){
   var self = this;
-  
+  logger.info('escalate notice - ' + notice._id);
   Seq()
     .seq(function(){
       // Flesh out the original host
@@ -437,6 +437,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     })
     .seq(function(noticeWithHost){
       // Flesh out the hostedby host.
+      logger.info('escalate notice - have host');
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
         logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
@@ -458,6 +459,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       })
     })
     .seq(function(noticeWithHostedBy){
+      logger.info('escalate notice - have host.hostedBy');
       // Prepare escalation text
       var that = this;
       self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
@@ -469,6 +471,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       })      
     })
     .seq(function(escalationText, prepdNotice){
+      logger.info('escalate notice - have host.hostedBy');
       self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
     })
     .seq(function(engine, message, notice) {
@@ -498,7 +501,8 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
       var that = this;
       try {
         template = Handlebars.compile(template);
-        context = {host: notice.host.hostedBy,  
+        context = {hostedBy: notice.host.hostedBy, 
+                   website: notice.host 
                    offendingIP: notice.host.serverInfo.ip,
                    originalNotice: originalMsg,
                    date: Date.utc.create().format('{dd} {Month} {yyyy}')};
