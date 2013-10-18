@@ -316,11 +316,16 @@ SiteInfoBuilder.prototype.collectInfo = function () {
   });
 
   Promise.all([mainPagePromise, whoisPromise, tracePromise]).then(function onDone() {
-    if (self.contactPages.length < 1) {
+    if (self.hops.length < 1 && self.contactPages.length < 1) {
       promise.resolve();
     }
     else {
       var collectedPromises = [];
+      // do a whois on the last hop of the traceroute
+      if (self.hops.length > 0) {
+        collectedPromises.push(doWhois(self.hops.last().ip));
+      }
+
       self.contactPages.each(function (contactPageUri) {
         var promise = doContactPage(contactPageUri);
         collectedPromises.push(promise);
@@ -395,7 +400,6 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   }
 
   if (questions.length < 1) {
-    
     console.log(self.hostname + ': Could not find any useful information, info dump:');
     console.log('emails: ', self.emails);
     console.log('hops: ', self.hops);
