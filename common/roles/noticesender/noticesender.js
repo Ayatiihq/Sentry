@@ -432,7 +432,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           return done(); 
         }
         notice.host = host;
-        that(notice);
+        that(null, notice);
       });
     })
     .seq(function(noticeWithHost){
@@ -455,7 +455,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           return done();
         }
         noticeWithHost.host.hostedBy = hostedByHost;
-        that(noticeWithHost);
+        that(null, noticeWithHost);
       })
     })
     .seq(function(noticeWithHostedBy){
@@ -486,6 +486,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     })
     .catch(function(err) {
       // Don't error, let it move onto the next escalation.
+      logger.warn('Escalation failed : ' +  err);
       done();
     })
     ;    
