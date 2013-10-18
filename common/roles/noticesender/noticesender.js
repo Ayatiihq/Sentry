@@ -501,13 +501,15 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
     })
     .seq(function(template) {
       var that = this;
+      var target = notice.host.hostedBy.noticeDetails.manual ? notice.host.hostedBy.uri : notice.host.hostedBy.name 
       try {
         template = Handlebars.compile(template);
-        context = {hostedBy: notice.host.hostedBy, 
-                   website: notice.host,
-                   offendingIP: notice.host.serverInfo.ipAddress,
-                   originalNotice: originalMsg,
-                   date: Date.utc.create().format('{dd} {Month} {yyyy}')};
+        context = {hostedBy : notice.host.hostedBy, 
+                   website : notice.host,
+                   offendingIP : notice.host.serverInfo.ipAddress,
+                   recipientTarget : target,
+                   originalNotice : originalMsg,
+                   date : Date.utc.create().format('{dd} {Month} {yyyy}')};
         that(null, template(context));
       } catch (err) {
         that(err);
