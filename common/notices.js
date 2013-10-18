@@ -220,11 +220,11 @@ Notices.prototype.updateInfringement = function(notice, infringement, callback) 
  * @param  {function(err)}   callback    A callback to receive an error, if one occurs
  * @return {undefined}
  **/
-Notices.prototype.setNoticeState = function(notice, newState, callback){
+Notices.prototype.setState = function(notice, newState, callback){
   var self = this;
 
   if (!self.notices_)
-    return self.cachedCalls_.push([self.setNoticeState, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
@@ -266,9 +266,9 @@ Notices.prototype.setTakenDown = function(notice, callback) {
       })
       .seq(function() {
         logger.info('Setting notice %s to accepted', notice._id);
-        self.setNoticeState (notice, 
-                             states.notices.state.PROCESSED,
-                             this);                            
+        self.setState (notice, 
+                       states.notices.state.PROCESSED,
+                       this);                            
       })
       .seq(function() {
         callback();
@@ -456,4 +456,59 @@ Notices.prototype.getCountForClient = function(client, options, callback)
   };
 
   self.notices_.find(query).count(callback);
+}
+
+/**
+ * Revert an infringement with notice details.
+ *
+ * @param {object}          notices        The notice this infringement is referenced in.
+ * @param {object}          infringement   The infringement to revert.
+ * @param {function(err)}   callback       A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Notices.prototype.revertInfringement = function(notice, infringement, callback) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.updateInfringement, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $set: {
+      noticed: "",
+      noticeId: "",
+      state: states.infringements.state.VERIFIED
+    }
+  };
+
+  self.infringements_.update({ _id: infringement }, updates, callback);
+}
+
+/**
+ * Remove a notice.
+ *
+ * @param {object}               notice             The notice .
+ * @param {object}               infringements      The infringements .
+ * @param {function(err, doc)}   callback           A callback to receive an error, if one occurs, otherwise the inserted documents.
+ * @return {undefined}
+ */
+Notices.prototype.revert = function(notice, done){
+  var self = this;
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.remove, Object.values(arguments)]);  
+  
+  Seq(notice.infringements)
+    .seqEach(function(infringement) {
+      self.revertInfringement(notice, infringement, this.ok);
+    })
+    .seq(function(){
+      self.notices_.remove({_id: notice._id});  
+      done();  
+    })
+    .catch(function(err) {
+      logger.warn('Failed to revert notice - ' + notice._id + ' err - ' + err);
+      done(err);
+    })
+  ;
 }

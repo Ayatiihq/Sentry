@@ -1,7 +1,7 @@
 /*
- * reporter.js: generate quick reports
+ * swiss-army-knife.js: generate quick reports
  *
- * (C) 2012 Ayatii Limited
+ * (C) 2013 Ayatii Limited
  *
  */
 
@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , Infringements = acquire('infringements')
   , utilities = acquire('utilities')  
   , Verifications = acquire('verifications')
-  , logger = acquire('logger').forFile('reporter.js')  
+  , logger = acquire('logger').forFile('swiss-army-knife.js')  
   , Storage = acquire('storage')
   , Handlebars = require('handlebars')  
   , fs = require('fs')
@@ -266,50 +266,6 @@ function fetchMostLikelyNotices(hostEmail, howManyDaysFromToday){
 }
 
 /*
- * Create a highpointer verified infringement
- *
- */
-function addADefiniteHighPointer(campaign, uri){
-  
-  var infringements = new Infringements();
-  var verifications = new Verifications();
-
-  database.connectAndEnsureCollection('infringements', function(err, db, infringements_) {
-
-    var maxPoints = 100;
-    var c = parseObject(campaign)._id;
-    var cType = parseObject(campaign).type;
-
-    infringements.add(c,
-                      uri,
-                      cType,
-                      'manual-added, cc',
-                      -1,
-                      {'score' : 100, 'source' : 'manual'},
-                      {}, 
-                      function(err) {
-                        if (err){
-                          logger.info('add err ' + err);
-                          return;
-                        }
-                        infringements.addMeta(c, uri, cType, 'manual, cc', -1, {}, 
-                          function(err) {
-                            if (err){
-                              logger.info('meta add err ' + err);
-                            return;
-                          }
-                          var entry = {started : Date.now(),
-                                       who : "Manual, cc",
-                                       finished : Date.now(),
-                                       states: states.VERIFIED};
-                          verifications.submit({'uri': uri}, entry, log);
-                        });
-                      });
-
-  });
-}
-
-/*
  * Analyse a Domain's amount of infringements
  *
  */
@@ -336,14 +292,6 @@ function getInfringementsOfaCertainDomainForaCampaign(campaign, uri){
 function main() {
 
   var action = process.argv[2];
-  
-  if (action === 'add'){
-    if(process.argv.length < 5){
-      logger.info('not enough args');
-      process.exit();
-    }
-    addADefiniteHighPointer(process.argv[3], process.argv[4]);
-  }
 
   if (action === 'check'){
     if(process.argv.length < 5){
