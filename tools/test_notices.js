@@ -71,6 +71,7 @@ function main() {
 
   if (action === 'getNeedsEscalatingForCampaign')
     notices.getNeedsEscalatingForCampaign(require(arg0), log);
+  
 }
 
 main()

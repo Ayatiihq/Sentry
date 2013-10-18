@@ -477,7 +477,8 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     .seq(function(engine, message, notice) {
       engine.post(notice.host.hostedBy, message, notice, this);
     })
-    .seq(function(notice) {
+    .seq(function(notice, target) {
+      self.notices_.addEscalated(notice, target);
       self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })
     .seq(function(){
