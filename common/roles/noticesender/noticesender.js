@@ -335,6 +335,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     ;
 
   logger.info('Sending notice to %s', host._id);
+  var notice = null;
 
   Seq()
     .seq(function() {
@@ -342,7 +343,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       builder.build(this);
     })
     .seq(function(hash, message) {
-      var notice = self.prepareNotice(hash, host, infringements);
+      notice = self.prepareNotice(hash, host, infringements);
       self.processNotice(host, notice, function(err){
         if(err){
           logger.warn('Error processing notice ' + notice_id + ' err : ' + err);
@@ -375,6 +376,8 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     })
     .catch(function(err) {
       logger.warn('Unable to send notice to %s: %s', host._id, err);
+      if(notice)
+        self.notices_.remove(notice);
       done(err);
     })
     ;

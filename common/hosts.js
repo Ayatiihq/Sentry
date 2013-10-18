@@ -108,7 +108,7 @@ Hosts.prototype.add = function(host, callback)
  *
  * @param {object}                host           The host which we need to determine if it we can automatically escalate.
  */
-Hosts.prototype.canAutomateEscalation = function(host)
+Hosts.prototype.shouldAutomateEscalation = function(host)
 {
   var noValidDirect = !host.metadata || host.metadata.to.replace(/\s/g,"") === "";
   var validHostedBy = host.hostedBy && host.hostedBy !== "";

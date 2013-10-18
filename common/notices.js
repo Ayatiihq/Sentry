@@ -457,3 +457,10 @@ Notices.prototype.getCountForClient = function(client, options, callback)
 
   self.notices_.find(query).count(callback);
 }
+
+Notices.prototype.remove = function(notice){
+  var self = this;
+  if (!self.notices_)
+    return self.cachedCalls_.push([self.remove, Object.values(arguments)]);  
+  self.notices_.remove({_id: notice._id})
+}
