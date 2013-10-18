@@ -16,12 +16,24 @@ var all = require('node-promise').all
 
 // most readable regular expression ever.
 // basically it just matches foo@bar.com and foo [ at ] bar [ dot ] com
-var emailRegex = XRegExp("(?<name>[A-Za-z0-9_\\.]+)[ \t]*(@|\\[[ \t]*at[ \t]*\\]|\\([ \t]*at[ \t]*\\))[ \t]*(?<domain>[A-Za-z0-9_\\-]+)[ \t]*(\\.|\\[[ \t]*dot[ \t]*\\]|\\([ \t]*dot[ \t]*\\))[ \t]*(?<tld>[A-Za-z]+)", "gi");
+function regbuild(leftspecialchars, rightspecialchars, word) {
+  var leftchars = "";
+  var rightchars = "";
+  leftspecialchars.chars(function (c) { leftchars = leftchars + "\\" + c + "|"; });
+  rightspecialchars.chars(function (c) { rightchars = rightchars + "\\" + c + "|"; });
+  return "(" + leftchars.slice(0, -1) + ")[ \t]*" + word + "[ \t]*(" + rightchars.slice(0, -1) + ")";
+}
+
+var emailRegex = XRegExp("(?<name>[A-Za-z0-9_\\.]+)[ \t]*(@|"
+                          + regbuild('[({', '])}', 'at') 
+                          + ")[ \t]*(?<domain>[A-Za-z0-9_\\-]+)[ \t]*(\\.|" 
+                          + regbuild('[({', '])}', 'dot')
+                          + ")[ \t]*(?<tld>[A-Za-z]+)", "gi");
 
 /*
 var teststring = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.  contact [at] world4freeus.com  Vestibulum sollicitudin contact @ test . com velit iaculis odio facilisis semper. contact@test.com  Mauris in ipsum nibh. Ut elementum rutrum mi, vel dictum tortor cursus ac. Donec tempor, velit in ornare volutpat, justo eros tincidunt sapien, sit amet auctor tellus est ut urna. Integer dictum adipiscing nisi porttitor elementum. Maecenas non porttitor lacus. Mauris vestibulum egestas erat.\
 Phasellus bibendum dolor a tristique vehicula. Etiam id euismod tortor. Maecenas et posuere tortor. Quisque sagittis, eros vel eleifend bibendum, eros enim lobortis quam, volutpat luctus nibh erat non odio. Aliquam consequat vehicula risus eu semper. Etiam eget euismod massa. Nullam mollis sapien purus, sit amet feugiat sapien cursus et. Curabitur at fermentum nulla. Aliquam aliquam risus et lectus tincidunt, sed bibendum nisl porttitor. Vivamus fermentum pharetra odio vel vehicula. Cras id urna eget enim bibendum aliquam a eget metus. Aliquam id aliquam arcu.\
-Duis non malesuada leo. Nullam laoreet porta vulputate. Cras pharetra purus risus, ut laoreet est euismod id. Vestibulum et cursus urna. Maecenas at support @ filecloud.io leo vitae sem fermentum varius tempor vel neque. Nullam lacinia a sapien sit amet rhoncus. Phasellus sodales ac quam a rhoncus. Maecenas at libero ac mi sollicitudin sodales in eu urna. Quisque laoreet luctus neque, quis commodo magna suscipit sit amet. Sed at condimentum est. Curabitur neque dolor, euismod ac sollicitudin in, posuere ac mi. Donec tempor purus elementum malesuada varius. Nunc eu viverra urna. Pellentesque nulla justo, sagittis vitae molestie eu, laoreet id velit. Integer pulvinar nec nibh id fringilla.\
+Duis non malesuada leo. Nullam laoreet porta vulputate. Cras pharetra purus foo.com{at}hotmail.com risus, ut laoreet est euismod id. Vestibulum et cursus urna. Maecenas at support @ filecloud.io leo vitae sem fermentum varius tempor vel neque. Nullam lacinia a sapien sit amet rhoncus. Phasellus sodales ac quam a rhoncus. Maecenas at libero ac mi sollicitudin sodales in eu urna. Quisque laoreet luctus neque, quis commodo magna suscipit sit amet. Sed at condimentum est. Curabitur neque dolor, euismod ac sollicitudin in, posuere ac mi. Donec tempor purus elementum malesuada varius. Nunc eu viverra urna. Pellentesque nulla justo, sagittis vitae molestie eu, laoreet id velit. Integer pulvinar nec nibh id fringilla.\
 Suspendisse iaculis leo ac dolor pellentesque, vel porttitor quam ullamcorper. contact [at] test [dot] com tIn dapibus magna in risus vulputate, at contact [at] world4freeus.com porttitor orci semper. Praesent ultrices, elit nec consectetur venenatis, quam purus tristique arcu, et dignissim risus neque non dui. Duis vitae consequat urna, facilisis adipiscing orci. Donec gravida nisi non dignissim interdum. Suspendisse potenti. Praesent eget leo ac lorem mattis pellentesque. Nam diam mauris, ultrices id risus sed, ultricies eleifend est. Proin vitae enim rhoncus dui semper lobortis vitae vitae dolor. Mauris id auctor tortor, sit amet tincidunt dui. Pellentesque viverra, nulla eget feugiat eleifend, nulla arcu interdum eros, at vehicula lorem elit id nisl. Nullam vehicula volutpat elit vel porta. Aenean vehicula felis libero, nec interdum urna sollicitudin id. Maecenas tristique velit neque, quis rhoncus metus commodo vitae.\
 Quisque congue ultricies suscipit. Integer dapibus nulla at urna gravida foo ( at ) roar [ dot ] com molestie. Proin eu ligula ante. Vivamus vel risus et elit elementum congue ut sit amet nisl. Integer facilisis turpis sit amet justo tincidunt tincidunt id nec ipsum. Nunc scelerisque augue nulla. Donec condimentum dolor eget sapien interdum tempor. "
 
@@ -35,10 +47,13 @@ function transformEmail(match) {
 }
 
 function saveJson(json, name) {
+  var promise = new Promise.Promise();
   require('fs').writeFile('json/' + name + '.json', JSON.stringify(json), function (err) {
     if (err) { console.log(err); }
     else { console.log("Json Saved to: " + name + '.json'); }
+    promise.resolve();
   });
+  return promise;
 }
 
 function getResponse(message) {
@@ -59,10 +74,6 @@ function getResponse(message) {
 function multiChoose(message, things, defaultIndex) {
   var promise = new Promise.Promise();
   console.log(message);
-  var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
 
   things.each(function (thing, index) {
     var check = '[' + ((index === defaultIndex) ? 'x' : ' ') + '] '
@@ -82,7 +93,12 @@ function multiChoose(message, things, defaultIndex) {
     getResponse('Is the default correct? (y/n): ').then(function (result) {
       if (result.toLowerCase() === 'y') { promise.resolve(things[defaultIndex]); }
       else {
-        changeChoice();
+        if (things.length < 2) {
+          promise.resolve();
+        }
+        else {
+          changeChoice();
+        }
       }
     });
   }
@@ -114,7 +130,9 @@ function reverseIP(ip) {
 
 function unfuckTracerouteAPI(hops) {
   // christ, what a retard.
+  hops = hops.compact(true);
   var newHops = hops.map(function (hop) {
+    try { Object.keys(hop); } catch (err) { console.log(hops); }
     return Object.keys(hop)[0];
   });
 
@@ -167,7 +185,10 @@ function doWhois(uri) {
   var promise = new Promise.Promise();
   var collectedEmails = [];
   // no good emails yet, look at whois.
+  var doneret = false;
   whois.lookup(uri, function (whoisErr, whoisBody) {
+    if (doneret === true) { console.log(whoisErr, whoisBody); }
+    doneret = true;
     XRegExp.forEach(whoisBody, emailRegex, function (match) {
       collectedEmails.push({ address: transformEmail(match), source: 'whois' });
     });
@@ -232,7 +253,7 @@ function doMainPage(uri) {
 
 var SiteInfoBuilder = function (hostname) {
   var self = this;
-  self.hostname = hostname;
+  self.hostname = hostname.trim();
   self.emails = [];
   self.contactPages = [];
   self.hops = [];
@@ -258,7 +279,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
   var promise = new Promise.Promise();
   var weburi = self.hostname;
 
-  console.log('scraping information...');
+  console.log(self.hostname, 'scraping information...');
 
   // some uris didn't start with www but the site needed www because its developed by idiots
   // we should get the full hostname in future but for now, this hacky hack.
@@ -278,20 +299,20 @@ SiteInfoBuilder.prototype.collectInfo = function () {
     self.addEmails(newEmails);
     self.addContactPages(newContactPages);
 
-    console.log('scraped main page...');
+    console.log(self.hostname, 'scraped main page...');
   });
 
   // looks up the whois
   var whoisPromise = doWhois(self.hostname).then(function onWhoisDone(newEmails) {
     self.addEmails(newEmails);
 
-    console.log('scraped whois...');
+    console.log(self.hostname, 'scraped whois...');
   });
 
   // look up traceroute
   var tracePromise = doTraceRoute(self.hostname).then(findNameOfTraceroute).then(function (results) {
     self.hops = results;
-    console.log('scraped traceroute...');
+    console.log(self.hostname, 'scraped traceroute...');
   });
 
   Promise.all([mainPagePromise, whoisPromise, tracePromise]).then(function onDone() {
@@ -310,7 +331,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
           self.addEmails(newEmails);
         });
 
-        console.log('scraped contact pages...');
+        console.log(self.hostname, 'scraped contact pages...');
 
         promise.resolve();
       });
@@ -322,8 +343,13 @@ SiteInfoBuilder.prototype.collectInfo = function () {
 
 SiteInfoBuilder.prototype.talkToUser = function() {
   var self = this;
+  var promise = new Promise.Promise();
+
   var formattedEmails = self.emails.map(function (data) { return [data.address, data.source]; });
+  formattedEmails = formattedEmails.exclude(function (email) { return /(privacyprotect|privatewhois|domainsbyproxy|contactprivacy|whoisguard|privacyguardian)/g.exec(email[0]); }); // removes guarded emails
+
   var formattedHops = self.hops.map(function (data) {
+    if (data.title === undefined) { return ''; }
     return (data.title.trim() !== '' && !data.ip.startsWith('192.168')) ? [data.ip, data.title.trim()] : '';
   }).compact(true);
  
@@ -333,12 +359,23 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   var chosenHost = undefined;
 
   if (formattedEmails.length > 0) {
-    var defaultIndex = formattedEmails.findIndex(function (email) {
-      return /contact|dmca/.exec(email[0]);
-    });
+    var match = /contact|dmca|abuse/;
+    // create a new array of sorted emails, so we can rank and default to one
+    var rank = function (test) {
+      if (/dmca/.exec(test[0])) { return 0; }
+      if (/abuse/.exec(test[0])) { return 1; }
+      if (/contact/.exec(test[0])) { return 2; }
+      if (/dmca/.exec(test[1])) { return 3; }
+      if (/abuse/.exec(test[1])) { return 4; }
+      if (/contact/.exec(test[1])) { return 5; }
+      return 6;
+    }
+    var sortedEmails = formattedEmails.sortBy(rank);
+    var defaultIndex = formattedEmails.findIndex(sortedEmails[0]);
+    if (defaultIndex < 0) { defaultIndex = 0; } 
     
     questions.push(function () {
-      return multiChoose('collected emails', formattedEmails, defaultIndex).then(function (email) {
+      return multiChoose(self.hostname + ': collected emails', formattedEmails, defaultIndex).then(function (email) {
         if (email) {
           chosenEmail = email[0];
         }
@@ -349,7 +386,7 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   if (formattedHops.length > 0) {
     var defaultIndex = (formattedHops.length === 1) ? 0 : (formattedHops.length - 2);
     questions.push(function () {
-      return multiChoose('collected hosts', formattedHops, defaultIndex).then(function (host) {
+      return multiChoose(self.hostname + ': collected hosts', formattedHops, defaultIndex).then(function (host) {
         if (host) {
           chosenHost = host[1];
         }
@@ -358,48 +395,80 @@ SiteInfoBuilder.prototype.talkToUser = function() {
   }
 
   if (questions.length < 1) {
-    console.log('Could not find any useful information, info dump:');
-    console.log(self.emails);
-    console.log(self.hops);
-    console.log(self.contactPages);
+    
+    console.log(self.hostname + ': Could not find any useful information, info dump:');
+    console.log('emails: ', self.emails);
+    console.log('hops: ', self.hops);
+    console.log('contact pages: ', self.contactPages);
+    promise.resolve();
   }
   else {
-    Promise.seq(questions).then(function () {
-      var basicJson = {
-        "_id": self.hostname,
-        "name": self.hostname,
-        "uri": self.hostname,
-        "noticeDetails": {
-          "batch": true,
-          "batchMaxSize": 0,
-          "metadata": {
-            "template": "dmca",
-            "to": chosenEmail
-          },
-          "triggers": {
-            "minutesSinceLast": 180
-          },
-          "type": "email",
-          "testing": false
-        },
-        "hostedBy": chosenHost
-      };
 
-      saveJson(basicJson, self.hostname);
+    Promise.seq(questions).then(function () {
+      if (!chosenHost && !chosenEmail) {
+        promise.resolve();
+      } else {
+        var basicJson = {
+          "_id": self.hostname,
+          "name": self.hostname,
+          "uri": self.hostname,
+          "noticeDetails": {
+            "batch": true,
+            "batchMaxSize": 0,
+            "metadata": {
+              "template": "dmca",
+              "to": chosenEmail
+            },
+            "triggers": {
+              "minutesSinceLast": 180
+            },
+            "type": "email",
+            "testing": false
+          },
+          "hostedBy": chosenHost
+        };
+
+        saveJson(basicJson, self.hostname).then(promise.resolve.bind(promise));
+      }
     });
   }
+
+  return promise;
 }
 
 
 if (require.main === module) {
+
   if (process.argv.length < 3) {
     console.log("Usage: node find-contacts.js websiteurl");
   }
   else {
-    var hostname = process.argv[2];
 
-    var siteInfo = new SiteInfoBuilder(hostname);
-    siteInfo.collectInfo().then(siteInfo.talkToUser.bind(siteInfo));
+    console.log('Wait a minute, scraping information for all the hosts...');
+    var siteInfos = [];
+    var collectedPromises = [];
+    process.argv.each(function onSite(site, index) {
+      if (index < 2) { return; }
+      var hostname = process.argv[index];
+      var info = new SiteInfoBuilder(hostname);
+      siteInfos.push(info);
+      collectedPromises.push(info.collectInfo());
+    });
+
+    var index = 0;
+    var nextQuestions = function () {
+      if (index >= siteInfos.length) {
+        return;
+      }
+      console.log('New host: ' + siteInfos[index].hostname);
+
+      siteInfos[index].talkToUser().then(function() {
+        index++;
+        nextQuestions();
+      });
+    };
+
+    Promise.all(collectedPromises).then(nextQuestions);
   }
   
 }
