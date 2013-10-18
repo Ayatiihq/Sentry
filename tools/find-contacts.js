@@ -429,7 +429,10 @@ SiteInfoBuilder.prototype.talkToUser = function() {
             "type": "email",
             "testing": false
           },
-          "hostedBy": chosenHost
+          "hostedBy": chosenHost,
+          "tracerouteHops:": self.hops,
+          "foundEmails": formattedEmails,
+          "foundContactPages": self.contactPages
         };
 
         saveJson(basicJson, self.hostname).then(promise.resolve.bind(promise));
