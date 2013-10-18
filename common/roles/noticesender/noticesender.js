@@ -427,6 +427,10 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
           return done();
         }
+        if(!host.serverInfo || !host.serverInfo.ipAddress || host.serverInfo.ipAddress.replace(/\s/g, "") === ""){
+          logger.warn("We don't have the server ip for " + host + ' - cancelling escalation until we do have that IP.');
+          return done(); 
+        }
         notice.host = host;
         that(notice);
       });
@@ -490,11 +494,12 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
     .seq(function(){
       self.storage_.getToText('dmca.escalate', {}, this);
     })
-    .seq(function(template) {
+    .seq(function() {
       var that = this;
       try {
         template = Handlebars.compile(template);
-        context = {host: notice.host.hostedBy,
+        context = {host: notice.host.hostedBy,  
+                   offendingIP: notice.host.serverInfo.ip,
                    originalNotice: originalMsg,
                    date: Date.utc.create().format('{dd} {Month} {yyyy}')};
         that(null, template(context));
