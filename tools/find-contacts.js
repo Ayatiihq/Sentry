@@ -181,23 +181,6 @@ function findNameOfTraceroute(hops) {
   return promise;
 }
 
-function doWhois(uri) {
-  var promise = new Promise.Promise();
-  var collectedEmails = [];
-  // no good emails yet, look at whois.
-  var doneret = false;
-  whois.lookup(uri, function (whoisErr, whoisBody) {
-    if (doneret === true) { console.log(whoisErr, whoisBody); }
-    doneret = true;
-    XRegExp.forEach(whoisBody, emailRegex, function (match) {
-      collectedEmails.push({ address: transformEmail(match), source: 'whois' });
-    });
-    promise.resolve(collectedEmails);
-  })
-
-  return promise;
-}
-
 function doContactPage(uri) {
   var promise = new Promise.Promise();
   var collectedEmails = [];
@@ -257,7 +240,30 @@ var SiteInfoBuilder = function (hostname) {
   self.emails = [];
   self.contactPages = [];
   self.hops = [];
+  self.whoises = [];
 };
+
+SiteInfoBuilder.prototype.doWhois = function (uri) {
+  var promise = new Promise.Promise();
+  var self = this;
+  var collectedEmails = [];
+  // no good emails yet, look at whois.
+  var doneret = false;
+  whois.lookup(uri, function (whoisErr, whoisBody) {
+    if (doneret === true) { console.log(whoisErr, whoisBody); }
+    doneret = true;
+
+    // store the whois
+    self.whoises.push({ 'location': uri, 'whois': whois });
+
+    XRegExp.forEach(whoisBody, emailRegex, function (match) {
+      collectedEmails.push({ address: transformEmail(match), source: 'whois' });
+    });
+    promise.resolve(collectedEmails);
+  })
+
+  return promise;
+}
 
 SiteInfoBuilder.prototype.addEmails = function (emails) {
   var self = this;
@@ -303,7 +309,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
   });
 
   // looks up the whois
-  var whoisPromise = doWhois(self.hostname).then(function onWhoisDone(newEmails) {
+  var whoisPromise = self.doWhois(self.hostname).then(function onWhoisDone(newEmails) {
     self.addEmails(newEmails);
 
     console.log(self.hostname, 'scraped whois...');
@@ -323,7 +329,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
       var collectedPromises = [];
       // do a whois on the last hop of the traceroute
       if (self.hops.length > 0) {
-        collectedPromises.push(doWhois(self.hops.last().ip));
+        collectedPromises.push(self.doWhois(self.hops.last().ip));
       }
 
       self.contactPages.each(function (contactPageUri) {
