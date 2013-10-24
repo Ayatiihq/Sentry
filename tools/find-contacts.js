@@ -42,10 +42,7 @@ XRegExp.forEach(teststring, emailRegex, function (match) {
 })
 */
 
-function transformEmail(match) {
-  return match.name + "@" + match.domain + "." + match.tld;
-}
-
+/* for neil - not needed block start */
 function saveJson(json, name) {
   var promise = new Promise.Promise();
   require('fs').writeFile('json/' + name + '.json', JSON.stringify(json), function (err) {
@@ -108,6 +105,11 @@ function multiChoose(message, things, defaultIndex) {
 
   return promise;
 };
+/* for neil - not needed block end */
+
+function transformEmail(match) {
+  return match.name + "@" + match.domain + "." + match.tld;
+}
 
 function getPageTitle(ip) {
   var promise = new Promise.Promise();
@@ -352,6 +354,7 @@ SiteInfoBuilder.prototype.collectInfo = function () {
   return promise;
 };
 
+// neil - probably don't need this
 SiteInfoBuilder.prototype.talkToUser = function() {
   var self = this;
   var promise = new Promise.Promise();
