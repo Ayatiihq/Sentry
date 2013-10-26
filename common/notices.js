@@ -516,8 +516,7 @@ Notices.prototype.revert = function(notice, done){
       self.revertInfringement(notice, infringement, this.ok);
     })
     .seq(function(){
-      self.notices_.remove({_id: notice._id});  
-      done();  
+      self.notices_.remove({_id: notice._id}, this);
     })
     .catch(function(err) {
       logger.warn('Failed to revert notice - ' + notice._id + ' err - ' + err);

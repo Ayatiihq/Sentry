@@ -242,6 +242,10 @@ NoticeSender.prototype.processBatch = function(batch, done) {
         logger.warn('Host "%s" does not have noticeDetails', batch.key ? batch.key : batch.infringements[0].uri);
         return done();
       
+      } else if (!host.noticeDetails.type && !host.hostedby) {
+        logger.warn('Host "%s" does not have engine type, nor hostedBy to escalate');
+        return done();
+      
       } else if (categoryFilters && !categoryFilters.some(host.category)) {
         logger.info('Host %s (%s) does not match allowed noticing categories.', host._id, states.infringements.categoryNames[host.category]);
         return done();
@@ -337,6 +341,10 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   logger.info('Sending notice to %s', host._id);
   var notice = null;
   var message = null;
+
+  // Make sure host is as valid as possible
+  host.noticeDetails.metadata = host.noticeDetails.metadata || {};
+  host.noticeDetails.metadata.template = host.noticeDetails.metadata.template || 'dmca';
 
   Seq()
     .seq(function() {
