@@ -518,6 +518,9 @@ Notices.prototype.revert = function(notice, done){
     .seq(function(){
       self.notices_.remove({_id: notice._id}, this);
     })
+    .seq(function() {
+      done();
+    })
     .catch(function(err) {
       logger.warn('Failed to revert notice - ' + notice._id + ' err - ' + err);
       done(err);
