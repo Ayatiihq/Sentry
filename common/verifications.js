@@ -14,6 +14,7 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Categories = states.infringements.category
@@ -167,13 +168,68 @@ Verifications.prototype.getCountForCampaign = function(campaign, callback)
 Verifications.prototype.pop = function(campaign, callback) {
   var self = this;
 
-  self.popCyberlocker(campaign, function(err, infringement) {
+  self.popSpecial(campaign, function(err, infringement) {
     if (err || !infringement) {
-      if (err) logger.warn('Error getting cyberlocker infringement: %s', err);
-      return self.popBasic(campaign, callback);
+      if (err) logger.warn('Error getting special infringement: %s', err);
+
+      self.popCyberlocker(campaign, function(err, infringement) {
+        if (err || !infringement) {
+          if (err) logger.warn('Error getting cyberlocker infringement: %s', err);
+          return self.popBasic(campaign, callback);
+        }
+        callback(err, infringement);
+      });
+    } else {
+      callback(err, infringement);
     }
-    callback(err, infringement);
   });
+}
+
+Verifications.prototype.popSpecial = function(campaign, callback) {
+  var self = this
+    , specials = campaign.metadata.specialHosts
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.popSpecial, Object.values(arguments)]);
+
+  campaign = normalizeCampaign(campaign);
+
+  if (!specials || specials.length < 1)
+    return callback();
+
+  var string = "";
+  specials.forEach(function(word) {
+    string += ' ' + word;
+  });
+
+  var regex = new RegExp(utilities.buildLineRegexString(string, { anyWord: true }));
+  console.log(regex);
+
+  var query = {
+    campaign: campaign,
+    state: {
+      $in: [states.infringements.state.NEEDS_DOWNLOAD, states.infringements.state.UNVERIFIED]
+    },
+    uri: regex,
+    'children.count': 0,
+    popped: {
+      $lt: then
+    }
+  };
+
+  var sort = [['state', -1], ['parents.count', -1 ], ['points.total', -1 ] ];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  var options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
 }
 
 Verifications.prototype.popCyberlocker = function(campaign, callback) {
