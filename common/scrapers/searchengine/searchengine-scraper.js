@@ -78,9 +78,8 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
     // Nothing special yet for movies
 
   } else if (campaign.type == 'music.album') {
-    // FIXME: Add track support
     campaign.metadata.tracks.forEach(function(track) {
-      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.name, { anyWord: false }), 'i'));
+      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.title, { anyWord: false }), 'i'));
     });
   } else {
     logger.warn('Campaign type %s has no special case word lists', campaign.type);
