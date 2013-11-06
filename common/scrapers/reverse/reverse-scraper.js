@@ -419,9 +419,8 @@ CyberlockerScraper.prototype.getSearchTermForCampaign = function(campaign, id) {
         return util.format('"%s" +%s', track.title, id)
       }
     } else {
-      return util.format('"%s" +%s', campaign.albumTitle, id);
+      return util.format('"%s" +%s', campaign.metadata.albumTitle, id);
     }
   }
-
-  return util.format('"%s" +%s', campaign.name, campaign.albumTitle);
+  return util.format('"%s" +%s', campaign.name, campaign.metadata.albumTitle);
 }
