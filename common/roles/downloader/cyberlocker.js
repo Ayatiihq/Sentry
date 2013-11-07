@@ -85,7 +85,7 @@ Cyberlocker.prototype.download = function(infringement, done){
     })
     .seq(function(downloads){
       logger.info('Go ahead and store these Downloads against the infringement ' + JSON.stringify(downloads));
-      done();
+      self.browser.wait(2, done);
     })    
     .catch(function(err){
       done(err);
@@ -213,11 +213,40 @@ Cyberlocker.prototype.listenGetHoover = function(uri, done){
 }
 
 /*
- * Try each target in attributes to see.
+ * Try each target (available and unavailable) in attributes.
  */
 Cyberlocker.prototype.tryTargets = function(done){
   var self = this;
-  Seq(self.attributes.targets)
+  Seq()
+    .seq(function(){
+      self.tryAvailables(this);
+    })
+    .seq(function(available){
+      if(available){
+        logger.info('Found something => Available!')
+        return done(null, true); 
+      }
+      self.tryUnavailables(this);
+    })
+    .seq(function(unavailable){
+      if(unavailable){
+        logger.info('Found something => Unavailable!')
+        done(null, true); 
+      }
+      else{
+        logger.info('Bugger cant find anything on the page ');
+        done(null, false);
+      }
+    })        
+    .catch(function(err){
+      done(err);
+    })
+    ;    
+}
+
+Cyberlocker.prototype.tryAvailables = function(done){
+  var self = this;
+  Seq(self.attributes.targets.available)
     .seqEach(function(target){
       var that = this;
       logger.info('trying target ' + target);
@@ -231,7 +260,32 @@ Cyberlocker.prototype.tryTargets = function(done){
       });
     })
     .seq(function(){
-      logger.warn('hmm failed to hit any target there, exit peacefully');
+      logger.warn('hmmm failed to hit no available target there');
+      done(null, false);
+    })    
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+Cyberlocker.prototype.tryUnavailables = function(done){
+  var self = this;
+  Seq(self.attributes.targets.unavailable)
+    .seqEach(function(target){
+      var that = this;
+      logger.info('trying target ' + target);
+      self.browser.click(target, function(err){
+        if(err){
+          logger.info("we did't find that target, try the next - " + err);
+          return that();
+        }
+        logger.info('seemed to have the target, lets get out of here.');
+        done(null, true); 
+      });
+    })
+    .seq(function(){
+      logger.warn('and failed to hit no unavailable target - ????');
       done(null, false);
     })    
     .catch(function(err){
