@@ -104,7 +104,8 @@ Ass.prototype.getHooverBag = function(uri){
   self.ears.once('finishedDownloading', function(payLoad){
     logger.info('just received finishedDownloading signal : ' + JSON.stringify(payLoad));
     if(payLoad.uri !== uri)
-      return promise.reject(new Error('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri));
+      logger.warn('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri);
+      //return promise.reject(new Error('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri));
     promise.resolve(payLoad.downloads);  
   }); 
   return promise;

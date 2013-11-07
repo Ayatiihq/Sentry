@@ -179,14 +179,17 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
  * Usual usecase is to click a few places and then call downloadTargeted, then listen to redis for signals. 
  * @param {function}  done           callback to notify once we are done talking to cowmangler. 
  */
-Cowmangler.prototype.downloadTargeted = function(done){
+Cowmangler.prototype.downloadTargeted = function(uri, done){
   var self = this;
 
   if (!self.connected)
     return self.cachedCalls_.push([self.downloadTargeted, Object.values(arguments)]);
 
+  // First open the ears.
+  self.getStoredDownloads(uri, done);
+
   self.ass_.do('downloadTargeted', {}).then(function(result){
-    done();
+    logger.info('open the signals flood gate !');
   },
   function(err){
     done(err);

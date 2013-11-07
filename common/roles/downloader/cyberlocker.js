@@ -47,12 +47,30 @@ Cyberlocker.prototype.init = function(){
   } 
 }
 
+Cyberlocker.prototype.validURI = function(uri){
+  var self = this;
+  var result = true;
+
+  if(utilities.getDomain(uri) === ''){
+    logger.warn('Unable to create a URI from this infringement');
+    result = false;
+  }
+  
+  self.attributes.blacklist.each(function(suspect){
+    if(uri.match(suspect)){
+      logger.warn('This we believe to be a URI that we should ignore : ' + uri);
+      result = false;
+    }
+  });
+  return result;
+}
+
 Cyberlocker.prototype.download = function(infringement, done){
   var self  = this;
 
-  if(utilities.getDomain(infringement.uri) === '')
-    return done(new Error('Unable to create a URI from this infringement'));
-  
+  if(!self.validURI(infringement.uri))
+    return done();
+
   Seq()
     .seq(function(){
       self.login(this);
@@ -61,10 +79,9 @@ Cyberlocker.prototype.download = function(infringement, done){
       self.listenGet(infringement.uri, this);
     })
     .seq(function(directDownload){
-      if(self.attributes.strategy.type === states.cyberlockers.strategy.TARGETED)
+      if(self.attributes.strategy.type === states.cyberlockers.strategy.TARGETED){
         self.deployTargeted(infringement, directDownload, this);
-      else(self.attributes.strategy.type === states.cyberlockers.strategy.CUSTOM)
-        self.attributes.strategy.deploy(infringement, done);
+      }
     })
     .seq(function(downloads){
       logger.info('Go ahead and store these Downloads against the infringement ' + JSON.stringify(downloads));
@@ -86,11 +103,8 @@ Cyberlocker.prototype.deployTargeted = function(infringement, direct, done){
       self.tryTargets(this);
     })
     .seq(function(success){
-      self.browser.downloadTargeted(this);
+      self.browser.downloadTargeted(infringement.uri, done);
     })            
-    .seq(function(){
-      self.browser.getStoredDownloads(infringement.uri, this);
-    })
     .catch(function(err){
       done(err);
     })
@@ -206,7 +220,7 @@ Cyberlocker.prototype.tryTargets = function(done){
   Seq(self.attributes.targets)
     .seqEach(function(target){
       var that = this;
-
+      logger.info('trying target ' + target);
       self.browser.click(target, function(err){
         if(err){
           logger.info("we did't find that target, try the next - " + err);
