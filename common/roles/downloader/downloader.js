@@ -18,6 +18,7 @@ var acquire = require('acquire')
   , states = acquire('states')
   , util = require('util')
   , utilities = acquire('utilities')
+  , Cowmangler = acquire('cowmangler')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -117,8 +118,11 @@ Downloader.prototype.processJob = function(err, job) {
 Downloader.prototype.preRun = function(job, done) {
   var self = this;
 
+  self.browser = new Cowmangler();
+  self.browser.on('error', done(err));
+
   Seq()
-    .seq(function() {
+    .seq(function(){
       self.job_ = job;
       self.campaigns_.getDetails(job._id.owner, this);
     })
@@ -221,14 +225,21 @@ Downloader.prototype.run = function(done) {
       plugin = plugin_;
       this(null, work.infringements);
     })
-    .set(work.infringements)
+    .seq(function(infringements){
+      if(plugin.getDescription.method === states.cyberlockers.method.COW_MANGLING)
+        self.goCowMangle(infringements, plugin, this);
+      else(plugin.getDescription.method === states.cyberlockers.method.RESTFUL)
+        self.goManual(infringements, plugin, this);
+    })
+    /*.set(work.infringements)
     .seqEach(function(infringement) {
+      
       self.downloadOne(infringement, plugin, this);
     })
     .seq(function() {
       plugin.finish();
       this();
-    })
+    })*/
     .catch(function(err) {
       logger.warn('Unable to download from %s: %s', work.domain, err);
     })
@@ -249,7 +260,7 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
     err = 'Cyberlocker ' + domain + ' is not support for auto-download';
   } else {
     try {
-      plugin = new (require('./' + pluginName))(self.campaign_);
+      plugin = new (require('./' + pluginName))(self.campaign_, self.browser);
     } catch(error) {
       err = error;
     }
@@ -260,6 +271,39 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
 
   done(err, plugin);
 }
+
+Downloader.prototype.goCowMangle = function(infringements, plugin, done){
+  Seq(infringements)
+    .seqEach(function(infringement) {
+      plugin.download(infringement, this);
+    })
+    .seq(function() {
+      plugin.finish();
+      done();
+    })
+    .catch(function(err){
+      logger.warn('Unable to Mangle : %s', err);
+      done(err);
+    })
+    ;
+}
+
+Downloader.prototype.goManual = function(infringements, plugin, done){
+  Seq(infringements)
+    .seqEach(function(infringement) {
+      self.downloadOne(infringement, plugin, this);
+    })
+    .seq(function() {
+      plugin.finish();
+      done();
+    })
+    .catch(function(err){
+      logger.warn('Unable to Mangle : %s', err);
+      done(err);
+    })
+    ;
+}
+
 
 Downloader.prototype.downloadOne = function(infringement, plugin, done) {
   var self = this
