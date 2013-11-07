@@ -7,6 +7,7 @@
   "clients": "common/clients.js",
   "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",
+  "cowmangler": "common/cowmangler/cowmangler.js",
   "cyberlockers": "common/cyberlockers.js",
   "database": "common/database.js",
   "downloads": "common/downloads.js",
