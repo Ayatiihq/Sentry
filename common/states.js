@@ -16,6 +16,17 @@ exports.jobs = {
   }
 };
 
+exports.cyberlockers = {
+  method: {
+    COW_MANGLING: 0,
+    RESTFUL : 1
+  },
+  strategy: {
+    TARGETED: 0,
+    CUSTOM: 1
+  }
+}
+
 exports.infringements = {
   state: {
     NEEDS_PROCESSING: -1,
