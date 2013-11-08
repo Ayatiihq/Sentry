@@ -9,7 +9,7 @@ var acquire = require('acquire')
   , util = require('util')
   , logger = acquire('logger').forFile('uploaded-net.js')
   , states = acquire('states')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   ;
 
 var Uploadednet = module.exports = function (campaign, browser) {
@@ -26,7 +26,7 @@ var Uploadednet = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Uploadednet, Cyberlocker);
+util.inherits(Uploadednet, Downloader);
 
 Uploadednet.getDescription = function(){
   return ['uploaded.net'];

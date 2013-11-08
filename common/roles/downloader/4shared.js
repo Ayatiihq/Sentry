@@ -9,7 +9,7 @@ var acquire = require('acquire')
   , util = require('util')
   , logger = acquire('logger').forFile('4shared.js')
   , states = acquire('states')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   , Seq = require('seq')
   , oauth = require('oauth-lite')
   ;
@@ -32,7 +32,7 @@ var Fourshared = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Fourshared, Cyberlocker);
+util.inherits(Fourshared, Downloader);
 
 Fourshared.getDomains = function(){
   return ['4shared.com'];

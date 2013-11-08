@@ -1,6 +1,6 @@
 {
   "name": "downloader",
-  "main": "./downloader.js",
+  "main": "./download-manager.js",
   "dependencies": {
     "cowmangler": 1
   },

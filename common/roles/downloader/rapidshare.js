@@ -6,7 +6,7 @@
 require('sugar');
 var acquire = require('acquire')
   , util = require('util')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   , logger = acquire('logger').forFile('mediafire.js')
   , Promise = require('node-promise')
   , request = require('request')
@@ -27,7 +27,7 @@ var Rapidshare  = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Rapidshare, Cyberlocker);
+util.inherits(Rapidshare, Downloader);
 
 Rapidshare.getDescription = function(){
   return ['rapidshare.com'];

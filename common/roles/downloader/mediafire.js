@@ -6,7 +6,7 @@
 require('sugar');
 var acquire = require('acquire')
   , util = require('util')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   , logger = acquire('logger').forFile('mediafire.js')
   , Promise = require('node-promise')
   , request = require('request')
@@ -31,9 +31,9 @@ var Mediafire  = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Mediafire, Cyberlocker);
+util.inherits(Mediafire, Downloader);
 
-Mediafire.prototype.super = Cyberlocker.prototype;
+Mediafire.prototype.super = Downloader.prototype;
 
 Mediafire.prototype.download = function(infringement, done){
   var self = this;

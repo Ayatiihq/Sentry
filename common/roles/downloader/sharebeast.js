@@ -8,7 +8,7 @@
 var acquire = require('acquire')
   , util = require('util')
   , logger = acquire('logger').forFile('sharebeast.js')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   , states = acquire('states')
   ;
 
@@ -25,7 +25,7 @@ var Sharebeast = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Sharebeast, Cyberlocker);
+util.inherits(Sharebeast, Downloader);
 
 Sharebeast.getDescription = function(){
   return ['sharebeast.com'];

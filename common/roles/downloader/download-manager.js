@@ -1,9 +1,10 @@
 /*
- * downloader.js: the downloader
+ * download-manager.js: the download manager
  *
  * (C) 2012 Ayatii Limited
  *
- * Downloader role looks for infringements that need downloading, and downloads them.
+ * DownloadManager role looks for infringements that need downloading, sorts them, 
+ * and hands them to the appropriate downloader
  *
  */
 
@@ -11,7 +12,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , fs = require('fs')
-  , logger = acquire('logger').forFile('downloader.js')
+  , logger = acquire('logger').forFile('download-manager.js')
   , path = require('path')
   , os = require('os')
   , rimraf = require('rimraf')
@@ -39,7 +40,7 @@ var PLUGINS = [
   , 'zippyshare'
 ];
 
-var Downloader = module.exports = function() {
+var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
   this.downloads_ = null;
   this.infringements_ = null;
@@ -55,9 +56,9 @@ var Downloader = module.exports = function() {
   this.init();
 }
 
-util.inherits(Downloader, Role);
+util.inherits(DownloadManager, Role);
 
-Downloader.prototype.init = function() {
+DownloadManager.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
@@ -66,7 +67,7 @@ Downloader.prototype.init = function() {
   self.jobs_ = new Jobs('downloader');
 }
 
-Downloader.prototype.processJob = function(err, job) {
+DownloadManager.prototype.processJob = function(err, job) {
   var self = this;
 
   if (err) {
@@ -115,7 +116,7 @@ Downloader.prototype.processJob = function(err, job) {
     ;
 }
 
-Downloader.prototype.preRun = function(job, done) {
+DownloadManager.prototype.preRun = function(job, done) {
   var self = this;
 
   self.browser = new Cowmangler();
@@ -128,7 +129,7 @@ Downloader.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.loadDownloaders(this);
+      self.loadDownloadManagers(this);
     })
     .seq(function() {
       self.createInfringementMap(this);
@@ -146,7 +147,7 @@ Downloader.prototype.preRun = function(job, done) {
     ;
 }
 
-Downloader.prototype.loadDownloaders = function(done) {
+DownloadManager.prototype.loadDownloaders = function(done) {
   var self = this;
 
   PLUGINS.forEach(function(pluginName) {
@@ -160,7 +161,7 @@ Downloader.prototype.loadDownloaders = function(done) {
   done();
 }
 
-Downloader.prototype.createInfringementMap = function(done) {
+DownloadManager.prototype.createInfringementMap = function(done) {
   var self = this
     , category = states.infringements.category.CYBERLOCKER
     ;
@@ -196,7 +197,7 @@ Downloader.prototype.createInfringementMap = function(done) {
   });
 }
 
-Downloader.prototype.run = function(done) {
+DownloadManager.prototype.run = function(done) {
   var self = this;
 
   if (!self.started_)
@@ -241,7 +242,7 @@ Downloader.prototype.run = function(done) {
     ;
 }
 
-Downloader.prototype.getPluginForDomain = function(domain, done) {
+DownloadManager.prototype.getPluginForDomain = function(domain, done) {
   var self = this
     , err = null
     , pluginName = self.downloadersMap_[domain]
@@ -264,7 +265,7 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
   done(err, plugin);
 }
 
-Downloader.prototype.mangle = function(infringements, plugin, done){
+DownloadManager.prototype.mangle = function(infringements, plugin, done){
   Seq(infringements)
     .seqEach(function(infringement) {
       self.goMangle(infringement, plugin, this);
@@ -280,7 +281,7 @@ Downloader.prototype.mangle = function(infringements, plugin, done){
     ;
 }
 
-Downloader.prototype.goMangle = function(infringement, plugin, done){
+DownloadManager.prototype.goMangle = function(infringement, plugin, done){
   Seq()
     .seq(function(){
       plugin.download(infringement, this);
@@ -316,12 +317,12 @@ Downloader.prototype.goMangle = function(infringement, plugin, done){
 }
 
 // TODO - for RESTFUL strategies
-Downloader.prototype.restful = function(infringements, plugin, done){
+DownloadManager.prototype.restful = function(infringements, plugin, done){
   done();
 }
 
 
-Downloader.prototype.goManual = function(infringement, plugin, done) {
+DownloadManager.prototype.goManual = function(infringement, plugin, done) {
   var self = this
     , tmpDir = path.join(os.tmpDir(), 'downloader-' + Date.now() + '-' + infringement._id)
     , started = Date.now()
@@ -353,7 +354,7 @@ Downloader.prototype.goManual = function(infringement, plugin, done) {
     ;
 }
 
-Downloader.prototype.verifyUnavailable = function(infringement, done) {
+DownloadManager.prototype.verifyUnavailable = function(infringement, done) {
   var self = this;
 
   if (infringement.state != State.UNAVAILABLE)
@@ -370,11 +371,11 @@ Downloader.prototype.verifyUnavailable = function(infringement, done) {
 //
 // Overrides
 //
-Downloader.prototype.getName = function() {
+DownloadManager.prototype.getName = function() {
   return "downloader";
 }
 
-Downloader.prototype.start = function() {
+DownloadManager.prototype.start = function() {
   var self = this;
 
   self.started_ = Date.now();
@@ -383,25 +384,25 @@ Downloader.prototype.start = function() {
   self.emit('started');
 }
 
-Downloader.prototype.end = function() {
+DownloadManager.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
 }
 
-if (process.argv[1] && process.argv[1].endsWith('downloader.js')) {
-  var downloader = new Downloader();
-  downloader.started_ = Date.now();
+if (process.argv[1] && process.argv[1].endsWith('download-manager.js')) {
+  var downloadMgr = new DownloadManager();
+  downloadMgr.started_ = Date.now();
 
    Seq()
     .seq(function() {
-      downloader.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+      downloadMgr.preRun(require(process.cwd() + '/' + process.argv[2]), this);
     })
     .seq(function() {
-      downloader.run(this);
+      downloadMgr.run(this);
     })
     .seq(function() {
-      logger.info('Finished running Downloader');
+      logger.info('Finished running DownloadManager');
     })
     .catch(function(err) {
       logger.warn(err);

@@ -9,7 +9,7 @@ var acquire = require('acquire')
   , util = require('util')
   , logger = acquire('logger').forFile('hulkshare.js')
   , states = acquire('states')
-  , Cyberlocker = require('./cyberlocker.js')
+  , Downloader = require('./downloader.js')
   ;
 
 var Hulkshare = module.exports = function (campaign, browser) {
@@ -25,7 +25,7 @@ var Hulkshare = module.exports = function (campaign, browser) {
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-util.inherits(Hulkshare, Cyberlocker);
+util.inherits(Hulkshare, Downloader);
 
 Hulkshare.getDomains = function(){
   return ['hulkshare.com'];
