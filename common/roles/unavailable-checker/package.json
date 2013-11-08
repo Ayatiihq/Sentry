@@ -4,6 +4,9 @@
   "dependencies": {
   },
   "engines": [
+    "unavailable",
+    "nowavailable",
+    "takendown"
   ],
   "intervalMinutes": 30,
   "types": {

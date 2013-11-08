@@ -25,6 +25,7 @@ var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
+  , Verifications = acquire('verifications')
   ;
 
 var PROCESSOR = 'unavailable-checker';
@@ -49,9 +50,9 @@ UnavailableChecker.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('unavailable-checker');
+  self.verifications_ = new Verifications();
 }
 
 UnavailableChecker.prototype.processJob = function(err, job) {
@@ -91,12 +92,7 @@ UnavailableChecker.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.loadEngine_(job, this);
-    })
-    .seq(function(engine) {
-      self.engine_ = engine;
-        self.engine_ = engine;
-        engine.run(this);;
+      self.startEngine(job.metadata.engine, this);
     })
     .seq(function() {
       logger.info('Finished unavailable checking (%s)', self.engine_.name);
@@ -110,6 +106,28 @@ UnavailableChecker.prototype.processJob = function(err, job) {
       clearInterval(self.touchId_);
       self.emit('error', err);
     })
+    ;
+}
+
+UnavailableChecker.prototype.startEngine = function(engineName, done) {
+  var self = this;
+
+  self.loadEngine(engineName, function(err, engine) {
+    if (err) return done(err);
+    
+    self.engine_ = engine;
+    self.engine_.run(done);
+  });
+}
+
+UnavailableChecker.prototype.loadEngine = function(engineName, done) {
+  var self = this,
+    , engines = {
+        "unavailable" : UnavailableEngine,
+        "nowavailable" : NowAvailableEngine,
+        "takendown" : TakenDownEngine
+      }
+    , engine = 
     ;
 }
 
@@ -138,5 +156,14 @@ UnavailableChecker.prototype.end = function() {
 
 // Testing
 if (require.main == module) {
-  console.log('Hello');
+  var campaign = require(process.argv[2])
+    , engineName = process.argv[3]
+    , checker = new UnavailableChecker()
+    ;
+
+  checker.campaign_ = campaign;
+  checker.startEngine(engineName, function(err) {
+    if (err) console.log(err);
+    process.exit();
+  });
 }
