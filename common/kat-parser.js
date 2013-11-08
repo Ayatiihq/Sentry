@@ -92,12 +92,7 @@ KatParser.resultsPage = function(source, campaign){
         //logger.info('just created : ' + JSON.stringify(torrent));
       }
       else{
-        if(!relevant){
-          logger.info('Ignored ' + torrentName + 
-                      ' relDate cutoff : ' + releaseDateCuttoff +
-                      ' rough torrent date : ' + roughDate);
-        }
-        else{
+        if(relevant){
           logger.warn('fail to create : ' + JSON.stringify({magnetLink: magnet,
                                                             fileSize: size,
                                                             date: roughDate,
