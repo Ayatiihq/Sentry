@@ -79,7 +79,7 @@ Downloader.prototype.download = function(infringement, done){
       self.login(this);
     })
     .seq(function(){
-      self.browser.wait(2, done);
+      self.browser.wait(2, this);
     })
     .seq(function(){
       self.listenGet(infringement.uri, this);
@@ -102,6 +102,7 @@ Downloader.prototype.download = function(infringement, done){
 }
 
 Downloader.prototype.gatherDownloads = function(infringement, done){
+  var self = this;
   self.browser.downloadTargeted(infringement.uri, function(err, downloads){
     if(err)
       return done(err);
@@ -111,11 +112,8 @@ Downloader.prototype.gatherDownloads = function(infringement, done){
 
 Downloader.prototype.deployTargeted = function(infringement, done){
   var self  = this;
-
   Seq()
     .seq(function(){
-      if(direct)
-        return this();
       self.tryTargets(this);
     })
     .seq(function(state){
@@ -136,9 +134,7 @@ Downloader.prototype.deployTargeted = function(infringement, done){
  * Login logic - Go login and then wait a bit before returning.
  **/
 Downloader.prototype.login = function(done){
-
   var self = this;
-
   if(self.attributes.login.authenticated)
     return done();
 
@@ -245,18 +241,18 @@ Downloader.prototype.tryTargets = function(done){
     .seq(function(available){
       if(available){
         logger.info('Found something => Available!')
-        return done(null, states.downloaders.status.AVAILABLE); 
+        return done(null, states.downloaders.verdict.AVAILABLE); 
       }
       self.tryUnavailables(this);
     })
     .seq(function(unavailable){
       if(unavailable){
         logger.info('Found something => Unavailable!')
-        done(null, states.downloaders.status.UNAVAILABLE); 
+        done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
       else{
         logger.info('Bugger cant find anything on the page ');
-        done(null, states.downloaders.status.STUMPED);
+        done(null, states.downloaders.verdict.STUMPED);
       }
     })        
     .catch(function(err){

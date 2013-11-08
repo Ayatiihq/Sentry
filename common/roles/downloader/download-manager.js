@@ -289,21 +289,21 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
     .seq(function(result){
       if (result.verict === states.downloaders.verdict.UNAVAILABLE){
         logger.info('we think this is UNAVAILABLE');
-        self.verifyUnavailable(infringement, this);            
+        //self.verifyUnavailable(infringement, this);            
       }
       else if (result.verict === states.downloaders.verdict.AVAILABLE){
-        logger.info('is this AVAILABLE ?');
-        if(result.payload.isEmtpy()){
+        logger.info('is this AVAILABLE ? - we do !');
+        /*if(result.payload.isEmtpy()){
           logger.warn('but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
           return this();
         }
         var newState = states.infringements.state.UNVERIFIED;
         logger.info('Setting state %d on %s', newState, infringement.uri);
-        self.infringements_.setState(infringement, newState, this);        
+        self.infringements_.setState(infringement, newState, this);*/
       }
       else if (result.verict === states.downloaders.verdict.STUMPED){
         logger.warn('yep STUMPED - leave at NEEDS_DOWNLOAD');
-        return this();
+        this();
       }
     })
     .seq(function() {

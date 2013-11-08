@@ -26,9 +26,9 @@ exports.downloaders = {
     CUSTOM: 1
   },
   verdict: {
-    UNAVAILABLE,
-    AVAILABLE,
-    STUMPED
+    UNAVAILABLE: 0,
+    AVAILABLE: 1,
+    STUMPED: 2
   }
 }
 
