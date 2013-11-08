@@ -6,15 +6,16 @@
 
 var acquire = require('acquire')
   , util = require('util')
-  , logger = acquire('logger').forFile('uploaded-net.js')
+  , logger = acquire('logger').forFile('zippyshare.js')
   , states = acquire('states')
   , Downloader = require('./downloader.js')
+  , XRegExp = require('xregexp').XRegExp  
   ;
 
 var Zippyshare = module.exports = function (campaign, browser) {
   var attributes = {login: {authenticated: true},
                     targets: {available: ['a[id="dlbutton"]',
-                              unavailable: [/File\sdoes\snot\sexist\son\sthis\sserver/]},
+                              unavailable: [XRegExp('File\sdoes\snot\sexist\son\sthis\sserver', 'g')]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};

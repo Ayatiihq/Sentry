@@ -114,7 +114,7 @@ Downloader.prototype.deployTargeted = function(infringement, done){
   var self  = this;
   Seq()
     .seq(function(){
-      self.tryTargets(this);
+      self.targets(this);
     })
     .seq(function(state){
       // trust the cyberlocker.
@@ -232,18 +232,18 @@ Downloader.prototype.listenGetHoover = function(uri, done){
 /*
  * Try each target (available and unavailable) in attributes.
  */
-Downloader.prototype.tryTargets = function(done){
+Downloader.prototype.targets = function(done){
   var self = this;
   Seq()
     .seq(function(){
-      self.tryAvailables(this);
+      self.tryTargets(self.attributes.targets.available, this);
     })
     .seq(function(available){
       if(available){
         logger.info('Found something => Available!')
         return done(null, states.downloaders.verdict.AVAILABLE); 
       }
-      self.tryUnavailables(this);
+      self.self.tryTargets(self.attributes.targets.unavailable, this);;
     })
     .seq(function(unavailable){
       if(unavailable){
@@ -261,81 +261,57 @@ Downloader.prototype.tryTargets = function(done){
     ;    
 }
 
-Downloader.prototype.tryAvailables = function(done){
-  var self = this;
-  Seq(self.attributes.targets.available)
-    .seqEach(function(target){
-      var that = this;
-      logger.info('trying target ' + target);
-      if(target instanceof RegExp){
-        self.detectString(target).then(function(result){
-          if(result)
-            return done(null, true)
-          that();
-        },
-        function(err){
-          that(err);
-        });
-      }
-      else{
-        // it must be a selector
-        self.browser.click(target, function(err){
-          if(err){
-            logger.info("we did't find that target, try the next - " + err);
-            return that();
-          }
-          logger.info('seemed to have the target, lets get out of here.');
-          done(null, true); 
-        });
-      }
-    })
+
+Downloader.prototype.tryRegex = function(filters, done){
+  Seq()
     .seq(function(){
-      logger.warn('hmmm failed to hit no available target there');
+      self.browser.getSource(this);      
+    })
+    .seq(function(source){
+      filters.each(function(match){
+        if(match.test(source))
+          done(null, true);
+      })
       done(null, false);
-    })    
+    })
     .catch(function(err){
       done(err);
     })
-    ;
+    ;    
 }
 
-Downloader.prototype.tryUnavailables = function(done){
-  
-Downloader.prototype.tryUnavailables = function(done){
+Downloader.prototype.tryTargets = function(targets, done){
   var self = this;
-  Seq(self.attributes.targets.unavailable)
-    .seqEach(function(target){
-      var that = this;
-      if(target instanceof RegExp){
-        self.detectString(target).then(function(result){
-          if(result)
-            return done(null, true)
-          that();
-        },
-        function(err){
-          that(err);
-        });
-      }
-      else{
+  
+  if(targets.isEmpty())
+    return done(null,false);
+
+  if(targets[0] instanceof RegExp)
+    return self.tryRegex(targets, done);
+
+  else{
+    Seq(targets)
+      .seqEach(function(target){
+        var that = this;
         logger.info('trying target ' + target);
         self.browser.click(target, function(err){
           if(err){
-            logger.info("we did't find that target, try the next - " + err);
+            logger.info("we did't find that target, try the next");
             return that();
           }
-          logger.info('seemed to have the target, lets get out of here.');
+          logger.info('seemed to have hit the target, lets get out of here.');
           done(null, true); 
         });
-      }
-    })
-    .seq(function(){
-      logger.warn('and failed to hit no unavailable target - ????');
-      done(null, false);
-    })    
-    .catch(function(err){
-      done(err);
-    })
-    ;
+      })
+      .seq(function(){
+        logger.info('failed to hit target');
+        done(null, false);
+      })    
+      .catch(function(err){
+        done(err);
+      })
+      ;
+  }
 }
 
 Downloader.prototype.finish = function(done){
