@@ -304,7 +304,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   } else {
     searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
-    searchTerms1.push(fmt('+%s %s mp3', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
   }
 
   // Now the tracks
@@ -320,8 +320,9 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     } else if (compilation) {
       // do nothing
     } else {
-      searchTerms1.push(fmt('+%s %s song download', artist, track));
-      searchTerms2.push(fmt('+%s %s mp3', artist, track));
+      searchTerms1.push(fmt('+%s %s %s song download', artist, album, track));
+      searchTerms2.push(fmt('+%s %s %s mp3 download', artist, album, track));
+      searchTerms1.push(fmt('+%s %s %s torrent', artist, album, track));
     }
   });
 
