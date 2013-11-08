@@ -1,6 +1,6 @@
 "use strict";
 /*
- * cyberlocker.js - base class for all cyberlockers
+ * cyberlocker.js - base class for all downloaders
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
@@ -76,16 +76,21 @@ Cyberlocker.prototype.download = function(infringement, done){
       self.login(this);
     })
     .seq(function(){
+      self.browser.wait(2, done);
+    })
+    .seq(function(){
       self.listenGet(infringement.uri, this);
     })
     .seq(function(directDownload){
-      if(self.attributes.strategy.type === states.cyberlockers.strategy.TARGETED){
-        self.deployTargeted(infringement, directDownload, this);
+      if(directDownload){
+
+      }
+      else if(self.attributes.strategy === states.downloaders.strategy.TARGETED){
+        self.deployTargeted(infringement, this);
       }
     })
-    .seq(function(downloads){
-      logger.info('Go ahead and store these Downloads against the infringement ' + JSON.stringify(downloads));
-      self.browser.wait(2, done);
+    .seq(function(result){
+      done(null, result);
     })    
     .catch(function(err){
       done(err);
@@ -93,7 +98,7 @@ Cyberlocker.prototype.download = function(infringement, done){
     ;
 }
 
-Cyberlocker.prototype.deployTargeted = function(infringement, direct, done){
+Cyberlocker.prototype.deployTargeted = function(infringement, done){
   var self  = this;
 
   Seq()
@@ -102,9 +107,17 @@ Cyberlocker.prototype.deployTargeted = function(infringement, direct, done){
         return this();
       self.tryTargets(this);
     })
-    .seq(function(success){
-      self.browser.downloadTargeted(infringement.uri, done);
+    .seq(function(state){
+      // trust the cyberlocker.
+      if(state === states.downloaders.verdict.AVAILABLE){
+        return self.browser.downloadTargeted(infringement.uri, this);
+      }
+      // handle unavailable and stumped 
+      done(null, {verdict: state});
     })            
+    .seq(function(downloads){
+      done(null, {verdict: states.downloaders.verdict.AVAILABLE, payLoad: downloads});
+    });
     .catch(function(err){
       done(err);
     })
@@ -224,18 +237,18 @@ Cyberlocker.prototype.tryTargets = function(done){
     .seq(function(available){
       if(available){
         logger.info('Found something => Available!')
-        return done(null, true); 
+        return done(null, states.downloaders.status.AVAILABLE); 
       }
       self.tryUnavailables(this);
     })
     .seq(function(unavailable){
       if(unavailable){
         logger.info('Found something => Unavailable!')
-        done(null, true); 
+        done(null, states.downloaders.status.UNAVAILABLE); 
       }
       else{
         logger.info('Bugger cant find anything on the page ');
-        done(null, false);
+        done(null, states.downloaders.status.STUMPED);
       }
     })        
     .catch(function(err){

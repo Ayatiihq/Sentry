@@ -450,3 +450,11 @@ Cowmangler.prototype.loadHTML = function(html, done){
   });
 }
 
+Cowmangler.prototype.flush = function(uri, done){
+  var self = this;
+
+  if (!self.connected)
+    return self.cachedCalls_.push([self.poop, Object.values(arguments)]);
+  self.ass_.poop(uri);
+}
+

@@ -16,14 +16,19 @@ exports.jobs = {
   }
 };
 
-exports.cyberlockers = {
+exports.downloaders = {
   method: {
-    COW_MANGLING: 0,
+    COWMANGLING: 0,
     RESTFUL : 1
   },
   strategy: {
     TARGETED: 0,
     CUSTOM: 1
+  },
+  verdict: {
+    UNAVAILABLE,
+    AVAILABLE,
+    STUMPED
   }
 }
 

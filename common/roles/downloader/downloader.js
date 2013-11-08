@@ -226,23 +226,15 @@ Downloader.prototype.run = function(done) {
       this(null, work.infringements);
     })
     .seq(function(infringements){
-      if(plugin.getDescription.method === states.cyberlockers.method.COW_MANGLING)
-        self.goCowMangle(infringements, plugin, this);
-      else(plugin.getDescription.method === states.cyberlockers.method.RESTFUL)
-        self.goManual(infringements, plugin, this);
+      if(plugin.attributes.approach === states.downloaders.method.COW_MANGLING)
+        self.mangle(infringements, plugin, this);
+      else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
+        self.restful(infringements, plugin, this);
     })
-    /*.set(work.infringements)
-    .seqEach(function(infringement) {
-      
-      self.downloadOne(infringement, plugin, this);
-    })
-    .seq(function() {
-      plugin.finish();
-      this();
-    })*/
-    .catch(function(err) {
-      logger.warn('Unable to download from %s: %s', work.domain, err);
-    })
+    .catch(function(error) {
+      // We don't set a state if the download errored right now
+      logger.warn('Unable to download %s: %s', infringement.uri, error);
+    })    
     .seq(function(){ 
       setTimeout(self.run.bind(self, done), 100);
     })
@@ -272,10 +264,10 @@ Downloader.prototype.getPluginForDomain = function(domain, done) {
   done(err, plugin);
 }
 
-Downloader.prototype.goCowMangle = function(infringements, plugin, done){
+Downloader.prototype.mangle = function(infringements, plugin, done){
   Seq(infringements)
     .seqEach(function(infringement) {
-      plugin.download(infringement, this);
+      self.goMangle(infringement, plugin, this);
     })
     .seq(function() {
       plugin.finish();
@@ -288,12 +280,49 @@ Downloader.prototype.goCowMangle = function(infringements, plugin, done){
     ;
 }
 
-Downloader.prototype.goManual = function(infringements, plugin, done){
-  Seq(infringements)
+Downloader.prototype.goMangle = function(infringement, plugin, done){
+  Seq()
+    .seq(function(){
+      plugin.download(infringement, this);
+    })
+    .seq(function(result){
+      if (result.verict === states.downloaders.verdict.UNAVAILABLE){
+        logger.info('we think this is UNAVAILABLE');
+        self.verifyUnavailable(infringement, this);            
+      }
+      else if (result.verict === states.downloaders.verdict.AVAILABLE){
+        logger.info('is this AVAILABLE ?');
+        if(result.payload.isEmtpy()){
+          logger.warn('but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
+          return this();
+        }
+        var newState = states.infringements.state.UNVERIFIED;
+        logger.info('Setting state %d on %s', newState, infringement.uri);
+        self.infringements_.setState(infringement, newState, this);        
+      }
+      else if (result.verict === states.downloaders.verdict.STUMPED){
+        logger.warn('yep STUMPED - leave at NEEDS_DOWNLOAD');
+        return this();
+      }
+    })
+    .seq(function() {
+      done();
+    })
+    .catch(function(err){
+      logger.warn('Unable to goMangle : %s', err);
+      done(err);
+    })
+    ;    
+}
+
+// TODO - for REST and other strategies
+Downloader.prototype.restful = function(infringements, plugin, done){
+  done();
+  /*Seq(infringements)
     .seqEach(function(infringement) {
       self.downloadOne(infringement, plugin, this);
     })
-    .seq(function() {
+    .seq(function(newState, stumped) {
       plugin.finish();
       done();
     })
@@ -301,7 +330,7 @@ Downloader.prototype.goManual = function(infringements, plugin, done){
       logger.warn('Unable to Mangle : %s', err);
       done(err);
     })
-    ;
+    ;*/
 }
 
 
@@ -328,22 +357,7 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
       self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
     })
     .seq(function(nUploaded) {
-      if (nUploaded == 0)
-        newState = states.infringements.state.UNAVAILABLE;
-      this();
-    })
-    .seq(function() {
-      logger.info('Setting state %d on %s', newState, infringement.uri);
-      if (newState == states.infringements.state.UNAVAILABLE)
-        self.verifyUnavailable(infringement, this);
-      else
-        self.infringements_.setState(infringement, newState, this);
-    })
-    .catch(function(error) {
-      // We don't set a state if the download errored right now
-      logger.warn('Unable to download %s: %s', infringement.uri, error);
-    })
-    .seq(function() {
+      if(nUploaded == 0)
       rimraf(tmpDir, this);
     })
     .seq(function() {

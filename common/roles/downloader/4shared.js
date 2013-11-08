@@ -25,9 +25,9 @@ var Fourshared = module.exports = function (campaign, browser) {
                     targets: {available: ['a[id="btnLink"]',
                                           'a[class="gaClick jsNotPush button-paleblue floatLeft f13 round4 no-line downloadFileButton"]',
                                           'a[class="floatLeft f13 round4 no-line downloadAsZipButton linkShowD3 gaClick jsIsDir"]'],
-                              unavailable: []},
-                    approach : states.cyberlockers.method.COW_MANGLING,
-                    strategy : {type: states.cyberlockers.strategy.TARGETED},
+                              unavailable: ['img[class="warn"]']},
+                    approach : states.downloaders.method.COWMANGLING,
+                    strategy : states.downloaders.strategy.TARGETED,
                     blacklist : [/search\.4shared\.com/]};
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
