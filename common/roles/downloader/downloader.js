@@ -226,7 +226,7 @@ Downloader.prototype.run = function(done) {
       this(null, work.infringements);
     })
     .seq(function(infringements){
-      if(plugin.attributes.approach === states.downloaders.method.COW_MANGLING)
+      if(plugin.attributes.approach === states.downloaders.method.COWMANGLING)
         self.mangle(infringements, plugin, this);
       else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
         self.restful(infringements, plugin, this);
@@ -315,26 +315,13 @@ Downloader.prototype.goMangle = function(infringement, plugin, done){
     ;    
 }
 
-// TODO - for REST and other strategies
+// TODO - for RESTFUL strategies
 Downloader.prototype.restful = function(infringements, plugin, done){
   done();
-  /*Seq(infringements)
-    .seqEach(function(infringement) {
-      self.downloadOne(infringement, plugin, this);
-    })
-    .seq(function(newState, stumped) {
-      plugin.finish();
-      done();
-    })
-    .catch(function(err){
-      logger.warn('Unable to Mangle : %s', err);
-      done(err);
-    })
-    ;*/
 }
 
 
-Downloader.prototype.downloadOne = function(infringement, plugin, done) {
+Downloader.prototype.goManual = function(infringement, plugin, done) {
   var self = this
     , tmpDir = path.join(os.tmpDir(), 'downloader-' + Date.now() + '-' + infringement._id)
     , started = Date.now()
@@ -357,7 +344,7 @@ Downloader.prototype.downloadOne = function(infringement, plugin, done) {
       self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
     })
     .seq(function(nUploaded) {
-      if(nUploaded == 0)
+      // TODO - needs to be integrated into whatever manual process needs it
       rimraf(tmpDir, this);
     })
     .seq(function() {

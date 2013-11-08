@@ -1,6 +1,6 @@
 "use strict";
 /*
- * cyberlocker.js - base class for all downloaders
+ * cyberlocker.js - base class for all cyberlockers
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
@@ -83,7 +83,7 @@ Cyberlocker.prototype.download = function(infringement, done){
     })
     .seq(function(directDownload){
       if(directDownload){
-
+        self.gatherDownloads(infringement, this);
       }
       else if(self.attributes.strategy === states.downloaders.strategy.TARGETED){
         self.deployTargeted(infringement, this);
@@ -98,6 +98,14 @@ Cyberlocker.prototype.download = function(infringement, done){
     ;
 }
 
+Cyberlocker.prototype.gatherDownloads = function(infringement, done){
+  self.browser.downloadTargeted(infringement.uri, function(err, downloads){
+    if(err)
+      return done(err);
+    done(null, {verdict: states.downloaders.verdict.AVAILABLE, payLoad: downloads});
+  });
+}
+
 Cyberlocker.prototype.deployTargeted = function(infringement, done){
   var self  = this;
 
@@ -110,14 +118,11 @@ Cyberlocker.prototype.deployTargeted = function(infringement, done){
     .seq(function(state){
       // trust the cyberlocker.
       if(state === states.downloaders.verdict.AVAILABLE){
-        return self.browser.downloadTargeted(infringement.uri, this);
+        return self.gatherDownloads(infringement, done);
       }
       // handle unavailable and stumped 
       done(null, {verdict: state});
     })            
-    .seq(function(downloads){
-      done(null, {verdict: states.downloaders.verdict.AVAILABLE, payLoad: downloads});
-    });
     .catch(function(err){
       done(err);
     })
