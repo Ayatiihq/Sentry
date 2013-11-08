@@ -27,7 +27,7 @@ var Mediafire  = module.exports = function (campaign, browser) {
                     appID: '34352',
                     appKey: 'y6n9weeu2wel1iincalue23wrxv6ae6e7y14e44i',
                     authToken: null,
-                    approach : states.cyberlockers.method.COW_MANGLING};
+                    approach : states.cyberlockers.method.COWMANGLING};
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 

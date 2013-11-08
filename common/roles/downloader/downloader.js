@@ -267,14 +267,27 @@ Downloader.prototype.tryAvailables = function(done){
     .seqEach(function(target){
       var that = this;
       logger.info('trying target ' + target);
-      self.browser.click(target, function(err){
-        if(err){
-          logger.info("we did't find that target, try the next - " + err);
-          return that();
-        }
-        logger.info('seemed to have the target, lets get out of here.');
-        done(null, true); 
-      });
+      if(target instanceof RegExp){
+        self.detectString(target).then(function(result){
+          if(result)
+            return done(null, true)
+          that();
+        },
+        function(err){
+          that(err);
+        });
+      }
+      else{
+        // it must be a selector
+        self.browser.click(target, function(err){
+          if(err){
+            logger.info("we did't find that target, try the next - " + err);
+            return that();
+          }
+          logger.info('seemed to have the target, lets get out of here.');
+          done(null, true); 
+        });
+      }
     })
     .seq(function(){
       logger.warn('hmmm failed to hit no available target there');
@@ -287,19 +300,33 @@ Downloader.prototype.tryAvailables = function(done){
 }
 
 Downloader.prototype.tryUnavailables = function(done){
+  
+Downloader.prototype.tryUnavailables = function(done){
   var self = this;
   Seq(self.attributes.targets.unavailable)
     .seqEach(function(target){
       var that = this;
-      logger.info('trying target ' + target);
-      self.browser.click(target, function(err){
-        if(err){
-          logger.info("we did't find that target, try the next - " + err);
-          return that();
-        }
-        logger.info('seemed to have the target, lets get out of here.');
-        done(null, true); 
-      });
+      if(target instanceof RegExp){
+        self.detectString(target).then(function(result){
+          if(result)
+            return done(null, true)
+          that();
+        },
+        function(err){
+          that(err);
+        });
+      }
+      else{
+        logger.info('trying target ' + target);
+        self.browser.click(target, function(err){
+          if(err){
+            logger.info("we did't find that target, try the next - " + err);
+            return that();
+          }
+          logger.info('seemed to have the target, lets get out of here.');
+          done(null, true); 
+        });
+      }
     })
     .seq(function(){
       logger.warn('and failed to hit no unavailable target - ????');
