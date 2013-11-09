@@ -113,7 +113,7 @@ Ass.prototype.getHooverBag = function(uri){
 }
 
 Ass.prototype.deafen = function(){
-  this.ears.close();
+  return this.ears.close();
 }
 
 Ass.prototype.poop = function(uri){

@@ -243,7 +243,7 @@ Downloader.prototype.targets = function(done){
         logger.info('Found something => Available!')
         return done(null, states.downloaders.verdict.AVAILABLE); 
       }
-      self.self.tryTargets(self.attributes.targets.unavailable, this);;
+      self.tryTargets(self.attributes.targets.unavailable, this);;
     })
     .seq(function(unavailable){
       if(unavailable){
@@ -263,14 +263,20 @@ Downloader.prototype.targets = function(done){
 
 
 Downloader.prototype.tryRegex = function(filters, done){
+  logger.info('and try regex');
+  var self = this;
   Seq()
     .seq(function(){
       self.browser.getSource(this);      
     })
     .seq(function(source){
+      //logger.info('attempt to match on source : ' + source);
       filters.each(function(match){
-        if(match.test(source))
+        logger.info('match with ' + JSON.stringify(match))
+        if(match.test(source[0])){
+          logger.info('WE HAVE A MATCH');
           done(null, true);
+        }
       })
       done(null, false);
     })
@@ -286,9 +292,9 @@ Downloader.prototype.tryTargets = function(targets, done){
   if(targets.isEmpty())
     return done(null,false);
 
-  if(targets[0] instanceof RegExp)
-    return self.tryRegex(targets, done);
-
+  if(targets[0] instanceof RegExp){
+    self.tryRegex(targets, done);
+  }
   else{
     Seq(targets)
       .seqEach(function(target){

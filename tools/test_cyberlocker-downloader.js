@@ -97,7 +97,7 @@ function main() {
       this();
     })
     .seq(function(){
-      var that = this;
+      /*var that = this;
       var searchPromise = findCollection('infringements', 
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
@@ -106,7 +106,19 @@ function main() {
                           oneAtaTime(payload, instance, that)},
                             function(err){
                               console.log('Error querying database ' + err);
-                          });
+                          });*/
+      var examples = [{uri:'http://www40.zippyshare.com/v/22726737/file.html'},
+                      {uri:'http://www40.zippyshare.com/v/81212071/file.html'},
+                      {uri:'http://www40.zippyshare.com/v/68593719/file.html'}];
+      oneAtaTime(examples, instance, this);
+
+    })
+    .seq(function(){
+      logger.info('finished testing ' + particularDownloader);
+      instance.finish(this);
+    })
+    .seq(function(){
+      process.exit(1);   
     })
     .catch(function(err){
       logger.warn('Unable to kick start cyberlocker %s', err);   

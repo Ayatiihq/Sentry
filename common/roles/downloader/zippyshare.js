@@ -14,16 +14,11 @@ var acquire = require('acquire')
 
 var Zippyshare = module.exports = function (campaign, browser) {
   var attributes = {login: {authenticated: true},
-                    targets: {available: ['a[id="dlbutton"]',
+                    targets: {available: ['a[id="dlbutton"]'],
                               unavailable: [XRegExp('File\sdoes\snot\sexist\son\sthis\sserver', 'g')]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};
-
-  var attributes = {login : {authenticated: true},
-                    targets: ['a[id="dlbutton"]'],
-                	approach : states.cyberlockers.method.COW_MANGLING};
-
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
