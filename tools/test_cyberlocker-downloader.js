@@ -97,8 +97,8 @@ function main() {
       this();
     })
     .seq(function(){
-      /*var that = this;
-      var searchPromise = findCollection('infringements', 
+      var that = this;
+      /*var searchPromise = findCollection('infringements', 
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
                                           'uri': fetchRegex(particularDownloader)});
@@ -106,12 +106,12 @@ function main() {
                           oneAtaTime(payload, instance, that)},
                             function(err){
                               console.log('Error querying database ' + err);
-                          });*/
-      var examples = [{uri:'http://www40.zippyshare.com/v/22726737/file.html'},
+                          });
+      /*var examples = [{uri:'http://www40.zippyshare.com/v/22726737/file.html'},
                       {uri:'http://www40.zippyshare.com/v/81212071/file.html'},
-                      {uri:'http://www40.zippyshare.com/v/68593719/file.html'}];
+                      {uri:'http://www40.zippyshare.com/v/68593719/file.html'}];*/
+      var examples = [{uri: 'http://4shared.com/mp3/RU1lz0r1/Corona_-_The_Rhythm_Of_The_Nig.html'}];
       oneAtaTime(examples, instance, this);
-
     })
     .seq(function(){
       logger.info('finished testing ' + particularDownloader);

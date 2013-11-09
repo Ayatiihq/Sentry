@@ -31,14 +31,16 @@ util.inherits(Downloader, events.EventEmitter);
 
 Downloader.prototype.init = function(){
   var self = this;
+  self.ignoreExts = [];
 
   if(self.campaign.type.match(/movie/)){
     self.minSize = 10;
     self.mimeTypes = ["video/"];
+    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac']);
   }
   else if(self.campaign.type.match(/music/)){
     self.minSize = 1;
-    // Leaving video in there to catch music videos ?
+    // Leaving video in there to catch music videos ???
     // we model that ^ scenario more accurately. 
     self.mimeTypes = ["video/", "audio/"];
   }
@@ -48,17 +50,19 @@ Downloader.prototype.init = function(){
     self.minSize = 1;
     self.mimeTypes = ["video/", "audio/"];
   } 
+  // For now We don't care about these at all.
+  self.ignoreExts.union(['.png', '.jpg', '.jpeg', '.gif', '.js', '.swf']);
 }
 
 Downloader.prototype.validURI = function(uri){
   var self = this;
   var result = true;
+  // check for useless extensions
+  self.ignoreExts.each(function(useless){
+    if(uri.endsWith(useless))
+      result = false;
+  })
 
-  if(utilities.getDomain(uri) === ''){
-    logger.warn('Unable to create a URI from this infringement');
-    result = false;
-  }
-  
   self.attributes.blacklist.each(function(suspect){
     if(uri.match(suspect)){
       logger.warn('This we believe to be a URI that we should ignore : ' + uri);
