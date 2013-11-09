@@ -121,15 +121,72 @@ UnavailableChecker.prototype.startEngine = function(engineName, done) {
 }
 
 UnavailableChecker.prototype.loadEngine = function(engineName, done) {
-  var self = this,
+  var self = this
     , engines = {
         "unavailable" : UnavailableEngine,
         "nowavailable" : NowAvailableEngine,
         "takendown" : TakenDownEngine
       }
-    , engine = 
+    , Engine = engines[engineName]
     ;
+
+  if (!Engine)
+    return done(fmt('No engine called %s', engineName));
+
+  var engine = new Engine(self.campaign_);
+  done(null, engine);  
 }
+
+
+//
+// Engines
+//
+var UnavailableEngine = function(campaign) {
+  var self = this
+    , campaign = campaign
+    ;
+
+  return {
+    run: function(done) {
+      self.done_ = done;
+
+      console.log('Hello from UnavailableEngine');
+      done();
+    }
+  }
+}
+
+var NowAvailableEngine = function(campaign) {
+  var self = this
+    , campaign = campaign
+    ;
+
+  return {
+    run: function(done) {
+      self.done_ = done;
+
+      console.log('Hello from NowAvailableEngine');
+      done();
+    }
+  }
+}
+
+var TakenDownEngine = function(campaign) {
+  var self = this
+    , campaign = campaign
+    ;
+
+  return {
+    run: function(done) {
+      self.done_ = done;
+
+      console.log('Hello from TakenDownEngine');
+      done();
+    }
+  }
+}
+
+
 
 //
 // Overrides
