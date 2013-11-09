@@ -11,12 +11,15 @@ var acquire = require('acquire')
   , difflib = require('difflib')
   , fmt = require('util').format
   , logger = acquire('logger').forFile('unavailable.js')
+  , URI = require('URIjs')
   , utilities = acquire('utilities')
   ;
 
 var Seq = require('seq');
 
-var MAX_LENGTH = 1500000;
+var MAX_LENGTH = 1500000
+  , MIN_RATIO = 0.95
+  ;
 
 var Unavailable = module.exports = function() {
 
@@ -71,14 +74,14 @@ Unavailable.prototype.isSoft = function(url, steam, done) {
 
   Seq()
     .seq(function() {
-      utilities.request(uri, {}, this);
+      utilities.request(url, {}, this);
     })
     .seq(function(res, body) {
       origBody = body;
       self.createAndGetTestURL(url, this);
     })
     .seq(function(res, body) {
-      testBody = "";
+      testBody = body;
       self.compareBodies(origBody, testBody, this);
     })
     .seq(function(isAvailable) {
@@ -91,16 +94,46 @@ Unavailable.prototype.isSoft = function(url, steam, done) {
 }
 
 Unavailable.prototype.createAndGetTestURL = function(url, done) {
-  var self = this;
+  var self = this
+    , testURL = ""
+    ;
+  
+  try {
+    if (url.endsWith('/'))
+      url = url.first(url.length - 1);
 
+    var u = URI(url);
+    u.search("").fragment("").filename("");
+    testURL = u.toString();
+    testURL += makeRandomString();
+  } catch(err) {
+    return done(err);
+  }
 
+  logger.info('Getting %s', testURL);
+  utilities.request(testURL, {}, done);
 }
 
 Unavailable.prototype.compareBodies = function(orig, test, done) {
   var self = this;
 
+  seq1 = orig.split(' ');
+  seq2 = test.split(' ');
+  sm = new difflib.SequenceMatcher(null, seq1, seq2);
+
+  done(null, !(sm.ratio() >= MIN_RATIO));
 }
 
+function makeRandomString()
+{
+  var text = "";
+  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+  for( var i=0; i < 25; i++ )
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+  return text;
+}
 
 //
 // Testing
