@@ -524,7 +524,7 @@ Utilities.requestURLStream = function(url, options, callback) {
     if (response.statusCode >= 400) {
       var err = new Error ('Server returned error status code: ' + response.statusCode);
       err.statusCode = response.statusCode;
-      return callback(err, response);
+      return callback(err, null, response);
     }
 
     switch(response.headers['content-encoding']) {

@@ -1,0 +1,16 @@
+{
+  "name": "unavailable-checker",
+  "main": "./unavailable-checker.js",
+  "dependencies": {
+  },
+  "engines": [
+    "unavailable",
+    "takendown"
+  ],
+  "intervalMinutes": 60,
+  "types": {
+    "music": ".*",
+    "movie": ".*",
+    "tv": ".*"
+  }
+}
