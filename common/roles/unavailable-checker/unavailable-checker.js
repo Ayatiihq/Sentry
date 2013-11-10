@@ -113,7 +113,7 @@ UnavailableChecker.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.startEngine(job.metadata.engine, this);
+      self.startEngine(job._id.consumer.split('.').last(), this);
     })
     .seq(function() {
       logger.info('Finished unavailable checking (%s)', self.engine_.name);
@@ -123,7 +123,7 @@ UnavailableChecker.prototype.processJob = function(err, job) {
     })
     .catch(function(err) {
       logger.warn('Unable to process job %j: %s', job, err);
-      self.jobs_.close(job, states.jobs.state.ERRORED, err);
+      self.jobs_.close(job, acquire('states').jobs.state.ERRORED, err);
       clearInterval(self.touchId_);
       self.emit('error', err);
     })
@@ -135,6 +135,8 @@ UnavailableChecker.prototype.startEngine = function(engineName, done) {
 
   if (!self.collection_)
     return self.cachedCalls_.push([self.startEngine, Object.values(arguments)]);
+
+  logger.info('Running %s for campaign %j', engineName, self.campaign_._id);
 
   self.loadEngine(engineName, function(err, engine) {
     if (err) return done(err);
@@ -356,6 +358,9 @@ UnavailableChecker.prototype.getName = function() {
 
 UnavailableChecker.prototype.start = function() {
   var self = this;
+
+  if (!self.collection_)
+    return self.cachedCalls_.push([self.start, Object.values(arguments)]);
 
   self.started_ = Date.create();
   self.jobs_.pop(self.processJob.bind(self));
