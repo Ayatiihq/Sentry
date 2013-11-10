@@ -37,7 +37,7 @@ Downloader.prototype.init = function(){
   if(self.campaign.type.match(/movie/)){
     self.minSize = 10;
     self.mimeTypes = ["video/"];
-    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac', '.aiff', '']);
+    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac', '.aiff']);
   }
   else if(self.campaign.type.match(/music/)){
     self.minSize = 1;
@@ -101,6 +101,7 @@ Downloader.prototype.download = function(infringement, done){
       }
     })
     .seq(function(result){
+      logger.info('Result: ' + JSON.stringify(result) + ' uri: ' + infringement.uri);
       done(null, result);
     })    
     .catch(function(err){
@@ -112,9 +113,15 @@ Downloader.prototype.download = function(infringement, done){
 Downloader.prototype.gatherDownloads = function(infringement, done){
   var self = this;
   self.browser.downloadTargeted(infringement.uri, function(err, downloads){
+    // Assume success.
+    var theVerdict = states.downloaders.verdict.AVAILABLE;
     if(err)
       return done(err);
-    done(null, {verdict: states.downloaders.verdict.AVAILABLE, payLoad: downloads});
+    // If'ts empty, assume it fails download-policy
+    if(downloads.isEmpty())
+      theVerdict = states.downloaders.verdict.FAILED_POLICY;
+
+    done(null, {verdict: theVerdict, payLoad: downloads});
   });
 }
 
@@ -126,10 +133,10 @@ Downloader.prototype.deployTargeted = function(infringement, done){
     })
     .seq(function(state){
       // trust the cyberlocker.
-      if(state === states.downloaders.verdict.AVAILABLE){
+      if(state === states.downloaders.verdict.MAYBE){
         return self.gatherDownloads(infringement, done);
       }
-      // handle unavailable and stumped 
+      // handle unavailable, rubbish and stumped 
       done(null, {verdict: state});
     })            
     .catch(function(err){
@@ -248,18 +255,18 @@ Downloader.prototype.targets = function(done){
     })
     .seq(function(available){
       if(available){
-        logger.info('Found something => Available!')
-        return done(null, states.downloaders.verdict.AVAILABLE); 
+        logger.info('Found something => MAYBE !')
+        return done(null, states.downloaders.verdict.MAYBE); 
       }
       self.tryTargets(self.attributes.targets.unavailable, this);;
     })
     .seq(function(unavailable){
       if(unavailable){
-        logger.info('Found something => Unavailable!')
+        logger.info('Found something => We are certain its UNAVAILABLE!')
         done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
       else{
-        logger.info('Bugger cant find anything on the page ');
+        logger.info('Bugger cant find anything on the page - STUMPED');
         done(null, states.downloaders.verdict.STUMPED);
       }
     })        

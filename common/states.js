@@ -27,9 +27,10 @@ exports.downloaders = {
   },
   verdict: {
     UNAVAILABLE: 0,
-    AVAILABLE: 1,
-    RUBBISH: 2,
-    STUMPED: 3
+    MAYBE: 1,
+    FAILED_POLICY: 2,
+    RUBBISH: 3,
+    STUMPED: 4
   }
 }
 

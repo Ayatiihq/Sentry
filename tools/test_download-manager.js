@@ -28,22 +28,20 @@ function main() {
   var DownloadManager = require('../common/roles/downloader/download-manager.js');
   var downloadMgr = new DownloadManager();
 
-  downloadMgr.on('finished', function(){
-  	logger.info('mgr finished');
-  	process.exit(1);
-  });
-
 
   Seq()
     .seq(function() {
+      downloadMgr.started_ = Date.now();
       downloadMgr.preRun(job, this);
     })
     .seq(function() {
       downloadMgr.run(this);
     })
     .seq(function() {
-      logger.info('happy ?, done I think');
-      process.exit(1);
+      downloadMgr.on('finished', function(){
+        logger.info('mgr finished');
+        process.exit(1);
+      });      
     })
     .catch(function(err){
     	logger.warn('err - ' + err);

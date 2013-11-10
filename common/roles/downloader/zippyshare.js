@@ -14,7 +14,8 @@ var acquire = require('acquire')
 var Zippyshare = module.exports = function (campaign, browser) {
   var attributes = {login: {authenticated: true},
                     targets: {available: ['a[id="dlbutton"]'],
-                              unavailable: [/File\sdoes\snot\sexist\son\sthis\sserver/g]},
+                              unavailable: [/File\sdoes\snot\sexist\son\sthis\sserver/g, 
+                              /File\shas\sexpired\sand\sdoes\snot\sexist\sanymore\son\sthis\sserver/g]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};

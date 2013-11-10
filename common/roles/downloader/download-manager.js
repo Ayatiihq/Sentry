@@ -32,8 +32,9 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-   '4shared'
-  ,'zippyshare'
+   //'4shared'
+  //,'zippyshare'
+  'zippyshare'
 ];
   /*  '4shared'
   , 'mediafire'
@@ -126,7 +127,6 @@ DownloadManager.prototype.preRun = function(job, done) {
 
   Seq()
     .seq(function(){
-
       self.job_ = job;
       self.campaigns_.getDetails(job._id.owner, this);
     })
@@ -140,19 +140,10 @@ DownloadManager.prototype.preRun = function(job, done) {
     })
     .seq(function(workList){
       logger.info('work length = ' + workList.length);
-      var that = this;
-      if(!job.downloader)
-        return this(null, workList);
-
       workList.each(function(work){
-        var result = [];
         logger.info('domain : ' + work.domain + ' count : ' + work.infringements.length);
-        if(work.domain && work.domain === job.downloader){
-          logger.info('right do it for downloader : ' + job.downloader);
-          that(null, [{domain: work.domain , infringements : work.infringements}]);
-        }
       });
-      that(null, workList);
+      this(null, workList);
     })
     .seq(function(workList) {
       self.workList_ = workList.randomize();
@@ -171,7 +162,7 @@ DownloadManager.prototype.loadDownloaders = function(done) {
   var self = this;
 
   PLUGINS.forEach(function(pluginName) {
-    var plugin = require('./' + pluginName)
+    var plugin = require('./' + pluginName);
     var domains = plugin.getDomains();
     domains.forEach(function(domain) {
       self.downloadersMap_[domain]  = pluginName;
@@ -231,6 +222,7 @@ DownloadManager.prototype.run = function(done) {
   var work = self.workList_.shift();
   if (!work) {
     logger.info('No work to do');
+    self.emit('finished');
     return done();
   }
 
@@ -247,14 +239,18 @@ DownloadManager.prototype.run = function(done) {
       this(null, work.infringements);
     })
     .seq(function(infringements){ //add more approaches or strategies. 
+      var that = this;
       if(plugin.attributes.approach === states.downloaders.method.COWMANGLING)
-        self.mangle(infringements, plugin, this);
+        self.mangle(infringements, plugin, that);
       else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
-        self.restful(infringements, plugin, this);
+        self.restful(infringements, plugin, that);
+    })
+    .seq(function(){
+      setTimeout(self.run.bind(self, done), 100);
     })
     .catch(function(error) {
       // We don't set a state if the download errored right now
-      logger.warn('Unable to download %s: %s', infringement.uri, error);
+      logger.warn('Unable to download %s:', error);
     })    
     .seq(function(){ 
       setTimeout(self.run.bind(self, done), 100);
@@ -270,7 +266,7 @@ DownloadManager.prototype.getPluginForDomain = function(domain, done) {
     ;
 
   if (!pluginName) {
-    err = 'Cyberlocker ' + domain + ' is not support for auto-download';
+    err = domain + ' is not supported for auto-download';
   } else {
     try {
       plugin = new (require('./' + pluginName))(self.campaign_, self.browser);
@@ -286,13 +282,13 @@ DownloadManager.prototype.getPluginForDomain = function(domain, done) {
 }
 
 DownloadManager.prototype.mangle = function(infringements, plugin, done){
+  var self = this;
   Seq(infringements)
     .seqEach(function(infringement) {
       self.goMangle(infringement, plugin, this);
     })
     .seq(function() {
-      plugin.finish();
-      done();
+      plugin.finish(done);
     })
     .catch(function(err){
       logger.warn('Unable to Mangle : %s', err);
@@ -307,11 +303,12 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
       plugin.download(infringement, this);
     })
     .seq(function(result){
-      if (result.verict === states.downloaders.verdict.UNAVAILABLE){
+      if (result.verdict === states.downloaders.verdict.UNAVAILABLE){
         logger.info('BLACK - we think this is UNAVAILABLE');
+        this();
         //self.verifyUnavailable(infringement, this);            
       }
-      else if (result.verict === states.downloaders.verdict.AVAILABLE){
+      else if (result.verdict === states.downloaders.verdict.AVAILABLE){
         logger.info('fingers cross - is this AVAILABLE ? - we think we do !');
         if(result.payload.isEmtpy()){
           logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
@@ -322,12 +319,20 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
         logger.info('Setting state %d on %s', newState, infringement.uri);
         self.infringements_.setState(infringement, newState, this);*/
       }
-      else if (result.verict === states.downloaders.verdict.RUBBISH){
+      else if (result.verdict === states.downloaders.verdict.FAILED_POLICY){
+        logger.info('BROWN - We think this downloaded something but failed the download policy.');
+        if(!result.payload.isEmtpy()){
+          logger.warn('RED: but the array of downloads is NOT empty. - leave at NEEDS_DOWNLOAD');
+          return this();
+        }
+
+      }
+      else if (result.verdict === states.downloaders.verdict.RUBBISH){
         //var newState = states.infringements.state.FALSE_POSITIVE;
         logger.info('WHITE - We think this is rubbish');
         //self.infringements_.setState(infringement, newState, this);        
       }
-      else if (result.verict === states.downloaders.verdict.STUMPED){
+      else if (result.verdict === states.downloaders.verdict.STUMPED){
         logger.warn('YELLOW - i.e. fail colour - yep STUMPED - leave at NEEDS_DOWNLOAD');
         this();
       }
@@ -413,7 +418,6 @@ DownloadManager.prototype.start = function() {
 
 DownloadManager.prototype.end = function() {
   var self = this;
-
   self.started_ = false;
 }
 
