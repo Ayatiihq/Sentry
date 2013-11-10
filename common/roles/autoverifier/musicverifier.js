@@ -221,7 +221,7 @@ MusicVerifier.prototype.fetchCampaignAudio = function(done) {
 
   function fetchTrack(track){
     var promise = new Promise.Promise();
-    var folderName = utilities.genLinkKey(track.title);
+    var folderName = utilities.genLinkKey(track.title + track.artist[0] + Date.now());
     track.folderPath = path.join(self.tmpDirectory, folderName);
     track.score = 0.0;
     fs.mkdirSync(track.folderPath);
