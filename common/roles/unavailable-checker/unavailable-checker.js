@@ -24,11 +24,9 @@ var acquire = require('acquire')
 
 var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
-  , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
   , Unavailable = require('./unavailable')
-  , Verifications = acquire('verifications')
   ;
 
 var PROCESSOR = 'unavailable-checker'
@@ -41,9 +39,7 @@ var UnavailableChecker = module.exports = function() {
   this.collection_ = null;
   
   this.campaigns_ = null;
-  this.infringements_ = null;
   this.jobs_ = null;
-  this.verifications_ = null;
 
   this.campaign_ = null;
 
@@ -67,9 +63,7 @@ UnavailableChecker.prototype.init = function() {
     self.collection_ = coll;
     
     self.campaigns_ = new Campaigns();
-    self.infringements_ = new Infringements();
     self.jobs_ = new Jobs('unavailable-checker');
-    self.verifications_ = new Verifications();
     
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
