@@ -112,7 +112,7 @@ Ears.prototype.listen = function(channel, message){
     self.emit('mangledCow', new Error('Cowmangler just runofft'));
   }
   // just log the other actions for now.
-  //logger.info('Non urgent signal : ' + msg.signal + ' for ' + msg.src_uri);
+  logger.info('Non urgent signal : ' + msg.signal + ' for ' + msg.src_uri);
 }
 
 /* Flush the download objects for a given source URI */

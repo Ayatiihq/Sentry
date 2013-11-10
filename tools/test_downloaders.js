@@ -64,6 +64,7 @@ function fetchRegex(downloader){
                  'rapidshare': /rapidshare\.com/g,
                  'hulkshare': /hulkshare\.com/g,
                  'uploaded-net': /uploaded\.net/g,
+                 'rapidgator': /rapidgator\.net/g,
                  'zippyshare': /zippyshare\.com/g};
   return domains[downloader];
 }
