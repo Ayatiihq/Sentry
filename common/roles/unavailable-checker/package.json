@@ -5,10 +5,9 @@
   },
   "engines": [
     "unavailable",
-    "nowavailable",
     "takendown"
   ],
-  "intervalMinutes": 30,
+  "intervalMinutes": 60,
   "types": {
     "music": ".*",
     "movie": ".*",

@@ -104,13 +104,12 @@ Unavailable.prototype.createAndGetTestURL = function(url, done) {
 
     var u = URI(url);
     u.search("").fragment("").filename("");
+    u.segment(-1, "");
     testURL = u.toString();
     testURL += makeRandomString();
   } catch(err) {
     return done(err);
   }
-
-  logger.info('Getting %s', testURL);
   utilities.request(testURL, {}, done);
 }
 
