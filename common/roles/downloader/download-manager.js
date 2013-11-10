@@ -25,6 +25,7 @@ var acquire = require('acquire')
 var Campaigns = acquire('campaigns')
   , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
+  , Verifications = acquire('verifications')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
@@ -47,6 +48,7 @@ var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
   this.downloads_ = null;
   this.infringements_ = null;
+  this.verifications_ = null;
   this.jobs_ = null;
 
   this.started_ = 0;
@@ -67,6 +69,7 @@ DownloadManager.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
+  self.verifications_ = new Verifications();
   self.jobs_ = new Jobs('downloader');
 }
 
@@ -239,11 +242,10 @@ DownloadManager.prototype.run = function(done) {
       this(null, work.infringements);
     })
     .seq(function(infringements){ //add more approaches or strategies. 
-      var that = this;
       if(plugin.attributes.approach === states.downloaders.method.COWMANGLING)
-        self.mangle(infringements, plugin, that);
+        self.mangle(infringements, plugin, this);
       else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
-        self.restful(infringements, plugin, that);
+        self.restful(infringements, plugin, this);
     })
     .seq(function(){
       setTimeout(self.run.bind(self, done), 100);
@@ -283,6 +285,7 @@ DownloadManager.prototype.getPluginForDomain = function(domain, done) {
 
 DownloadManager.prototype.mangle = function(infringements, plugin, done){
   var self = this;
+  logger.info('Go mangle, infringement count : ' + infringements.length);
   Seq(infringements)
     .seqEach(function(infringement) {
       self.goMangle(infringement, plugin, this);
@@ -298,6 +301,7 @@ DownloadManager.prototype.mangle = function(infringements, plugin, done){
 }
 
 DownloadManager.prototype.goMangle = function(infringement, plugin, done){
+  var self = this;
   Seq()
     .seq(function(){
       plugin.download(infringement, this);
@@ -305,16 +309,15 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
     .seq(function(result){
       if (result.verdict === states.downloaders.verdict.UNAVAILABLE){
         logger.info('BLACK - we think this is UNAVAILABLE');
-        this();
-        //self.verifyUnavailable(infringement, this);            
+        self.verifyUnavailable(infringement, this);            
       }
       else if (result.verdict === states.downloaders.verdict.AVAILABLE){
         logger.info('fingers cross - is this AVAILABLE ? - we think we do !');
         if(result.payload.isEmtpy()){
           logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
-          return this();
         }
         Logger.info('GREEN: we think we want to store : ' + JSON.stringify(result.payload));
+        this();
         /*var newState = states.infringements.state.UNVERIFIED;
         logger.info('Setting state %d on %s', newState, infringement.uri);
         self.infringements_.setState(infringement, newState, this);*/
@@ -323,13 +326,13 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
         logger.info('BROWN - We think this downloaded something but failed the download policy.');
         if(!result.payload.isEmtpy()){
           logger.warn('RED: but the array of downloads is NOT empty. - leave at NEEDS_DOWNLOAD');
-          return this();
         }
-
+        this();
       }
       else if (result.verdict === states.downloaders.verdict.RUBBISH){
         //var newState = states.infringements.state.FALSE_POSITIVE;
         logger.info('WHITE - We think this is rubbish');
+        this();
         //self.infringements_.setState(infringement, newState, this);        
       }
       else if (result.verdict === states.downloaders.verdict.STUMPED){
@@ -389,10 +392,8 @@ DownloadManager.prototype.goManual = function(infringement, plugin, done) {
 DownloadManager.prototype.verifyUnavailable = function(infringement, done) {
   var self = this;
 
-  if (infringement.state != State.UNAVAILABLE)
-    return done();
 
-  var verification = { state: State.UNAVAILABLE, who: 'downloader', started: Date.now(), finished: Date.now() };
+  var verification = { state: State.UNAVAILABLE, who: 'downloader', started: self.started_, finished: Date.now() };
   self.verifications_.submit(infringement, verification, function(err) {
     if (err)
       logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
