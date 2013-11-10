@@ -1,5 +1,5 @@
 /*
- * test_cyberlocker-manager.js: 
+ * test_downloaders.js: 
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
@@ -70,11 +70,11 @@ function fetchRegex(downloader){
 
 function main() {
   logger.init();
-  logger = logger.forFile('test_cyberlocker-manager.js');
+  logger = logger.forFile('test_downloaders.js');
 
   if (process.argv.length < 3)
   {
-    logger.warn("Usage: node test_cyberlocker-downloader.js <campaignId> <cyberlocker-domain>");
+    logger.warn("Usage: node test_downloaders.js <campaignId> <cyberlocker-domain>");
     process.exit(1);
   }
 
@@ -98,7 +98,7 @@ function main() {
     })
     .seq(function(){
       var that = this;
-      /*var searchPromise = findCollection('infringements', 
+      var searchPromise = findCollection('infringements', 
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
                                           'uri': fetchRegex(particularDownloader)});
@@ -110,8 +110,8 @@ function main() {
       /*var examples = [{uri:'http://www40.zippyshare.com/v/22726737/file.html'},
                       {uri:'http://www40.zippyshare.com/v/81212071/file.html'},
                       {uri:'http://www40.zippyshare.com/v/68593719/file.html'}];*/
-      var examples = [{uri: 'http://4shared.com/mp3/RU1lz0r1/Corona_-_The_Rhythm_Of_The_Nig.html'}];
-      oneAtaTime(examples, instance, this);
+      //var examples = [{uri: 'http://4shared.com/mp3/RU1lz0r1/Corona_-_The_Rhythm_Of_The_Nig.html'}];
+      //oneAtaTime(examples, instance, this);
     })
     .seq(function(){
       logger.info('finished testing ' + particularDownloader);
@@ -121,7 +121,7 @@ function main() {
       process.exit(1);   
     })
     .catch(function(err){
-      logger.warn('Unable to kick start cyberlocker %s', err);   
+      logger.warn('Unable to kick start downloader %s', err);   
       process.exit(1);   
     })
 }

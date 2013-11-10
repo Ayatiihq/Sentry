@@ -8,14 +8,13 @@ var acquire = require('acquire')
   , util = require('util')
   , logger = acquire('logger').forFile('zippyshare.js')
   , states = acquire('states')
-  , Downloader = require('./downloader.js')
-  , XRegExp = require('xregexp').XRegExp  
+  , Downloader = require('./downloader.js') 
   ;
 
 var Zippyshare = module.exports = function (campaign, browser) {
   var attributes = {login: {authenticated: true},
                     targets: {available: ['a[id="dlbutton"]'],
-                              unavailable: [XRegExp('File\sdoes\snot\sexist\son\sthis\sserver', 'g')]},
+                              unavailable: [/File\sdoes\snot\sexist\son\sthis\sserver/g]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};
@@ -24,7 +23,7 @@ var Zippyshare = module.exports = function (campaign, browser) {
 
 util.inherits(Zippyshare, Downloader);
 
-Zippyshare.getDescription = function(){
+Zippyshare.getDomains = function(){
   return ['zippyshare.com'];
 }
 

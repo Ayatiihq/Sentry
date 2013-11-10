@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , Campaigns = acquire('campaigns')
   , Seq = require('seq')
   , states = acquire('states')
+  , XRegExp = require('xregexp').XRegExp 
 ;
 
 var Downloader = module.exports = function (campaign, browser, attributes) {
@@ -36,7 +37,7 @@ Downloader.prototype.init = function(){
   if(self.campaign.type.match(/movie/)){
     self.minSize = 10;
     self.mimeTypes = ["video/"];
-    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac']);
+    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac', '.aiff', '']);
   }
   else if(self.campaign.type.match(/music/)){
     self.minSize = 1;
@@ -73,20 +74,23 @@ Downloader.prototype.validURI = function(uri){
 }
 
 Downloader.prototype.download = function(infringement, done){
+
   var self  = this;
 
-  if(!self.validURI(infringement.uri))
-    return done();
+  if(!self.validURI(infringement.uri)){
+    logger.info('return, pointless - ' + infringement.uri);
+    return done(null, {verdict: states.downloaders.verdict.RUBBISH});
+  }
 
   Seq()
     .seq(function(){
       self.login(this);
     })
     .seq(function(){
-      self.browser.wait(2, this);
-    })
-    .seq(function(){
       self.listenGet(infringement.uri, this);
+    })
+    .seq(function(directDownload){
+      self.browser.wait(5, this.bind(null, null, directDownload));
     })
     .seq(function(directDownload){
       if(directDownload){
@@ -266,7 +270,7 @@ Downloader.prototype.targets = function(done){
 }
 
 
-Downloader.prototype.tryRegex = function(filters, done){
+Downloader.prototype.tryRegex = function(tests, done){
   logger.info('and try regex');
   var self = this;
   Seq()
@@ -275,9 +279,9 @@ Downloader.prototype.tryRegex = function(filters, done){
     })
     .seq(function(source){
       //logger.info('attempt to match on source : ' + source);
-      filters.each(function(match){
-        logger.info('match with ' + JSON.stringify(match))
-        if(match.test(source[0])){
+      tests.each(function(match){
+        //logger.info('match with ' + JSON.stringify(match) + '\n\n\n\n' + source[0]);
+        if(XRegExp.exec(source[0], match)){
           logger.info('WE HAVE A MATCH');
           done(null, true);
         }

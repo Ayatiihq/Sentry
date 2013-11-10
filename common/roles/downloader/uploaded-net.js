@@ -28,7 +28,7 @@ var Uploadednet = module.exports = function (campaign, browser) {
 
 util.inherits(Uploadednet, Downloader);
 
-Uploadednet.getDescription = function(){
+Uploadednet.getDomains = function(){
   return ['uploaded.net'];
 }
 

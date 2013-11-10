@@ -32,13 +32,15 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-    '4shared'
+   '4shared'
+  ,'zippyshare'
+];
+  /*  '4shared'
   , 'mediafire'
   , 'sharebeast'
   , 'rapidshare'
-  , 'hulkshare'
-  , 'zippyshare'
-];
+  , 'hulkshare'*/
+
 
 var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
@@ -120,19 +122,37 @@ DownloadManager.prototype.preRun = function(job, done) {
   var self = this;
 
   self.browser = new Cowmangler();
-  self.browser.on('error', done(err));
+  self.browser.on('error', function(err){done(err)});
 
   Seq()
     .seq(function(){
+
       self.job_ = job;
       self.campaigns_.getDetails(job._id.owner, this);
     })
     .seq(function(campaign) {
+      //logger.info('we have this campaign ' + JSON.stringify(campaign));
       self.campaign_ = campaign;
-      self.loadDownloadManagers(this);
+      self.loadDownloaders(this);
     })
     .seq(function() {
       self.createInfringementMap(this);
+    })
+    .seq(function(workList){
+      logger.info('work length = ' + workList.length);
+      var that = this;
+      if(!job.downloader)
+        return this(null, workList);
+
+      workList.each(function(work){
+        var result = [];
+        logger.info('domain : ' + work.domain + ' count : ' + work.infringements.length);
+        if(work.domain && work.domain === job.downloader){
+          logger.info('right do it for downloader : ' + job.downloader);
+          that(null, [{domain: work.domain , infringements : work.infringements}]);
+        }
+      });
+      that(null, workList);
     })
     .seq(function(workList) {
       self.workList_ = workList.randomize();
@@ -226,7 +246,7 @@ DownloadManager.prototype.run = function(done) {
       plugin = plugin_;
       this(null, work.infringements);
     })
-    .seq(function(infringements){
+    .seq(function(infringements){ //add more approaches or strategies. 
       if(plugin.attributes.approach === states.downloaders.method.COWMANGLING)
         self.mangle(infringements, plugin, this);
       else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
@@ -288,25 +308,32 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
     })
     .seq(function(result){
       if (result.verict === states.downloaders.verdict.UNAVAILABLE){
-        logger.info('we think this is UNAVAILABLE');
+        logger.info('BLACK - we think this is UNAVAILABLE');
         //self.verifyUnavailable(infringement, this);            
       }
       else if (result.verict === states.downloaders.verdict.AVAILABLE){
-        logger.info('is this AVAILABLE ? - we do !');
-        /*if(result.payload.isEmtpy()){
-          logger.warn('but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
+        logger.info('fingers cross - is this AVAILABLE ? - we think we do !');
+        if(result.payload.isEmtpy()){
+          logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
           return this();
         }
-        var newState = states.infringements.state.UNVERIFIED;
+        Logger.info('GREEN: we think we want to store : ' + JSON.stringify(result.payload));
+        /*var newState = states.infringements.state.UNVERIFIED;
         logger.info('Setting state %d on %s', newState, infringement.uri);
         self.infringements_.setState(infringement, newState, this);*/
       }
+      else if (result.verict === states.downloaders.verdict.RUBBISH){
+        //var newState = states.infringements.state.FALSE_POSITIVE;
+        logger.info('WHITE - We think this is rubbish');
+        //self.infringements_.setState(infringement, newState, this);        
+      }
       else if (result.verict === states.downloaders.verdict.STUMPED){
-        logger.warn('yep STUMPED - leave at NEEDS_DOWNLOAD');
+        logger.warn('YELLOW - i.e. fail colour - yep STUMPED - leave at NEEDS_DOWNLOAD');
         this();
       }
     })
     .seq(function() {
+      logger.info('done and dusted with ' + infringement.uri);
       done();
     })
     .catch(function(err){
@@ -390,7 +417,7 @@ DownloadManager.prototype.end = function() {
   self.started_ = false;
 }
 
-if (process.argv[1] && process.argv[1].endsWith('download-manager.js')) {
+if (process.argv[1] && process.argv[1].endsWith('download-manager.js') && process.argv[2] && process.argv[2] === 'raw'){
   var downloadMgr = new DownloadManager();
   downloadMgr.started_ = Date.now();
 

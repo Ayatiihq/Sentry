@@ -29,7 +29,7 @@ var Rapidshare  = module.exports = function (campaign, browser) {
 
 util.inherits(Rapidshare, Downloader);
 
-Rapidshare.getDescription = function(){
+Rapidshare.getDomains = function(){
   return ['rapidshare.com'];
 }
 

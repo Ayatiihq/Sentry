@@ -14,16 +14,6 @@ var acquire = require('acquire')
 
 
 
-                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); 
-  self.remoteClient.get('http://www.Hulkshare.com/static.php?op=login');
-  self.remoteClient.findElement(webdriver.By.css('input[id=username]'))
-    .sendKeys('ayatii');
-  self.remoteClient.findElement(webdriver.By.css('input[id=password]'))
-    .sendKeys('LmpnqYc');
-  return self.remoteClient.findElement(webdriver.By.css('a#submit_button')).click();
-
-
 var Hulkshare = module.exports = function (campaign, browser) {
   var attributes = {login: {user: {'selector': 'input[id=username]',
                                    'value' : 'subscriptions@ayatii.com'},
@@ -36,7 +26,7 @@ var Hulkshare = module.exports = function (campaign, browser) {
                               unavailable: ['div[class="playerNoTrack"]']},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
-                    blacklist : [/embed_mp3\.php/]};
+                    blacklist : []};
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 

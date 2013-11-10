@@ -27,7 +27,7 @@ var Sharebeast = module.exports = function (campaign, browser) {
 
 util.inherits(Sharebeast, Downloader);
 
-Sharebeast.getDescription = function(){
+Sharebeast.getDomains = function(){
   return ['sharebeast.com'];
 }
 

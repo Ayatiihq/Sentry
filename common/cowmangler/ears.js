@@ -123,8 +123,8 @@ Ears.prototype.flush = function(messages, srcUri){
 
   var compacted = messages.map(function(msg){
     return {name: msg.uri,
-            startTime: msg.start_time,
-            endTime: msg.end_time,
+            startTime: msg.timestamp_start,
+            endTime: msg.timestamp_finish,
             md5: msg.md5,
             mimeType: msg.mimetype,
             size: msg.size};
