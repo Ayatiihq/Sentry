@@ -97,7 +97,7 @@ UnavailableChecker.prototype.processJob = function(err, job) {
   // Keep job alive
   self.touchId_ = setInterval(function() {
     self.jobs_.touch(job);
-  }, config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+  }, config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 300);
 
 
   // Error out nicely, closing the job too
@@ -202,15 +202,12 @@ var UnavailableEngine = function(campaign, collection, infringements) {
         unavailable.check(infringement.uri, function(err, isAvailable) {
           if (err) {
             logger.warn('Unable to check availability of %s: %s', infringement.uri, err);
-            return setTimeout(self.loop.bind(self, done), 1000);
+            return setTimeout(self.loop.bind(self, done), 300);
           }
 
           var updates = { 
             $set: {
               unavailabled: Date.now()
-            },
-            $push: {
-              'metadata.processedBy': PROCESSOR
             }
           };
 
@@ -223,7 +220,7 @@ var UnavailableEngine = function(campaign, collection, infringements) {
             if (err)
               logger.warn('Unable to update infringement %s with %s: %s', infringement._id, updates, err);
 
-            return setTimeout(self.loop.bind(self, done), 1000);
+            return setTimeout(self.loop.bind(self, done), 300);
           });
         });
       });
@@ -273,10 +270,85 @@ var NowAvailableEngine = function(campaign, collection, infringements) {
 }
 
 var TakenDownEngine = function(campaign, collection, infringements) {
+  var unavailable = new Unavailable();
+
   return {
     run: function(done) {
-      console.log('Hello from TakenDownEngine');
-      done();
+      var self = this;
+
+      logger.info('Running the taken-down checking loop');
+      self.started_ = Date.create();
+      self.loop(done);
+    },
+    
+    loop: function(done) {
+      var self = this;
+
+      if (self.started_.isBefore(TOO_LONG + ' minutes ago')) {
+        logger.info('Running for too long, taking a nap');
+        return done();
+      }
+
+      self.getOne(function(err, infringement) {
+        if (err) return done(err);
+        
+        if (!infringement) {
+          logger.info('Nothing left to process');
+          return done();
+        }
+
+        unavailable.check(infringement.uri, function(err, isAvailable) {
+          if (err) {
+            logger.warn('Unable to check availability of %s: %s', infringement.uri, err);
+            return setTimeout(self.loop.bind(self, done), 300);
+          }
+
+          var updates = { 
+            $set: {
+              unavailabled: Date.now()
+            }
+          };
+
+          if (!isAvailable) {
+            updates['$set'].state = states.TAKEN_DOWN;
+          }
+
+          return setTimeout(self.loop.bind(self, done), 300);
+          
+          collection.update({ _id: infringement._id }, updates, function(err) {
+            if (err)
+              logger.warn('Unable to update infringement %s with %s: %s', infringement._id, updates, err);
+
+            return setTimeout(self.loop.bind(self, done), 300);
+          });
+        });
+      });
+    },
+
+    getOne: function(done) {
+
+      var then = Date.create('15 minutes ago').getTime()
+        , timeSince = Date.create(TIME_SINCE_LAST).getTime()
+        , query = {
+            campaign: campaign._id,
+            popped: { $lt: then },
+            state: states.SENT_NOTICE,
+            meta: { $exists: false },
+            category: { $nin: [categories.SEARCH_RESULT, categories.TORRENT] },
+            $or: [
+              { unavailabled: { $exists: false } },
+              { unavailabled: { $lt: timeSince } }
+            ]
+          }
+        , sort = { 'children.count': -1, created: -1 }
+        , updates = { $set: { popped: Date.now() } }
+        , options = {
+            new: true,
+            fields: { _id: 1, uri: 1 }
+          }
+        ;
+
+      collection.findAndModify(query, sort, updates, options, done);
     }
   }
 }
