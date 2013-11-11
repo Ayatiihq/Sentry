@@ -32,6 +32,7 @@ Blacklist.safeDomains = [
   , 'books.google.com'
   , 'boomkat.com'
   , 'cduniverse.com'
+  , 'chillingeffects.org'
   , 'clickmusic.com'
   , 'cmj.com'
   , 'craftkeys.com'
