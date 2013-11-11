@@ -307,6 +307,8 @@ var TakenDownEngine = function(campaign, collection, infringements) {
             return setTimeout(self.loop.bind(self, done), 150);
           }
 
+          logger.info('%s: %s', isAvailable, infringement.uri);
+
           var updates = { 
             $set: {
               unavailabled: Date.now()
@@ -316,9 +318,7 @@ var TakenDownEngine = function(campaign, collection, infringements) {
           if (!isAvailable) {
             updates['$set'].state = states.TAKEN_DOWN;
           }
-
-          return setTimeout(self.loop.bind(self, done), 150);
-          
+         
           collection.update({ _id: infringement._id }, updates, function(err) {
             if (err)
               logger.warn('Unable to update infringement %s with %s: %s', infringement._id, updates, err);
