@@ -4,10 +4,10 @@
   "dependencies": {
   },
   "engines": [
-    "unavailable",
-    "takendown",
-    "unavailable",
-    "takendown"
+    "1.unavailable",
+    "1.takendown",
+    "2.unavailable",
+    "2.takendown"
   ],
   "intervalMinutes": 60,
   "types": {
