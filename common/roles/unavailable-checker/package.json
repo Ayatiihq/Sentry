@@ -5,6 +5,8 @@
   },
   "engines": [
     "unavailable",
+    "takendown",
+    "unavailable",
     "takendown"
   ],
   "intervalMinutes": 60,
