@@ -42,7 +42,7 @@ Unavailable.prototype.check = function(url, done) {
       return done(null, false, false);
 
     if (res.headers['content-length'] > MAX_LENGTH) {
-      logger.warn('%s is too large to check');
+      logger.warn('%s is too large to check', url);
       return done(null, true, false);
     }
 
@@ -82,7 +82,7 @@ Unavailable.prototype.isSoft = function(url, steam, done) {
     })
     .seq(function(res, body) {
       testBody = body;
-      self.compareBodies(origBody, testBody, this);
+      self.compareBodies(url, origBody, testBody, this);
     })
     .seq(function(isAvailable) {
       done(null, !isAvailable);
@@ -113,14 +113,20 @@ Unavailable.prototype.createAndGetTestURL = function(url, done) {
   utilities.request(testURL, {}, done);
 }
 
-Unavailable.prototype.compareBodies = function(orig, test, done) {
-  var self = this;
+Unavailable.prototype.compareBodies = function(url, orig, test, done) {
+  var self = this
+    , minRatio = MIN_RATIO
+    ;
 
   seq1 = orig.split(' ');
   seq2 = test.split(' ');
   sm = new difflib.SequenceMatcher(null, seq1, seq2);
 
-  done(null, !(sm.ratio() >= MIN_RATIO));
+  // Quirks
+  if (/rapidshare.com/i.test(url))
+    minRatio = 0.8;
+
+  done(null, !(sm.ratio() >= minRatio));
 }
 
 function makeRandomString()
