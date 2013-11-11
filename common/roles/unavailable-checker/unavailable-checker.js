@@ -198,7 +198,7 @@ var UnavailableEngine = function(campaign, collection, infringements) {
         unavailable.check(infringement.uri, function(err, isAvailable) {
           if (err) {
             logger.warn('Unable to check availability of %s: %s', infringement.uri, err);
-            return setTimeout(self.loop.bind(self, done), 300);
+            return setTimeout(self.loop.bind(self, done), 150);
           }
 
           var updates = { 
@@ -216,7 +216,7 @@ var UnavailableEngine = function(campaign, collection, infringements) {
             if (err)
               logger.warn('Unable to update infringement %s with %s: %s', infringement._id, updates, err);
 
-            return setTimeout(self.loop.bind(self, done), 300);
+            return setTimeout(self.loop.bind(self, done), 150);
           });
         });
       });
@@ -295,7 +295,7 @@ var TakenDownEngine = function(campaign, collection, infringements) {
         unavailable.check(infringement.uri, function(err, isAvailable) {
           if (err) {
             logger.warn('Unable to check availability of %s: %s', infringement.uri, err);
-            return setTimeout(self.loop.bind(self, done), 300);
+            return setTimeout(self.loop.bind(self, done), 150);
           }
 
           var updates = { 
@@ -308,13 +308,13 @@ var TakenDownEngine = function(campaign, collection, infringements) {
             updates['$set'].state = states.TAKEN_DOWN;
           }
 
-          return setTimeout(self.loop.bind(self, done), 300);
+          return setTimeout(self.loop.bind(self, done), 150);
           
           collection.update({ _id: infringement._id }, updates, function(err) {
             if (err)
               logger.warn('Unable to update infringement %s with %s: %s', infringement._id, updates, err);
 
-            return setTimeout(self.loop.bind(self, done), 300);
+            return setTimeout(self.loop.bind(self, done), 150);
           });
         });
       });
