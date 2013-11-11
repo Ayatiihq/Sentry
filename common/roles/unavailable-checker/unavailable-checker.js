@@ -195,11 +195,20 @@ var UnavailableEngine = function(campaign, collection, infringements) {
           return done();
         }
 
+        var id = setTimeout(function() {
+          logger.info('URL taking too long to check, moving on');
+          return setTimeout(self.loop.bind(self, done), 150);
+        }, 30000);
+
         unavailable.check(infringement.uri, function(err, isAvailable) {
+          clearTimeout(id);
+
           if (err) {
             logger.warn('Unable to check availability of %s: %s', infringement.uri, err);
             return setTimeout(self.loop.bind(self, done), 150);
           }
+
+          logger.info('%s: %s', isAvailable, infringement.uri);
 
           var updates = { 
             $set: {
@@ -238,7 +247,7 @@ var UnavailableEngine = function(campaign, collection, infringements) {
               { unavailabled: { $lt: timeSince } }
             ]
           }
-        , sort = { 'children.count': -1, created: -1 }
+        , sort = { category: -1, 'children.count': -1, created: -1 }
         , updates = { $set: { popped: Date.now() } }
         , options = {
             new: true,

@@ -253,8 +253,8 @@ Utilities.followRedirects = function(links, promise) {
 
   function onHeadResponse(results, thePromise, err, resp, html){
     if(err){
-      logger.warn('error onHeadResponse ! : ' + err.message);
-      thePromise.resolve(results);
+      logger.warn('error onHeadResponse ! : ' + err.message + ' ' + results);
+      promise.resolve(results);
       return;      
     }
 
