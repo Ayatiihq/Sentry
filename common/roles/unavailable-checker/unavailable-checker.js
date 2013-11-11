@@ -247,7 +247,7 @@ var UnavailableEngine = function(campaign, collection, infringements) {
               { unavailabled: { $lt: timeSince } }
             ]
           }
-        , sort = { category: -1, 'children.count': -1, created: -1 }
+        , sort = { category: 1, 'children.count': -1, created: -1 }
         , updates = { $set: { popped: Date.now() } }
         , options = {
             new: true,
