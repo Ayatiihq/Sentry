@@ -126,6 +126,18 @@ Unavailable.prototype.createAndGetTestURL = function(url, done) {
 
   if (/extabit.com/.test(url))
     testURL = "http://extabit.com/file/27t1nu349qt0zbm";
+
+  if (/bitshare.com/.test(url))
+    testURL = "http://bitshare.com/files/xc5k8jod/Aselia.The";
+
+  if (/filefactory.com/.test(url))
+    testURL = "http://www.filefactory.com/error.php?code=254";
+
+  if (/freakshare.com/.test(url))
+    testURL = "http://freakshare.com/files/z4vlna3j/ifpd-isisrising.us-xvid.avi.html";
+
+  if (/ryushare.com/.test(url))
+    testURL = "http://ryushare.com/w5dc5qawe8cb/Isis.Rising.2013.1080p.BluRay.x264-iFPD.part1.rar";
   
   utilities.request(testURL, {}, done);
 }
@@ -142,6 +154,11 @@ Unavailable.prototype.compareBodies = function(url, orig, test, done) {
   // Quirks
   if (/rapidshare.com/i.test(url))
     minRatio = 0.8;
+
+  if (/bitshare.com/i.test(url))
+    minRatio = 0.98;
+
+  //console.log(seq1.length, seq2.length, sm.ratio());
 
   done(null, !(sm.ratio() >= minRatio));
 }
