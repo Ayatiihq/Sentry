@@ -97,7 +97,7 @@ Unavailable.prototype.createAndGetTestURL = function(url, done) {
   var self = this
     , testURL = ""
     ;
-  
+
   try {
     if (url.endsWith('/'))
       url = url.first(url.length - 1);
@@ -110,6 +110,23 @@ Unavailable.prototype.createAndGetTestURL = function(url, done) {
   } catch(err) {
     return done(err);
   }
+
+  // Quirks ಠ_ಠ
+  if (/mediafire.com/.test(url))
+    testURL = "http://mediafire.com/?jgn3zmzuxij";
+
+  if (/megashares.com/.test(url))
+    testURL = "http://d01.megashares.com/dl/bd11209/WarezUSA.Org";
+
+  if (/netload.in/.test(url))
+    testURL = "http://netload.in/dateiTbpT5KVJSc.htm";
+
+  if (/uploading.com/.test(url))
+    testURL = "http://uploading.com/files/8MAFKUKW/Bj";
+
+  if (/extabit.com/.test(url))
+    testURL = "http://extabit.com/file/27t1nu349qt0zbm";
+  
   utilities.request(testURL, {}, done);
 }
 
