@@ -103,7 +103,7 @@ function format() {
 // for example:
 // dictFormat("testing ${owner} ${name} ${garbled}ifiction", {owner: 'gord', name:'Format', garbled:'californ'});
 //   => testing gord Format californifiction
-function dictFormat(string, formatDictionary) {
+exports.dictFormat = dictFormat = function (string, formatDictionary) {
   var re = new RegExp("\\$\\{(\\w+)\\}", 'g');
   return string.replace(re, function(subString, subGroup) { return Object.has(formatDictionary, subGroup) ? formatDictionary[subGroup] : subString });
 }
