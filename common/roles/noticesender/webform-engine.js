@@ -70,7 +70,6 @@ BrowserEngine.prototype.checkBox = function (selector) {
   var self = this;
   var deferred = new Q.defer();
   logger.trace(selector);
-  logger.debug('wtfwtf');
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
 
@@ -100,8 +99,6 @@ BrowserEngine.prototype.comboBox = function (selector, selection) {
   var self = this;
   var deferred = new Q.defer();
   logger.trace(selector, selection);
-
-  logger.trace('comboBox(%s, %s)', selector, selection);
   deferred.resolve();
 
   return deferred.promise;
