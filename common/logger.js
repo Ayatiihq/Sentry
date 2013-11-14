@@ -62,6 +62,11 @@ Logger.prototype.error = function() {
   winston.error(errorString);
 }
 
+Logger.prototype.trace = function () {
+  var string = format.apply(null, arguments);
+  winston.info(this.prefix_ + ROLE + lineNumber() + ':' + functionName() + ': ' + string);
+}
+
 Logger.prototype.setRole = function(role) {
   //ROLE = role + ':';
 }
@@ -83,6 +88,10 @@ exports.initServer = function() {
 
 function lineNumber() {
   return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
+}
+
+function functionName() {
+  return (new Error).stack.split('\n')[3].match(/at (\w+(\.<?[\w\b]+>?)*)/)[1];
 }
 
 // calls dictFormat and util.format intelligently depending on the input
