@@ -32,11 +32,10 @@ var cloudFlareForm = {
   preActions: {
     'click':'option[value=dmca]'
   },
-
   submit: 'input#abuse-submit',
   formText: {
     'input#Name': '${ayatiiFullName}',
-    'input#HolderName': '${CopyrightHolderFullName}',
+    'input#HolderName': '${copyrightHolderFullName}',
     'input#Email': '${ayatiiEmail}',
     'input#EmailConfirm': '${ayatiiEmail}',
     'input#Title': 'Mr',
@@ -52,8 +51,8 @@ var cloudFlareForm = {
   formCheckBoxes: {
     'input#Agree': true
   },
-  formComboBoxes: {
-    'select#Country': '${ayatiiCountry}'
+  actions: {
+    'click':'option[value=GB]'
   }
 }
 
@@ -61,7 +60,7 @@ var cloudFlareForm = {
 // constants
 var Constants = {
   ayatiiCompanyName: 'Ayatii Limited',
-  ayatiiEmail: 'neilpatel@ayatii.,com',
+  ayatiiEmail: 'neilpatel@ayatii.com',
   ayatiiFullName: 'Neil Patel',
   ayatiiTele: '+44 (0) 208 133 2192',
   ayatiiAddress: 'Kemp House, 152-160 City Road',
@@ -107,8 +106,7 @@ BrowserEngine.prototype.sleep = function (timeout) {
 BrowserEngine.prototype.fillTextBox = function (selector, text) {
   var self = this;
   var deferred = new Q.defer();
-
-  logger.info('fillTextBox(%s, %s)', selector, text);
+  logger.trace(selector, text);
 
   self.driver.findElement(webdriver.By.css(selector)).sendKeys(text).then(deferred.resolve, deferred.reject);
 
@@ -118,7 +116,9 @@ BrowserEngine.prototype.fillTextBox = function (selector, text) {
 BrowserEngine.prototype.checkBox = function (selector) {
   var self = this;
   var deferred = new Q.defer();
-  logger.info('selector(%s)', selector);
+  logger.trace(selector);
+  logger.debug('wtfwtf');
+
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
 
   return deferred.promise;
@@ -126,6 +126,8 @@ BrowserEngine.prototype.checkBox = function (selector) {
 
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
+  logger.trace(selector);
+
   logger.error('omgwtfbbq not ready for this jelly');
   throw new Error('bad :(');
   return self.click(selector);
@@ -134,6 +136,7 @@ BrowserEngine.prototype.submit = function (selector) {
 BrowserEngine.prototype.click = function (selector) {
   var self = this;
   var deferred = new Q.defer();
+  logger.trace(selector);
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
 
@@ -143,7 +146,9 @@ BrowserEngine.prototype.click = function (selector) {
 BrowserEngine.prototype.comboBox = function (selector, selection) {
   var self = this;
   var deferred = new Q.defer();
-  logger.info('comboBox(%s, %s)', selector, selection);
+  logger.trace(selector, selection);
+
+  logger.trace('comboBox(%s, %s)', selector, selection);
   deferred.resolve();
 
   return deferred.promise;
@@ -179,6 +184,22 @@ WebFormEngine.prototype.init = function () {
 // turn this to true to get a screenshot instead of a form submission
 var debug = true;
 
+WebFormEngine.prototype.actionBuilder = function (action, selector) {
+  var self = this;
+  var actionFunction = function () { logger.error(new Error('returned an undefined action in actionBuilder: ' + action)); };
+
+  switch (action) {
+    case 'click':
+      actionFunction = self.browser.click.bind(self.browser, selector);
+      break;
+    default:
+      logger.error('got a weird action: %s(%s)', action, selector);
+      break;
+  }
+
+  return actionFunction;
+}
+
 WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
@@ -190,14 +211,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
     var preCommands = [];
     // first we allow a few pre actions to complete 
     Object.each(formTemplate.preActions, function preActions(action, selector) {
-      switch (action) {
-        case 'click':
-          preCommands.push(self.browser.click.bind(self.browser, selector));
-          break;
-        default:
-          logger.error('got a weird action: %s(%s)', action, selector);
-          break;
-      }
+      preCommands.push(self.actionBuilder(action, selector));
     });
 
     // laaaame, generators plz.
@@ -208,8 +222,8 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
     return preCommands.reduce(Q.when, Q()).delay(5000).then(function () {
       var commands = []; // array of promises 
+
       // create all the text filling commands
-      logger.info('filling out the form');
       Object.each(formTemplate.formText, function addTextToForm(selector, text) {
         text = acquire('logger').dictFormat(text, combinedInfo);
         commands.push(self.browser.fillTextBox.bind(self.browser, selector, text));
@@ -220,15 +234,13 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
         commands.push(self.browser.checkBox.bind(self.browser, selector));
       });
 
-      // same with combo boxes, change the selection to whatever selection is, does by text not selector
-      Object.each(formTemplate.formComboBoxes, function comboSelectors(selector, selection) {
-        selection = acquire('logger').dictFormat(selection, combinedInfo);
-        commands.push(self.browser.comboBox.bind(self.browser, selector, selection));
+      // do the actions 
+      Object.each(formTemplate.actions, function actions(action, selector) {
+        commands.push(self.actionBuilder(action, selector));
       });
 
       // executes all our commands as a sequence, selenium does not need this, but cow will i believe
-      logger.info('got %s commands to execute', commands.length);
-      return commands.reduce(Q.when, Q()).then(function () { logger.info('finished commands'); self.browser.debugScreenshot('shouldnotgetthisfar.png'); });
+      return commands.reduce(Q.when, Q());
     });
 
   }).then(function () {
@@ -257,7 +269,7 @@ if (require.main === module) {
   console.log('engine ready');
   var info = {
     copyrightHolderFullName: 'Mr Happy',
-    infingingURLS: 'test1\n test2\n test3\n',
+    infringingURLS: 'http://test1.com/thesmurfsgomentalandkillsomedudes.avi\nhttp://test2.com/StarWars7-thereturnofspock.mkv\nhttp://ilike.com/custarcreams.mp3\n',
     contentDescription: 'testing description'
   }
 
