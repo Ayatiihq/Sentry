@@ -36,5 +36,6 @@
   "spidered": "common/spidered.js",
   "torrent-downloader": "common/torrent-downloader.js",
   "verifications": "common/verifications.js",
+  "webform-engine-resource": "common/roles/noticesender/webform-engine-resource.js",
   "wrangler-rules": "common/wrangler-rules.js"
 }

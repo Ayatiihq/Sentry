@@ -19,56 +19,9 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriver')
 ;
 
-// move this into json files maybe? 
-
-// basic system that uses logic expressed in a data structure to fill out our forms.
-// basically, url is the url of the form, submit is a selector to the submit button
-// formText is an object that contains a bunch of selectors as keys with text to fill out
-// text with ${foo} style will be replaced like Logger.dictFormat
-// formCheckBoxes is an object containing a bunch of selectors as keys with checkboxes to check
-var cloudFlareForm = {
-  url: 'https://www.cloudflare.com/abuse/form',
-  waitforSelector: 'select#form-select',
-  preActions: {
-    'click':'option[value=dmca]'
-  },
-  submit: 'input#abuse-submit',
-  formText: {
-    'input#Name': '${ayatiiFullName}',
-    'input#HolderName': '${copyrightHolderFullName}',
-    'input#Email': '${ayatiiEmail}',
-    'input#EmailConfirm': '${ayatiiEmail}',
-    'input#Title': 'Mr',
-    'input#Company': 'Ayatii',
-    'input#Tele': '${ayatiiTele}',
-    'input#Address': '${ayatiiAddress}',
-    'input#City': '${ayatiiCity}',
-    'input#State': '${ayatiiState}',
-    'textarea#URLs': '${infringingURLS}',
-    'textarea#OriginalWork': '${contentDescription}',
-    'input#Signature': '${ayatiiFullName}'
-  },
-  formCheckBoxes: {
-    'input#Agree': true
-  },
-  actions: {
-    'click':'option[value=GB]'
-  }
-}
+var resource = acquire('webform-engine-resource');
 
 
-// constants
-var Constants = {
-  ayatiiCompanyName: 'Ayatii Limited',
-  ayatiiEmail: 'neilpatel@ayatii.com',
-  ayatiiFullName: 'Neil Patel',
-  ayatiiTele: '+44 (0) 208 133 2192',
-  ayatiiAddress: 'Kemp House, 152-160 City Road',
-  ayatiiCity: 'London',
-  ayatiiState: 'London',
-  ayatiiPostcode: 'EC1V 2NX',
-  ayatiiCountry: 'UK'
-}
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
@@ -204,7 +157,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
 
-  var combinedInfo = Object.merge(Constants, info);
+  var combinedInfo = Object.merge(resource.Constants, info);
 
   // this would be so much nicer with generators.. 
   self.browser.gotoURL(formTemplate.url, formTemplate.waitforSelector).then(function () {
@@ -262,8 +215,6 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
 }
 
 if (require.main === module) {
-  fs.writeFileSync('/media/storage/projects/forks/sentry/foo.txt', 'hello world');
-
   var engine = new WebFormEngine();
 
   console.log('engine ready');
@@ -273,7 +224,7 @@ if (require.main === module) {
     contentDescription: 'testing description'
   }
 
-  engine.executeForm(cloudFlareForm, info).then(function () {
+  engine.executeForm(resource.cloudFlareForm, info).then(function () {
     console.log('done submitting form?');
   }).fail(function (err) {
     console.log('failed: ' + err);
