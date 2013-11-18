@@ -6,6 +6,8 @@ var constants = exports.constants = {
 	ayatiiCompanyName: 'Ayatii Limited',
 	ayatiiEmail: 'neilpatel@ayatii.com',
 	ayatiiFullName: 'Neil Patel',
+	ayatiiFirstName: 'Neil',
+  ayatiiLastName: 'Patel',
 	ayatiiTele: '+44 (0) 208 133 2192',
 	ayatiiAddress: 'Kemp House, 152-160 City Road',
 	ayatiiCity: 'London',
@@ -24,32 +26,64 @@ the website for the media is located at ${campaignURL} . We are the authorized a
 // formText is an object that contains a bunch of selectors as keys with text to fill out
 // text with ${foo} style will be replaced like Logger.dictFormat
 // formCheckBoxes is an object containing a bunch of selectors as keys with checkboxes to check
-exports.cloudFlareForm = {
-	url: 'https://www.cloudflare.com/abuse/form',
-	waitforSelector: 'select#form-select',
-	preActions: {
-		'click': 'option[value=dmca]'
-	},
-	submit: 'input#abuse-submit',
-	formText: {
-		'input#Name': '${ayatiiFullName}',
-		'input#HolderName': '${copyrightHolderFullName}',
-		'input#Email': '${ayatiiEmail}',
-		'input#EmailConfirm': '${ayatiiEmail}',
-		'input#Title': 'Mr',
-		'input#Company': 'Ayatii',
-		'input#Tele': '${ayatiiTele}',
-		'input#Address': '${ayatiiAddress}',
-		'input#City': '${ayatiiCity}',
-		'input#State': '${ayatiiState}',
-		'textarea#URLs': '${infringingURLS}',
-		'textarea#OriginalWork': constants.ayatiiDescription,
-		'input#Signature': '${ayatiiFullName}'
-	},
-	formCheckBoxes: {
-		'input#Agree': true
-	},
-	actions: {
-		'click': 'option[value=GB]'
-	}
-}
+var cloudFlareForm = {
+  url: 'https://www.cloudflare.com/abuse/form',
+  waitforSelector: 'select#form-select',
+  preActions: {
+    'click': 'option[value=dmca]'
+  },
+  submit: 'input#abuse-submit',
+  formText: {
+    'input#Name': '${ayatiiFullName}',
+    'input#HolderName': '${copyrightHolderFullName}',
+    'input#Email': '${ayatiiEmail}',
+    'input#EmailConfirm': '${ayatiiEmail}',
+    'input#Title': 'Mr',
+    'input#Company': 'Ayatii',
+    'input#Tele': '${ayatiiTele}',
+    'input#Address': '${ayatiiAddress}',
+    'input#City': '${ayatiiCity}',
+    'input#State': '${ayatiiState}',
+    'textarea#URLs': '${infringingURLS}',
+    'textarea#OriginalWork': constants.ayatiiDescription,
+    'input#Signature': '${ayatiiFullName}'
+  },
+  formCheckBoxes: {
+    'input#Agree': true
+  },
+  actions: {
+    'click': 'option[value=GB]'
+  }
+};
+
+var bingForm = {
+  url: 'https://www.microsoft.com/info/FormForSearch.aspx',
+  submit: 'INPUT#ctl00_ContentPlaceHolder1_Btn_Submit',
+
+  formText: {
+    'INPUT#ctl00_ContentPlaceHolder1_fname': '${ayatiiFirstName}',
+    'INPUT#ctl00_ContentPlaceHolder1_lname': '${ayatiiLastName}',
+    'INPUT#ctl00_ContentPlaceHolder1_email': '${ayatiiEmail}',
+    'INPUT#ctl00_ContentPlaceHolder1_companyName': '${copyrightHolderFullName}',
+    'INPUT#ctl00_ContentPlaceHolder1_country': '${ayatiiCountry}',
+    'INPUT#ctl00_ContentPlaceHolder1_titleOfWork': '${campaignName}',
+    'INPUT#ctl00_ContentPlaceHolder1_TypeOfWork': '${contentMediaType}',
+    'INPUT#ctl00_ContentPlaceHolder1_url': '${clientAuthorization}',
+    'TEXTAREA#ctl00_ContentPlaceHolder1_urlInfringed': '${infringingURLS}',
+    'TEXTAREA#ctl00_ContentPlaceHolder1_additionalInfo': constants.ayatiiDescription,
+    'INPUT#ctl00_ContentPlaceHolder1_signature': '${ayatiiFullName}'
+  },
+
+  formCheckBoxes: {
+    'INPUT#GoodFaithBelief': true,
+    'INPUT#AuthorityToAct': true,
+    'INPUT#Acknowledgement': true
+  },
+
+};
+
+
+exports.forms = {
+  'cloudflare': cloudFlareForm,
+  'searchengine.bing': bingForm
+};

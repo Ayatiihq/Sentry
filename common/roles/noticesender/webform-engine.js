@@ -154,7 +154,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
 
-  var combinedInfo = Object.merge(resource.Constants, info);
+  var combinedInfo = Object.merge(resource.constants, info);
 
   // this would be so much nicer with generators.. 
   self.browser.gotoURL(formTemplate.url, formTemplate.waitforSelector).then(function () {
@@ -198,17 +198,42 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
     self.browser.debugScreenshot('finishedform.png');
     //else { return self.browser.submit(formTemplate.submit) };
   }).then(function () {
-    deferred.resolve();
+    //deferred.resolve();
+    deferred.reject(new Error('not really errored, but we do not want to submit yet'));
     self.browser.quit();
   }).fail(function (err) {
     logger.error(err);
+    deferred.reject(err);
     self.browser.debugScreenshot('debug.png').then(self.browser.quit.bind(self.browser));
+    self.browser.quit();
   });
 
   return deferred.promise;
 }
 
 WebFormEngine.prototype.post = function (host, message, notice, done) {
+  var self = this;
+  var campaign = host.campaign;
+  var client = host.client;
+  var infringements = host.infringements
+
+  if (!Object.has(resource.forms, host._id)) {
+    done(new Error('no form to deal with host ' + host._id));
+    return;
+  }
+
+  var matchForm = resource.forms[host._id];
+  var infoObj = {
+    campaignName: campaign.name,
+    campaignURL: campaign.metadata.url,
+    clientAuthorization: client.authorization,
+    clientName: client.name,
+    contentMediaType: campaign.type,
+    copyrightHolderFullName: client.name,
+    infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri
+  };
+
+  self.executeForm(matchForm, infoObj).nodeify(done);
 }
 
 if (require.main === module) {
@@ -218,7 +243,9 @@ if (require.main === module) {
   var info = {
     copyrightHolderFullName: 'Mr Happy',
     infringingURLS: 'http://test1.com/thesmurfsgomentalandkillsomedudes.avi\nhttp://test2.com/StarWars7-thereturnofspock.mkv\nhttp://ilike.com/custarcreams.mp3\n',
-    contentDescription: 'testing description'
+    contentDescription: 'testing description',
+    contentName: 'Mr Blobbys Xmas Single',
+    contentMediaType: 'audio'
   }
 
   engine.executeForm(resource.cloudFlareForm, info).then(function () {

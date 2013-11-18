@@ -30,6 +30,7 @@ var Campaigns = acquire('campaigns')
   ;
 
 var EmailEngine = require('./email-engine')
+  , WebFormEngine = require('./webform-engine')
   , NoticeBuilder = require('./notice-builder')
   ;
 
@@ -221,12 +222,11 @@ NoticeSender.prototype.processBatch = function(batch, done) {
   var self = this
     , categoryFilters = self.campaign_.metadata.noticeCategoryFilters
     ;
-
   Seq()
     .seq(function() {
       self.hosts_.get(batch.key, this);
     })
-    .seq(function(host) {
+    .seq(function (host) {
       if (!host) {
         logger.warn('Host "%s" does not exist', batch.key);
         // We add it to the DB to be processed
@@ -281,7 +281,7 @@ NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
       done();
     })
     .catch(function(err) {
-      logger.warn('Error processing batch for %j: %s', host, err.stack);
+      //logger.warn('Error processing batch for %j: %s', host, err.stack);
       done();
     })
     ;
@@ -335,9 +335,18 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     ;
 
   logger.info('Sending notice to %s', host._id);
+  host.campaign = self.campaign_;
+  host.client = self.client_;
+  host.infringements = infringements;
+
+  if (host.noticeDetails.type === undefined) {
+    var err = new Error(acquire('logger').dictFormat('Host "${host}" has an undefined type.', { 'host': host.name }));
+    done(err);
+    return;
+  }
 
   Seq()
-    .seq(function() {
+    .seq(function () {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
       builder.build(this);
     })
@@ -345,7 +354,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
       var notice = self.prepareNotice(hash, host, infringements);
       self.loadEngineForHost(host, message, notice, this);
     })
-    .seq(function(engine, message, notice) {
+    .seq(function (engine, message, notice) {
       engine.post(host, message, notice, this);
     })
     .seq(function(notice) {
@@ -517,10 +526,25 @@ NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done)
     , engine = null
     , err = null
     ;
+  console.log(host);
+
+  // yell at me if this is still here in a merge request
+  // its just an early choose based on very specific data
+  if (host._id === 'searchengine.bing') {
+    console.log('\n\n\n\n\n\n\n\nBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBING\n\n\n\n\n\n');
+    engine = new WebFormEngine();
+    done(null, engine, message, notice);
+    return;
+  }
 
   switch (host.noticeDetails.type) {
     case 'email':
+      done(new Error('disabled for now')); // yell at me if this is still in a merge request
       engine = new EmailEngine();
+      break;
+
+    case 'webform':
+      engine = new WebFormEngine();
       break;
 
     default:
@@ -569,4 +593,32 @@ NoticeSender.prototype.start = function() {
 
 NoticeSender.prototype.end = function() {
   // Don't do anything, just let noticesender finish as normal, it's pretty fast
+}
+
+if (require.main === module) {
+
+  var job = {
+    "_id": {
+      "owner": {
+        "client": "Viacom 18",
+        "campaign": "Boss 2013"
+      },
+      "role": "noticesender",
+      "consumer": "camp/job-notice-boss.json",
+      "created": 1384771491629
+    },
+    "finished": 0,
+    "log": [],
+    "metadata": {},
+    "popped": 1384771493838,
+    "priority": 0,
+    "snapshot": {},
+    "started": 0,
+    "state": 0,
+    "who": "WorldsEnd-77345"
+  };
+
+  var noticeSender = new NoticeSender();
+  noticeSender.on('error', logger.error);
+  noticeSender.processJob(null, job);
 }
