@@ -39,15 +39,16 @@ util.inherits(BrowserEngine, events.EventEmitter);
 BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   var self = this;
   var deferred = new Q.defer();
+  if (url === undefined) { deferred.reject(new Error('url is undefined')); return; }
+  logger.trace(url);
 
   var seleniumPromise = self.driver.get(url);
-  //self.debugScreenshot('/media/storage/projects/forks/sentry/initial.png');
 
   if (selectorToWaitFor !== undefined) {
   //  var selector = webdriver.By.css(selectorToWaitFor);
   //  seleniumPromise = seleniumPromise.then(self.driver.findElement.bind(self.driver, selector));
   }
-
+  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
   seleniumPromise.then(deferred.resolve, deferred.reject);
   return deferred.promise.delay(5000); // delay 5 seconds to allow it to load
 }
@@ -62,6 +63,7 @@ BrowserEngine.prototype.fillTextBox = function (selector, text) {
   logger.trace(selector, text);
 
   self.driver.findElement(webdriver.By.css(selector)).sendKeys(text).then(deferred.resolve, deferred.reject);
+  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
 
   return deferred.promise;
 }
@@ -72,6 +74,7 @@ BrowserEngine.prototype.checkBox = function (selector) {
   logger.trace(selector);
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
+  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
 
   return deferred.promise;
 }
@@ -91,6 +94,7 @@ BrowserEngine.prototype.click = function (selector) {
   logger.trace(selector);
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
+  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
 
   return deferred.promise;
 }
@@ -154,6 +158,8 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
 
+  logger.trace(formTemplate, info);
+
   var combinedInfo = Object.merge(resource.constants, info);
 
   // this would be so much nicer with generators.. 
@@ -212,25 +218,25 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 }
 
 
-WebFormEngine.prototype.selectForm = function (host) {
+WebFormEngine.selectForm = function (host) {
   var self = this;
-  var selectedForm = undefined;
+  var selectedForm = null;
 
   selectedForm = Object.find(resource.forms, function (formName, form) {
     return form.dynamicMatcher(host);
   });
 
-  return selectedForm;
+  return (selectedForm !== null) ? resource.forms[selectedForm] : null;
 }
 
 WebFormEngine.prototype.post = function (host, message, notice, done) {
   var self = this;
   var campaign = host.campaign;
   var client = host.client;
-  var infringements = host.infringements
+  var infringements = host.infringements;
 
-  var matchForm = self.selectForm(host);
-  if (matchForm === undefined) {
+  var matchForm = WebFormEngine.selectForm(host);
+  if (matchForm === null) {
     var err = new Error('Could not select a form for host: ' + host);
     done(err);
     return;

@@ -182,7 +182,7 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
         key = uri.domain().toLowerCase();
 
       } catch (err) { 
-        logger.warn('Error processing %s: %s', link.uri, err);
+        logger.warn('Error processing %s', link.uri, err);
       }
     }
 
@@ -527,16 +527,19 @@ NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done)
     , err = null
     ;
 
+  
   var engines = [WebFormEngine, EmailEngine];
   var engineSelection = engines.find(function (engine) { return engine.canHandleHost(host); });
 
-  if (engineSelection === undefined) {
+  if (engineSelection === null) {
     var msg = util.format('No engine available of type %s for %s',
                            host.noticeDetails.type, host._id);
     err = new Error(msg);
   }
+  
+  console.log(engine);
 
-  done(err, new engine(), message, notice);
+  done(err, new engineSelection(), message, notice);
 }
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {
