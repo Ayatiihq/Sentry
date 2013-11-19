@@ -63,6 +63,7 @@ Logger.prototype.error = function() {
 }
 
 Logger.prototype.trace = function () {
+  if (process.env['SENTRY_DEBUG_TRACE'] === undefined) { return; }
   var string = format.apply(null, arguments);
   winston.info(this.prefix_ + ROLE + lineNumber() + ':' + functionName() + ': ' + string);
 }
