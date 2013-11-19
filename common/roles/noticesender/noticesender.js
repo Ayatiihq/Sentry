@@ -336,15 +336,15 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
     , details = host.noticeDetails
     , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , notice = null
+    , message = null
     ;
 
   logger.info('Sending notice to %s', host._id);
   host.campaign = self.campaign_;
   host.client = self.client_;
   host.infringements = infringements;
-  var notice = null;
-  var message = null;
-
+  
   if (host.noticeDetails.type === undefined) {
     var err = new Error(acquire('logger').dictFormat('Host "${host}" has an undefined type.', { 'host': host.name }));
     done(err);
@@ -591,9 +591,7 @@ NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
   notice.infringements = [];
   infringements.forEach(function(infringement) {
     notice.infringements.push(infringement._id);
-  });
-  notice.publicInfringements = infringements;
-
+  }); 
   return notice;
 }
 
