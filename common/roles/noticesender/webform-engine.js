@@ -21,7 +21,7 @@ var acquire = require('acquire')
 
 var resource = acquire('webform-engine-resource');
 
-
+var TAKE_SCREENSHOTS = false;
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
@@ -48,7 +48,7 @@ BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   //  var selector = webdriver.By.css(selectorToWaitFor);
   //  seleniumPromise = seleniumPromise.then(self.driver.findElement.bind(self.driver, selector));
   }
-  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
+  if (TAKE_SCREENSHOTS) { self.debugScreenshot((Date.now() / 1000).toString() + '.png') };
   seleniumPromise.then(deferred.resolve, deferred.reject);
   return deferred.promise.delay(5000); // delay 5 seconds to allow it to load
 }
@@ -63,7 +63,7 @@ BrowserEngine.prototype.fillTextBox = function (selector, text) {
   logger.trace(selector, text);
 
   self.driver.findElement(webdriver.By.css(selector)).sendKeys(text).then(deferred.resolve, deferred.reject);
-  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
+  if (TAKE_SCREENSHOTS) { self.debugScreenshot((Date.now() / 1000).toString() + '.png') };
 
   return deferred.promise;
 }
@@ -74,7 +74,7 @@ BrowserEngine.prototype.checkBox = function (selector) {
   logger.trace(selector);
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
-  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
+  if (TAKE_SCREENSHOTS) { self.debugScreenshot((Date.now() / 1000).toString() + '.png') };
 
   return deferred.promise;
 }
@@ -91,7 +91,7 @@ BrowserEngine.prototype.click = function (selector) {
   logger.trace(selector);
 
   self.driver.findElement(webdriver.By.css(selector)).click().then(deferred.resolve, deferred.reject);
-  self.debugScreenshot((Date.now() / 1000).toString() + '.png');
+  if (TAKE_SCREENSHOTS) { self.debugScreenshot((Date.now() / 1000).toString() + '.png') };
 
   return deferred.promise;
 }
@@ -196,17 +196,15 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
       return commands.reduce(Q.when, Q());
     });
 
-  }).then(function () {
-    logger.info('finished filling out form');
-    self.browser.debugScreenshot('finishedform.png');
+  }).then(function finishedForm() {
+    logger.trace();
     return self.browser.submit(formTemplate.submit).delay(5000);
   }).then(function () {
-    self.browser.debugScreenshot('postsubmit.png');
     self.browser.quit();
     deferred.resolve();
   }).fail(function (err) {
     deferred.reject(err);
-    self.browser.debugScreenshot('debug.png').then(self.browser.quit.bind(self.browser));
+    self.browser.quit();
   });
 
   return deferred.promise;
