@@ -82,9 +82,6 @@ BrowserEngine.prototype.checkBox = function (selector) {
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
   logger.trace(selector);
-
-  logger.error('omgwtfbbq not ready for this jelly');
-  throw new Error('bad :(');
   return self.click(selector);
 }
 
@@ -202,16 +199,14 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   }).then(function () {
     logger.info('finished filling out form');
     self.browser.debugScreenshot('finishedform.png');
-    //else { return self.browser.submit(formTemplate.submit) };
+    return self.browser.submit(formTemplate.submit).delay(5000);
   }).then(function () {
-    //deferred.resolve();
-    deferred.reject(new Error('not really errored, but we do not want to submit yet'));
+    self.browser.debugScreenshot('postsubmit.png');
     self.browser.quit();
+    deferred.resolve();
   }).fail(function (err) {
-    logger.error(err);
     deferred.reject(err);
     self.browser.debugScreenshot('debug.png').then(self.browser.quit.bind(self.browser));
-    self.browser.quit();
   });
 
   return deferred.promise;
