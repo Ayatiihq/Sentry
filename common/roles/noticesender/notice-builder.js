@@ -27,6 +27,7 @@ var NoticeBuilder = module.exports = function(client, campaign, host, infringeme
   this.host_ = host;
   this.infringements_ = infringements;
   this.storage_ = null;
+  this.publicInfringements = infringements;
 
   this.init();
 }

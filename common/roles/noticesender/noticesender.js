@@ -459,6 +459,9 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
                       noticeWithHost.host.hostedBy + ' information');
           return done();
         }
+        hostedByHost.campaign = self.campaign_;
+        hostedByHost.client = self.client_;
+        hostedByHost.infringements = notice.publicInfringements;
         noticeWithHost.host.hostedBy = hostedByHost;
         that(noticeWithHost);
       })
@@ -523,10 +526,8 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
 
 NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
   var self = this
-    , engine = null
     , err = null
     ;
-
   
   var engines = [WebFormEngine, EmailEngine];
   var engineSelection = engines.find(function (engine) { return engine.canHandleHost(host); });
@@ -536,8 +537,6 @@ NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done)
                            host.noticeDetails.type, host._id);
     err = new Error(msg);
   }
-  
-  console.log(engine);
 
   done(err, new engineSelection(), message, notice);
 }

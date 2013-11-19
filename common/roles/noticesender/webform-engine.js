@@ -252,7 +252,7 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
     infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri
   };
 
-  self.executeForm(matchForm, infoObj).nodeify(done);
+  self.executeForm(matchForm, infoObj).then(function () { return notice; }).nodeify(done);
 }
 
 WebFormEngine.canHandleHost = function (host) {
