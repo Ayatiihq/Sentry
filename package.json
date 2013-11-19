@@ -6,6 +6,7 @@
   "dependencies": {
     "acquire": "git://github.com/njpatel/acquire.git",
     "bcrypt": "*",
+    "difflib": "0.2.x",
     "cheerio": "0.10.x",
     "enum": "0.2.x",
     "fs-extra": "0.6.x",
@@ -19,6 +20,7 @@
     "parseq": "0.2.x",
     "q": "0.9.x",
     "rarfile": "*",
+    "redis": "x.x.x",
     "read-torrent": "0.0.x",
     "request": "2.x.x",
     "rimraf": "2.1.x",

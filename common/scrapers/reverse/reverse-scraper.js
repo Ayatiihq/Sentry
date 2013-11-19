@@ -47,7 +47,7 @@ var ReverseScraper = module.exports = function() {
   this.remoteClient_ = null;
   this.idleTime_ = [5, 10];
   this.resultsCount_ = 0;
-  this.maxPages_ = 15;
+  this.maxPages_ = 40;
   this.pageNumber_ = 1;
 
   this.cachedCalls_ = [];
@@ -144,6 +144,8 @@ ReverseScraper.prototype.loadEngine = function(done) {
        throw new Error(self.engineName_ +' is not a valid engine name');
 
     engine = new Klass(self.campaign_, self.infringements_);
+    if (engine.maxPages_)
+      self.maxPages_ = engine.maxPages_;
   } catch (err) {
     err = err;
   }
@@ -311,6 +313,7 @@ ReverseScraper.prototype.isAlive = function(cb) {
 var BittorrentScraper = ENGINES['bittorrent'] = function(campaign, infringements) {
   this.campaign_ = campaign;
   this.infringements_ = infringements;
+  this.maxPages_ = 40;
 }
 
 BittorrentScraper.prototype.getSearchTerm = function(runNumber, done) {
@@ -416,9 +419,8 @@ CyberlockerScraper.prototype.getSearchTermForCampaign = function(campaign, id) {
         return util.format('"%s" +%s', track.title, id)
       }
     } else {
-      return util.format('"%s" +%s', campaign.albumTitle, id);
+      return util.format('"%s" +%s', campaign.metadata.albumTitle, id);
     }
   }
-
-  return util.format('"%s" +%s', campaign.name, campaign.albumTitle);
+  return util.format('"%s" +%s', campaign.name, campaign.metadata.albumTitle);
 }

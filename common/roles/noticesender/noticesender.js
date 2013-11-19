@@ -242,6 +242,10 @@ NoticeSender.prototype.processBatch = function(batch, done) {
         logger.warn('Host "%s" does not have noticeDetails', batch.key ? batch.key : batch.infringements[0].uri);
         return done();
       
+      } else if (!host.noticeDetails.type && !host.hostedby) {
+        logger.warn('Host "%s" does not have engine type, nor hostedBy to escalate');
+        return done();
+      
       } else if (categoryFilters && !categoryFilters.some(host.category)) {
         logger.info('Host %s (%s) does not match allowed noticing categories.', host._id, states.infringements.categoryNames[host.category]);
         return done();
@@ -338,6 +342,8 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   host.campaign = self.campaign_;
   host.client = self.client_;
   host.infringements = infringements;
+  var notice = null;
+  var message = null;
 
   if (host.noticeDetails.type === undefined) {
     var err = new Error(acquire('logger').dictFormat('Host "${host}" has an undefined type.', { 'host': host.name }));
@@ -345,21 +351,36 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     return;
   }
 
+  // Make sure host is as valid as possible
+  host.noticeDetails.metadata = host.noticeDetails.metadata || {};
+  host.noticeDetails.metadata.template = host.noticeDetails.metadata.template || 'dmca';
+
   Seq()
     .seq(function () {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
       builder.build(this);
     })
-    .seq(function(hash, message) {
-      var notice = self.prepareNotice(hash, host, infringements);
+    .seq(function(hash, msg) {
+      notice = self.prepareNotice(hash, host, infringements);
+      message = msg;
+      self.processNotice(host, notice, this);
+    })
+    .seq(function(){
+      //  first check to see if we can escalate this mother
+      if(self.hosts_.shouldAutomateEscalation(host)){
+        logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
+        self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
+        return;
+      }        
+      this(null, message, notice);
+    })
+    .seq(function(message, notice) {
       self.loadEngineForHost(host, message, notice, this);
     })
     .seq(function (engine, message, notice) {
       engine.post(host, message, notice, this);
     })
-    .seq(function(notice) {
-      self.processNotice(host, notice, this);
-    })
+
     .seq(function() {
       if (!details.testing) {
         host.settings.lastTriggered = Date.now();
@@ -369,25 +390,11 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     })
     .catch(function(err) {
       logger.warn('Unable to send notice to %s: %s', host._id, err);
-      done(err);
+      if(notice){
+        self.notices_.revert(notice, done.bind(null, err));
+      }
     })
     ;
-}
-
-NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
-  var self = this
-    , notice = {}
-    ;
-  notice._id = hash;
-  notice.metadata = {
-    to: host.noticeDetails.metadata.to
-  };
-  notice.host = host._id;
-  notice.infringements = [];
-  infringements.forEach(function(infringement) {
-    notice.infringements.push(infringement._id);
-  }); 
-  return notice;
 }
 
 NoticeSender.prototype.sendEscalatedNotices = function(done){
@@ -427,7 +434,7 @@ NoticeSender.prototype.sendEscalatedNotices = function(done){
 
 NoticeSender.prototype.escalateNotice = function(notice, done){
   var self = this;
-  
+  logger.info('escalate notice - ' + notice._id);
   Seq()
     .seq(function(){
       // Flesh out the original host
@@ -437,12 +444,17 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
           logger.warn('Unable to fetch (for some reason) the original host for the intended escalated notice : ' + host);
           return done();
         }
+        if(!host.serverInfo || !host.serverInfo.ipAddress || host.serverInfo.ipAddress.replace(/\s/g, "") === ""){
+          logger.warn("We don't have the server ip for " + host.name + ' - cancelling escalation until we do have that IP.');
+          return done(); 
+        }
         notice.host = host;
-        that(notice);
+        that(null, notice);
       });
     })
     .seq(function(noticeWithHost){
       // Flesh out the hostedby host.
+      logger.info('escalate notice - have host');
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
         logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
@@ -463,10 +475,11 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
         hostedByHost.client = self.client_;
         hostedByHost.infringements = notice.publicInfringements;
         noticeWithHost.host.hostedBy = hostedByHost;
-        that(noticeWithHost);
+        that(null, noticeWithHost);
       })
     })
     .seq(function(noticeWithHostedBy){
+      logger.info('escalate notice - have host.hostedBy');
       // Prepare escalation text
       var that = this;
       self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
@@ -478,13 +491,15 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       })      
     })
     .seq(function(escalationText, prepdNotice){
+      logger.info('escalate notice - have host.hostedBy');
       self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
     })
     .seq(function(engine, message, notice) {
       engine.post(notice.host.hostedBy, message, notice, this);
     })
-    .seq(function(notice) {
-      self.notices_.setNoticeState(notice, states.notices.state.ESCALATED, this);
+    .seq(function(notice, target) {
+      self.notices_.addEscalated(notice, target);
+      self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })
     .seq(function(){
       logger.info('successfully escalated notice ' + notice._id + ' to ' + notice.host.hostedBy.name);
@@ -492,6 +507,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     })
     .catch(function(err) {
       // Don't error, let it move onto the next escalation.
+      logger.warn('Escalation failed : ' +  err);
       done();
     })
     ;    
@@ -505,11 +521,15 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
     })
     .seq(function(template) {
       var that = this;
+      var target = notice.host.hostedBy.noticeDetails.manual ? notice.host.hostedBy.uri : notice.host.hostedBy.name 
       try {
         template = Handlebars.compile(template);
-        context = {host: notice.host.hostedBy,
-                   originalNotice: originalMsg,
-                   date: Date.utc.create().format('{dd} {Month} {yyyy}')};
+        context = {hostedBy : notice.host.hostedBy, 
+                   website : notice.host,
+                   offendingIP : notice.host.serverInfo.ipAddress,
+                   recipientTarget : target,
+                   originalNotice : originalMsg,
+                   date : Date.utc.create().format('{dd} {Month} {yyyy}')};
         that(null, template(context));
       } catch (err) {
         that(err);
@@ -528,14 +548,14 @@ NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done)
   var self = this
     , err = null
     ;
-  
+
   var engines = [WebFormEngine, EmailEngine];
   var engineSelection = engines.find(function (engine) { return engine.canHandleHost(host); });
 
   if (engineSelection === null) {
-    var msg = util.format('No engine available of type %s for %s',
-                           host.noticeDetails.type, host._id);
-    err = new Error(msg);
+      var msg = util.format('No engine available of type %s for %s',
+                             host.noticeDetails.type, host._id);
+      err = new Error(msg);
   }
 
   done(err, new engineSelection(), message, notice);
@@ -557,6 +577,24 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
     }
     done();
   });
+}
+
+NoticeSender.prototype.prepareNotice = function(hash, host, infringements) {
+  var self = this
+    , notice = {}
+    ;
+  notice._id = hash;
+  notice.metadata = {
+    to: host.noticeDetails.metadata.to
+  };
+  notice.host = host._id;
+  notice.infringements = [];
+  infringements.forEach(function(infringement) {
+    notice.infringements.push(infringement._id);
+  });
+  notice.publicInfringements = infringements;
+
+  return notice;
 }
 
 //

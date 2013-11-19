@@ -78,9 +78,8 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
     // Nothing special yet for movies
 
   } else if (campaign.type == 'music.album') {
-    // FIXME: Add track support
     campaign.metadata.tracks.forEach(function(track) {
-      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.name, { anyWord: false }), 'i'));
+      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.title, { anyWord: false }), 'i'));
     });
   } else {
     logger.warn('Campaign type %s has no special case word lists', campaign.type);
@@ -292,10 +291,10 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
 
   // First is the basic album searches
   if (soundtrack) {
-    searchTerms1.push(fmt('+"%s" song download', albumTitle));
-    searchTerms1.push(fmt('+"%s" songs download', albumTitle));
-    searchTerms1.push(fmt('+"%s" mp3 torrent', albumTitle));
-    searchTerms2.push(fmt('+"%s" mp3', albumTitle));
+    searchTerms1.push(fmt('+%s song download', albumTitle));
+    searchTerms1.push(fmt('+%s songs download', albumTitle));
+    searchTerms1.push(fmt('+%s mp3 torrent', albumTitle));
+    searchTerms2.push(fmt('+%s mp3', albumTitle));
   
   } else if (compilation) {
     searchTerms1.push(fmt('%s download', albumTitle));
@@ -303,26 +302,27 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     searchTerms1.push(fmt('%s mp3', albumTitle));
   
   } else {
-    searchTerms1.push(fmt('+"%s" "%s" download', artist, albumTitle));
-    searchTerms1.push(fmt('+"%s" "%s" torrent', artist, albumTitle));
-    searchTerms1.push(fmt('+"%s" "%s" mp3', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
   }
 
   // Now the tracks
   tracks.forEach(function(track) {
     if (soundtrack) {
       if (track.searchWithAlbum) {
-        searchTerms1.push(fmt('+"%s" %s song download', track, albumTitle));
-        searchTerms2.push(fmt('+"%s" %s mp3', track, albumTitle));
+        searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
+        searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
       } else {
-        searchTerms1.push(fmt('+"%s" song download', track));
-        searchTerms2.push(fmt('+"%s" mp3', track));
+        searchTerms1.push(fmt('+%s song download', track));
+        searchTerms2.push(fmt('+%s mp3', track));
       }
     } else if (compilation) {
       // do nothing
     } else {
-      searchTerms1.push(fmt('+"%s" "%s" song download', artist, track));
-      searchTerms2.push(fmt('+"%s" "%s" mp3', artist, track));
+      searchTerms1.push(fmt('+%s %s %s song download', artist, albumTitle, track));
+      searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
+      searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
     }
   });
 
@@ -353,7 +353,7 @@ GenericSearchEngine.prototype.emitLinks = function (linkList) {
   var self = this;
 
   linkList.each(function linkEmitter(link) {
-    if (link[0] === '/') { return; }
+    if (!link || link[0] === '/') { return; }
 
     var linkScore = Math.max(1.0, MAX_SCRAPER_POINTS * (1.0 - self.resultsCount / 100));
 

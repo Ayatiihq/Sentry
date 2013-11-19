@@ -253,8 +253,8 @@ Utilities.followRedirects = function(links, promise) {
 
   function onHeadResponse(results, thePromise, err, resp, html){
     if(err){
-      logger.warn('error onHeadResponse ! : ' + err.message);
-      thePromise.resolve(results);
+      logger.warn('error onHeadResponse ! : ' + err.message + ' ' + results);
+      promise.resolve(results);
       return;      
     }
 
@@ -524,7 +524,7 @@ Utilities.requestURLStream = function(url, options, callback) {
     if (response.statusCode >= 400) {
       var err = new Error ('Server returned error status code: ' + response.statusCode);
       err.statusCode = response.statusCode;
-      return callback(err, response);
+      return callback(err, null, response);
     }
 
     switch(response.headers['content-encoding']) {

@@ -807,4 +807,3 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
 
   self.infringements_.findOne({_id: infringementID}, callback);
 }
-

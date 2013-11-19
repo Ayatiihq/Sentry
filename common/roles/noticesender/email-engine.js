@@ -58,7 +58,7 @@ EmailEngine.prototype.post = function(host, message, notice, done) {
       done(null, notice);
     }
     else
-      done(success ? null :msg, notice);
+      done(success ? null :msg, notice, details.metadata.to);
   });
 }
 
