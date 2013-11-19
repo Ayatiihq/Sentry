@@ -281,7 +281,7 @@ NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
       done();
     })
     .catch(function(err) {
-      //logger.warn('Error processing batch for %j: %s', host, err.stack);
+      logger.warn('Error processing batch for %j: %s', host, err.stack);
       done();
     })
     ;
@@ -526,34 +526,17 @@ NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done)
     , engine = null
     , err = null
     ;
-  console.log(host);
 
-  // yell at me if this is still here in a merge request
-  // its just an early choose based on very specific data
-  if (host._id === 'searchengine.bing') {
-    console.log('\n\n\n\n\n\n\n\nBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBINGBING\n\n\n\n\n\n');
-    engine = new WebFormEngine();
-    done(null, engine, message, notice);
-    return;
+  var engines = [WebFormEngine, EmailEngine];
+  var engineSelection = engines.find(function (engine) { return engine.canHandleHost(host); });
+
+  if (engineSelection === undefined) {
+    var msg = util.format('No engine available of type %s for %s',
+                           host.noticeDetails.type, host._id);
+    err = new Error(msg);
   }
 
-  switch (host.noticeDetails.type) {
-    case 'email':
-      done(new Error('disabled for now')); // yell at me if this is still in a merge request
-      engine = new EmailEngine();
-      break;
-
-    case 'webform':
-      engine = new WebFormEngine();
-      break;
-
-    default:
-      var msg = util.format('No engine available of type %s for %s',
-                             host.noticeDetails.type, host._id);
-      err = new Error(msg);
-  }
-
-  done(err, engine, message, notice);
+  done(err, new engine(), message, notice);
 }
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {

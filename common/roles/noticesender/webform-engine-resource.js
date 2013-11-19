@@ -1,5 +1,6 @@
 "use strict"
-// this could of been a json file but json is a bit too restrictive so fuck it its not a json file
+require('sugar');
+// this could of been a json file but json is a bit too restrictive so fuck it - its not a json file
 // constants
 
 var constants = exports.constants = {
@@ -27,6 +28,15 @@ the website for the media is located at ${campaignURL} . We are the authorized a
 // text with ${foo} style will be replaced like Logger.dictFormat
 // formCheckBoxes is an object containing a bunch of selectors as keys with checkboxes to check
 var cloudFlareForm = {
+  dynamicMatcher: function(host) { 
+    var basicExpression = /cloudflare/ig;
+    var accumulator = false;
+    accumulator |= basicExpression.test(host.hostedBy);
+    accumulator |= basicExpression.test(host.name);
+    accumulator |= basicExpression.test(host._id);
+    accumulator |= /cloudflare\.com/ig.test(host.uri);
+    return accumulator;
+  },
   url: 'https://www.cloudflare.com/abuse/form',
   waitforSelector: 'select#form-select',
   preActions: {
@@ -57,6 +67,7 @@ var cloudFlareForm = {
 };
 
 var bingForm = {
+  dynamicMatcher: function (host) { return /bing/gi.test(host.name); },
   url: 'https://www.microsoft.com/info/FormForSearch.aspx',
   submit: 'INPUT#ctl00_ContentPlaceHolder1_Btn_Submit',
 
@@ -85,5 +96,5 @@ var bingForm = {
 
 exports.forms = {
   'cloudflare': cloudFlareForm,
-  'searchengine.bing': bingForm
+  'bing': bingForm
 };

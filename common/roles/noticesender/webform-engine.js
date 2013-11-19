@@ -165,7 +165,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
     });
 
     // laaaame, generators plz.
-    // okay so i figured this might be a bit complicated to look at, but its simple honest
+    // okay so i figured this might be a bit complicated to look at, but its simple - honest.
     // preCommands will be either empty or contain an array of promise returning functions, calling .reduce(Q.when, Q())
     // will basically execute each function one after the other waiting for each promise to return before calling the next one
     // then once its done we delay(5000) because of lazyness before doing essentially the same thing with the commands array
@@ -211,18 +211,31 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   return deferred.promise;
 }
 
+
+WebFormEngine.prototype.selectForm = function (host) {
+  var self = this;
+  var selectedForm = undefined;
+
+  selectedForm = Object.find(resource.forms, function (formName, form) {
+    return form.dynamicMatcher(host);
+  });
+
+  return selectedForm;
+}
+
 WebFormEngine.prototype.post = function (host, message, notice, done) {
   var self = this;
   var campaign = host.campaign;
   var client = host.client;
   var infringements = host.infringements
 
-  if (!Object.has(resource.forms, host._id)) {
-    done(new Error('no form to deal with host ' + host._id));
+  var matchForm = self.selectForm(host);
+  if (matchForm === undefined) {
+    var err = new Error('Could not select a form for host: ' + host);
+    done(err);
     return;
   }
 
-  var matchForm = resource.forms[host._id];
   var infoObj = {
     campaignName: campaign.name,
     campaignURL: campaign.metadata.url,
@@ -234,6 +247,10 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
   };
 
   self.executeForm(matchForm, infoObj).nodeify(done);
+}
+
+WebFormEngine.canHandleHost = function (host) {
+  return !!WebFormEngine.selectForm(host);
 }
 
 if (require.main === module) {
