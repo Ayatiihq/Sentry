@@ -62,6 +62,12 @@ Logger.prototype.error = function() {
   winston.error(errorString);
 }
 
+Logger.prototype.trace = function () {
+  if (process.env['SENTRY_DEBUG_TRACE'] === undefined) { return; }
+  var string = format.apply(null, arguments);
+  winston.info(this.prefix_ + ROLE + lineNumber() + ':' + functionName() + ': ' + string);
+}
+
 Logger.prototype.setRole = function(role) {
   //ROLE = role + ':';
 }
@@ -85,6 +91,10 @@ function lineNumber() {
   return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
 }
 
+function functionName() {
+  return (new Error).stack.split('\n')[3].match(/at (\w+(\.<?[\w\b]+>?)*)/)[1];
+}
+
 // calls dictFormat and util.format intelligently depending on the input
 function format() {
   var args = Array.prototype.slice.call(arguments, 0);
@@ -103,7 +113,7 @@ function format() {
 // for example:
 // dictFormat("testing ${owner} ${name} ${garbled}ifiction", {owner: 'gord', name:'Format', garbled:'californ'});
 //   => testing gord Format californifiction
-function dictFormat(string, formatDictionary) {
+exports.dictFormat = dictFormat = function (string, formatDictionary) {
   var re = new RegExp("\\$\\{(\\w+)\\}", 'g');
   return string.replace(re, function(subString, subGroup) { return Object.has(formatDictionary, subGroup) ? formatDictionary[subGroup] : subString });
 }

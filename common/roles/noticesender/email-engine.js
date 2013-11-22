@@ -61,3 +61,8 @@ EmailEngine.prototype.post = function(host, message, notice, done) {
       done(success ? null :msg, notice, details.metadata.to);
   });
 }
+
+EmailEngine.canHandleHost = function (host) {
+  if (!Object.has(host, 'noticeDetails')) { return false; }
+  return (host.noticeDetails.type === 'email');
+}

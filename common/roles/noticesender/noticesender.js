@@ -30,6 +30,7 @@ var Campaigns = acquire('campaigns')
   ;
 
 var EmailEngine = require('./email-engine')
+  , WebFormEngine = require('./webform-engine')
   , NoticeBuilder = require('./notice-builder')
   ;
 
@@ -181,7 +182,7 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
         key = uri.domain().toLowerCase();
 
       } catch (err) { 
-        logger.warn('Error processing %s: %s', link.uri, err);
+        logger.warn('Error processing %s', link.uri, err);
       }
     }
 
@@ -221,12 +222,11 @@ NoticeSender.prototype.processBatch = function(batch, done) {
   var self = this
     , categoryFilters = self.campaign_.metadata.noticeCategoryFilters
     ;
-
   Seq()
     .seq(function() {
       self.hosts_.get(batch.key, this);
     })
-    .seq(function(host) {
+    .seq(function (host) {
       if (!host) {
         logger.warn('Host "%s" does not exist', batch.key);
         // We add it to the DB to be processed
@@ -336,18 +336,27 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
     , details = host.noticeDetails
     , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , notice = null
+    , message = null
     ;
 
   logger.info('Sending notice to %s', host._id);
-  var notice = null;
-  var message = null;
+  host.campaign = self.campaign_;
+  host.client = self.client_;
+  host.infringements = infringements;
+  
+  if (host.noticeDetails.type === undefined) {
+    var err = new Error(acquire('logger').dictFormat('Host "${host}" has an undefined type.', { 'host': host.name }));
+    done(err);
+    return;
+  }
 
   // Make sure host is as valid as possible
   host.noticeDetails.metadata = host.noticeDetails.metadata || {};
   host.noticeDetails.metadata.template = host.noticeDetails.metadata.template || 'dmca';
 
   Seq()
-    .seq(function() {
+    .seq(function () {
       var builder = new NoticeBuilder(self.client_, self.campaign_, host, infringements);
       builder.build(this);
     })
@@ -368,7 +377,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     .seq(function(message, notice) {
       self.loadEngineForHost(host, message, notice, this);
     })
-    .seq(function(engine, message, notice) {
+    .seq(function (engine, message, notice) {
       engine.post(host, message, notice, this);
     })
 
@@ -462,6 +471,9 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
                       noticeWithHost.host.hostedBy + ' information');
           return done();
         }
+        hostedByHost.campaign = self.campaign_;
+        hostedByHost.client = self.client_;
+        hostedByHost.infringements = notice.publicInfringements;
         noticeWithHost.host.hostedBy = hostedByHost;
         that(null, noticeWithHost);
       })
@@ -534,22 +546,19 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
 
 NoticeSender.prototype.loadEngineForHost = function(host, message, notice, done) {
   var self = this
-    , engine = null
     , err = null
     ;
 
-  switch (host.noticeDetails.type) {
-    case 'email':
-      engine = new EmailEngine();
-      break;
+  var engines = [WebFormEngine, EmailEngine];
+  var engineSelection = engines.find(function (engine) { return engine.canHandleHost(host); });
 
-    default:
+  if (engineSelection === null) {
       var msg = util.format('No engine available of type %s for %s',
                              host.noticeDetails.type, host._id);
       err = new Error(msg);
   }
 
-  done(err, engine, message, notice);
+  done(err, new engineSelection(), message, notice);
 }
 
 NoticeSender.prototype.processNotice = function(host, notice, done) {
@@ -605,4 +614,32 @@ NoticeSender.prototype.start = function() {
 
 NoticeSender.prototype.end = function() {
   // Don't do anything, just let noticesender finish as normal, it's pretty fast
+}
+
+if (require.main === module) {
+
+  var job = {
+    "_id": {
+      "owner": {
+        "client": "Viacom 18",
+        "campaign": "Boss 2013"
+      },
+      "role": "noticesender",
+      "consumer": "camp/job-notice-boss.json",
+      "created": 1384771491629
+    },
+    "finished": 0,
+    "log": [],
+    "metadata": {},
+    "popped": 1384771493838,
+    "priority": 0,
+    "snapshot": {},
+    "started": 0,
+    "state": 0,
+    "who": "WorldsEnd-77345"
+  };
+
+  var noticeSender = new NoticeSender();
+  noticeSender.on('error', logger.error);
+  noticeSender.processJob(null, job);
 }
