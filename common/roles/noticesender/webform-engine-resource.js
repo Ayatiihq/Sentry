@@ -4,18 +4,18 @@ require('sugar');
 // constants
 
 var constants = exports.constants = {
-	ayatiiCompanyName: 'Ayatii Limited',
-	ayatiiEmail: 'neilpatel@ayatii.com',
-	ayatiiFullName: 'Neil Patel',
-	ayatiiFirstName: 'Neil',
+  ayatiiCompanyName: 'Ayatii Limited',
+  ayatiiEmail: 'neilpatel@ayatii.com',
+  ayatiiFullName: 'Neil Patel',
+  ayatiiFirstName: 'Neil',
   ayatiiLastName: 'Patel',
-	ayatiiTele: '+44 (0) 208 133 2192',
-	ayatiiAddress: 'Kemp House, 152-160 City Road',
-	ayatiiCity: 'London',
-	ayatiiState: 'London',
-	ayatiiPostcode: 'EC1V 2NX',
-	ayatiiCountry: 'UK',
-	ayatiiDescription: "The original works are copyrighted works of ${clientName} specifically the '${campaignName}' work. Pursuant to 17 USC § 512(c)(3)(A)(ii)\n\
+  ayatiiTele: '+44 (0) 208 133 2192',
+  ayatiiAddress: 'Kemp House, 152-160 City Road',
+  ayatiiCity: 'London',
+  ayatiiState: 'London',
+  ayatiiPostcode: 'EC1V 2NX',
+  ayatiiCountry: 'UK',
+  ayatiiDescription: "The original works are copyrighted works of ${clientName} specifically the '${campaignName}' work. Pursuant to 17 USC § 512(c)(3)(A)(ii)\n\
 the website for the media is located at ${campaignURL} . We are the authorized agents of ${clientName}, our authorization document is available at ${clientAuthorization}"
 }
 
@@ -29,40 +29,40 @@ the website for the media is located at ${campaignURL} . We are the authorized a
 // formCheckBoxes is an object containing a bunch of selectors as keys with checkboxes to check
 var cloudFlareForm = {
   dynamicMatcher: function(host) { 
-    var basicExpression = /cloudflare/ig;
-    var accumulator = false;
-    accumulator |= basicExpression.test(host.hostedBy);
-    accumulator |= basicExpression.test(host.name);
-    accumulator |= basicExpression.test(host._id);
-    accumulator |= /cloudflare\.com/ig.test(host.uri);
-    return accumulator;
+  var basicExpression = /cloudflare/ig;
+  var accumulator = false;
+  accumulator |= basicExpression.test(host.hostedBy);
+  accumulator |= basicExpression.test(host.name);
+  accumulator |= basicExpression.test(host._id);
+  accumulator |= /cloudflare\.com/ig.test(host.uri);
+  return accumulator;
   },
   url: 'https://www.cloudflare.com/abuse/form',
   waitforSelector: 'select#form-select',
   preActions: {
-    'click': 'option[value=dmca]'
+  'click': 'option[value=dmca]'
   },
   submit: 'input#abuse-submit',
   formText: {
-    'input#Name': '${ayatiiFullName}',
-    'input#HolderName': '${copyrightHolderFullName}',
-    'input#Email': '${ayatiiEmail}',
-    'input#EmailConfirm': '${ayatiiEmail}',
-    'input#Title': 'Mr',
-    'input#Company': 'Ayatii',
-    'input#Tele': '${ayatiiTele}',
-    'input#Address': '${ayatiiAddress}',
-    'input#City': '${ayatiiCity}',
-    'input#State': '${ayatiiState}',
-    'textarea#URLs': '${infringingURLS}',
-    'textarea#OriginalWork': constants.ayatiiDescription,
-    'input#Signature': '${ayatiiFullName}'
+  'input#Name': '${ayatiiFullName}',
+  'input#HolderName': '${copyrightHolderFullName}',
+  'input#Email': '${ayatiiEmail}',
+  'input#EmailConfirm': '${ayatiiEmail}',
+  'input#Title': 'Mr',
+  'input#Company': 'Ayatii',
+  'input#Tele': '${ayatiiTele}',
+  'input#Address': '${ayatiiAddress}',
+  'input#City': '${ayatiiCity}',
+  'input#State': '${ayatiiState}',
+  'textarea#URLs': '${infringingURLS}',
+  'textarea#OriginalWork': constants.ayatiiDescription,
+  'input#Signature': '${ayatiiFullName}'
   },
   formCheckBoxes: {
-    'input#Agree': true
+  'input#Agree': true
   },
   actions: {
-    'click': 'option[value=GB]'
+  'click': 'option[value=GB]'
   }
 };
 
@@ -72,28 +72,30 @@ var bingForm = {
   submit: 'INPUT#ctl00_ContentPlaceHolder1_Btn_Submit',
 
   formText: {
-    'INPUT#ctl00_ContentPlaceHolder1_fname': '${ayatiiFirstName}',
-    'INPUT#ctl00_ContentPlaceHolder1_lname': '${ayatiiLastName}',
-    'INPUT#ctl00_ContentPlaceHolder1_email': '${ayatiiEmail}',
-    'INPUT#ctl00_ContentPlaceHolder1_companyName': '${copyrightHolderFullName}',
-    'INPUT#ctl00_ContentPlaceHolder1_country': '${ayatiiCountry}',
-    'INPUT#ctl00_ContentPlaceHolder1_titleOfWork': '${campaignName}',
-    'INPUT#ctl00_ContentPlaceHolder1_TypeOfWork': '${contentMediaType}',
-    'INPUT#ctl00_ContentPlaceHolder1_url': '${clientAuthorization}',
-    'TEXTAREA#ctl00_ContentPlaceHolder1_urlInfringed': '${infringingURLS}',
-    'TEXTAREA#ctl00_ContentPlaceHolder1_additionalInfo': constants.ayatiiDescription,
-    'INPUT#ctl00_ContentPlaceHolder1_signature': '${ayatiiFullName}'
+  'INPUT#ctl00_ContentPlaceHolder1_fname': '${ayatiiFirstName}',
+  'INPUT#ctl00_ContentPlaceHolder1_lname': '${ayatiiLastName}',
+  'INPUT#ctl00_ContentPlaceHolder1_email': '${ayatiiEmail}',
+  'INPUT#ctl00_ContentPlaceHolder1_companyName': '${copyrightHolderFullName}',
+  'INPUT#ctl00_ContentPlaceHolder1_country': '${ayatiiCountry}',
+  'INPUT#ctl00_ContentPlaceHolder1_titleOfWork': '${campaignName}',
+  'INPUT#ctl00_ContentPlaceHolder1_TypeOfWork': '${contentMediaType}',
+  'INPUT#ctl00_ContentPlaceHolder1_url': '${clientAuthorization}',
+  'TEXTAREA#ctl00_ContentPlaceHolder1_urlInfringed': '${infringingURLS}',
+  'TEXTAREA#ctl00_ContentPlaceHolder1_additionalInfo': constants.ayatiiDescription,
+  'INPUT#ctl00_ContentPlaceHolder1_signature': '${ayatiiFullName}'
   },
 
   formCheckBoxes: {
-    'INPUT#GoodFaithBelief': true,
-    'INPUT#AuthorityToAct': true,
-    'INPUT#Acknowledgement': true
+  'INPUT#GoodFaithBelief': true,
+  'INPUT#AuthorityToAct': true,
+  'INPUT#Acknowledgement': true
   },
 
 };
 
+var dailyMotionForm = {
 
+}
 exports.forms = {
   'cloudflare': cloudFlareForm,
   'bing': bingForm
