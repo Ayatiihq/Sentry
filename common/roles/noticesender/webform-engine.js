@@ -19,7 +19,7 @@ var acquire = require('acquire')
   , webdriver = require('selenium-webdriver')
 ;
 
-var resource = acquire('webform-engine-resource');
+var resource = require('./webform-engine-resource');
 
 var TAKE_SCREENSHOTS = false;
 
