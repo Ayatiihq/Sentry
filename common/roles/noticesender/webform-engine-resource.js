@@ -94,8 +94,32 @@ var bingForm = {
 };
 
 var dailyMotionForm = {
+  dynamicMatcher: function (host) { return /dailymotion/gi.test(host.name); },
+  url: 'http://www.dailymotion.com/feedback/copyright/notification',
 
+  actions: {
+    'click': 'option[value=legal]'
+  },
+
+  formText: {
+    'INPUT#form_copyright_notification_lastname': '${ayatiiLastName}',
+    'INPUT#form_copyright_notification_firstname': '${ayatiiFirstName}',
+    'INPUT#form_copyright_notification_address': '${ayatiiAddress}, ${ayatiiPostcode}, ${ayatiiCountry}',
+    'INPUT#form_copyright_notification_email': '${ayatiiEmail}',
+    'INPUT#form_copyright_notification_phone': '${ayatiiTele}',
+    'TEXTAREA#form_copyright_notification_videos': '${infringingURLS}',
+    'TEXTAREA#form_copyright_notification_reasons': constants.ayatiiDescription
+  },
+
+  formCheckBoxes: {
+    'INPUT#form_copyright_notification_termsofuse': true,
+    'INPUT#form_copyright_notification_info': true
+  },
+
+  submit: 'INPUT#form_copyright_notification_save'
 }
+
+
 exports.forms = {
   'cloudflare': cloudFlareForm,
   'bing': bingForm
