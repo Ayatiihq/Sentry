@@ -62,7 +62,13 @@ Downloader.prototype.validURI = function(uri){
   self.ignoreExts.each(function(useless){
     if(uri.endsWith(useless))
       result = false;
-  })
+  });
+  
+  //tmp
+  if(uri.match(/APE/g) || uri.match(/rapidgator\.net\/file\/8d4f99e7e5956b85f4ce56f1f7d8d7ba/) || uri.match(/Discography/)){
+    result = false;
+    logger.info(' MATCHED - ' + ' URI : ' + uri);
+  }  
 
   self.attributes.blacklist.each(function(suspect){
     if(uri.match(suspect)){
@@ -251,19 +257,19 @@ Downloader.prototype.targets = function(done){
   var self = this;
   Seq()
     .seq(function(){
-      self.tryTargets(self.attributes.targets.available, this);
-    })
-    .seq(function(available){
-      if(available){
-        logger.info('Found something => MAYBE !')
-        return done(null, states.downloaders.verdict.MAYBE); 
-      }
-      self.tryTargets(self.attributes.targets.unavailable, this);;
+      self.tryTargets(self.attributes.targets.unavailable, this);
     })
     .seq(function(unavailable){
       if(unavailable){
         logger.info('Found something => We are certain its UNAVAILABLE!')
-        done(null, states.downloaders.verdict.UNAVAILABLE); 
+        return done(null, states.downloaders.verdict.UNAVAILABLE); 
+      }
+      self.tryTargets(self.attributes.targets.available, this);;
+    })
+    .seq(function(available){
+      if(available){
+        logger.info('Found something => MAYBE !')
+        done(null, states.downloaders.verdict.MAYBE); 
       }
       else{
         logger.info('Bugger cant find anything on the page - STUMPED');
@@ -282,20 +288,20 @@ Downloader.prototype.tryRegex = function(tests, done){
   var self = this;
   Seq()
     .seq(function(){
+      logger.info('get it !');
       self.browser.getSource(this);      
+      logger.info('here');
     })
     .seq(function(source){
-      //logger.info('attempt to match on source : ' + source);
-      tests.each(function(match){
-        //logger.info('match with ' + JSON.stringify(match) + '\n\n\n\n' + source[0]);
-        if(XRegExp.exec(source[0], match)){
-          logger.info('WE HAVE A MATCH');
-          done(null, true);
-        }
-      })
+      logger.info('attempt to match on source : ' + source);
+      if(XRegExp.exec(source, match)){
+        logger.info('WE HAVE A MATCH');
+        done(null, true);
+      }
       done(null, false);
     })
     .catch(function(err){
+      logger.info (' here goddamit ');
       done(err);
     })
     ;    

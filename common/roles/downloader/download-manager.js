@@ -35,7 +35,9 @@ var Campaigns = acquire('campaigns')
 var PLUGINS = [
    //'4shared'
   //,'zippyshare'
-  'zippyshare'
+  //'zippyshare'
+  //'rapidgator'
+  'rapidshare'
 ];
   /*  '4shared'
   , 'mediafire'
@@ -183,7 +185,7 @@ DownloadManager.prototype.createInfringementMap = function(done) {
   self.infringements_.getNeedsDownloadForCampaign(self.campaign_, category, function(err, infringements) {
     if (err)
       return done(err);
-
+    logger.info('needs-download total: ' + infringements.length);
     var map = {};
     infringements.forEach(function(infringement) {
       var domain = utilities.getDomain(infringement.uri);
@@ -326,14 +328,15 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
         logger.info('BROWN - We think this downloaded something but failed the download policy.');
         if(!result.payload.isEmtpy()){
           logger.warn('RED: but the array of downloads is NOT empty. - leave at NEEDS_DOWNLOAD');
+          return this();
         }
-        this();
+        var newState = states.infringements.state.FALSE_POSITIVE;
+        self.infringements_.setState(infringement, newState, this);        
       }
       else if (result.verdict === states.downloaders.verdict.RUBBISH){
-        //var newState = states.infringements.state.FALSE_POSITIVE;
+        var newState = states.infringements.state.FALSE_POSITIVE;
         logger.info('WHITE - We think this is rubbish');
-        this();
-        //self.infringements_.setState(infringement, newState, this);        
+        self.infringements_.setState(infringement, newState, this);        
       }
       else if (result.verdict === states.downloaders.verdict.STUMPED){
         logger.warn('YELLOW - i.e. fail colour - yep STUMPED - leave at NEEDS_DOWNLOAD');

@@ -82,6 +82,8 @@ Ass.prototype.do = function(action, data){
                   // cowmanger will only ever return a 200 or a 500.
                   if(action === 'click')
                     logger.info('A CLICK to the ass ! : ' + JSON.stringify(body));
+                  /*if(action === 'openInfringement')
+                    logger.info('A openInfrge response ! : ' + JSON.stringify(resp));*/
                   if(resp.statusCode !== 200){
                     logger.info('Not a 200 - the dump from ass is : ' + JSON.stringify(body));
                     return promise.reject(new Error('action ' + action + ' did not get a 200 response - actual response was : ' + resp.statusCode));

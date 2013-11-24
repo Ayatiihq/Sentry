@@ -17,13 +17,17 @@ var acquire = require('acquire')
   ;
 
 var Rapidshare  = module.exports = function (campaign, browser) {
-  var attributes = {login: {user:{value: 'conor-ayatii', selector: 'input[id="js-login-username"]'},
-                            password:{value:'ayatiian', selector: 'input[id="js-login-password"]'},
+  var attributes = {login: {user:{value: 'ayatii-monitor', selector: 'input[id="js-login-username"]'},
+                            password:{value:'w00lworths3322', selector: 'input[id="js-login-password"]'},
                             click: 'a[class="signup blue white-bg white-hover orange-bg-hover"]',
                             at: 'https://rapidshare.com/login',
                             authenticated: false},
-                    targets: [],
-                    approach : states.cyberlockers.method.COW_MANGLING};
+                    targets: {available: [],
+                              unavailable: [/File\snot\sfound/]},
+                    approach : states.downloaders.method.COWMANGLING,
+                    strategy : states.downloaders.strategy.TARGETED,
+                    blacklist : []};
+
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 

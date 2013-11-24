@@ -23,7 +23,7 @@ var Rapidgator = module.exports = function (campaign, browser) {
                             at: 'https://rapidgator.net/auth/login',
                             authenticated: false},
                     targets: {available: ['a[class="btn btn-download"]'],
-                              unavailable: []},
+                              unavailable: [/File\snot\sfound/]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};
