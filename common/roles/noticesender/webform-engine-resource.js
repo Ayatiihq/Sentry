@@ -1,5 +1,7 @@
 "use strict"
 require('sugar');
+var Q = require('q');
+
 // this could of been a json file but json is a bit too restrictive so fuck it - its not a json file
 // constants
 
@@ -117,6 +119,27 @@ var dailyMotionForm = {
   },
 
   submit: 'INPUT#form_copyright_notification_save'
+}
+
+var gBloggerForm = {
+  dynamicMatcher: function (host) { return /blogger/gi.test(host.name); },
+  url: 'https://support.google.com/legal/contact/lr_dmca?product=blogger',
+
+  specificOverride: function (info) {
+    var self = this; // self gets bound to the WebFormEngine object
+    var deferred = Q.defer();
+
+    var infringementURLs = info.infringingURLS;
+    // we need to click on the add url button like a billion times or maybe once
+    var lastClick = null;
+    if (infringementURLs.length > 1) {
+      for (var i = 0; i < infringementURLs.length; i++) { 
+        lastClick = self.browser.click('A.add-additional');
+      }
+    }
+
+    return deferred.promise;
+  }
 }
 
 

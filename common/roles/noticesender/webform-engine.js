@@ -191,6 +191,13 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
     addCommand(self.actionBuilder(action, selector));
   });
 
+  // finally, if we have a specificOverride function in our form, execute that, it should return a promise
+  // the specificOverride thing sucks, but there isn't a super nice way around it :(
+
+  if (Object.has(formTemplate, 'specificOverride')) {
+    commandFunctions.push(formTemplate.specificOverride.bind(self, combinedInfo));
+  }
+
   commandFunctions.reduce(Q.when, Q()).then(function finishedForm() {
     logger.trace();
     return self.browser.submit(formTemplate.submit).delay(5000);
