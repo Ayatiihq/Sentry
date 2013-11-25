@@ -159,44 +159,39 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   var combinedInfo = Object.merge(resource.constants, info);
 
-  // this would be so much nicer with generators.. 
-  self.browser.gotoURL(formTemplate.url, formTemplate.waitforSelector).then(function () {
-    var preCommands = [];
-    // first we allow a few pre actions to complete 
-    Object.each(formTemplate.preActions, function preActions(action, selector) {
-      preCommands.push(self.actionBuilder(action, selector));
-    });
+  // essentially a list of functions that return promises;
+  var commandFunctions = [];
+  var addCommand = function () {
+    var args = Array.prototype.slice.apply(null, arguments);
+    var fn = args.unshift();
+    commandFunctions.push(fn.bind.apply(self.browser, args));
+  };
 
-    // laaaame, generators plz.
-    // okay so i figured this might be a bit complicated to look at, but its simple - honest.
-    // preCommands will be either empty or contain an array of promise returning functions, calling .reduce(Q.when, Q())
-    // will basically execute each function one after the other waiting for each promise to return before calling the next one
-    // then once its done we delay(5000) because of lazyness before doing essentially the same thing with the commands array
+  // goto the url
+  addCommand(self.browser.gotoURL, formTemplate.url, formTemplate.waitforSelector);
+  addCommand(self.browser.delay, 5000);
+  
+  Object.each(formTemplate.preActions, function preActions(action, selector) {
+    addCommand(self.actionBuilder(action, selector));
+  });
 
-    return preCommands.reduce(Q.when, Q()).delay(5000).then(function () {
-      var commands = []; // array of promises 
+  // create all the text filling commands
+  Object.each(formTemplate.formText, function addTextToForm(selector, text) {
+    text = acquire('logger').dictFormat(text, combinedInfo);
+    addCommand(self.browser.fillTextBox, selector, text);
+  });
 
-      // create all the text filling commands
-      Object.each(formTemplate.formText, function addTextToForm(selector, text) {
-        text = acquire('logger').dictFormat(text, combinedInfo);
-        commands.push(self.browser.fillTextBox.bind(self.browser, selector, text));
-      });
+  // same with checkboxes, check any that are in our selectors
+  Object.each(formTemplate.formCheckBoxes, function checkBoxes(selector) {
+    addCommand(self.browser.checkBox, self.browser, selector);
+  });
 
-      // same with checkboxes, check any that are in our selectors
-      Object.each(formTemplate.formCheckBoxes, function checkBoxes(selector) {
-        commands.push(self.browser.checkBox.bind(self.browser, selector));
-      });
+  // do the actions 
+  Object.each(formTemplate.actions, function actions(action, selector) {
+    addCommand(self.actionBuilder(action, selector));
+  });
 
-      // do the actions 
-      Object.each(formTemplate.actions, function actions(action, selector) {
-        commands.push(self.actionBuilder(action, selector));
-      });
-
-      // executes all our commands as a sequence, selenium does not need this, but cow will i believe
-      return commands.reduce(Q.when, Q());
-    });
-
-  }).then(function finishedForm() {
+  commandFunctions.reduce(Q.when, Q()).then(function finishedForm() {
     logger.trace();
     return self.browser.submit(formTemplate.submit).delay(5000);
   }).then(function () {
