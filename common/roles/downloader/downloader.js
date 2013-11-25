@@ -64,12 +64,6 @@ Downloader.prototype.validURI = function(uri){
       result = false;
   });
   
-  //tmp
-  if(uri.match(/APE/g) || uri.match(/rapidgator\.net\/file\/8d4f99e7e5956b85f4ce56f1f7d8d7ba/) || uri.match(/Discography/)){
-    result = false;
-    logger.info(' MATCHED - ' + ' URI : ' + uri);
-  }  
-
   self.attributes.blacklist.each(function(suspect){
     if(uri.match(suspect)){
       logger.warn('This we believe to be a URI that we should ignore : ' + uri);
@@ -219,9 +213,10 @@ Downloader.prototype.listenGet = function(uri, done){
     .seq(function(){
       self.browser.getInfringement(uri, this);
     })
-    .seq(function(directDownload){
-      logger.info('getInfringement returned : ' + directDownload);
-      done(null, directDownload);
+    .seq(function(results){
+      logger.info('getInfringement returned : ' + JSON.stringify(results));
+      // here you could check if the url gives away the status of the infringement.
+      done(null, results.result);
     })
     .catch(function(err){
       done(err);

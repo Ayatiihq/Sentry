@@ -15,12 +15,12 @@ var acquire = require('acquire')
   ;
 
 var Fourshared = module.exports = function (campaign, browser) {
-  var attributes = {login: {user: {'selector': '.jsInputLogin',
+  var attributes = {login: {user: {'selector': 'input[class="input-gray-big wide round4 jsInputLogin"]',
                                    'value' : 'subscriptions@ayatii.com'},
                             password : {'selector' : '.jsInputPassword',
                                         'value' : 'fa72b3b24322f86e19456d87a364480f'},
                             submit : 'input[value="Log In"]',
-                            at: 'http://www.4shared.com',
+                            at: 'http://www.4shared.com/web/login',
                             authenticated: false},
                     targets: {available: ['a[id="btnLink"]',
                                           'a[class="gaClick jsNotPush button-paleblue floatLeft f13 round4 no-line downloadFileButton"]',
