@@ -87,10 +87,8 @@ Downloader.prototype.download = function(infringement, done){
       self.login(this);
     })
     .seq(function(){
+      logger.info('here');
       self.listenGet(infringement.uri, this);
-    })
-    .seq(function(directDownload){
-      self.browser.wait(5, this.bind(null, null, directDownload));
     })
     .seq(function(directDownload){
       if(directDownload){
@@ -157,7 +155,7 @@ Downloader.prototype.login = function(done){
     if(err)
       return done(err);
     self.attributes.login.authenticated = true;
-    self.browser.wait(2, done);
+    done();
   });
 }
 
@@ -193,6 +191,7 @@ Downloader.prototype.goLogin = function(done){
         self.browser.submit(self.attributes.login.submit, this);
     })
     .seq(function(){
+      logger.info('done loggin in.')
       done();
     })
     .catch(function(err){
