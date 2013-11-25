@@ -163,7 +163,7 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
 
   if (!self.connected)
     return self.cachedCalls_.push([self.setDownloadPolicy, Object.values(arguments)]);
-
+  logger.info('Set DownloadPolicy ' + JSON.stringify(mimeTypes));
   var data = {'minsize': minSize, 'mimetypes' : mimeTypes};
   self.ass_.do('setDownloadPolicy', data).then(function(result){
     self.ass_.addSource(uri);
