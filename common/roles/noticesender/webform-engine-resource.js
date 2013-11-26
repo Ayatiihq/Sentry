@@ -145,6 +145,19 @@ var gBloggerForm = {
       return inputDeferred.promise;
     }
 
+    // for a list of ids uses infringementURLs to fill them with words. 
+    // returns a promise;
+    var fillInfringements = function (ids) { 
+      if (ids.length !== infringementURLs.length) { deferred.reject(new Error('Not enough text boxes to fill in our infringementURLS')); }
+      else {
+        var promises = [];
+        infringementURLS.each(function (infringementURL, index) { 
+          promises.push(self.browser.fillTextBox.bind(self.browser, 'INPUT#' + ids[index], infringementURL));
+        });
+        
+        return promises.reduce(Q.when, Q());
+       }
+    }
 
     getAllInputIDs().then(function (previousInputIDs) {
       // we need to click on the add url button like a billion times or maybe once
@@ -159,7 +172,10 @@ var gBloggerForm = {
       lastClick.then(function () { 
         getAllInputIDs().then(function (newInputIDs) { 
           var inputIDResult = previousInputIDs.exclude.apply(previousInputIDs, newInputIDs);
+          inputIDResult.unshift('url_box');
           // christ after all that, we should have an array of input ids
+          
+          fillInfringements(inputIDResult).then(function () { deferred.resolve(); });
         });
       });
     });
