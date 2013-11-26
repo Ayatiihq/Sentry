@@ -262,8 +262,8 @@ Cowmangler.prototype.getSource = function(done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getSource, Object.values(arguments)]);
 
-  self.ass_.do('source', {}).then(function(source){
-    done(null, source);
+  self.ass_.do('source', {}).then(function(results){
+    done(null, results.result);
   },
   function(err){
     done(err);
@@ -282,7 +282,7 @@ Cowmangler.prototype.getSources = function(done){
     return self.cachedCalls_.push([self.getSources, Object.values(arguments)]);
 
   self.ass_.do('sources', {}).then(function(sources){
-    done(null, sources);
+    done(null, sources.result);
   },
   function(err){
     done(err);
@@ -414,7 +414,7 @@ Cowmangler.prototype.getOuterHTML = function(selector, done){
     return self.cachedCalls_.push([self.getOuterHTML, Object.values(arguments)]);
 
   self.ass_.do('getOuterHTML', data).then(function(html){
-    done(null, html);
+    done(null, html.result);
   },
   function(err){
     done(err);
@@ -429,7 +429,7 @@ Cowmangler.prototype.getInnerHTML = function(selector, done){
     return self.cachedCalls_.push([self.getInnerHTML, Object.values(arguments)]);
 
   self.ass_.do('getInnerHTML', data).then(function(html){
-    done(null, html);
+    done(null, html.result);
   },
   function(err){
     done(err);

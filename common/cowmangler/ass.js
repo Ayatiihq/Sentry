@@ -95,9 +95,9 @@ Ass.prototype.do = function(action, data){
 
 Ass.prototype.sift = function(body){
   try{
-    var result = JSON.parse(body);
-    if(result)
-      return result.result;
+    var results = JSON.parse(body);
+    if(results)
+      return results;
   }
   catch(err){}
 }

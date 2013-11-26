@@ -87,7 +87,6 @@ Downloader.prototype.download = function(infringement, done){
       self.login(this);
     })
     .seq(function(){
-      logger.info('here');
       self.listenGet(infringement.uri, this);
     })
     .seq(function(directDownload){
@@ -213,6 +212,7 @@ Downloader.prototype.listenGet = function(uri, done){
       self.browser.getInfringement(uri, this);
     })
     .seq(function(results){
+      logger.info('getInfringement returned : ' + JSON.stringify(results));
       logger.info('getInfringement returned : ' + JSON.stringify(results));
       // here you could check if the url gives away the status of the infringement.
       done(null, results.result);
