@@ -20,8 +20,11 @@ var Sharebeast = module.exports = function (campaign, browser) {
                             click : 'a[id="loginLink"]',
                             at: 'http://www.sharebeast.com/?op=login',
                             authenticated: false},
-                    targets: ['input[class="download-file1"]'],
-                    approach : states.cyberlockers.method.COW_MANGLING};
+                    targets: {available: ['input[class="download-file1"]'],
+                              unavailable: []},
+                    approach : states.downloaders.method.COWMANGLING,
+                    strategy : states.downloaders.strategy.TARGETED,
+                    blacklist : []};  
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
