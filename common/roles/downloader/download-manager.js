@@ -33,13 +33,13 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-  'hulkshare'
+  //'hulkshare'
    //'4shared'
   //,'zippyshare'
   //'rapidgator'
   //'rapidshare'
   //  , 'mediafire'
-  //, 'sharebeast'
+  'sharebeast'
 ];
 
 var DownloadManager = module.exports = function() {

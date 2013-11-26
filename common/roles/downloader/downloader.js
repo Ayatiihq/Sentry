@@ -178,6 +178,11 @@ Downloader.prototype.goLogin = function(done){
       self.browser.get(self.attributes.login.at, this);
     })
     .seq(function(){
+      //wait for the page to render
+      //this should be implicit ?
+      self.browser.wait(5, this);
+    })
+    .seq(function(){
       self.browser.input(self.attributes.login.user, this);
     })
     .seq(function(){

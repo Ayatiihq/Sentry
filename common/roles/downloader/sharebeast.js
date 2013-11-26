@@ -21,7 +21,7 @@ var Sharebeast = module.exports = function (campaign, browser) {
                             at: 'http://www.sharebeast.com/?op=login',
                             authenticated: false},
                     targets: {available: ['input[class="download-file1"]'],
-                              unavailable: []},
+                              unavailable: [/File\sNot\sFound/]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};  
