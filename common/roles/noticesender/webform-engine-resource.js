@@ -130,13 +130,42 @@ var gBloggerForm = {
     var deferred = Q.defer();
 
     var infringementURLs = info.infringingURLS;
-    // we need to click on the add url button like a billion times or maybe once
-    var lastClick = null;
-    if (infringementURLs.length > 1) {
-      for (var i = 0; i < infringementURLs.length; i++) { 
-        lastClick = self.browser.click('A.add-additional');
-      }
+    
+    // this is dumb, but gets a list of all the names of all the input boxes
+    var getAllInputIDs = function () { 
+      var inputIDs = [];
+      var inputDeferred = Q.defer();
+      self.browser.getDriver().findElements({'css': 'INPUT'}).then(function (elements) {
+        var lastPromise = null;
+        elements.each(function (element) { 
+          lastPromise = element.getAttribute('id').then(function (value) { inputIDs.push(value); });
+        });
+        lastPromise.then(function () { inputDeferred.resolve(inputIDs); });
+      });
+      return inputDeferred.promise;
     }
+
+
+    getAllInputIDs().then(function (previousInputIDs) {
+      // we need to click on the add url button like a billion times or maybe once
+      var lastClick = null;
+      if (infringementURLs.length > 1) {
+        for (var i = 0; i < infringementURLs.length; i++) { 
+          lastClick = self.browser.click('A.add-additional');
+        }
+      }
+
+      // once we clicked on the url button a billion times or whatever, find all the new input boxes that showed up
+      lastClick.then(function () { 
+        getAllInputIDs().then(function (newInputIDs) { 
+          var inputIDResult = previousInputIDs.exclude.apply(previousInputIDs, newInputIDs);
+          // christ after all that, we should have an array of input ids
+        });
+      });
+    });
+    
+
+
 
     return deferred.promise;
   }

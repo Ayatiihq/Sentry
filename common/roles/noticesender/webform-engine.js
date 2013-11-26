@@ -35,6 +35,8 @@ var BrowserEngine = function () {
 }
 util.inherits(BrowserEngine, events.EventEmitter);
 
+BrowserEngine.prototype.getDriver = function () { return self.driver; }
+
 // if selectorToWaitFor is returned, will wait for that selector to be true before resolving
 BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   var self = this;
