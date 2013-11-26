@@ -89,14 +89,13 @@ Downloader.prototype.download = function(infringement, done){
     .seq(function(){
       self.listenGet(infringement.uri, this);
     })
-    .seq(function(directDownload){
-      self.browser.getSource(this);      
-      /*if(directDownload){
+    .seq(function(directDownload){    
+      if(directDownload){
         self.gatherDownloads(infringement, this);
       }
       else if(self.attributes.strategy === states.downloaders.strategy.TARGETED){
         self.deployTargeted(infringement, this);
-      }*/
+      }
     })
     .seq(function(result){
       logger.info('Result: ' + JSON.stringify(result) + ' uri: ' + infringement.uri);
@@ -258,7 +257,9 @@ Downloader.prototype.targets = function(done){
         logger.info('Found something => We are certain its UNAVAILABLE!')
         return done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
-      self.tryTargets(self.attributes.targets.available, this);;
+      else{
+        self.tryTargets(self.attributes.targets.available, this);;
+      }
     })
     .seq(function(available){
       if(available){
@@ -278,25 +279,25 @@ Downloader.prototype.targets = function(done){
 
 
 Downloader.prototype.tryRegex = function(tests, done){
-  logger.info('and try regex');
+  logger.info('Try regex');
   var self = this;
   Seq()
     .seq(function(){
-      logger.info('get it !');
       self.browser.getSource(this);      
     })
     .seq(function(source){
-      logger.info('attempt to match on source : ' + JSON.stringify(source));
+      //logger.info('attempt to match on source : ' + JSON.stringify(source));
+      var result = false;
       tests.each(function(match){
         if(XRegExp.exec(source, match)){
-          logger.info('WE HAVE A MATCH');
-          done(null, true);
+          result = true;
         }
       });
-      done(null, false);
+      logger.info('Regex result : ' + result);
+      done(null, result);
     })
     .catch(function(err){
-      logger.info (' here goddamit ');
+      logger.info ('Xregex error.');
       done(err);
     })
     ;    

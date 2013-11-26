@@ -263,7 +263,7 @@ Cowmangler.prototype.getSource = function(done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getSource, Object.values(arguments)]);
 
-  self.ass_.do('source', {}).then(function(results){
+  self.ass_.do('getSource', {}).then(function(results){
     done(null, results.result);
   },
   function(err){
@@ -282,7 +282,7 @@ Cowmangler.prototype.getSources = function(done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getSources, Object.values(arguments)]);
 
-  self.ass_.do('sources', {}).then(function(sources){
+  self.ass_.do('getSources', {}).then(function(sources){
     done(null, sources.result);
   },
   function(err){
