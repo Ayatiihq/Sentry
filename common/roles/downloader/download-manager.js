@@ -33,18 +33,14 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
+  'hulkshare'
    //'4shared'
   //,'zippyshare'
-  //'zippyshare'
   //'rapidgator'
-  'rapidshare'
+  //'rapidshare'
+  //  , 'mediafire'
+  //, 'sharebeast'
 ];
-  /*  '4shared'
-  , 'mediafire'
-  , 'sharebeast'
-  , 'rapidshare'
-  , 'hulkshare'*/
-
 
 var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
@@ -314,15 +310,16 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
         self.verifyUnavailable(infringement, this);            
       }
       else if (result.verdict === states.downloaders.verdict.AVAILABLE){
-        logger.info('fingers cross - is this AVAILABLE ? - we think we do !');
-        if(result.payload.isEmtpy()){
+        logger.info('fingers cross - is this AVAILABLE ? - we think we it is !');
+        if(result.payload.isEmpty()){
           logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
+          return this();
         }
-        Logger.info('GREEN: we think we want to store : ' + JSON.stringify(result.payload));
+        Logger.info('GREEN: should be on S3 already : ' + JSON.stringify(result.payload));
         this();
-        /*var newState = states.infringements.state.UNVERIFIED;
+        var newState = states.infringements.state.UNVERIFIED;
         logger.info('Setting state %d on %s', newState, infringement.uri);
-        self.infringements_.setState(infringement, newState, this);*/
+        self.infringements_.setState(infringement, newState, this);
       }
       else if (result.verdict === states.downloaders.verdict.FAILED_POLICY){
         logger.info('BROWN - We think this downloaded something but failed the download policy.');

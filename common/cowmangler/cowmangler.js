@@ -68,11 +68,12 @@ Cowmangler.prototype.get = function(uri, done, options){
 }
 
 /*
-   Get Infringement - Will get the URI you suspect to be an infringement. 
-   It returns a result which determines whether the file is a directDownload or a page.
-   true => directDownload, false => page.
+   Get Infringement - Get's the URI you suspect to be an infringement. 
+   It returns a result with two key/value pairs (format - {result: bool, redirects: []})
+    - result, true => a directDownload, false => a page.
+    - directDownloads, an array of redirects that happened as a result of the get.
  * @param {string}    uri            target URI.
- * @param {function}  done           callback to notify once we are up and talking to cowmangler.
+ * @param {function}  done           callback to notify once we are up and talking to cowmangler.                                  
  **/
 Cowmangler.prototype.getInfringement = function(uri, done){
   var self = this;
@@ -163,7 +164,7 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
 
   if (!self.connected)
     return self.cachedCalls_.push([self.setDownloadPolicy, Object.values(arguments)]);
-  logger.info('Set DownloadPolicy ' + JSON.stringify(mimeTypes));
+  //logger.info('Set DownloadPolicy ' + JSON.stringify(mimeTypes));
   var data = {'minsize': minSize, 'mimetypes' : mimeTypes};
   self.ass_.do('setDownloadPolicy', data).then(function(result){
     self.ass_.addSource(uri);

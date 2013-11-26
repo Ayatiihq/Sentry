@@ -23,7 +23,7 @@ var Hulkshare = module.exports = function (campaign, browser) {
                             at: 'http://www.hulkshare.com/static.php?op=login',
                             authenticated: false},
                     targets: {available: ['a[class="bigDownloadBtn basicDownload"]'],
-                              unavailable: ['div[class="playerNoTrack"]']},
+                              unavailable: [/OOPS\.\.\./]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};

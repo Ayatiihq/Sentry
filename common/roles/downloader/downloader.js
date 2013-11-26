@@ -90,12 +90,13 @@ Downloader.prototype.download = function(infringement, done){
       self.listenGet(infringement.uri, this);
     })
     .seq(function(directDownload){
-      if(directDownload){
+      self.browser.getSource(this);      
+      /*if(directDownload){
         self.gatherDownloads(infringement, this);
       }
       else if(self.attributes.strategy === states.downloaders.strategy.TARGETED){
         self.deployTargeted(infringement, this);
-      }
+      }*/
     })
     .seq(function(result){
       logger.info('Result: ' + JSON.stringify(result) + ' uri: ' + infringement.uri);
@@ -213,7 +214,6 @@ Downloader.prototype.listenGet = function(uri, done){
     })
     .seq(function(results){
       logger.info('getInfringement returned : ' + JSON.stringify(results));
-      logger.info('getInfringement returned : ' + JSON.stringify(results));
       // here you could check if the url gives away the status of the infringement.
       done(null, results.result);
     })
@@ -284,14 +284,15 @@ Downloader.prototype.tryRegex = function(tests, done){
     .seq(function(){
       logger.info('get it !');
       self.browser.getSource(this);      
-      logger.info('here');
     })
     .seq(function(source){
-      logger.info('attempt to match on source : ' + source);
-      if(XRegExp.exec(source, match)){
-        logger.info('WE HAVE A MATCH');
-        done(null, true);
-      }
+      logger.info('attempt to match on source : ' + JSON.stringify(source));
+      tests.each(function(match){
+        if(XRegExp.exec(source, match)){
+          logger.info('WE HAVE A MATCH');
+          done(null, true);
+        }
+      });
       done(null, false);
     })
     .catch(function(err){

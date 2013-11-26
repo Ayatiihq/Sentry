@@ -92,7 +92,7 @@ Ears.prototype.listen = function(channel, message){
   }
 
   if(!self.sources.some(msg.src_uri) && msg.signal !== 'destroyed'){
-    logger.warn("I don't know about this uri... assumption disproved : " + msg.src_uri);
+    //logger.warn("I don't know about this uri... assumption disproved : " + msg.src_uri);
     return;
   }
 
