@@ -125,6 +125,12 @@ var gBloggerForm = {
   dynamicMatcher: function (host) { return /blogger/gi.test(host.name); },
   url: 'https://support.google.com/legal/contact/lr_dmca?product=blogger',
 
+
+  /* the problem with this form is that each infringement has to go in a text box
+   * the problem being that you have to click a button to get new text boxes, which get assigned random ids
+   * so to select and type into each randomly generated id we have to look at all the input elements, click the button
+   * a bunch of times then look at all the input elements again, the new elements we can type into.
+   */
   specificOverride: function (info) {
     var self = this; // self gets bound to the WebFormEngine object
     var deferred = Q.defer();
@@ -179,9 +185,6 @@ var gBloggerForm = {
         });
       });
     });
-    
-
-
 
     return deferred.promise;
   }
@@ -190,5 +193,6 @@ var gBloggerForm = {
 
 exports.forms = {
   'cloudflare': cloudFlareForm,
-  'bing': bingForm
+  'bing': bingForm,
+  'gblooger': gBloggerForm
 };

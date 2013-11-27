@@ -55,10 +55,12 @@ BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   return deferred.promise.delay(5000); // delay 5 seconds to allow it to load
 }
 
+// I forget why i really added this, it doesn't do much
 BrowserEngine.prototype.sleep = function (timeout) {
   return Q.delay(timeout);
 }
 
+// fills the selector with text, returns a promise
 BrowserEngine.prototype.fillTextBox = function (selector, text) {
   var self = this;
   var deferred = new Q.defer();
@@ -70,6 +72,7 @@ BrowserEngine.prototype.fillTextBox = function (selector, text) {
   return deferred.promise;
 }
 
+// checks a checkbox, returns a promise
 BrowserEngine.prototype.checkBox = function (selector) {
   var self = this;
   var deferred = new Q.defer();
@@ -81,12 +84,14 @@ BrowserEngine.prototype.checkBox = function (selector) {
   return deferred.promise;
 }
 
+// not really any different than .click but is good to keep distinct for tracing
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
   logger.trace(selector);
   return self.click(selector);
 }
 
+// clicks the selector provided, returns a promise
 BrowserEngine.prototype.click = function (selector) {
   var self = this;
   var deferred = new Q.defer();
@@ -98,6 +103,7 @@ BrowserEngine.prototype.click = function (selector) {
   return deferred.promise;
 }
 
+// TODO: make this actually work
 BrowserEngine.prototype.comboBox = function (selector, selection) {
   var self = this;
   var deferred = new Q.defer();
@@ -118,6 +124,7 @@ BrowserEngine.prototype.debugScreenshot = function (location) {
   return deferred.promise;
 }
 
+// make sure to call this if there are any promise failures
 BrowserEngine.prototype.quit = function () {
   var self = this;
   self.driver.quit();
@@ -137,6 +144,7 @@ WebFormEngine.prototype.init = function () {
 // turn this to true to get a screenshot instead of a form submission
 var debug = true;
 
+// takes a string action and a selector and returns a correctly bound function ready for Q
 WebFormEngine.prototype.actionBuilder = function (action, selector) {
   var self = this;
   var actionFunction = function () { logger.error(new Error('returned an undefined action in actionBuilder: ' + action)); };
@@ -153,6 +161,7 @@ WebFormEngine.prototype.actionBuilder = function (action, selector) {
   return actionFunction;
 }
 
+// The grunt work of the code, executes the formTempalate given
 WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
