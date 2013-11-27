@@ -18,21 +18,29 @@ var acquire = require('acquire')
 
 
 var Mediafire  = module.exports = function (campaign, browser) {
-  var attributes = {login: {user:{value: 'conor@ayatii.com', selector: "#login_email"},
-                            password:{value:'3HFTB47i', selector: "#login_pass"},
+  var attributes = {login: {user:{value: 'subscriptions@ayatii.com', selector: "#login_email"},
+                            password:{value:'w00lworths76', selector: "#login_pass"},
                             submit: 'input[id="submit_login"]',
                             at: 'https://www.mediafire.com/ssl_login.php?type=login',
                             authenticated: false},
-                    targets: [],
-                    appID: '34352',
-                    appKey: 'y6n9weeu2wel1iincalue23wrxv6ae6e7y14e44i',
-                    authToken: null,
-                    approach : states.cyberlockers.method.COWMANGLING};
+                    targets: {available: [''],
+                              unavailable: [/Invalid\sor\sDeleted\sFile\./]},
+                    approach : states.downloaders.method.COWMANGLING,
+                    strategy : states.downloaders.strategy.TARGETED,
+                    blacklist : [],
+                    appID: '',
+                    appKey: '',
+                    authToken: null};
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
 util.inherits(Mediafire, Downloader);
 
+Mediafire.getDomains = function(){
+  return ['mediafire.com'];
+}
+
+/*
 Mediafire.prototype.super = Downloader.prototype;
 
 Mediafire.prototype.download = function(infringement, done){
@@ -141,9 +149,5 @@ Mediafire.prototype.investigate = function(infringement){
           });
   return promise;
 }
-
-Mediafire.getDomains = function(){
-  return ['mediafire.com'];
-}
-
+*/
 

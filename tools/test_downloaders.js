@@ -98,7 +98,7 @@ function main() {
       this();
     })
     .seq(function(){
-      var that = this;
+      /*var that = this;
       var searchPromise = findCollection('infringements', 
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
@@ -107,11 +107,10 @@ function main() {
                           oneAtaTime(payload, instance, that)},
                             function(err){
                               console.log('Error querying database ' + err);
-                          });
-      
-      //SEIF put your uri in below.    
-      //var examples = [{uri: 'http://hulkshare.com/ap-9f9zjbx0sigw'}];
-      //oneAtaTime(examples, instance, this);
+                          });*/
+        
+      var examples = [{uri: 'http://mediafire.com/?mdm1yzkizkm'}, {uri: 'http://mediafire.com/?4pdcw3bmr0wouv7'}];
+      oneAtaTime(examples, instance, this);
     })
     .seq(function(){
       logger.info('finished testing ' + particularDownloader);
