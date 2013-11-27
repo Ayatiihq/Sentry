@@ -23,7 +23,7 @@ var Mediafire  = module.exports = function (campaign, browser) {
                             submit: 'input[id="submit_login"]',
                             at: 'https://www.mediafire.com/ssl_login.php?type=login',
                             authenticated: false},
-                    targets: {available: ['div[class="download_link"]'],
+                    targets: {available: ['span[class="dlFileSize"]'],
                               unavailable: [/Invalid\sor\sDeleted\sFile\./]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,

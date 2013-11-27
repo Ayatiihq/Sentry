@@ -35,7 +35,7 @@ var Campaigns = acquire('campaigns')
 var PLUGINS = [
   //'hulkshare'
   //'4shared'
-  //,'zippyshare'
+  //'zippyshare'
   //'rapidgator'
   //'rapidshare'
   'mediafire'
