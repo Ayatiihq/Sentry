@@ -190,6 +190,16 @@ var gBloggerForm = {
   }
 }
 
+var youtubeForm = {
+  requireLogin: {
+    username: 'neilpatel@ayatii.com',
+    password: '06VJRtfR7p0C92lYb52c',
+    url: 'https://accounts.google.com/Login'
+  },
+
+  url: 'www.youtube.com/copyright_complaint_form'
+}
+
 
 exports.forms = {
   'cloudflare': cloudFlareForm,
