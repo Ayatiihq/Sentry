@@ -109,7 +109,8 @@ function main() {
                               console.log('Error querying database ' + err);
                           });*/
         
-      var examples = [{uri: 'http://mediafire.com/?mdm1yzkizkm'}, {uri: 'http://mediafire.com/?4pdcw3bmr0wouv7'}];
+      //var examples = [{uri: 'http://mediafire.com/?mdm1yzkizkm'}, {uri: 'http://mediafire.com/?4pdcw3bmr0wouv7'}];
+      var examples = [{uri: 'http://hulkshare.com/dl/lnpoelb2c9vp/Don'}];
       oneAtaTime(examples, instance, this);
     })
     .seq(function(){

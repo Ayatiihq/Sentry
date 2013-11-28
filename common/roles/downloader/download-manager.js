@@ -20,6 +20,7 @@ var acquire = require('acquire')
   , util = require('util')
   , utilities = acquire('utilities')
   , Cowmangler = acquire('cowmangler')
+  , sugar = require('sugar')
   ;
 
 var Campaigns = acquire('campaigns')
@@ -33,12 +34,12 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-  //'hulkshare'
+  'hulkshare'
   //'4shared'
   //'zippyshare'
   //'rapidgator'
   //'rapidshare'
-  'mediafire'
+  //'mediafire'
   //'sharebeast'
 ];
 
@@ -311,19 +312,18 @@ DownloadManager.prototype.goMangle = function(infringement, plugin, done){
       }
       else if (result.verdict === states.downloaders.verdict.AVAILABLE){
         logger.info('fingers cross - is this AVAILABLE ? - we think we it is !');
-        if(result.payload.isEmpty()){
+        if(result.payLoad.isEmpty()){
           logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
           return this();
         }
-        Logger.info('GREEN: should be on S3 already : ' + JSON.stringify(result.payload));
-        this();
+        logger.info('GREEN: should be on S3 already : ' + JSON.stringify(result.payLoad));
         var newState = states.infringements.state.UNVERIFIED;
         logger.info('Setting state %d on %s', newState, infringement.uri);
         self.infringements_.setState(infringement, newState, this);
       }
       else if (result.verdict === states.downloaders.verdict.FAILED_POLICY){
         logger.info('BROWN - We think this downloaded something but failed the download policy.');
-        if(!result.payload.isEmtpy()){
+        if(!result.payLoad.isEmpty()){
           logger.warn('RED: but the array of downloads is NOT empty. - leave at NEEDS_DOWNLOAD');
           return this();
         }

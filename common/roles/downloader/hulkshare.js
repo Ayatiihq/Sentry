@@ -11,7 +11,8 @@ var acquire = require('acquire')
   , states = acquire('states')
   , Downloader = require('./downloader.js')
   ;
-
+//TODO:
+//Are private files okay to mark as unavailable ?
 
 
 var Hulkshare = module.exports = function (campaign, browser) {
@@ -23,7 +24,7 @@ var Hulkshare = module.exports = function (campaign, browser) {
                             at: 'http://www.hulkshare.com/static.php?op=login',
                             authenticated: false},
                     targets: {available: ['a[class="bigDownloadBtn basicDownload"]'],
-                              unavailable: [/OOPS\.\.\./]},
+                              unavailable: [/OOPS\.\.\./, /This\sfile\sis\sprivate/]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};
