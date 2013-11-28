@@ -89,8 +89,21 @@ Downloader.prototype.download = function(infringement, done){
     .seq(function(){
       self.listenGet(infringement.uri, this);
     })
-    .seq(function(directDownload){    
-      if(directDownload){
+    .seq(function(results){ 
+      var shouldIgnore = false;
+      // first check to see that the landing uri (the last redirect)
+      // doesn't match any known pattern which would show the true status of the infringement.   
+      self.attributes.redirectRules.each(function(rule){
+        if(results.redirects.last().match(rule)){
+          logger.info('last redirect matches ignore rule, mark UNAVAILABLE !');
+          shouldIgnore = true; 
+        }
+      });
+
+      if(shouldIgnore)
+        return this(null, {verdict: states.downloaders.verdict.UNAVAILABLE, payLoad: []});
+      
+      if(results.result === true){
         self.gatherDownloads(infringement, this);
       }
       else if(self.attributes.strategy === states.downloaders.strategy.TARGETED){
@@ -218,8 +231,7 @@ Downloader.prototype.listenGet = function(uri, done){
     })
     .seq(function(results){
       logger.info('getInfringement returned : ' + JSON.stringify(results));
-      // here you could check if the url gives away the status of the infringement.
-      done(null, results.result);
+      done(null, results);
     })
     .catch(function(err){
       done(err);
@@ -255,11 +267,12 @@ Downloader.prototype.targets = function(done){
   var self = this;
   Seq()
     .seq(function(){
-      self.tryTargets(self.attributes.targets.unavailable, this);
+      // First try for unavailable, always use regex rules to determine unavailability
+      self.tryRegex(self.attributes.targets.unavailable, this);
     })
     .seq(function(unavailable){
       if(unavailable){
-        logger.info('Found something => We are certain its UNAVAILABLE!')
+        logger.info('Found something => We are certain its UNAVAILABLE!');
         return done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
       else{
@@ -268,7 +281,7 @@ Downloader.prototype.targets = function(done){
     })
     .seq(function(available){
       if(available){
-        logger.info('Found something => MAYBE !')
+        logger.info('Found something => MAYBE !');
         done(null, states.downloaders.verdict.MAYBE); 
       }
       else{
@@ -291,7 +304,6 @@ Downloader.prototype.tryRegex = function(tests, done){
       self.browser.getSource(this);      
     })
     .seq(function(source){
-      //logger.info('attempt to match on source : ' + JSON.stringify(source));
       var result = false;
       tests.each(function(match){
         if(XRegExp.exec(source, match)){
@@ -302,7 +314,7 @@ Downloader.prototype.tryRegex = function(tests, done){
       done(null, result);
     })
     .catch(function(err){
-      logger.info ('Xregex error.');
+      logger.warn('Xregex error. - ' + err);
       done(err);
     })
     ;    
@@ -314,32 +326,39 @@ Downloader.prototype.tryTargets = function(targets, done){
   if(targets.isEmpty())
     return done(null,false);
 
-  if(targets[0] instanceof RegExp){
-    self.tryRegex(targets, done);
-  }
-  else{
-    Seq(targets)
-      .seqEach(function(target){
-        var that = this;
-        logger.info('trying target ' + target);
-        self.browser.click(target, function(err){
-          if(err){
-            logger.info("we did't find that target, try the next");
-            return that();
+  Seq(targets)
+    .seqEach(function(target){
+      var that = this;
+      Seq()
+        .seq(function(){
+          self.browser.click(target.stepOne, this);
+        })
+        .seq(function(){
+          if(!target.stepTwo){
+            logger.info('one step available checker, seem to have hit the target');
+            done(null, true);
           }
-          logger.info('seemed to have hit the target, lets get out of here.');
-          done(null, true); 
-        });
-      })
-      .seq(function(){
-        logger.info('failed to hit target');
-        done(null, false);
-      })    
-      .catch(function(err){
-        done(err);
-      })
+          logger.info('one step available checker, seem to have step one, try for step two.');
+          self.browser.click(target.stepTwo, this);
+        })
+        .seq(function(){
+          logger.info('two step available checker, seem to have hit both targets');
+          done(null, true);
+        })
+        .catch(function(err){
+          logger.info('Failed to hit the target steps, try next')
+          that();
+        })
       ;
-  }
+    })
+    .seq(function(){
+      logger.info('failed to hit available targets');
+      done(null, false);
+    })    
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 Downloader.prototype.finish = function(done){
