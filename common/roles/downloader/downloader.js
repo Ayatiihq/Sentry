@@ -87,13 +87,17 @@ Downloader.prototype.download = function(infringement, done){
       self.login(this);
     })
     .seq(function(){
+      //self.browser.wait(5, this);
+      this();
+    })    
+    .seq(function(){
       self.listenGet(infringement.uri, this);
     })
     .seq(function(results){ 
       var shouldIgnore = false;
       // first check to see that the landing uri (the last redirect)
       // doesn't match any known pattern which would show the true status of the infringement.   
-      self.attributes.redirectRules.each(function(rule){
+      self.attributes.unavailable.inUri.each(function(rule){
         if(results.redirects.last().match(rule)){
           logger.info('last redirect matches ignore rule, mark UNAVAILABLE !');
           shouldIgnore = true; 
@@ -268,7 +272,7 @@ Downloader.prototype.targets = function(done){
   Seq()
     .seq(function(){
       // First try for unavailable, always use regex rules to determine unavailability
-      self.tryRegex(self.attributes.targets.unavailable, this);
+      self.tryRegex(self.attributes.unavailable.inSource, this);
     })
     .seq(function(unavailable){
       if(unavailable){
@@ -276,7 +280,7 @@ Downloader.prototype.targets = function(done){
         return done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
       else{
-        self.tryTargets(self.attributes.targets.available, this);;
+        self.tryTargets(self.attributes.available, this);;
       }
     })
     .seq(function(available){
@@ -294,7 +298,6 @@ Downloader.prototype.targets = function(done){
     })
     ;    
 }
-
 
 Downloader.prototype.tryRegex = function(tests, done){
   logger.info('Try regex');
@@ -333,6 +336,9 @@ Downloader.prototype.tryTargets = function(targets, done){
         .seq(function(){
           self.browser.click(target.stepOne, this);
         })
+        .seq(function(){
+          self.browser.wait(5, this);
+        })        
         .seq(function(){
           if(!target.stepTwo){
             logger.info('one step available checker, seem to have hit the target');

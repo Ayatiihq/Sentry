@@ -22,13 +22,12 @@ var Rapidshare  = module.exports = function (campaign, browser) {
                             click: 'a[class="signup blue white-bg white-hover orange-bg-hover"]',
                             at: 'https://rapidshare.com/login',
                             authenticated: false},
-                    targets: {available: [{stepOne: 'a[class="signup blue white-bg white-hover orange-bg-hover"]',
-                                           stepTwo: 'span[id="js_label_mydata"]'}],
-                              unavailable: [/File\snot\sfound/]},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : [],
-                    redirectRules: [/\/desktop\/error\//]};
+                    available: [{stepOne: 'a[class="signup blue white-bg white-hover orange-bg-hover"]',
+                                 stepTwo: 'span[id="js_label_mydata"]'}],                   
+                    unavailable: {inSource: [/File\snot\sfound/], inUri: [/\/desktop\/error\//]} };
 
   this.constructor.super_.call(this, campaign, browser, attributes);
 };
