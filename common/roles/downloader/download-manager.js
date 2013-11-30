@@ -34,13 +34,13 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-  //'hulkshare'
-  //'4shared'
-  //'zippyshare'
-  //'rapidgator'
+  'hulkshare'
+  '4shared'
+  'zippyshare'
+  'rapidgator'
   'rapidshare'
-  //'mediafire'
-  //'sharebeast'
+  'mediafire'
+  'sharebeast'
 ];
 
 var DownloadManager = module.exports = function() {
