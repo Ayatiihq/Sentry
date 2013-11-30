@@ -22,8 +22,8 @@ var Rapidgator = module.exports = function (campaign, browser) {
                             click : 'a[class="btn send-message"]',
                             at: 'https://rapidgator.net/auth/login',
                             authenticated: false},
-                    targets: {available: ['a[class="btn btn-download"]'],
-                              unavailable: [/File\snot\sfound/]},
+                    available: [{stepOne: 'a[class="btn btn-download"]'}],
+                    unavailable: {inSource: [/File\snot\sfound/], inUri: []},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};
