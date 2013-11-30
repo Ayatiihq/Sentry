@@ -85,11 +85,7 @@ Downloader.prototype.download = function(infringement, done){
   Seq()
     .seq(function(){
       self.login(this);
-    })
-    .seq(function(){
-      //self.browser.wait(5, this);
-      this();
-    })    
+    })   
     .seq(function(){
       self.listenGet(infringement.uri, this);
     })
@@ -193,11 +189,6 @@ Downloader.prototype.goLogin = function(done){
   Seq()
     .seq(function(){
       self.browser.get(self.attributes.login.at, this);
-    })
-    .seq(function(){
-      //wait for the page to render
-      //this should be implicit ?
-      self.browser.wait(5, this);
     })
     .seq(function(){
       self.browser.input(self.attributes.login.user, this);
@@ -336,9 +327,9 @@ Downloader.prototype.tryTargets = function(targets, done){
         .seq(function(){
           self.browser.click(target.stepOne, this);
         })
-        .seq(function(){
-          self.browser.wait(5, this);
-        })        
+        /*.seq(function(){
+          self.browser.wait(5000, this);
+        })*/        
         .seq(function(){
           if(!target.stepTwo){
             logger.info('one step available checker, seem to have hit the target');

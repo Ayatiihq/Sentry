@@ -377,7 +377,7 @@ Cowmangler.prototype.setAdBlock = function(turnOn, done){
 
 /*
  * Wait
- * @param {integer}   waitTime      The waitTime (seconds) to stall CW by. 
+ * @param {integer}   waitTime      The waitTime (milliseconds) to stall CW by. 
  */
 Cowmangler.prototype.wait = function(waitTime, done){
   var self = this;

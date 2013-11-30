@@ -16,9 +16,11 @@ var acquire = require('acquire')
 
 var Fourshared = module.exports = function (campaign, browser) {
   var attributes = {login: {user: {'selector': '.jsInputLogin',
-                                  'value' : 'subscriptions@ayatii.com'},
+                                  'value' : 'subscriptions@ayatii.com',
+                                  'delay': 5000},
                             password : {'selector' : '.jsInputPassword',
-                                        'value' : 'fa72b3b24322f86e19456d87a364480f'},
+                                        'value' : 'fa72b3b24322f86e19456d87a364480f',
+                                        'delay': 5000},
                             submit : 'input[class="submit-light round4 gaClick"]',
                             at: 'http://www.4shared.com/web/login',
                             authenticated: false},
