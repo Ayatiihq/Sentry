@@ -325,18 +325,15 @@ Downloader.prototype.tryTargets = function(targets, done){
       var that = this;
       Seq()
         .seq(function(){
-          self.browser.click(target.stepOne, this);
+          self.browser.click(target.stepOne, this, 5000);
         })
-        /*.seq(function(){
-          self.browser.wait(5000, this);
-        })*/        
         .seq(function(){
           if(!target.stepTwo){
             logger.info('one step available checker, seem to have hit the target');
-            done(null, true);
+            return done(null, true);
           }
-          logger.info('one step available checker, seem to have step one, try for step two.');
-          self.browser.click(target.stepTwo, this);
+          logger.info('one step available checker, seem to have hit step one. try for two');
+          self.browser.click(target.stepTwo, this, 5000);
         })
         .seq(function(){
           logger.info('two step available checker, seem to have hit both targets');

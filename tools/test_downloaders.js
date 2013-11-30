@@ -110,7 +110,8 @@ function main() {
                               console.log('Error querying database ' + err);
                           });*/  
       //var examples = [{uri: 'http://mediafire.com/?mdm1yzkizkm'}, {uri: 'http://mediafire.com/?4pdcw3bmr0wouv7'}];
-      var examples = [{uri: 'http://www.4shared.com/mp3/hhPmI9Im/kanye_west__-_golddigger.html'}];
+      var examples = [{uri: 'http://www.4shared.com/mp3/hhPmI9Im/kanye_west__-_golddigger.html'}, 
+                      {uri: 'http://4shared.com/mp3/RU1lz0r1/Corona_-_The_Rhythm_Of_The_Nig.html'}];
       oneAtaTime(examples, instance, this);
     })
     .seq(function(){

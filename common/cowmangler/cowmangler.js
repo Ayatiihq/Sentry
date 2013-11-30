@@ -96,13 +96,17 @@ Cowmangler.prototype.getInfringement = function(uri, done){
  * @param {string}    selector       the selector by which to identify the element to click
  * @param {function}  done           callback to notify once we are up and talking to cowmangler.
  **/
-Cowmangler.prototype.click = function(selector, done){
+Cowmangler.prototype.click = function(selector, done, timeout){
   var self = this;
+  var delay = timeout;
+  
+  if(!timeout)
+    delay = 0;
 
   if (!self.connected)
     return self.cachedCalls_.push([self.click, Object.values(arguments)]);
 
-  self.ass_.do('click', {'selector': selector}).then(function(result){
+  self.ass_.do('click', {'selector': selector, 'delay': delay}).then(function(result){
     done();
   },
   function(err){
