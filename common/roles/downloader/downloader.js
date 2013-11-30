@@ -139,6 +139,9 @@ Downloader.prototype.deployTargeted = function(infringement, done){
   var self  = this;
   Seq()
     .seq(function(){
+      self.browser.wait(5000, this);
+    })
+    .seq(function(){
       self.targets(this);
     })
     .seq(function(state){
