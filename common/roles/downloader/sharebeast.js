@@ -14,14 +14,16 @@ var acquire = require('acquire')
 
 var Sharebeast = module.exports = function (campaign, browser) {
   var attributes = {login: {user: {'selector': '#uname',
-                                  'value' : 'conor-ayatii'},
+                                  'value' : 'conor-ayatii',
+                                  'delay': 5000},
                             password : {'selector' : '#pass',
-                                  'value' : 'ayatiian'},
+                                  'value' : 'ayatiian',
+                                  'delay': 5000},
                             click : 'a[id="loginLink"]',
                             at: 'http://www.sharebeast.com/?op=login',
                             authenticated: false},
-                    targets: {available: ['input[class="download-file1"]'],
-                              unavailable: [/File\sNot\sFound/]},
+                    available: [{stepOne:'input[class="download-file1"]'}],
+                    unavailable: {inSource: [/File\sNot\sFound/], inUri: []},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
                     blacklist : []};  

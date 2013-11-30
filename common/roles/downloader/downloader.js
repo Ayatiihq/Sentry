@@ -191,6 +191,9 @@ Downloader.prototype.goLogin = function(done){
       self.browser.get(self.attributes.login.at, this);
     })
     .seq(function(){
+      self.browser.wait(5000, this);
+    })    
+    .seq(function(){
       self.browser.input(self.attributes.login.user, this);
     })
     .seq(function(){
