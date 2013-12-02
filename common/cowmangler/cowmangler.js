@@ -81,7 +81,7 @@ Cowmangler.prototype.getInfringement = function(uri, done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getInfringement, Object.values(arguments)]);
 
-  var data = {'value': uri};
+  var data = {'value': uri, 'delay': 5000};
 
   self.ass_.do('openInfringement', data).then(function(result){
     done(null, result);
@@ -99,7 +99,7 @@ Cowmangler.prototype.getInfringement = function(uri, done){
 Cowmangler.prototype.click = function(selector, done, timeout){
   var self = this;
   var delay = timeout;
-  
+
   if(!timeout)
     delay = 0;
 
@@ -237,11 +237,13 @@ Cowmangler.prototype.downloadAll = function(done){
   });
 }
 
+
 /*
    getStoredDownloads
  * @param {function}  done           callback to notify once we are done talking to cowmangler.
                                      returns an array of download objects that have been downloaded for this URI.
  **/
+/*
 Cowmangler.prototype.getStoredDownloads = function(uri, done){
   var self = this;
 
@@ -254,7 +256,7 @@ Cowmangler.prototype.getStoredDownloads = function(uri, done){
   function(err){
     done(err);
   });  
-}
+}*/
 
 /*
    GetSource
@@ -456,11 +458,14 @@ Cowmangler.prototype.loadHTML = function(html, done){
   });
 }
 
-Cowmangler.prototype.flush = function(uri, done){
-  var self = this;
-
+Cowmangler.prototype.isAvailable = function(done){
   if (!self.connected)
-    return self.cachedCalls_.push([self.poop, Object.values(arguments)]);
-  self.ass_.poop(uri);
-}
+    return self.cachedCalls_.push([self.loadHTML, Object.values(arguments)]);
 
+  self.ass_.work('isNodeAvailable', {}, self.ass_.hub).then(function(results){
+    done(results.result);
+  },
+  function(err){
+    done(err);
+  });
+}
