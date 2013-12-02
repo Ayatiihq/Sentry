@@ -460,9 +460,9 @@ Cowmangler.prototype.loadHTML = function(html, done){
 
 Cowmangler.prototype.isAvailable = function(done){
   if (!self.connected)
-    return self.cachedCalls_.push([self.loadHTML, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.isAvailable, Object.values(arguments)]);
 
-  self.ass_.work('isNodeAvailable', {}, self.ass_.hub).then(function(results){
+  self.ass_.query('isNodeAvailable').then(function(results){
     done(results.result);
   },
   function(err){

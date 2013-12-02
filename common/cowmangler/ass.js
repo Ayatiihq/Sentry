@@ -73,13 +73,11 @@ Ass.prototype.do = function(action, data){
 /*
 Gateway for Hub api calls. 
 */
-Ass.prototype.query = function(action, data){
+Ass.prototype.query = function(action){
   var self = this;
   self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
   var query =  this.hub + "/" + action;
   var promise = new Promise.Promise();
-
-  logger.info('hub query : ' + query);  
 
   request.get(query, function(data, response){
     if(!response){
