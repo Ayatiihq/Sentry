@@ -1,5 +1,5 @@
 /*
- * ass.js: the work horse for cowmangler
+ * ass.js: the donkey (ass) for cowmangler
  *
  * (C) 2013 Ayatii Limited
  *
@@ -23,51 +23,34 @@ var MAXTIMEOUT = 180000;
 var Ass = module.exports = function(done) {
   this.downloads = [];
   this.node = null;
+  this.hub =  config.COWMANGLER_HUB_ADDRESS + ':' + config.COWMANGLER_HUB_PORT;
   this.init(done);
 }
 
-Ass.prototype.init = function(done){
+Ass.prototype.init = function(){}
+
+Ass.prototype.new = function(done){
   var self = this;
-  self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
-  var hub =  config.COWMANGLER_HUB_ADDRESS + ':' + config.COWMANGLER_HUB_PORT + "/new";
-
-  logger.info('hub : ' + hub);  
-
-  request.get(hub, function(data, response){
-    if(!response){
-      done(new Error('No data or response from cowmangler...'));
-      return;
-    }
-    var statusCode = response.statusCode;
-    if(statusCode !== 200){
-      logger.warn('Status code ' + statusCode + ' was returned by CowMangler');
-      done(new Error("Didn't get a 200 statusCode back from server." + statusCode.toString()));
-    }
-    else{
-      var targetNode = JSON.parse(response.body).result;
-      self.node = targetNode;
-      self.ears = new Ears(self.node, done);
-    }
+  
+  self.query('new', {}).then(function(results){
+    var targetNode = results.result;
+    self.node = targetNode;
+    self.ears = new Ears(self.node, done);
+  },
+  function(err){
+    done(err);
   });
 }
 
-Ass.prototype.addSource = function(uri){
-  var self = this;
-  if(!self.ears.sources[uri]){
-    logger.info('adding source to ears for uri : ' + uri);
-    self.ears.sources.push(uri);
-  }
-}
-
 /*
-All rounder communicator with the mangler rest api. 
+Gateway for all Tab API calls.
 */
 Ass.prototype.do = function(action, data){
   var self = this;
   var promise = new Promise.Promise();
 
   if(!self.node)
-    return promise.reject(new Error("We don't have a node ?"));
+    return promise.reject(new Error("We don't have a Node for the work ??"));
 
   var api = self.node + '/' + action;
 
@@ -81,6 +64,7 @@ Ass.prototype.do = function(action, data){
                   // We might need to be forgiving at the cowmangler level depending on the context
                   // cowmanger will only ever return a 200 or a 500.
                   if(resp.statusCode !== 200){
+                    logger.info('Not a 200 - the dump from ass is : ' + JSON.stringify(body));
                     return promise.reject(new Error('action ' + action + ' did not get a 200 response - actual response was : ' + resp.statusCode));
                   }
                   promise.resolve(self.sift(body));
@@ -88,15 +72,60 @@ Ass.prototype.do = function(action, data){
   return promise;
 }
 
+/*
+Gateway for Hub api calls. 
+*/
+Ass.prototype.query = function(action){
+  var self = this;
+  self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
+  var query =  self.hub + "/" + action;
+  var promise = new Promise.Promise();
+
+  request.get(query, function(data, response){
+    if(!response){
+
+      done(new Error('No data or response from cowmangler...'));
+      return;
+    }
+    var statusCode = response.statusCode;
+    if(statusCode !== 200){
+      logger.warn('Status code ' + statusCode + ' was returned by CowMangler hub');
+      promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString()));
+    }
+    else{
+      console.log('query returned ' + JSON.stringify(response.body));
+      promise.resolve(self.sift(response.body));
+    }
+  });
+  return promise;
+}
+
+/*
+Helper to parse results from hub or tab.
+*/
 Ass.prototype.sift = function(body){
   try{
-    var result = JSON.parse(body);
-    if(result)
-      return result.result;
+    var results = JSON.parse(body);
+    if(results)
+      return results;
   }
   catch(err){}
 }
 
+/*
+Add a safety check for relevancy of signals (for given infringement)
+*/
+Ass.prototype.addSource = function(uri){
+  var self = this;
+  if(!self.ears.sources[uri]){
+    logger.info('adding source to ears for uri : ' + uri);
+    self.ears.sources.push(uri);
+  }
+}
+
+/*
+Collect download signals from ears. 
+*/
 Ass.prototype.getHooverBag = function(uri){
   var self = this;
   var promise = new Promise.Promise();
@@ -104,12 +133,17 @@ Ass.prototype.getHooverBag = function(uri){
   self.ears.once('finishedDownloading', function(payLoad){
     logger.info('just received finishedDownloading signal : ' + JSON.stringify(payLoad));
     if(payLoad.uri !== uri)
-      return promise.reject(new Error('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri));
+      logger.warn('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri);
     promise.resolve(payLoad.downloads);  
   }); 
   return promise;
 }
 
+/*
+Close subscriptions to redis channels.
+*/
 Ass.prototype.deafen = function(){
   return this.ears.close();
 }
+
+

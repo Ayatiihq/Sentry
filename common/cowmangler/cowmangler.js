@@ -18,6 +18,7 @@ var acquire = require('acquire')
 
 var Cowmangler = module.exports = function () {
   var connected = false;
+  this.ass_ = null;
   this.cachedCalls_ = [];
   this.init();
 }
@@ -29,8 +30,16 @@ util.inherits(Cowmangler, events.EventEmitter);
 */
 Cowmangler.prototype.init = function()
 {
-	var self = this;
-  
+	var self = this;  
+  self.ass_ = new Ass();
+}
+
+/*
+  New tab
+*/
+Cowmangler.prototype.newTab = function(){
+  var self = this;
+
   function done(err){
     if(err)
       return self.emit("error", err);
@@ -41,7 +50,8 @@ Cowmangler.prototype.init = function()
 
     self.emit('ready');
   }
-	self.ass_ = new Ass(done);
+
+  self.ass_.new(done);
 }
 
 /*
@@ -68,11 +78,12 @@ Cowmangler.prototype.get = function(uri, done, options){
 }
 
 /*
-   Get Infringement - Will get the URI you suspect to be an infringement. 
-   It returns a result which determines whether the file is a directDownload or a page.
-   true => directDownload, false => page.
+   Get Infringement - Get's the URI you suspect to be an infringement. 
+   It returns a result with two key/value pairs (format - {result: bool, redirects: []})
+    - result, true => a directDownload, false => a page.
+    - directDownloads, an array of redirects that happened as a result of the get.
  * @param {string}    uri            target URI.
- * @param {function}  done           callback to notify once we are up and talking to cowmangler.
+ * @param {function}  done           callback to notify once we are up and talking to cowmangler.                                  
  **/
 Cowmangler.prototype.getInfringement = function(uri, done){
   var self = this;
@@ -80,7 +91,7 @@ Cowmangler.prototype.getInfringement = function(uri, done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getInfringement, Object.values(arguments)]);
 
-  var data = {'value': uri};
+  var data = {'value': uri, 'delay': 5000};
 
   self.ass_.do('openInfringement', data).then(function(result){
     done(null, result);
@@ -95,13 +106,17 @@ Cowmangler.prototype.getInfringement = function(uri, done){
  * @param {string}    selector       the selector by which to identify the element to click
  * @param {function}  done           callback to notify once we are up and talking to cowmangler.
  **/
-Cowmangler.prototype.click = function(selector, done){
+Cowmangler.prototype.click = function(selector, done, timeout){
   var self = this;
+  var delay = timeout;
+
+  if(!timeout)
+    delay = 0;
 
   if (!self.connected)
     return self.cachedCalls_.push([self.click, Object.values(arguments)]);
 
-  self.ass_.do('click', {'selector': selector}).then(function(result){
+  self.ass_.do('click', {'selector': selector, 'delay': delay}).then(function(result){
     done();
   },
   function(err){
@@ -174,19 +189,41 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
   });
 }
 
+/*
+   getStoredDownloads
+ * @param {function}  done           callback to notify once we are done talking to cowmangler.
+                                     returns an array of download objects that have been downloaded for this URI.
+ **/
+Cowmangler.prototype.getStoredDownloads = function(uri, done){
+  var self = this;
+
+  if (!self.connected)
+    return self.cachedCalls_.push([self.getStoredDownloads, Object.values(arguments)]);
+
+  self.ass_.getHooverBag(uri).then(function(downloads){
+    done(null, downloads);
+  },
+  function(err){
+    done(err);
+  });  
+}
+
 /* 
  * This results in CowMangler attempting to download files resulting from preceding clicks.
  * Usual usecase is to click a few places and then call downloadTargeted, then listen to redis for signals. 
  * @param {function}  done           callback to notify once we are done talking to cowmangler. 
  */
-Cowmangler.prototype.downloadTargeted = function(done){
+Cowmangler.prototype.downloadTargeted = function(uri, done){
   var self = this;
 
   if (!self.connected)
     return self.cachedCalls_.push([self.downloadTargeted, Object.values(arguments)]);
 
+  // First open the ears.
+  self.getStoredDownloads(uri, done);
+
   self.ass_.do('downloadTargeted', {}).then(function(result){
-    done();
+    logger.info('open the signals flood gate !');
   },
   function(err){
     done(err);
@@ -230,25 +267,6 @@ Cowmangler.prototype.downloadAll = function(done){
 }
 
 /*
-   getStoredDownloads
- * @param {function}  done           callback to notify once we are done talking to cowmangler.
-                                     returns an array of download objects that have been downloaded for this URI.
- **/
-Cowmangler.prototype.getStoredDownloads = function(uri, done){
-  var self = this;
-
-  if (!self.connected)
-    return self.cachedCalls_.push([self.getStoredDownloads, Object.values(arguments)]);
-
-  self.ass_.getHooverBag(uri).then(function(downloads){
-    done(null, downloads);
-  },
-  function(err){
-    done(err);
-  });  
-}
-
-/*
    GetSource
  * @param {function}  done           callback to notify once we are done talking to cowmangler.
                                      returns a string of the base source
@@ -259,8 +277,8 @@ Cowmangler.prototype.getSource = function(done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getSource, Object.values(arguments)]);
 
-  self.ass_.do('source', {}).then(function(source){
-    done(null, source);
+  self.ass_.do('getSource', {}).then(function(results){
+    done(null, results.result);
   },
   function(err){
     done(err);
@@ -278,8 +296,8 @@ Cowmangler.prototype.getSources = function(done){
   if (!self.connected)
     return self.cachedCalls_.push([self.getSources, Object.values(arguments)]);
 
-  self.ass_.do('sources', {}).then(function(sources){
-    done(null, sources);
+  self.ass_.do('getSources', {}).then(function(sources){
+    done(null, sources.result);
   },
   function(err){
     done(err);
@@ -314,6 +332,7 @@ Cowmangler.prototype.quit = function(done){
   
   self.ass_.deafen().then(function(){
     self.ass_.do('destroy', {}).then(function(result){
+      logger.info('browser destroyed');
       done();
     },
     function(err){
@@ -372,7 +391,7 @@ Cowmangler.prototype.setAdBlock = function(turnOn, done){
 
 /*
  * Wait
- * @param {integer}   waitTime      The waitTime (seconds) to stall CW by. 
+ * @param {integer}   waitTime      The waitTime (milliseconds) to stall CW by. 
  */
 Cowmangler.prototype.wait = function(waitTime, done){
   var self = this;
@@ -410,7 +429,7 @@ Cowmangler.prototype.getOuterHTML = function(selector, done){
     return self.cachedCalls_.push([self.getOuterHTML, Object.values(arguments)]);
 
   self.ass_.do('getOuterHTML', data).then(function(html){
-    done(null, html);
+    done(null, html.result);
   },
   function(err){
     done(err);
@@ -425,7 +444,7 @@ Cowmangler.prototype.getInnerHTML = function(selector, done){
     return self.cachedCalls_.push([self.getInnerHTML, Object.values(arguments)]);
 
   self.ass_.do('getInnerHTML', data).then(function(html){
-    done(null, html);
+    done(null, html.result);
   },
   function(err){
     done(err);
@@ -447,3 +466,28 @@ Cowmangler.prototype.loadHTML = function(html, done){
   });
 }
 
+Cowmangler.prototype.isAvailable = function(done){
+  var self = this;
+  if (!self.connected)
+    return self.cachedCalls_.push([self.isAvailable, Object.values(arguments)]);
+
+  self.ass_.query('isNodeAvailable').then(function(results){
+    done(null, results.result);
+  },
+  function(err){
+    done(err);
+  });
+}
+
+Cowmangler.prototype.getStatus = function(done){
+  var self = this;
+  if (!self.connected)
+    return self.cachedCalls_.push([self.getStatus, Object.values(arguments)]);
+
+  self.ass_.query('getNodes').then(function(results){
+    done(null, results);
+  },
+  function(err){
+    done(err);
+  });
+}

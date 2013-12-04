@@ -16,6 +16,24 @@ exports.jobs = {
   }
 };
 
+exports.downloaders = {
+  method: {
+    COWMANGLING: 0,
+    RESTFUL : 1
+  },
+  strategy: {
+    TARGETED: 0,
+    CUSTOM: 1
+  },
+  verdict: {
+    UNAVAILABLE: 0,
+    MAYBE: 1,
+    FAILED_POLICY: 2,
+    RUBBISH: 3,
+    STUMPED: 4
+  }
+}
+
 exports.infringements = {
   state: {
     NEEDS_PROCESSING: -1,

@@ -1,5 +1,5 @@
 /*
- * test_cyberlocker-manager.js: 
+ * test_downloaders.js: 
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
@@ -9,29 +9,8 @@ var acquire = require('acquire')
   , Promise = require('node-promise')  
   , states = acquire('states')
   , Seq = require('seq')  
+  , Cowmangler = acquire('cowmangler')
   ;
-
-function setupSignals() {
-  process.on('SIGINT', function() {
-    process.exit(1);
-  });
-}
-
-function parseObject(arg) {
-  var ret = arg;
-  try {
-    ret = require(arg);
-  } catch (err) {
-    if (arg.endsWith('.json'))
-      console.error(err);
-    try {
-      ret = JSON.parse(arg);
-    } catch (err) { 
-      console.log(err); 
-    }
-  }
-  return ret;
-}
 
 function findCollection(collectionName, args){
   var searchPromise = new Promise.Promise;
@@ -59,20 +38,21 @@ function findCollection(collectionName, args){
   return searchPromise;
 }
 
-function oneAtaTime(results, cyberlocker){
+function oneAtaTime(results, cyberlocker, done){
   Seq(results)
     .seqEach(function(infringement){
-      var done = this;
       logger.info('\n\n Downloader just handed in a new infringement ' + infringement.uri);
-      //done();
-      cyberlocker.download(infringement, '/tmp', done);
+      cyberlocker.download(infringement, this);
     })
     .catch(function(err){
       logger.warn('Unable to process download job: %s', err);      
     })
    .seq(function(){
       logger.info('Finished downloading');
-      cyberlocker.finish();
+      cyberlocker.finish(function(err){
+        done(err);
+        process.exit(1);
+      });
     })
     ;
 }
@@ -84,47 +64,69 @@ function fetchRegex(downloader){
                  'rapidshare': /rapidshare\.com/g,
                  'hulkshare': /hulkshare\.com/g,
                  'uploaded-net': /uploaded\.net/g,
+                 'rapidgator': /rapidgator\.net/g,
                  'zippyshare': /zippyshare\.com/g};
   return domains[downloader];
 }
 
 function main() {
   logger.init();
-  logger = logger.forFile('test_cyberlocker-manager.js');
-  setupSignals();
+  logger = logger.forFile('test_downloaders.js');
 
   if (process.argv.length < 3)
   {
-    logger.warn("Usage: node test_cyberlocker-downloader.js <campaignId> <cyberlocker-domain>");
+    logger.warn("Usage: node test_downloaders.js <campaignId> <cyberlocker-domain>");
     process.exit(1);
   }
 
-  var campaign = parseObject(process.argv[2]);  
+  var campaign = require(process.argv[2]);  
   var particularDownloader = process.argv[3];
-
-  var uriRegex = null;
-
-  uriRegex = fetchRegex(particularDownloader);
-
-  var Downloader = require('../common/roles/downloader/' + particularDownloader);
+  var browser;
+  var instance;
   
-  var instance = null;
-  instance = new Downloader(campaign);
+  browser = new Cowmangler();
+  browser.newTab();
 
-  if(!uriRegex || !instance || !campaign){
-    logger.error("Unable to figure out which regex to use or no Campaign or no instance ! We must not support that downloader " + particularDownloader);
+  browser.on('ready', function(){logger.info('we are cowmangling')});
+  browser.on('error', function(){
+    logger.warn('cowmangler r-u-n-n-o-f-t');
     process.exit(1);
-  }
-
-  var searchPromise = findCollection('infringements', 
-                                     {'campaign': campaign._id,
-                                      'category': states.infringements.category.CYBERLOCKER,
-                                      'uri': uriRegex});
+  });
   
-  searchPromise.then(function(payload){oneAtaTime(payload, instance)},
-                  function(err){
-                    console.log('Error querying database ' + err);
-                  });
+  Seq()
+    .seq(function(){
+      var Downloader = require('../common/roles/downloader/' + particularDownloader);
+      instance = new Downloader(campaign, browser);
+      this();
+    })
+    .seq(function(){
+      
+      var that = this;
+      var searchPromise = findCollection('infringements', 
+                                         {'campaign': campaign._id,
+                                          'category': states.infringements.category.CYBERLOCKER,
+                                          'uri': fetchRegex(particularDownloader)});
+      searchPromise.then(function(payload){ 
+                          oneAtaTime(payload, instance, that)},
+                            function(err){
+                              console.log('Error querying database ' + err);
+                          });
+      //var examples = [{uri: 'http://mediafire.com/?mdm1yzkizkm'}, {uri: 'http://mediafire.com/?4pdcw3bmr0wouv7'}];
+      //var examples = [{uri: 'http://www.4shared.com/mp3/hhPmI9Im/kanye_west__-_golddigger.html'}, 
+      //                {uri: 'http://4shared.com/mp3/RU1lz0r1/Corona_-_The_Rhythm_Of_The_Nig.html'}];
+      //oneAtaTime(examples, instance, this);
+    })
+    .seq(function(){
+      logger.info('finished testing ' + particularDownloader);
+      instance.finish(this);
+    })
+    .seq(function(){
+      process.exit(1);   
+    })
+    .catch(function(err){
+      logger.warn('Unable to kick start downloader %s', err);   
+      process.exit(1);   
+    })
 }
 
 main(); 

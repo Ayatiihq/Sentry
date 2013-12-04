@@ -13,11 +13,12 @@ var acquire = require('acquire')
   , request = require('request')
   , sugar = require('sugar')
   , util = require('util')
+  , Cowmangler = acquire('cowmangler')  
   ;
 
 var Seq = require('seq');
 
-var TABS_PER_NODE = 2;
+var SELENIUM_TABS_PER_NODE = 2;
 
 var Dependencies = module.exports = function() {
   this.depMap_ = {};
@@ -27,6 +28,11 @@ var Dependencies = module.exports = function() {
   this.seleniumAvailableNodes_ = 0;
   this.seleniumBusyNodes_ = 0;
 
+  this.manglerLastCheck_ = new Date.create('1 hour ago');
+  this.manglerAvailableTabs_ = 0;
+  this.manglerBusyTabs_ = 0;
+  
+  this.cowMangler = new Cowmangler();
   this.init();
 }
 
@@ -37,6 +43,8 @@ Dependencies.prototype.init = function() {
 
   self.depMap_['selenium'] = self.isSeleniumAvailable.bind(self);
   self.statusMap_['selenium'] = self.seleniumStatus.bind(self);
+  self.depMap_['cowmangler'] = self.isManglerAvailable.bind(self);
+  self.statusMap_['cowmangler'] = self.manglerStatus.bind(self);
 }
 
 Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
@@ -63,7 +71,7 @@ Dependencies.prototype.isSeleniumAvailable = function(args, callback) {
       this(null, $('body').find(config.SELENIUM_CONSOLE_PROXY_CLASS).length, $('body').find(config.SELENIUM_CONSOLE_BUSY_CLASS).length);
     })
     .seq('updateCacheAndReturn', function(nAvailable, nBusy) {
-      self.seleniumAvailableNodes_ = nAvailable * TABS_PER_NODE;
+      self.seleniumAvailableNodes_ = nAvailable * SELENIUM_TABS_PER_NODE;
       self.seleniumBusyNodes_ = nBusy;
       self.seleniumLastCheck_ = new Date();
 
@@ -90,6 +98,64 @@ Dependencies.prototype.seleniumStatus = function(callback) {
     callback(err, status);
   });
 }
+
+Dependencies.prototype.isManglerAvailable = function(args, callback) {
+  var self = this
+    , required = args
+    ;
+  Seq()
+    .seq('checkCached', function() {  
+      if (self.manglerLastCheck_.isAfter('60 seconds ago')) {
+        var available = self.manglerAvailableTabs_ >= required;
+        if (available){
+          self.manglerBusyTabs_ += 1;
+          self.manglerAvailableTabs_ -= 1;
+        }
+        return callback(null, available);
+      }
+      this();
+    })
+    .seq('checkStatus', function() {  
+      self.cowMangler.getStatus(this);
+    })
+    .seq('checkAvailableNodes', function(nodeStatus) {
+      // reset
+      self.manglerAvailableTabs_ = 0;
+      self.manglerBusyTabs_ = 0;
+
+      Object.keys(nodeStatus).each(function(node){
+        self.manglerAvailableTabs_ += nodeStatus[node].max_tab_count - nodeStatus[node].tab_count;
+        self.manglerBusyTabs_ += nodeStatus[node].tab_count;
+      });
+
+      self.manglerLastCheck_ = new Date();
+      var available = self.manglerAvailableTabs_ >= required;
+      
+      if (available){
+        self.manglerBusyTabs_ += 1;
+        self.manglerAvailableTabs_ -= 1;
+      }
+      callback(null, available);
+    })
+    .catch(function(err) {
+      callback(err, false);
+    })
+    ;    
+}
+
+// Do we need this ?
+Dependencies.prototype.manglerStatus = function(callback) {
+  var self = this
+    , status = {}
+    ;
+
+  self.isManglerAvailable(1, function(err) {
+    status.nNodes = self.manglerAvailableTabs_;
+    status.nBusyNodes = self.manglerBusyTabs_;
+    callback(err, status);
+  });
+}
+
 
 //
 // Public

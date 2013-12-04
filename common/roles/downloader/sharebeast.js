@@ -1,162 +1,38 @@
 /*
- * sharebeast.js: the ShareBeast downloader
- * (C) 2013 Ayatii Limited
+ * sharebeast.js: the sharebeast downloader
  *
- * Downloads Sharebeast
+ * (C) 2013 Ayatii Limited
  *
  */
 
-require('sugar');
 var acquire = require('acquire')
-  , config = acquire('config')
-	, fs = require('fs-extra')
+  , util = require('util')
   , logger = acquire('logger').forFile('sharebeast.js')
-  , Promise = require('node-promise')
-  , path = require('path')
-  , request = require('request')
-  , cheerio = require('cheerio')
-  , URI = require('URIjs')
-  , webdriver = require('selenium-webdriver')
-  , utilities = acquire('utilities')   
-  , chromeHelper = acquire('chrome-helper')
+  , Downloader = require('./downloader.js')
+  , states = acquire('states')
   ;
 
-var Sharebeast = module.exports = function (campaign) {
-  var self = this;
-  self.campaign = campaign;
-  self.authenticated = false;
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities({ browserName: 'chrome', seleniumProtocol: 'WebDriver' }).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000);                           
+var Sharebeast = module.exports = function (campaign, browser) {
+  var attributes = {login: {user: {'selector': '#uname',
+                                  'value' : 'conor-ayatii',
+                                  'delay': 5000},
+                            password : {'selector' : '#pass',
+                                  'value' : 'ayatiian',
+                                  'delay': 5000},
+                            click : 'a[id="loginLink"]',
+                            at: 'http://www.sharebeast.com/?op=login',
+                            authenticated: false},
+                    available: [{stepOne:'input[class="download-file1"]'}],
+                    unavailable: {inSource: [/File\sNot\sFound/], inUri: []},
+                    approach : states.downloaders.method.COWMANGLING,
+                    strategy : states.downloaders.strategy.TARGETED,
+                    blacklist : []};  
+  this.constructor.super_.call(this, campaign, browser, attributes);
 };
 
-Sharebeast.prototype.createURI = function(uri){
-  var result = null;
-  try {
-    result = URI(uri);
-  }
-  catch (error) {
-    logger.error("Can't create uri from " + uri); // some dodgy link => move on.
-  }
-  return result;
-}
+util.inherits(Sharebeast, Downloader);
 
-Sharebeast.prototype.authenticate = function(){
-  var self =this;
-
-  if(self.authenticated){
-    var promise = new Promise.Promise();
-    promise.resolve();
-    return promise;
-  }
-  self.authenticated = true;
-  self.remoteClient.get('http://www.sharebeast.com/?op=login');
-  self.remoteClient.findElement(webdriver.By.css('#uname'))
-    .sendKeys('conor-ayatii');
-  self.remoteClient.findElement(webdriver.By.css('#pass'))
-    .sendKeys('ayatiian');
-  // xpath generated from firebug (note to self use click and not submit for such forms,
-  // submit was not able to highlight the correct input element).
-  return self.remoteClient.findElement(webdriver.By.css('.loginBtn1')).click();
-}
-
-Sharebeast.prototype.generateFileDownload = function(pathToUse, done){
-  var self = this;
-  self.remoteClient.findElement(webdriver.By.css('.download-file1')).click().then(function(){
-    self.remoteClient.sleep(3000);
-    self.remoteClient.get('chrome://downloads').then(function(){
-      self.remoteClient.findElement(webdriver.By.linkText('Cancel')).click().then(function(){    
-        self.remoteClient.getPageSource().then(function(source){
-          var $ = cheerio.load(source);
-          var directDownload = $('a.src-url').attr('href');
-          logger.info('Direct file link : ' + directDownload);
-          self.remoteClient.findElement(webdriver.By.linkText('Clear all')).click().then(function(){
-            self.fetchDirectDownload(directDownload, pathToUse, done);
-          });
-        });
-      },
-      function(err){
-        done(err);
-      });
-    });      
-  },
-  function(err){
-    done(err);
-  });
-}
-
-
-Sharebeast.prototype.fetchDirectDownload = function(uri, pathToUse, done){
-  var self = this;
-
-  var uriInstance = null;
-  uriInstance = self.createURI(uri);
-  if(!uriInstance){
-    logger.warn('fetchDirectDownload - Unable to create valid URI instance - ' + uri);
-    done();
-  }
-
-  var target = path.join(pathToUse, utilities.genLinkKey(uriInstance.path()));
-  var out = fs.createWriteStream(target);
-  logger.info('fetchDirectDownload - target for file ' + target);
-
-
-  utilities.requestStream(uri, {}, function(err, req, res, stream){
-    if (err){
-      logger.error('unable to fetch direct link ' + uri + ' error : ' + err);
-      done(err);
-      return;
-    }
-    stream.pipe(out);
-    stream.on('end', function() {
-      logger.info('successfully downloaded ' + uri);
-      done();
-    });
-  });
-}
-
-
-// Public API
-Sharebeast.prototype.download = function(infringement, pathToUse, done){
-  var self = this;
-  chromeHelper.clearDownloads(self.remoteClient).then(function(){
-    self.authenticate().then(function(){
-      self.remoteClient.sleep(5000);
-      self.remoteClient.get(infringement.uri).then(function(){
-        self.remoteClient.sleep(2500);
-        chromeHelper.checkForFileDownload(self.remoteClient).then(function(result){
-          if(!result){
-            self.remoteClient.get(infringement.uri).then(function(){
-              self.remoteClient.getPageSource().then(function(source){
-                var $ = cheerio.load(source);
-                if($('div#bigbox h2') && $('div#bigbox h2').text() === 'File Not Found'){
-                  logger.info('File not available for whatever reason - moving on ...');
-                  done();
-                }
-                else{
-                  logger.info('Detected a file ...');
-                  self.generateFileDownload(pathToUse, done);
-                }
-              });
-            });
-          }
-          else{
-            self.fetchDirectDownload(result, pathToUse, done);
-          }
-        });
-      });  
-    });
-  });    
-}
-
-
-Sharebeast.prototype.finish = function(){
-  var self = this;
-  if(self.remoteClient)
-    self.remoteClient.quit();
-}
-
-// No prototype so we can access without creating instance of module
-Sharebeast.getDomains = function() {
+Sharebeast.getDomains = function(){
   return ['sharebeast.com'];
 }
+
