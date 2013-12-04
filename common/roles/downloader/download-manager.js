@@ -125,6 +125,8 @@ DownloadManager.prototype.preRun = function(job, done) {
   var self = this;
 
   self.browser = new Cowmangler();
+  self.browser.newTab();
+
   self.browser.on('error', function(err){done(err)});
 
   Seq()
@@ -133,7 +135,6 @@ DownloadManager.prototype.preRun = function(job, done) {
       self.campaigns_.getDetails(job._id.owner, this);
     })
     .seq(function(campaign) {
-      //logger.info('we have this campaign ' + JSON.stringify(campaign));
       self.campaign_ = campaign;
       self.loadDownloaders(this);
     })

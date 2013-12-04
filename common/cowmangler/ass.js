@@ -27,7 +27,9 @@ var Ass = module.exports = function(done) {
   this.init(done);
 }
 
-Ass.prototype.init = function(done){
+Ass.prototype.init = function(){}
+
+Ass.prototype.new = function(done){
   var self = this;
   
   self.query('new', {}).then(function(results){
@@ -41,7 +43,7 @@ Ass.prototype.init = function(done){
 }
 
 /*
-Gateway for all tab API calls.
+Gateway for all Tab API calls.
 */
 Ass.prototype.do = function(action, data){
   var self = this;
@@ -110,19 +112,6 @@ Ass.prototype.sift = function(body){
 }
 
 /*
-Are there cowmangler nodes available ?
-*/
-Ass.prototype.isUseable = function(done){
-  var self = this;
-  self.query('isNodeAvailable', {}).then(function(results){
-    done(null, results.result);
-  },
-  function(err){
-    done(err);
-  });
-}
-
-/*
 Add a safety check for relevancy of signals (for given infringement)
 */
 Ass.prototype.addSource = function(uri){
@@ -131,6 +120,22 @@ Ass.prototype.addSource = function(uri){
     logger.info('adding source to ears for uri : ' + uri);
     self.ears.sources.push(uri);
   }
+}
+
+/*
+Collect download signals from ears. 
+*/
+Ass.prototype.getHooverBag = function(uri){
+  var self = this;
+  var promise = new Promise.Promise();
+
+  self.ears.once('finishedDownloading', function(payLoad){
+    logger.info('just received finishedDownloading signal : ' + JSON.stringify(payLoad));
+    if(payLoad.uri !== uri)
+      logger.warn('was looking for downloads from ' + uri + ' but instead got downloads from ' + payLoad.uri);
+    promise.resolve(payLoad.downloads);  
+  }); 
+  return promise;
 }
 
 /*

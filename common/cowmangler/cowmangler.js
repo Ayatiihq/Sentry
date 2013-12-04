@@ -18,6 +18,7 @@ var acquire = require('acquire')
 
 var Cowmangler = module.exports = function () {
   var connected = false;
+  this.ass_ = null;
   this.cachedCalls_ = [];
   this.init();
 }
@@ -29,8 +30,16 @@ util.inherits(Cowmangler, events.EventEmitter);
 */
 Cowmangler.prototype.init = function()
 {
-	var self = this;
-  
+	var self = this;  
+  self.ass_ = new Ass();
+}
+
+/*
+  New tab
+*/
+Cowmangler.prototype.newTab = function(){
+  var self = this;
+
   function done(err){
     if(err)
       return self.emit("error", err);
@@ -41,7 +50,8 @@ Cowmangler.prototype.init = function()
 
     self.emit('ready');
   }
-	self.ass_ = new Ass(done);
+
+  self.ass_.new(done);
 }
 
 /*
@@ -179,6 +189,25 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
   });
 }
 
+/*
+   getStoredDownloads
+ * @param {function}  done           callback to notify once we are done talking to cowmangler.
+                                     returns an array of download objects that have been downloaded for this URI.
+ **/
+Cowmangler.prototype.getStoredDownloads = function(uri, done){
+  var self = this;
+
+  if (!self.connected)
+    return self.cachedCalls_.push([self.getStoredDownloads, Object.values(arguments)]);
+
+  self.ass_.getHooverBag(uri).then(function(downloads){
+    done(null, downloads);
+  },
+  function(err){
+    done(err);
+  });  
+}
+
 /* 
  * This results in CowMangler attempting to download files resulting from preceding clicks.
  * Usual usecase is to click a few places and then call downloadTargeted, then listen to redis for signals. 
@@ -236,27 +265,6 @@ Cowmangler.prototype.downloadAll = function(done){
     done(err);
   });
 }
-
-
-/*
-   getStoredDownloads
- * @param {function}  done           callback to notify once we are done talking to cowmangler.
-                                     returns an array of download objects that have been downloaded for this URI.
- **/
-/*
-Cowmangler.prototype.getStoredDownloads = function(uri, done){
-  var self = this;
-
-  if (!self.connected)
-    return self.cachedCalls_.push([self.getStoredDownloads, Object.values(arguments)]);
-
-  self.ass_.getHooverBag(uri).then(function(downloads){
-    done(null, downloads);
-  },
-  function(err){
-    done(err);
-  });  
-}*/
 
 /*
    GetSource
@@ -463,7 +471,19 @@ Cowmangler.prototype.isAvailable = function(done){
     return self.cachedCalls_.push([self.isAvailable, Object.values(arguments)]);
 
   self.ass_.query('isNodeAvailable').then(function(results){
-    done(results.result);
+    done(null, results.result);
+  },
+  function(err){
+    done(err);
+  });
+}
+
+Cowmangler.prototype.getStatus = function(done){
+  if (!self.connected)
+    return self.cachedCalls_.push([self.getStatus, Object.values(arguments)]);
+
+  self.ass_.query('getNodes').then(function(results){
+    done(null, results.result);
   },
   function(err){
     done(err);

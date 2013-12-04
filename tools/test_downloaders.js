@@ -85,6 +85,8 @@ function main() {
   var instance;
   
   browser = new Cowmangler();
+  browser.newTab();
+
   browser.on('ready', function(){logger.info('we are cowmangling')});
   browser.on('error', function(){
     logger.warn('cowmangler r-u-n-n-o-f-t');

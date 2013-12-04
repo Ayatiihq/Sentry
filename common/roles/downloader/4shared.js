@@ -26,7 +26,7 @@ var Fourshared = module.exports = function (campaign, browser) {
                             authenticated: false},
                     available: [{stepOne: 'a[id="btnLink"]'}],
                     unavailable: {inSource: [/This\sfile\sis\sno\slonger\savailable\sbecause\sof\sa\sclaim\sby/,
-                                             /The\sfile\slink\sthat\syou\srequested\sis\snot\svalid\s./],
+                                             /The\sfile\slink\sthat\syou\srequested\sis\snot\svalid\./],
                                   inUri: []},
                     approach : states.downloaders.method.COWMANGLING,
                     strategy : states.downloaders.strategy.TARGETED,
