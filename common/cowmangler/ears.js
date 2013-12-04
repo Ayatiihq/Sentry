@@ -91,10 +91,8 @@ Ears.prototype.listen = function(channel, message){
     return;
   }
 
-  if(!self.sources.some(msg.src_uri) && msg.signal !== 'destroyed'){
-    //logger.warn("I don't know about this uri... assumption disproved : " + msg.src_uri);
+  if(!self.sources.some(msg.src_uri) && msg.signal !== 'destroyed')
     return;
-  }
 
   if(msg.signal === 'download-stored'){
     logger.info('dnlds stored : ' + msg.md5 + ' with a mimetype of ' + msg.mimetype +  ' src: ' + msg.src_uri);

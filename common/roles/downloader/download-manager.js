@@ -247,9 +247,6 @@ DownloadManager.prototype.run = function(done) {
       else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
         self.restful(infringements, plugin, this);
     })
-    .seq(function(){
-      setTimeout(self.run.bind(self, done), 100);
-    })
     .catch(function(error) {
       // We don't set a state if the download errored right now
       logger.warn('Unable to download %s:', error);
@@ -383,9 +380,13 @@ DownloadManager.prototype.goManual = function(infringement, plugin, done) {
     .seq(function(nUploaded) {
       // TODO - needs to be integrated into whatever manual process needs it
       rimraf(tmpDir, this);
-    })
+    })    
     .seq(function() {
       done();
+    })
+    .catch(function(err){
+      logger.warn('Unable to goManual : %s', err);
+      done(err);
     })
     ;
 }

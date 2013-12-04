@@ -78,7 +78,7 @@ Gateway for Hub api calls.
 Ass.prototype.query = function(action){
   var self = this;
   self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
-  var query =  this.hub + "/" + action;
+  var query =  self.hub + "/" + action;
   var promise = new Promise.Promise();
 
   request.get(query, function(data, response){
@@ -93,6 +93,7 @@ Ass.prototype.query = function(action){
       promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString()));
     }
     else{
+      console.log('query returned ' + JSON.stringify(response.body));
       promise.resolve(self.sift(response.body));
     }
   });

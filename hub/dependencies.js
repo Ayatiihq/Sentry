@@ -123,9 +123,9 @@ Dependencies.prototype.isManglerAvailable = function(args, callback) {
       self.manglerAvailableTabs_ = 0;
       self.manglerBusyTabs_ = 0;
 
-      nodeStatus.keys.each(function(node){
-        self.manglerAvailableTabs_ += node.max_tab_count - node.tab_count;
-        self.manglerBusyTabs_ += node.tab_count;
+      Object.keys(nodeStatus).each(function(node){
+        self.manglerAvailableTabs_ += nodeStatus[node].max_tab_count - nodeStatus[node].tab_count;
+        self.manglerBusyTabs_ += nodeStatus[node].tab_count;
       });
 
       self.manglerLastCheck_ = new Date();

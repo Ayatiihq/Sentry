@@ -178,7 +178,7 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
 
   if (!self.connected)
     return self.cachedCalls_.push([self.setDownloadPolicy, Object.values(arguments)]);
-  //logger.info('Set DownloadPolicy ' + JSON.stringify(mimeTypes));
+
   var data = {'minsize': minSize, 'mimetypes' : mimeTypes};
   self.ass_.do('setDownloadPolicy', data).then(function(result){
     self.ass_.addSource(uri);
@@ -467,6 +467,7 @@ Cowmangler.prototype.loadHTML = function(html, done){
 }
 
 Cowmangler.prototype.isAvailable = function(done){
+  var self = this;
   if (!self.connected)
     return self.cachedCalls_.push([self.isAvailable, Object.values(arguments)]);
 
@@ -479,11 +480,12 @@ Cowmangler.prototype.isAvailable = function(done){
 }
 
 Cowmangler.prototype.getStatus = function(done){
+  var self = this;
   if (!self.connected)
     return self.cachedCalls_.push([self.getStatus, Object.values(arguments)]);
 
   self.ass_.query('getNodes').then(function(results){
-    done(null, results.result);
+    done(null, results);
   },
   function(err){
     done(err);
