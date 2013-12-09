@@ -21,7 +21,7 @@ var acquire = require('acquire')
 
 var resource = require('./webform-engine-resource');
 
-var TAKE_SCREENSHOTS = false;
+var TAKE_SCREENSHOTS = true;
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
@@ -41,7 +41,7 @@ BrowserEngine.prototype.getDriver = function () { return self.driver; }
 BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   var self = this;
   var deferred = new Q.defer();
-  if (url === undefined) { deferred.reject(new Error('url is undefined')); return; }
+  if (url === undefined) { deferred.reject(new Error('url is undefined')); return deferred.promise; }
   logger.trace(url);
 
   var seleniumPromise = self.driver.get(url);
@@ -64,6 +64,7 @@ BrowserEngine.prototype.sleep = function (timeout) {
 BrowserEngine.prototype.fillTextBox = function (selector, text) {
   var self = this;
   var deferred = new Q.defer();
+  if (selector === undefined) { deferred.reject(new Error('selector is undefined')); return deferred.promise;}
   logger.trace(selector, text);
 
   self.driver.findElement(webdriver.By.css(selector)).sendKeys(text).then(deferred.resolve, deferred.reject);
@@ -88,7 +89,9 @@ BrowserEngine.prototype.checkBox = function (selector) {
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
   logger.trace(selector);
-  return self.click(selector);
+  var deferred = new Q.defer();
+  deferred.resolve();
+  return deferred.promise; //self.click(selector);
 }
 
 // clicks the selector provided, returns a promise
@@ -173,14 +176,15 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   // essentially a list of functions that return promises;
   var commandFunctions = [];
   var addCommand = function () {
-    var args = Array.prototype.slice.apply(null, arguments);
-    var fn = args.unshift();
-    commandFunctions.push(fn.bind.apply(self.browser, args));
+    var args = Array.prototype.slice.call(arguments);
+    var fn = args.shift();
+    args.unshift(self.browser);
+    commandFunctions.push(fn.bind.apply(fn, args));
   };
 
   // goto the url
   addCommand(self.browser.gotoURL, formTemplate.url, formTemplate.waitforSelector);
-  addCommand(self.browser.delay, 5000);
+  addCommand(self.browser.sleep, 5000);
   
   Object.each(formTemplate.preActions, function preActions(action, selector) {
     addCommand(self.actionBuilder(action, selector));
@@ -194,7 +198,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   // same with checkboxes, check any that are in our selectors
   Object.each(formTemplate.formCheckBoxes, function checkBoxes(selector) {
-    addCommand(self.browser.checkBox, self.browser, selector);
+    addCommand(self.browser.checkBox, selector);
   });
 
   // do the actions 
@@ -277,9 +281,10 @@ if (require.main === module) {
     contentMediaType: 'audio'
   }
 
-  engine.executeForm(resource.cloudFlareForm, info).then(function () {
+  engine.executeForm(resource.forms.dailyMotionForm, info).then(function () {
     console.log('done submitting form?');
   }).fail(function (err) {
-    console.log('failed: ' + err);
+    logger.error('Error in promise chain: ', err);
+    //console.log('failed: ', err);
   })
 }

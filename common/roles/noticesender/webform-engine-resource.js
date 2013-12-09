@@ -99,13 +99,15 @@ var dailyMotionForm = {
   dynamicMatcher: function (host) { return /dailymotion/gi.test(host.name); },
   url: 'http://www.dailymotion.com/feedback/copyright/notification',
 
-  actions: {
+  preActions: {
     'click': 'option[value=legal]'
   },
 
   formText: {
     'INPUT#form_copyright_notification_lastname': '${ayatiiLastName}',
     'INPUT#form_copyright_notification_firstname': '${ayatiiFirstName}',
+    'INPUT#form_copyright_notification_company': '${ayatiiCompanyName}',
+    'INPUT#form_copyright_notification_position': 'Owner',
     'INPUT#form_copyright_notification_address': '${ayatiiAddress}, ${ayatiiPostcode}, ${ayatiiCountry}',
     'INPUT#form_copyright_notification_email': '${ayatiiEmail}',
     'INPUT#form_copyright_notification_phone': '${ayatiiTele}',
@@ -135,7 +137,7 @@ var gBloggerForm = {
     var self = this; // self gets bound to the WebFormEngine object
     var deferred = Q.defer();
 
-    var infringementURLs = info.infringingURLS;
+    var infringementURLs = info.infringingURLS.split('\n');
     
     // this is dumb, but gets a list of all the names of all the input boxes
     var getAllInputIDs = function () { 
@@ -202,7 +204,8 @@ var youtubeForm = {
 
 
 exports.forms = {
-  'cloudflare': cloudFlareForm,
   'bing': bingForm,
+  'cloudflare': cloudFlareForm,
+  'dailyMotionForm': dailyMotionForm,
   'gblooger': gBloggerForm
 };
