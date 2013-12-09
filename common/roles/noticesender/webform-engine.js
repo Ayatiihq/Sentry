@@ -281,7 +281,7 @@ if (require.main === module) {
     contentMediaType: 'audio'
   }
 
-  engine.executeForm(resource.forms.dailyMotionForm, info).then(function () {
+  engine.executeForm(resource.forms.gBloggerForm, info).then(function () {
     console.log('done submitting form?');
   }).fail(function (err) {
     logger.error('Error in promise chain: ', err);

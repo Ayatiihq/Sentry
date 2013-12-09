@@ -31,13 +31,13 @@ the website for the media is located at ${campaignURL} . We are the authorized a
 // formCheckBoxes is an object containing a bunch of selectors as keys with checkboxes to check
 var cloudFlareForm = {
   dynamicMatcher: function(host) { 
-  var basicExpression = /cloudflare/ig;
-  var accumulator = false;
-  accumulator |= basicExpression.test(host.hostedBy);
-  accumulator |= basicExpression.test(host.name);
-  accumulator |= basicExpression.test(host._id);
-  accumulator |= /cloudflare\.com/ig.test(host.uri);
-  return accumulator;
+    var basicExpression = /cloudflare/ig;
+    var accumulator = false;
+    accumulator |= basicExpression.test(host.hostedBy);
+    accumulator |= basicExpression.test(host.name);
+    accumulator |= basicExpression.test(host._id);
+    accumulator |= /cloudflare\.com/ig.test(host.uri);
+    return accumulator;
   },
   url: 'https://www.cloudflare.com/abuse/form',
   waitforSelector: 'select#form-select',
@@ -96,7 +96,15 @@ var bingForm = {
 };
 
 var dailyMotionForm = {
-  dynamicMatcher: function (host) { return /dailymotion/gi.test(host.name); },
+  dynamicMatcher: function (host) { 
+    var basicExpression = /dailymotion/gi;
+    var accumulator = false;
+    accumulator |= basicExpression.test(host.hostedBy);
+    accumulator |= basicExpression.test(host.name);
+    accumulator |= basicExpression.test(host._id);
+    accumulator |= /dailymotion.com/gi.test(host.uri);
+    return accumulator;
+  },
   url: 'http://www.dailymotion.com/feedback/copyright/notification',
 
   preActions: {
@@ -207,5 +215,5 @@ exports.forms = {
   'bing': bingForm,
   'cloudflare': cloudFlareForm,
   'dailyMotionForm': dailyMotionForm,
-  'gblooger': gBloggerForm
+  'gBloggerForm': gBloggerForm
 };
