@@ -83,8 +83,7 @@ Ass.prototype.query = function(action){
 
   request.get(query, function(data, response){
     if(!response){
-
-      done(new Error('No data or response from cowmangler...'));
+      promise.reject(new Error('No data or response from cowmangler...'));
       return;
     }
     var statusCode = response.statusCode;
@@ -93,7 +92,6 @@ Ass.prototype.query = function(action){
       promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString()));
     }
     else{
-      //console.log('query returned ' + JSON.stringify(response.body));
       promise.resolve(self.sift(response.body));
     }
   });

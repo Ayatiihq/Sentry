@@ -102,7 +102,7 @@ function main() {
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
                                           'uri': fetchRegex(particularDownloader)},
-                                          20,
+                                          1,
                                           this);
     })
     .seq(function(results){
@@ -110,10 +110,10 @@ function main() {
       var collectedPromises =[] 
       collectedPromises = results.map(function(r){return openATab(Downloader, campaign, r)});
       Promise.all(collectedPromises).then(function(){
-        this();
+        that();
       },
       function(err){
-        this(err);
+        that(err);
       });
     })
     .seq(function(){
