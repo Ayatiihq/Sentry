@@ -17,7 +17,7 @@ var acquire = require('acquire')
 ;
 
 var Cowmangler = module.exports = function () {
-  var connected = false;
+  this.tabConnected = false;
   this.ass_ = null;
   this.cachedCalls_ = [];
   this.init();
@@ -43,7 +43,7 @@ Cowmangler.prototype.newTab = function(){
   function done(err){
     if(err)
       return self.emit("error", err);
-    self.connected = true;
+    self.tabConnected = true;
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
     });
@@ -64,7 +64,7 @@ Cowmangler.prototype.newTab = function(){
 Cowmangler.prototype.get = function(uri, done, options){
   var self = this;
   
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.get, Object.values(arguments)]);
 
   var data = Object.merge({'value': uri}, options);
@@ -88,7 +88,7 @@ Cowmangler.prototype.get = function(uri, done, options){
 Cowmangler.prototype.getInfringement = function(uri, done){
   var self = this;
   
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getInfringement, Object.values(arguments)]);
 
   var data = {'value': uri, 'delay': 5000};
@@ -113,7 +113,7 @@ Cowmangler.prototype.click = function(selector, done, timeout){
   if(!timeout)
     delay = 0;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.click, Object.values(arguments)]);
 
   self.ass_.do('click', {'selector': selector, 'delay': delay}).then(function(result){
@@ -131,7 +131,7 @@ Cowmangler.prototype.click = function(selector, done, timeout){
 Cowmangler.prototype.input = function(credentials, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.input, Object.values(arguments)]);
 
   self.ass_.do('input', credentials).then(function(result){
@@ -150,7 +150,7 @@ Cowmangler.prototype.input = function(credentials, done){
 Cowmangler.prototype.submit = function(selector, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
 
   self.ass_.do('submit', {'selector': selector}).then(function(result){
@@ -176,7 +176,7 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
   // Add the mimeTypes that we always want to pick up regardless of campaign type.
   mimeTypes = mimeTypes.union(["/octet-stream", "/zip", "/rar"]);
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.setDownloadPolicy, Object.values(arguments)]);
 
   var data = {'minsize': minSize, 'mimetypes' : mimeTypes};
@@ -197,7 +197,7 @@ Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done)
 Cowmangler.prototype.getStoredDownloads = function(uri, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getStoredDownloads, Object.values(arguments)]);
 
   self.ass_.getHooverBag(uri).then(function(downloads){
@@ -216,7 +216,7 @@ Cowmangler.prototype.getStoredDownloads = function(uri, done){
 Cowmangler.prototype.downloadTargeted = function(uri, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.downloadTargeted, Object.values(arguments)]);
 
   // First open the ears.
@@ -237,7 +237,7 @@ Cowmangler.prototype.downloadTargeted = function(uri, done){
 Cowmangler.prototype.downloadLinks = function(done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.downloadLinks, Object.values(arguments)]);
 
   self.ass_.do('downloadLinks', {}).then(function(result){
@@ -255,7 +255,7 @@ Cowmangler.prototype.downloadLinks = function(done){
 Cowmangler.prototype.downloadAll = function(done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.downloadAll, Object.values(arguments)]);
 
   self.ass_.do('downloadAll', {}).then(function(result){
@@ -274,7 +274,7 @@ Cowmangler.prototype.downloadAll = function(done){
 Cowmangler.prototype.getSource = function(done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getSource, Object.values(arguments)]);
 
   self.ass_.do('getSource', {}).then(function(results){
@@ -293,7 +293,7 @@ Cowmangler.prototype.getSource = function(done){
 Cowmangler.prototype.getSources = function(done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getSources, Object.values(arguments)]);
 
   self.ass_.do('getSources', {}).then(function(sources){
@@ -313,7 +313,7 @@ Cowmangler.prototype.find = function(selector, done){
   var self = this;
   var data = {"selector": selector};
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.find, Object.values(arguments)]);
 
   self.ass_.do('find', data).then(function(result){
@@ -327,7 +327,7 @@ Cowmangler.prototype.find = function(selector, done){
 Cowmangler.prototype.quit = function(done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.quit, Object.values(arguments)]);
   
   self.ass_.deafen().then(function(){
@@ -347,7 +347,7 @@ Cowmangler.prototype.quit = function(done){
 Cowmangler.prototype.injectJs = function(js, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.injectJs, Object.values(arguments)]);
 
   var payload = {value: js};
@@ -362,7 +362,7 @@ Cowmangler.prototype.injectJs = function(js, done){
 Cowmangler.prototype.removeJs = function(scriptId, done){
   var self = this;
   
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.removeJs, Object.values(arguments)]);
  
   var payload = {value: scriptId};
@@ -377,7 +377,7 @@ Cowmangler.prototype.removeJs = function(scriptId, done){
 Cowmangler.prototype.setAdBlock = function(turnOn, done){
   var self = this;
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.setAdBlock, Object.values(arguments)]);
 
   var payload = {value: turnOn};
@@ -395,7 +395,7 @@ Cowmangler.prototype.setAdBlock = function(turnOn, done){
  */
 Cowmangler.prototype.wait = function(waitTime, done){
   var self = this;
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.wait, Object.values(arguments)]);
   var payload = {value: waitTime};
   self.ass_.do('wait', payload).then(function(result){
@@ -410,7 +410,7 @@ Cowmangler.prototype.setUserAgent = function(userAgent, done){
   var self = this;
   var data = {"value": userAgent};
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.setUserAgent, Object.values(arguments)]);
 
   self.ass_.do('setUserAgent', data).then(function(){
@@ -425,7 +425,7 @@ Cowmangler.prototype.getOuterHTML = function(selector, done){
   var self = this;
   var data = {"selector": selector};
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getOuterHTML, Object.values(arguments)]);
 
   self.ass_.do('getOuterHTML', data).then(function(html){
@@ -440,7 +440,7 @@ Cowmangler.prototype.getInnerHTML = function(selector, done){
   var self = this;
   var data = {"selector": selector};
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.getInnerHTML, Object.values(arguments)]);
 
   self.ass_.do('getInnerHTML', data).then(function(html){
@@ -455,7 +455,7 @@ Cowmangler.prototype.loadHTML = function(html, done){
   var self = this;
   var data = {"value": html};
 
-  if (!self.connected)
+  if (!self.tabConnected)
     return self.cachedCalls_.push([self.loadHTML, Object.values(arguments)]);
 
   self.ass_.do('loadHTML', data).then(function(){
@@ -468,8 +468,6 @@ Cowmangler.prototype.loadHTML = function(html, done){
 
 Cowmangler.prototype.isAvailable = function(done){
   var self = this;
-  if (!self.connected)
-    return self.cachedCalls_.push([self.isAvailable, Object.values(arguments)]);
 
   self.ass_.query('isNodeAvailable').then(function(results){
     done(null, results.result);
@@ -481,8 +479,6 @@ Cowmangler.prototype.isAvailable = function(done){
 
 Cowmangler.prototype.getStatus = function(done){
   var self = this;
-  if (!self.connected)
-    return self.cachedCalls_.push([self.getStatus, Object.values(arguments)]);
 
   self.ass_.query('getNodes').then(function(results){
     done(null, results);

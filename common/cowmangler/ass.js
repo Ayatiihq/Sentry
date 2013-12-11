@@ -20,11 +20,11 @@ var acquire = require('acquire')
 
 var MAXTIMEOUT = 180000;
 
-var Ass = module.exports = function(done) {
+var Ass = module.exports = function() {
   this.downloads = [];
   this.node = null;
   this.hub =  config.COWMANGLER_HUB_ADDRESS + ':' + config.COWMANGLER_HUB_PORT;
-  this.init(done);
+  this.init();
 }
 
 Ass.prototype.init = function(){}
@@ -60,7 +60,7 @@ Ass.prototype.do = function(action, data){
                 'body': JSON.stringify(data)},
                 function(err, resp, body){
                   if(err)
-                    return promise.reject(err);
+                    return promise.reject(err);                  
                   // We might need to be forgiving at the cowmangler level depending on the context
                   // cowmanger will only ever return a 200 or a 500.
                   if(resp.statusCode !== 200){
@@ -83,8 +83,7 @@ Ass.prototype.query = function(action){
 
   request.get(query, function(data, response){
     if(!response){
-
-      done(new Error('No data or response from cowmangler...'));
+      promise.reject(new Error('No data or response from cowmangler...'));
       return;
     }
     var statusCode = response.statusCode;
@@ -93,7 +92,6 @@ Ass.prototype.query = function(action){
       promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString()));
     }
     else{
-      console.log('query returned ' + JSON.stringify(response.body));
       promise.resolve(self.sift(response.body));
     }
   });
