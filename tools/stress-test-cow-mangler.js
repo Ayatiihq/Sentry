@@ -1,5 +1,9 @@
 /*
  * stress-test-cow-mangler.js: 
+ * Right now it uses cyberlockers and should be called like this:
+ * "node stress-test-cow-mangler.js <campaignId> <cyberlocker-domain> <number-of-tabs?(optional)>"
+ * if the number-of-tabs is not passed in the number of tabs available will determine the limit
+ * on the database query which in turn determines the number of tabs.
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
@@ -103,7 +107,7 @@ function main() {
     .seq(function(status){
       var manglerAvailableTabs = 0;
       var manglerBusyTabs = 0;
-      logger.info('status : ' + JSON.stringify(status));
+      
       Object.keys(status).each(function(node){
         manglerAvailableTabs += status[node].max_tab_count - status[node].tab_count;
         manglerBusyTabs += status[node].tab_count;
