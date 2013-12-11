@@ -481,8 +481,6 @@ Cowmangler.prototype.isAvailable = function(done){
 
 Cowmangler.prototype.getStatus = function(done){
   var self = this;
-  if (!self.connected)
-    return self.cachedCalls_.push([self.getStatus, Object.values(arguments)]);
 
   self.ass_.query('getNodes').then(function(results){
     done(null, results);

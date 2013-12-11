@@ -74,7 +74,7 @@ function openATab(Downloader, campaign, infringement){
     })
     .catch(function(err){
       logger.warn('Unable to stress test cowmangler %s', err);   
-      //promise.reject(err);
+      promise.reject(err);
     })
     ;               
   return promise;
@@ -86,28 +86,45 @@ function main() {
 
   if (process.argv.length < 3)
   {
-    logger.warn("Usage: node stress-test-cow-mangler.js <campaignId> <cyberlocker-domain>");
+    logger.warn("Usage: node stress-test-cow-mangler.js <campaignId> <cyberlocker-domain> <number-of-tabs?(optional)>");
     process.exit(1);
   }
 
   var campaign = require(process.argv[2]);  
   var particularDownloader = process.argv[3];
-  
+  var desiredTabs = process.argv.length > 4 ? process.argv[4] : null;
   var Downloader = require('../common/roles/downloader/' + particularDownloader);
 
   Seq()
     .seq(function(){
+      var browser = new Cowmangler();
+      browser.getStatus(this);
+    })
+    .seq(function(status){
+      var manglerAvailableTabs = 0;
+      var manglerBusyTabs = 0;
+      logger.info('status : ' + JSON.stringify(status));
+      Object.keys(status).each(function(node){
+        manglerAvailableTabs += status[node].max_tab_count - status[node].tab_count;
+        manglerBusyTabs += status[node].tab_count;
+      });
+
+      logger.info('availableTabs : ' + manglerAvailableTabs);
+      logger.info('busyTabs : ' + manglerBusyTabs);
+
+      var limit = desiredTabs ? desiredTabs : manglerAvailableTabs;
+
       var that = this;
       var searchPromise = findCollection('infringements', 
                                          {'campaign': campaign._id,
                                           'category': states.infringements.category.CYBERLOCKER,
                                           'uri': fetchRegex(particularDownloader)},
-                                          1,
+                                          limit,
                                           this);
     })
     .seq(function(results){
       var that = this;
-      var collectedPromises =[] 
+      var collectedPromises =[]; 
       collectedPromises = results.map(function(r){return openATab(Downloader, campaign, r)});
       Promise.all(collectedPromises).then(function(){
         that();
