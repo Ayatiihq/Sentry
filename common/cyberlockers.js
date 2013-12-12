@@ -60,19 +60,24 @@ function ifUndefined(test, falsey) {
 
 
 /**
- * Get a list of cyberlockers.
+ * Get a list of known cyberlocker domains.
  *
  * @param {function(err, [cyberlockers])} callback.
  * @return {undefined}
  */
-Cyberlockers.prototype.list = function(callback) {
+Cyberlockers.prototype.knownDomains = function(callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
   
   if (!self.cyberlockers_)
-    return self.cachedCalls_.push([self.list, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.knownDomains, Object.values(arguments)]);
 
-  self.cyberlockers_.find().toArray(callback);
+  self.cyberlockers_.find().toArray(function(err, cls){
+    if(err)
+      return callback(err);
+    var flattened = cls.map(function(cl){ return cl._id});
+    callback(null, flattened);
+  });
 }
 
 /**

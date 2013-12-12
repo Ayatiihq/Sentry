@@ -40,8 +40,8 @@ function main() {
   var cyberlockers = new Cyberlockers();
   var action = argv[2];
 
-  if (action === 'list')
-    cyberlockers.list(log);
+  if (action === 'knownDomains')
+    cyberlockers.knownDomains(log);
 
   if (action === 'add') {
     cyberlockers.add(argv[3], log);
