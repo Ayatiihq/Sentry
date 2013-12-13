@@ -204,7 +204,8 @@ Generic.prototype.checkInfringement = function (infringement) {
   }
 
   self.cyberlockers.knownDomains(function(err, domains){
-    arrayHas(infringement.uri, domains)) {
+
+    if (arrayHas(infringement.uri, domains)) {
       logger.info('%s is a cyberlocker', infringement.uri);
       // FIXME: This should be done in another place, is just a hack, see
       //        https://github.com/afive/sentry/issues/65
@@ -212,43 +213,44 @@ Generic.prototype.checkInfringement = function (infringement) {
       self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
       self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
       promise.resolve();  
+
+    } else if (!utilities.uriHasPath(infringement.uri)) {
+      logger.info('%s has no path, not scraping', infringement.uri);
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      promise.resolve();
+    
+    } else if (arrayHas(infringement.uri, safeDomains)) {
+      logger.info('%s is a safe domain', infringement.uri);
+      // auto reject this result
+      self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
+      promise.resolve();
+    
+    } else {
+      var wrangler = new BasicWrangler();
+
+      var rules = {
+        'music': acquire('wrangler-rules').rulesDownloadsMusic,
+        'tv': acquire('wrangler-rules').rulesLiveTV,
+        'movie': acquire('wrangler-rules').rulesDownloadsMovie
+      };
+
+      wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
+      wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+      wrangler.on('suspended', function onWranglerSuspend() {
+        self.activeScrapes = self.activeScrapes - 1;
+        self.suspendedScrapes = self.suspendedScrapes + 1;
+        self.pump();
+      });
+      wrangler.on('resumed', function onWranglerResume() {
+        self.activeScrapes = self.activeScrapes + 1;
+        self.suspendedScrapes = self.suspendedScrapes - 1;
+        self.pump();
+      });
+      wrangler.beginSearch(infringement.uri);
+    }
   });
 
-  if (!utilities.uriHasPath(infringement.uri)) {
-    logger.info('%s has no path, not scraping', infringement.uri);
-    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-    promise.resolve();
-  
-  } else if (arrayHas(infringement.uri, safeDomains)) {
-    logger.info('%s is a safe domain', infringement.uri);
-    // auto reject this result
-    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-    promise.resolve();
-  
-  } else {
-    var wrangler = new BasicWrangler();
-
-    var rules = {
-      'music': acquire('wrangler-rules').rulesDownloadsMusic,
-      'tv': acquire('wrangler-rules').rulesLiveTV,
-      'movie': acquire('wrangler-rules').rulesDownloadsMovie
-    };
-
-    wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
-
-    wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-    wrangler.on('suspended', function onWranglerSuspend() {
-      self.activeScrapes = self.activeScrapes - 1;
-      self.suspendedScrapes = self.suspendedScrapes + 1;
-      self.pump();
-    });
-    wrangler.on('resumed', function onWranglerResume() {
-      self.activeScrapes = self.activeScrapes + 1;
-      self.suspendedScrapes = self.suspendedScrapes - 1;
-      self.pump();
-    });
-    wrangler.beginSearch(infringement.uri);
-  }
   return promise;
 };
 
