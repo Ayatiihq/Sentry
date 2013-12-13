@@ -127,6 +127,7 @@ Cyberlockers.prototype.add = function(cyberlockerDomain, callback) {
   entry.automated = false;
   entry.loginDetails = {};
   entry.created = now;
+  entry.uriMatcher = null;
   self.cyberlockers_.insert(entry, callback);
 }
 

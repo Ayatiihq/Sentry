@@ -32,6 +32,7 @@ var MAX_LINKS = 100;
 
 var Verifier = module.exports = function() {
   this.campaigns_ = null;
+  this.cyberlockers_ = null
   this.infringements_ = null;
   this.settings_ = null;
   this.jobs_ = null;
@@ -55,6 +56,7 @@ Verifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.cyberlockers_ = new CyberLockers();
   self.infringements_ = new Infringements();
   self.settings_ = new Settings('role.verifier');
   self.jobs_ = new Jobs('verifier');
@@ -310,7 +312,6 @@ Verifier.prototype.processAllLTRVerifications = function(campaign, done, lastId)
 //
 Verifier.prototype.verifyKnownIDs = function(campaign, job) {
   var self = this
-    , engines = self.loadKnownEngines(campaign)
     , infringements = null
     ;
 
@@ -329,7 +330,10 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
       infringements = collection;
       this();
     })
-    .set(engines)
+    .seq(function() {
+      self.loadKnownEngines(campaign, this);
+    }
+    .set(engines) // will this work ?
     .seqEach(function(engine) {
       engine(infringements, this);
     })
@@ -348,19 +352,23 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     ;
 }
 
-Verifier.prototype.loadKnownEngines = function(campaign) {
+Verifier.prototype.loadKnownEngines = function(campaign, done) {
   var self = this
     , engines = []
     ;
 
   engines.push(self.torrentEngine.bind(self));
   
-  // Add in the cyberlock engines
-  Object.values(CyberLockers.idMatchers, function(matcher) {
-    engines.push(self.cyberlockerEngine.bind(self, matcher));
-  });
 
-  return engines;
+  self.cyberlockers_.find(function(err, cls){
+    if(err)
+      return done(err);
+    cls.each(function(cl){
+      if(cl.uriMatcher)
+        engines.push(self.cyberlockerEngine.bind(self, cl));
+    });
+    done(null, engines);
+  });
 }
 
 Verifier.prototype.torrentEngine = function(infringements, done) {
@@ -431,7 +439,7 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     ;
 }
 
-Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
+Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done) {
   var self = this
     , verifiedIdObj = {}
     , verifiedIds = []
@@ -449,7 +457,7 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
                                      category: states.infringements.category.CYBERLOCKER,
                                      state: { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]},
                                      'children.count': 0,
-                                     uri: new RegExp(matcher.domain +'\/')
+                                     uri: new RegExp(cyberlocker._id +'\/')
                                    },
                                    { uri: 1 });
       cur.toArray(this);
@@ -457,7 +465,7 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
     // Grab the unique id for the cyberlocker upload
     .seq(function(verified) {
       verified.forEach(function(infringement) {
-        var id = matcher.getId(infringement.uri);
+        var id = infringement.uri.match(cyberlocker.uriMatcher);
         if (id)
           verifiedIdObj[id] = true;
       });
@@ -470,7 +478,7 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
       var cur = infringements.find({ campaign: self.campaign_._id,
                                      category: states.infringements.category.CYBERLOCKER,
                                      state: { $in: [iStates.UNVERIFIED, iStates.NEEDS_DOWNLOAD ]},
-                                     uri: new RegExp(matcher.domain +'\/')
+                                     uri: new RegExp(cyberlocker._id +'\/')
                                    },
                                    { uri: 1 });
       cur.toArray(this);
@@ -478,7 +486,7 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
     // See if we can get a match of any of the ids on the unverified list
     .seq(function(unverified) {
       unverified.forEach(function(infringement) {
-        var id = matcher.getId(infringement.uri);
+        var id = infringement.uri.match(cyberlocker.uriMatcher);
         
         if (verifiedIds.some(id))
           needsVerifying.push(infringement);
@@ -493,11 +501,11 @@ Verifier.prototype.cyberlockerEngine = function(matcher, infringements, done) {
       self.verifications_.submit(infringement, verification, this);
     })
     .seq(function() {
-      logger.info('%s known-id verifier finished', matcher.domain);
+      logger.info('%s known-id verifier finished', cyberlocker._id);
       done();
     })
     .catch(function(err) {
-      logger.warn('Unable to complete %s known-id verification: %s', matcher.domain, err);
+      logger.warn('Unable to complete %s known-id verification: %s', cyberlocker._id, err);
       done(err);
     })
     ;
