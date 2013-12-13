@@ -23,6 +23,7 @@ var acquire = require('acquire')
   , states = acquire('states')
   , Promise = require('node-promise')
   , blacklist = acquire('blacklist')
+  , wranglerRules = wranglerRules
 ;
 
 var Scraper = acquire('scraper');
@@ -227,27 +228,38 @@ Generic.prototype.checkInfringement = function (infringement) {
     
     } else {
       var wrangler = new BasicWrangler();
+      
+      var musicRules = wranglerRules.rulesDownloadsMusic;
+      var movieRules = wranglerRules.rulesDownloadsMovie;
 
-      var rules = {
-        'music': acquire('wrangler-rules').rulesDownloadsMusic,
-        'tv': acquire('wrangler-rules').rulesLiveTV,
-        'movie': acquire('wrangler-rules').rulesDownloadsMovie
-      };
+      self.cyberlockers.knownDomains(function(err, domains){
+        if(err)
+          return logger.warn('Error fetching knownDomains ' + err);
+  
+        musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
+        movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
+  
+        var rules = {
+          'music' : musicRules,
+          'tv': wranglerRules.rulesLiveTV,
+          'movie': movieRules 
+        };
 
-      wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+        wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
 
-      wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-      wrangler.on('suspended', function onWranglerSuspend() {
-        self.activeScrapes = self.activeScrapes - 1;
-        self.suspendedScrapes = self.suspendedScrapes + 1;
-        self.pump();
+        wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+        wrangler.on('suspended', function onWranglerSuspend() {
+          self.activeScrapes = self.activeScrapes - 1;
+          self.suspendedScrapes = self.suspendedScrapes + 1;
+          self.pump();
+        });
+        wrangler.on('resumed', function onWranglerResume() {
+          self.activeScrapes = self.activeScrapes + 1;
+          self.suspendedScrapes = self.suspendedScrapes - 1;
+          self.pump();
+        });
+        wrangler.beginSearch(infringement.uri);
       });
-      wrangler.on('resumed', function onWranglerResume() {
-        self.activeScrapes = self.activeScrapes + 1;
-        self.suspendedScrapes = self.suspendedScrapes - 1;
-        self.pump();
-      });
-      wrangler.beginSearch(infringement.uri);
     }
   });
 

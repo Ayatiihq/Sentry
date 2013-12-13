@@ -196,78 +196,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   }
 };
 
-/* - Rules to identify links to files on a known cyberlocker - */
-module.exports.ruleCyberLockers = function cyberLockerLink($, source, uri, foundItems) {
-  var flattened = [];
-  var promise;
-  // first Rip out links into an array
-  $('a').each(function () {    
-    var hrefValue = $(this).attr('href');
-    var linkDomain = null;
-    try{
-      var result = URI(hrefValue);
-      linkDomain = result.domain();
-    }
-    catch (error){
-      logger.error("Can't create uri from " + hrefValue);
-    }
-    // First check if the link is a simple cyberlocker
-    if(cyberLockers.knownDomains.some(linkDomain)){
-      foundItems.push(hrefValue);
-    }
-    // otherwise check if its a url shortener
-    else if(linkDomain && shorteners.knownDomains.some(linkDomain)){
-      flattened.push(hrefValue);
-    }
-  });
-
-  var promiseArray = flattened.map(function buildPromises(ulink) {
-    return utilities.followRedirects([ulink], new Promise());
-  });
-
-  promise = new Promise();
-
-  all(promiseArray).then(function onRedirectFollowingFinished(lifted30Xs) {
-    lifted30Xs.each(function (individual30xs) {
-        var URILink;
-        try {
-          // Only check the last link
-          URILink = URI(individual30xs.last());
-        }
-        catch (error) {
-          return; // some dodgy link => move on.
-        }
-        if (cyberLockers.knownDomains.some(URILink.domain())) {
-          foundItems.push(individual30xs.last());
-        }
-    });
-    promise.resolve(foundItems);
-  });
-  return promise; 
-};
-
-// finds any links that match the extensions in the extension list
-var ruleFindExtensions = module.exports.ruleFindExtensions = function (extensionList) {
-
-  var retfun = function findExtensions(extensions, $, source, uri, foundItems) {
-    XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
-      // we can extract lots of information from our regexp
-      var check = false;
-      if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
-      if (check) {
-        var newitem = new Endpoint(match.fulluri.toString());
-        newitem.isEndpoint = true;
-        foundItems.push(newitem);
-      }
-    });
-
-    return foundItems;
-  };
-
-  return retfun.bind(null, extensionList);
-};
-
-var searchTypes = {
+var searchTypes = module.exports.searchTypes{
   START: 0,
   MIDDLE: 1,
   END: 2,
@@ -440,16 +369,14 @@ var magnetPrefixs = ['magnet:'];
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
 module.exports.rulesDownloadsMusic = [
-    ruleSearchAllLinks(cyberLockers.knownDomains, searchTypes.DOMAIN)
-  , ruleSearchAllLinks(audioExtensions, searchTypes.END)
+    ruleSearchAllLinks(audioExtensions, searchTypes.END)
   , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
   , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
 
 module.exports.rulesDownloadsMovie = [
-    ruleSearchAllLinks(cyberLockers.knownDomains, searchTypes.DOMAIN)
-  , ruleSearchAllLinks(videoExtensions, searchTypes.END)
+    ruleSearchAllLinks(videoExtensions, searchTypes.END)
   , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
   , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
