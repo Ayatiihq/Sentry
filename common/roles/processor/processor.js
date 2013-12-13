@@ -35,7 +35,7 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers').knownDomains
+  , Cyberlockers = acquire('cyberlockers')
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
@@ -292,13 +292,23 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , scheme = infringement.scheme
     ;
 
+  self.isCyberlocker(uri, domain, infringement, function(err, result){
+    if(err)
+      return done(err);
+    if(result){
+      infringement.category = Categories.CYBERLOCKER;  
+      logger.info('Putting infringement into initial category of %d', infringement.category);
+      done(null);
+    }
+  });
+
   if (meta) {
     infringement.category = Categories.SEARCH_RESULT
   
   } else if (scheme == 'torrent' || scheme == 'magnet') {
     infringement.category = Categories.TORRENT;
   
-  } else if (self.isCyberlocker(uri, domain)) {
+  } else if (self.isCyberlocker(uri, domain, infringement, done)) {
     infringement.category = Categories.CYBERLOCKER;
   
   } else if (self.isSocialNetwork(uri, hostname)) {
@@ -313,14 +323,15 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
   done(null);
 }
 
-Processor.prototype.isCyberlocker = function(uri, hostname) {
-  var ret = false;
+Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
 
-  Cyberlockers.forEach(function(domain) {
-    ret = ret || hostname == domain;
+  var cyberlockers = new Cyberlockers();
+
+  cyberlockers.knowDomains(function(err, domains){
+    domains.each(function(domain) {
+      ret = ret || hostname == domain;
   });
 
-  return ret;
 }
 
 Processor.prototype.isSocialNetwork = function(uri, hostname) {
