@@ -313,6 +313,7 @@ Verifier.prototype.processAllLTRVerifications = function(campaign, done, lastId)
 Verifier.prototype.verifyKnownIDs = function(campaign, job) {
   var self = this
     , infringements = null
+    , engines = []
     ;
 
   logger.info('Verifying known torrent and cyberlocker ids');
@@ -332,8 +333,11 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     })
     .seq(function() {
       self.loadKnownEngines(campaign, this);
-    }
-    .set(engines) // will this work ?
+    })
+    .seq(function(loadedEngines){
+      engines.add(loadedEngines);
+    })    
+    .set(engines)
     .seqEach(function(engine) {
       engine(infringements, this);
     })

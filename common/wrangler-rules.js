@@ -10,7 +10,6 @@
 require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
-  , cyberLockers = acquire('cyberlockers')
   , shorteners = acquire('shorteners')
   , events = require('events')
   , logger = acquire('logger').forFile('wrangler-rules.js')
