@@ -26,7 +26,7 @@ var COLLECTION = 'cyberlockers';
 var Cyberlockers = module.exports = function() {
   this.db_ = null;
   this.cyberlockers_ = null;
-
+  this.knownDomains_ = null;
   this.cachedCalls_ = [];
 
   this.init();
@@ -41,6 +41,9 @@ Cyberlockers.prototype.init = function() {
 
     self.db_ = db;
     self.cyberlockers_ = collection;
+    
+    // fill the cache
+    self.populate();
 
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
@@ -58,6 +61,19 @@ function ifUndefined(test, falsey) {
   return test ? test : falsey;
 }
 
+Cyberlockers.prototype.populate = function(callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+  
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.populate, Object.values(arguments)]);
+
+  self.cyberlockers_.find().toArray(function(err, cls){
+    if(err)
+      return callback(err);
+    self.knownDomains_ = cls.map(function(cl){ return cl._id});
+  });
+}
 
 Cyberlockers.prototype.find = function(callback) {
 }
@@ -72,14 +88,10 @@ Cyberlockers.prototype.knownDomains = function(callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
   
-  if (!self.cyberlockers_)
+  if (!self.cyberlockers_ || !self.knownDomains_)
     return self.cachedCalls_.push([self.knownDomains, Object.values(arguments)]);
 
-  self.cyberlockers_.find().toArray(function(err, cls){
-    if(err)
-      return callback(err);
-    var flattened = cls.map(function(cl){ return cl._id});
-    callback(null, flattened);
+    callback(null, self.knownDomains_);
   });
 }
 
