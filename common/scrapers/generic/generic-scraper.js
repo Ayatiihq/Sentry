@@ -11,7 +11,7 @@
  */
 
 var acquire = require('acquire')
-  , cyberlockers = acquire('cyberlockers')
+  , Cyberlockers = acquire('cyberlockers')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
@@ -43,6 +43,7 @@ Generic.prototype.init = function () {
   self.backupInfringements = [];
   self.wrangler = null;
   self.infringements = new Infringements();
+  self.cyberlockers = new Cyberlockers();
 
   self.activeScrapes = 0;
   self.maxActive = 10;
@@ -202,6 +203,17 @@ Generic.prototype.checkInfringement = function (infringement) {
     return promise;
   }
 
+  self.cyberlockers.knownDomains(function(err, domains){
+    arrayHas(infringement.uri, domains)) {
+      logger.info('%s is a cyberlocker', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
+      promise.resolve();  
+  });
+
   if (!utilities.uriHasPath(infringement.uri)) {
     logger.info('%s has no path, not scraping', infringement.uri);
     self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
@@ -211,15 +223,6 @@ Generic.prototype.checkInfringement = function (infringement) {
     logger.info('%s is a safe domain', infringement.uri);
     // auto reject this result
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-    promise.resolve();
-  
-  } else if (arrayHas(infringement.uri, cyberlockers.knownDomains)) {
-    logger.info('%s is a cyberlocker', infringement.uri);
-    // FIXME: This should be done in another place, is just a hack, see
-    //        https://github.com/afive/sentry/issues/65
-    // It's a cyberlocker URI, so important but we don't scrape it further
-    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-    self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
     promise.resolve();
   
   } else {

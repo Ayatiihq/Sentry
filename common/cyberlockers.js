@@ -59,6 +59,9 @@ function ifUndefined(test, falsey) {
 }
 
 
+Cyberlockers.prototype.find = function(callback) {
+}
+
 /**
  * Get a list of known cyberlocker domains.
  *
