@@ -18,11 +18,13 @@ var acquire = require('acquire')
   , Ears = require('./ears.js')
   ;
 
-var MAXTIMEOUT = 180000;
+var MAXTTABIMEOUT = 180000;
+var MAXTHUBIMEOUT = 6000;
+var MAXATTEMPTS = 3;
 
 var Ass = module.exports = function() {
   this.downloads = [];
-  this.node = null;
+  this.tab = null;
   this.hub =  config.COWMANGLER_HUB_ADDRESS + ':' + config.COWMANGLER_HUB_PORT;
   this.init();
 }
@@ -31,15 +33,22 @@ Ass.prototype.init = function(){}
 
 Ass.prototype.new = function(done){
   var self = this;
+  var attempt = 0;
   
-  self.query('new', {}).then(function(results){
-    var targetNode = results.result;
-    self.node = targetNode;
-    self.ears = new Ears(self.node, done);
-  },
-  function(err){
-    done(err);
-  });
+  function newTab(){
+    self.query('new', {}).then(function(results){
+      var targetTab = results.result;
+      self.tab = targetTab;
+      self.ears = new Ears(self.tab, done);
+    },
+    function(err){
+      if(attempt > MAXATTEMPTS)
+        return done(err);
+      logger.info('Failed to create new tab, try again (on attempt %i)',  attempt);
+      attempt += 1;
+      newTab(done);
+    });
+  }
 }
 
 /*
@@ -49,13 +58,13 @@ Ass.prototype.do = function(action, data){
   var self = this;
   var promise = new Promise.Promise();
 
-  if(!self.node)
+  if(!self.tab)
     return promise.reject(new Error("We don't have a Node for the work ??"));
 
-  var api = self.node + '/' + action;
+  var api = self.tab + '/' + action;
 
   request.post({'url' : api, 
-                'timeout': MAXTIMEOUT,
+                'timeout': MAXTTABIMEOUT,
                 'headers' : {'content-type': 'application/json' , 'accept': 'text/plain'},
                 'body': JSON.stringify(data)},
                 function(err, resp, body){
@@ -81,7 +90,7 @@ Ass.prototype.query = function(action){
   var query =  self.hub + "/" + action;
   var promise = new Promise.Promise();
 
-  request.get(query, function(data, response){
+  request.get({uri: query, timeout: MAXTHUBIMEOUT}, function(data, response){
     if(!response){
       promise.reject(new Error('No data or response from cowmangler...'));
       return;
