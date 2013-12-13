@@ -51,6 +51,7 @@ var Processor = module.exports = function() {
   this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
+  this.cyberlockers = null; 
 
   this.job_ = null;
   this.campaign_ = null;
@@ -73,6 +74,7 @@ Processor.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
+  self.cyberlockers = new Cyberlockers();
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -295,43 +297,49 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
   self.isCyberlocker(uri, domain, infringement, function(err, result){
     if(err)
       return done(err);
+
     if(result){
       infringement.category = Categories.CYBERLOCKER;  
       logger.info('Putting infringement into initial category of %d', infringement.category);
-      done(null);
+      return done(null);
     }
+
+    if (meta) {
+      infringement.category = Categories.SEARCH_RESULT
+    
+    } else if (scheme == 'torrent' || scheme == 'magnet') {
+      infringement.category = Categories.TORRENT;
+    
+    } else if (self.isCyberlocker(uri, domain, infringement, done)) {
+      infringement.category = Categories.CYBERLOCKER;
+    
+    } else if (self.isSocialNetwork(uri, hostname)) {
+      infringement.category = Categories.SOCIAL;
+    
+    } else {
+      infringement.category = Categories.WEBSITE;
+    }
+
+    logger.info('Putting infringement into initial category of %d', infringement.category);
+
+    done(null);
+
   });
 
-  if (meta) {
-    infringement.category = Categories.SEARCH_RESULT
-  
-  } else if (scheme == 'torrent' || scheme == 'magnet') {
-    infringement.category = Categories.TORRENT;
-  
-  } else if (self.isCyberlocker(uri, domain, infringement, done)) {
-    infringement.category = Categories.CYBERLOCKER;
-  
-  } else if (self.isSocialNetwork(uri, hostname)) {
-    infringement.category = Categories.SOCIAL;
-  
-  } else {
-    infringement.category = Categories.WEBSITE;
-  }
-
-  logger.info('Putting infringement into initial category of %d', infringement.category);
-
-  done(null);
 }
 
 Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
-
-  var cyberlockers = new Cyberlockers();
-
-  cyberlockers.knowDomains(function(err, domains){
+  var self = this;
+  var result = false;
+  self.cyberlockers.knowDomains(function(err, domains){
     domains.each(function(domain) {
-      ret = ret || hostname == domain;
+      if(hostname === domain){
+        result = true;
+        break;
+      }
+    });
   });
-
+  done(null, result);
 }
 
 Processor.prototype.isSocialNetwork = function(uri, hostname) {
