@@ -60,11 +60,12 @@ function ifUndefined(test, falsey) {
 
 Cyberlockers.prototype.populateKnownDomains = function(callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
   
   if (!self.cyberlockers_)
-    return self.cachedCalls_.push([self.populate, Object.values(arguments)]);
-
+    return self.cachedCalls_.push([self.populateKnownDomains, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+  
   self.cyberlockers_.find({}, { _id: 1 }).toArray(function(err, cls){
     if(err)
       return callback(err);
@@ -74,16 +75,13 @@ Cyberlockers.prototype.populateKnownDomains = function(callback) {
 
 Cyberlockers.prototype.all = function(callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
   
   if (!self.cyberlockers_)
     return self.cachedCalls_.push([self.all, Object.values(arguments)]);
-
-  self.cyberlockers_.find().toArray(function(err, cls){
-    if(err)
-      return callback(err);
-    callback(null);
-  });
+  
+  callback = callback ? callback : defaultCallback;
+  
+  self.cyberlockers_.find().toArray(callback);
 }
 
 /**
@@ -94,11 +92,12 @@ Cyberlockers.prototype.all = function(callback) {
  */
 Cyberlockers.prototype.knownDomains = function(callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
   
   if (!self.cyberlockers_)
     return self.cachedCalls_.push([self.knownDomains, Object.values(arguments)]);
   
+  callback = callback ? callback : defaultCallback;
+
   if (!self.knownDomains_){
     self.populateKnownDomains(function(err, domains){
       self.knownDomains_ = domains;
@@ -139,19 +138,18 @@ Cyberlockers.prototype.add = function(cyberlockerDomain, callback) {
   var self = this
     , now = Date.now()
     ;
-  
-  callback = callback ? callback : defaultCallback;
 
   if (!(cyberlockerDomain)) { 
     callback(new Error('cyberlocker domain needed ?'));
     return;
   }
 
-  var entry = {};
-
   if (!self.cyberlockers_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
-
+  
+  callback = callback ? callback : defaultCallback;
+  
+  var entry = {};
   entry._id = cyberlockerDomain;
 
   entry.automated = false;
@@ -171,11 +169,12 @@ Cyberlockers.prototype.add = function(cyberlockerDomain, callback) {
  */
 Cyberlockers.prototype.update = function(id, updates, callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
 
   if (!self.cyberlockers_)
     return self.cachedCalls_.push([self.update, Object.values(arguments)]);
 
+  callback = callback ? callback : defaultCallback;
+  
   self.cyberlockers_.update({ _id: id }, { $set: updates }, callback);
 }
 
@@ -188,10 +187,11 @@ Cyberlockers.prototype.update = function(id, updates, callback) {
  */
 Cyberlockers.prototype.remove = function(id, callback) {
   var self = this;
-  callback = callback ? callback : defaultCallback;
 
   if (!self.cyberlockers_)
     return self.cachedCalls_.push([self.remove, Object.values(arguments)]);
-
+  
+  callback = callback ? callback : defaultCallback;
+  
   self.cyberlockers_.remove({ _id: id }, callback);
 }

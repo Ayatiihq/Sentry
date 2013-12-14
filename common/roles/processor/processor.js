@@ -7,7 +7,7 @@
  * downloading it and some other bits-and-bobs.
  *
  */
-
+require('sugar')
 var acquire = require('acquire')
   , blacklist = acquire('blacklist')
   , config = acquire('config')
@@ -300,18 +300,12 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
     if(result){
       infringement.category = Categories.CYBERLOCKER;  
-      logger.info('Putting infringement into initial category of %d', infringement.category);
-      return done(null);
-    }
 
-    if (meta) {
+    } else if (meta) {
       infringement.category = Categories.SEARCH_RESULT
     
     } else if (scheme == 'torrent' || scheme == 'magnet') {
       infringement.category = Categories.TORRENT;
-    
-    } else if (self.isCyberlocker(uri, domain, infringement, done)) {
-      infringement.category = Categories.CYBERLOCKER;
     
     } else if (self.isSocialNetwork(uri, hostname)) {
       infringement.category = Categories.SOCIAL;
@@ -330,16 +324,11 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
 Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
   var self = this;
-  var result = false;
   self.cyberlockers.knowDomains(function(err, domains){
-    domains.each(function(domain) {
-      if(hostname === domain){
-        result = true;
-        break;
-      }
-    });
+    if(err)
+      return done(err)
+    done(null, domains.indexOf(hostname) >= 0);
   });
-  done(null, result);
 }
 
 Processor.prototype.isSocialNetwork = function(uri, hostname) {

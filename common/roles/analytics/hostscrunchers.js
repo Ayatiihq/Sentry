@@ -563,7 +563,7 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
       docs.forEach(function(doc) {
         var value = {};
 
-        if (Cyberlockers.indexOf(doc._id.host) < 0)
+        if (knownDomains.indexOf(doc._id.host) < 0)
           return;
 
         if (map[doc._id.host])
