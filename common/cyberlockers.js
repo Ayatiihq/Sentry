@@ -73,15 +73,15 @@ Cyberlockers.prototype.populateKnownDomains = function(callback) {
   });
 }
 
-Cyberlockers.prototype.all = function(callback) {
+Cyberlockers.prototype.find = function(query, callback) {
   var self = this;
   
   if (!self.cyberlockers_)
-    return self.cachedCalls_.push([self.all, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.find, Object.values(arguments)]);
   
   callback = callback ? callback : defaultCallback;
   
-  self.cyberlockers_.find().toArray(callback);
+  self.cyberlockers_.find(query).toArray(callback);
 }
 
 /**

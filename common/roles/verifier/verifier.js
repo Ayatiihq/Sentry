@@ -363,15 +363,10 @@ Verifier.prototype.loadKnownEngines = function(campaign, done) {
 
   engines.push(self.torrentEngine.bind(self));
   
-
-  self.cyberlockers_.find(function(err, cls){
+  self.cyberlockers.find({ urlMatcher: { $exists: true }}, function(err, cls){
     if(err)
       return done(err);
-    cls.each(function(cl){
-      if(cl.uriMatcher)
-        engines.push(self.cyberlockerEngine.bind(self, cl));
-    });
-    done(null, engines);
+    done(null, engines.add(cls));
   });
 }
 
