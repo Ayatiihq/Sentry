@@ -136,6 +136,30 @@ var gBloggerForm = {
   url: 'https://support.google.com/legal/contact/lr_dmca?product=blogger',
 
 
+  //preActions: [
+  //  ['click', 'DIV.goog-inline-block.goog-flat-menu-button.goog-menu-noicon.jfk-select'],
+  //  ['click', 'DIV#GB']
+  //  //'click': 'OPTION[value=GB]'
+  //],
+
+  formText: {
+    'INPUT#full_name': '${ayatiiFirstName} ${ayatiiLastName}',
+    'INPUT#companyname': '${ayatiiCompanyName}',
+    'INPUT#represented_copyright_holder': '${copyrightHolderFullName}',
+    'INPUT#contact_email_noprefill': '${ayatiiEmail}',
+    'TEXTAREA#location_of_copyrighted_work': '${campaignURL}',
+    'TEXTAREA#description_of_copyrighted_work':  constants.ayatiiDescription,
+    'INPUT#signature_date': '${MMDDYYYY}',
+    'INPUT#signature': '${ayatiiFirstName} ${ayatiiLastName}'
+  },
+
+  formCheckBoxes: {
+    'SPAN.jfk-checkbox[data-name=dmca_affirmations_penalty]': 'true',
+    'SPAN.jfk-checkbox[data-name=dmca_affirmations_authorized]': 'true',
+    'DIV.goog-inline-block.goog-flat-menu-button.goog-menu-noicon.jfk-select': true,
+    'DIV#GB': true
+  },
+
   /* the problem with this form is that each infringement has to go in a text box
    * the problem being that you have to click a button to get new text boxes, which get assigned random ids
    * so to select and type into each randomly generated id we have to look at all the input elements, click the button
@@ -152,12 +176,23 @@ var gBloggerForm = {
       var inputIDs = [];
       var inputDeferred = Q.defer();
       self.browser.getDriver().findElements({'css': 'INPUT'}).then(function (elements) {
-        var lastPromise = null;
-        elements.each(function (element) { 
-          lastPromise = element.getAttribute('id').then(function (value) { inputIDs.push(value); });
+        var resolveList = [];
+        // transforms elements into an actual array not this object that looks like an array nonsense...
+        for (var index = 0; index < elements.length; index++) { resolveList.push(elements[index]); }
+        
+        return Q.all(resolveList).then(function (realElements) {
+          console.log(realElements)
+          var promises = [];
+          realElements.each(function (element) {
+            promises.push(element.getAttribute('id').then(function (value) { inputIDs.push(value); })); 
+          });
+
+          return Q.all(promises);
         });
-        lastPromise.then(function () { inputDeferred.resolve(inputIDs); });
+      }).then(function () {
+        inputDeferred.resolve(inputIDs);  
       });
+
       return inputDeferred.promise;
     }
 
@@ -214,6 +249,6 @@ var youtubeForm = {
 exports.forms = {
   'bing': bingForm,
   'cloudflare': cloudFlareForm,
-  'dailyMotionForm': dailyMotionForm,
-  'gBloggerForm': gBloggerForm
+  'dailyMotionForm': dailyMotionForm
+//  'gBloggerForm': gBloggerForm
 };

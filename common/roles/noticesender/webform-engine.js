@@ -35,7 +35,7 @@ var BrowserEngine = function () {
 }
 util.inherits(BrowserEngine, events.EventEmitter);
 
-BrowserEngine.prototype.getDriver = function () { return self.driver; }
+BrowserEngine.prototype.getDriver = function () { return this.driver; }
 
 // if selectorToWaitFor is returned, will wait for that selector to be true before resolving
 BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
@@ -89,9 +89,11 @@ BrowserEngine.prototype.checkBox = function (selector) {
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
   logger.trace(selector);
-  var deferred = new Q.defer();
+  /*var deferred = new Q.defer();
   deferred.resolve();
-  return deferred.promise; //self.click(selector);
+  return deferred.promise; 
+  */
+  return self.click(selector);
 }
 
 // clicks the selector provided, returns a promise
@@ -184,7 +186,6 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   // goto the url
   addCommand(self.browser.gotoURL, formTemplate.url, formTemplate.waitforSelector);
-  addCommand(self.browser.sleep, 5000);
   
   Object.each(formTemplate.preActions, function preActions(action, selector) {
     addCommand(self.actionBuilder(action, selector));
@@ -259,7 +260,8 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
     clientName: client.name,
     contentMediaType: campaign.type,
     copyrightHolderFullName: client.name,
-    infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri
+    infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri,
+    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}'),
   };
 
   self.executeForm(matchForm, infoObj).then(function () { return notice; }).nodeify(done);
@@ -278,7 +280,8 @@ if (require.main === module) {
     infringingURLS: 'http://test1.com/thesmurfsgomentalandkillsomedudes.avi\nhttp://test2.com/StarWars7-thereturnofspock.mkv\nhttp://ilike.com/custarcreams.mp3\n',
     contentDescription: 'testing description',
     contentName: 'Mr Blobbys Xmas Single',
-    contentMediaType: 'audio'
+    contentMediaType: 'audio',
+    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}')
   }
 
   engine.executeForm(resource.forms.gBloggerForm, info).then(function () {
