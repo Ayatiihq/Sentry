@@ -21,7 +21,7 @@ var acquire = require('acquire')
 
 var resource = require('./webform-engine-resource');
 
-var TAKE_SCREENSHOTS = false;
+var TAKE_SCREENSHOTS = true;
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
@@ -35,11 +35,13 @@ var BrowserEngine = function () {
 }
 util.inherits(BrowserEngine, events.EventEmitter);
 
+BrowserEngine.prototype.getDriver = function () { return this.driver; }
+
 // if selectorToWaitFor is returned, will wait for that selector to be true before resolving
 BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   var self = this;
   var deferred = new Q.defer();
-  if (url === undefined) { deferred.reject(new Error('url is undefined')); return; }
+  if (url === undefined) { deferred.reject(new Error('url is undefined')); return deferred.promise; }
   logger.trace(url);
 
   var seleniumPromise = self.driver.get(url);
@@ -53,13 +55,16 @@ BrowserEngine.prototype.gotoURL = function (url, selectorToWaitFor) {
   return deferred.promise.delay(5000); // delay 5 seconds to allow it to load
 }
 
+// I forget why i really added this, it doesn't do much
 BrowserEngine.prototype.sleep = function (timeout) {
   return Q.delay(timeout);
 }
 
+// fills the selector with text, returns a promise
 BrowserEngine.prototype.fillTextBox = function (selector, text) {
   var self = this;
   var deferred = new Q.defer();
+  if (selector === undefined) { deferred.reject(new Error('selector is undefined')); return deferred.promise;}
   logger.trace(selector, text);
 
   self.driver.findElement(webdriver.By.css(selector)).sendKeys(text).then(deferred.resolve, deferred.reject);
@@ -68,6 +73,7 @@ BrowserEngine.prototype.fillTextBox = function (selector, text) {
   return deferred.promise;
 }
 
+// checks a checkbox, returns a promise
 BrowserEngine.prototype.checkBox = function (selector) {
   var self = this;
   var deferred = new Q.defer();
@@ -79,12 +85,18 @@ BrowserEngine.prototype.checkBox = function (selector) {
   return deferred.promise;
 }
 
+// not really any different than .click but is good to keep distinct for tracing
 BrowserEngine.prototype.submit = function (selector) {
   var self = this;
   logger.trace(selector);
+  /*var deferred = new Q.defer();
+  deferred.resolve();
+  return deferred.promise; 
+  */
   return self.click(selector);
 }
 
+// clicks the selector provided, returns a promise
 BrowserEngine.prototype.click = function (selector) {
   var self = this;
   var deferred = new Q.defer();
@@ -96,6 +108,7 @@ BrowserEngine.prototype.click = function (selector) {
   return deferred.promise;
 }
 
+// TODO: make this actually work
 BrowserEngine.prototype.comboBox = function (selector, selection) {
   var self = this;
   var deferred = new Q.defer();
@@ -116,6 +129,7 @@ BrowserEngine.prototype.debugScreenshot = function (location) {
   return deferred.promise;
 }
 
+// make sure to call this if there are any promise failures
 BrowserEngine.prototype.quit = function () {
   var self = this;
   self.driver.quit();
@@ -135,6 +149,7 @@ WebFormEngine.prototype.init = function () {
 // turn this to true to get a screenshot instead of a form submission
 var debug = true;
 
+// takes a string action and a selector and returns a correctly bound function ready for Q
 WebFormEngine.prototype.actionBuilder = function (action, selector) {
   var self = this;
   var actionFunction = function () { logger.error(new Error('returned an undefined action in actionBuilder: ' + action)); };
@@ -151,6 +166,7 @@ WebFormEngine.prototype.actionBuilder = function (action, selector) {
   return actionFunction;
 }
 
+// The grunt work of the code, executes the formTempalate given
 WebFormEngine.prototype.executeForm = function (formTemplate, info) {
   var self = this;
   var deferred = Q.defer();
@@ -159,44 +175,46 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   var combinedInfo = Object.merge(resource.constants, info);
 
-  // this would be so much nicer with generators.. 
-  self.browser.gotoURL(formTemplate.url, formTemplate.waitforSelector).then(function () {
-    var preCommands = [];
-    // first we allow a few pre actions to complete 
-    Object.each(formTemplate.preActions, function preActions(action, selector) {
-      preCommands.push(self.actionBuilder(action, selector));
-    });
+  // essentially a list of functions that return promises;
+  var commandFunctions = [];
+  var addCommand = function () {
+    var args = Array.prototype.slice.call(arguments);
+    var fn = args.shift();
+    args.unshift(self.browser);
+    commandFunctions.push(fn.bind.apply(fn, args));
+  };
 
-    // laaaame, generators plz.
-    // okay so i figured this might be a bit complicated to look at, but its simple - honest.
-    // preCommands will be either empty or contain an array of promise returning functions, calling .reduce(Q.when, Q())
-    // will basically execute each function one after the other waiting for each promise to return before calling the next one
-    // then once its done we delay(5000) because of lazyness before doing essentially the same thing with the commands array
+  // goto the url
+  addCommand(self.browser.gotoURL, formTemplate.url, formTemplate.waitforSelector);
+  
+  Object.each(formTemplate.preActions, function preActions(action, selector) {
+    addCommand(self.actionBuilder(action, selector));
+  });
 
-    return preCommands.reduce(Q.when, Q()).delay(5000).then(function () {
-      var commands = []; // array of promises 
+  // create all the text filling commands
+  Object.each(formTemplate.formText, function addTextToForm(selector, text) {
+    text = acquire('logger').dictFormat(text, combinedInfo);
+    addCommand(self.browser.fillTextBox, selector, text);
+  });
 
-      // create all the text filling commands
-      Object.each(formTemplate.formText, function addTextToForm(selector, text) {
-        text = acquire('logger').dictFormat(text, combinedInfo);
-        commands.push(self.browser.fillTextBox.bind(self.browser, selector, text));
-      });
+  // same with checkboxes, check any that are in our selectors
+  Object.each(formTemplate.formCheckBoxes, function checkBoxes(selector) {
+    addCommand(self.browser.checkBox, selector);
+  });
 
-      // same with checkboxes, check any that are in our selectors
-      Object.each(formTemplate.formCheckBoxes, function checkBoxes(selector) {
-        commands.push(self.browser.checkBox.bind(self.browser, selector));
-      });
+  // do the actions 
+  Object.each(formTemplate.actions, function actions(action, selector) {
+    addCommand(self.actionBuilder(action, selector));
+  });
 
-      // do the actions 
-      Object.each(formTemplate.actions, function actions(action, selector) {
-        commands.push(self.actionBuilder(action, selector));
-      });
+  // finally, if we have a specificOverride function in our form, execute that, it should return a promise
+  // the specificOverride thing sucks, but there isn't a super nice way around it :(
 
-      // executes all our commands as a sequence, selenium does not need this, but cow will i believe
-      return commands.reduce(Q.when, Q());
-    });
+  if (Object.has(formTemplate, 'specificOverride')) {
+    commandFunctions.push(formTemplate.specificOverride.bind(self, combinedInfo));
+  }
 
-  }).then(function finishedForm() {
+  commandFunctions.reduce(Q.when, Q()).then(function finishedForm() {
     logger.trace();
     return self.browser.submit(formTemplate.submit).delay(5000);
   }).then(function () {
@@ -242,7 +260,8 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
     clientName: client.name,
     contentMediaType: campaign.type,
     copyrightHolderFullName: client.name,
-    infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri
+    infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri,
+    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}'),
   };
 
   self.executeForm(matchForm, infoObj).then(function () { return notice; }).nodeify(done);
@@ -261,12 +280,14 @@ if (require.main === module) {
     infringingURLS: 'http://test1.com/thesmurfsgomentalandkillsomedudes.avi\nhttp://test2.com/StarWars7-thereturnofspock.mkv\nhttp://ilike.com/custarcreams.mp3\n',
     contentDescription: 'testing description',
     contentName: 'Mr Blobbys Xmas Single',
-    contentMediaType: 'audio'
+    contentMediaType: 'audio',
+    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}')
   }
 
-  engine.executeForm(resource.cloudFlareForm, info).then(function () {
+  engine.executeForm(resource.forms.gBloggerForm, info).then(function () {
     console.log('done submitting form?');
   }).fail(function (err) {
-    console.log('failed: ' + err);
+    logger.error('Error in promise chain: ', err);
+    //console.log('failed: ', err);
   })
 }
