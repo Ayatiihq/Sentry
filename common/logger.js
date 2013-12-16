@@ -21,12 +21,14 @@ var Papertrail = require('winston-papertrail').Papertrail;
 
 var levels = {
       trace: 1,
-      info: 2,
-      warn: 3,
-      error: 4
+      debug: 2,
+      info: 3,
+      warn: 4,
+      error: 5
     }
   , colors = {
-      trace: 'blue',
+      trace: 'white',
+      debug: 'blue',
       info: 'green',
       warn: 'yellow',
       error: 'red'
@@ -36,7 +38,7 @@ var levels = {
 winston.addColors(colors);
 var logger = new (winston.Logger)({ levels: levels });
 
-var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'trace'
+var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'debug'
   , SENTRY_DEBUG_LEVEL = levels[SENTRY_DEBUG]
   ;
 
@@ -56,6 +58,12 @@ Logger.prototype.trace = function () {
   if (SENTRY_DEBUG_LEVEL > levels['trace']) return;
   var string = format.apply(null, arguments);
   this.logger_.trace(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
+}
+
+Logger.prototype.debug = function () {
+  if (SENTRY_DEBUG_LEVEL > levels['debug']) return;
+  var string = format.apply(null, arguments);
+  this.logger_.debug(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
 }
 
 Logger.prototype.info = function() {
