@@ -1,2 +1,2 @@
 #!/bin/bash
-node ./cli/sentry.js $@
+node --expose_gc ./cli/sentry.js $@
