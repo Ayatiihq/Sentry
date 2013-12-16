@@ -16,7 +16,7 @@ var acquire = require('acquire')
   ;
 
 var Category = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers').knownDomains
+  , Cyberlockers = acquire('cyberlockers')
   , Settings = acquire('settings')
   , Seq = require('seq')
   , State = states.infringements.state
@@ -541,6 +541,8 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
     ;
 
   logger.info('topTenLinkCyberlockersClient: Running job');
+  
+  var cyberlockers = new Cyberlockers();
 
   // Compile the top ten hosts carrying INFRINGEMENTS
   collection.find({ '_id.client': campaign.client })
@@ -555,31 +557,35 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
     var map = {};
     var values = [];
 
-    docs.forEach(function(doc) {
-      var value = {};
+    cyberlockers.knownDomains(function(err, knownDomains){
+      if (err)
+        return done('topTenLinkCyberlockersClient: Error compiling top ten infringement hosts: ' + err);
+      docs.forEach(function(doc) {
+        var value = {};
 
-      if (Cyberlockers.indexOf(doc._id.host) < 0)
-        return;
+        if (knownDomains.indexOf(doc._id.host) < 0)
+          return;
 
-      if (map[doc._id.host])
-        map[doc._id.host].count += doc.value.count;
-      else
-        map[doc._id.host] = doc.value;
-    });
+        if (map[doc._id.host])
+          map[doc._id.host].count += doc.value.count;
+        else
+          map[doc._id.host] = doc.value;
+      });
 
-    Object.keys(map, function(key) {
-      var obj = {};
-      obj[key] = map[key];
-      values.push(obj);
-    });
+      Object.keys(map, function(key) {
+        var obj = {};
+        obj[key] = map[key];
+        values.push(obj);
+      });
 
-    values.sortBy(function(n) {
-      return n.count * -1;
-    });
+      values.sortBy(function(n) {
+        return n.count * -1;
+      });
 
-    values = values.to(10);
+      values = values.to(10);
 
-    analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+      analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    });      
   });
 }
 

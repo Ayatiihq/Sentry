@@ -1,9 +1,7 @@
 "use strict";
 /*
  * downloader.js - base class for all downloaders
- * In time this needs to spread out. i.e. the logic needs to belong with each approach.
- * approach.cow-mangling has all browser stuff which in turn can have strategies.
- * Similarly approach.restful will have just web stuff
+ * In time this needs to spread out. i.e. strategy and approach should be modelled properly
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')

@@ -1,300 +1,197 @@
 /*
- * cyberlockers.js: a flat list of the domains of known cyberlockers
- * 
+ * cyberlockers.js: the cyberlockers table
+ *
+ * Wraps the cyberlockers table.
+ *
  * (C) 2013 Ayatii Limited
  *
  */
 
-var CyberLockers = module.exports;
+var acquire = require('acquire')
+  , config = acquire('config')
+  , database = acquire('database')
+  , logger = acquire('logger').forFile('cyberlockers.js')
+  , sugar = require('sugar')
+  , util = require('util')
+  , utilities = acquire('utilities')
+  ;
 
-CyberLockers.knownDomains = [
-  '100shared.com',
-  '180upload.com',
-  '1fichier.com',
-  '247upload.com',
-  '2shared.com',
-  '4shared.com',
-  '4sync.com',
-  '4upfiles.com',
-  '1fichier.com',
-  'adrive.com',
-  'akafile.com',
-  'albafile.com',
-  'allmyvideos.net',
-  'anafile.com',
-  'anysend.com',
-  'arabloads.com',
-  'asfile.com',
-  'asuswebstorage.com',
-  'banashare.com',
-  'basicupload.com',
-  'bayfiles.com',
-  'billionuploads.com',
-  'bitshare.com',
-  'box.com',
-  'carrier.so',
-  'cloudsafe.com',
-  'cloudzer.net',
-  'cloudy.ec',
-  'cramit.in',
-  'crocko.com',
-  'cyberlocker.org',
-  'davvas.com',
-  'depositfiles.com',
-  'directmirror.com',
-  'dfiles.eu',
-  'divxstage.eu',
-  'drawpr.com',
-  'docs.google.com',
-  'drive.google.com',
-  'dropbox.com',
-  'dxr.lanedo.com',
-  'dumbeen.info',
-  'easybytez.com',
-  'embedupload.com',
-  'ex.ua',
-  'expressleech.com',
-  'extabit.com',
-  'epicshare.net',
-  'fast-file.com',
-  'fiberupload.net',
-  'file4safe.com',
-  'file4sharing.com',
-  'fileband.com',
-  'filecatalyst.com',
-  'filechum.com',
-  'filecloud.io',
-  'fileconvoy.com',
-  'filecopter.net',
-  'filedap.com',
-  'filedefend.com',
-  'fileden.com',
-  'filefactory.com',
-  'fileflyer.com',
-  'filegag.com',
-  'filekom.com',
-  'filemates.com',
-  'filenuke.com',
-  'filepost.com',
-  'fileprohost.com',
-  'filerio.com',
-  'files.com',
-  'filesanywhere.com',
-  'filesbomb.in',
-  'filesega.com',
-  'fileserving.com',
-  'filesfrom.com',
-  'fileshare.in.ua',
-  'filerio.in',
-  'filesin.com',
-  'fileslap.com',
-  'fileslap.com',
-  'filesmonster.com',
-  'filesnack.com',
-  'filesocial.com',
-  'fileom.com',
-  'filestay.com',
-  'fileswap.com',
-  'filevelocity.com',
-  'firstclass-download.com',
-  'flashx.tv',
-  'foldier.com',
-  'freakshare.com',
-  'free.fr',
-  'free4udown.com',
-  'freestorage.ro',
-  'fuupload.com',
-  'gamefront.com',
-  'ge.tt',
-  'gigasize.com',
-  'gigaup.fr',
-  'globusonline.org',
-  'go4up.com',
-  'hellshare.com',
-  'hipfile.com',
-  'hostingbulk.com',
-  'hotfile.com',
-  'hugefiles.net',
-  'hulkfile.eu',
-  'hulkshare.com',
-  'icloud.com',
-  'ifile.ws',
-  'itsuploaded.com',
-  'jumbofiles.com',
-  'jumbofiles.org',
-  'kingfiles.net',
-  'letitbit.net',
-  'limelinx.com',
-  'livedrive.com',
-  'loadpot.net',
-  'luckyshare.net',
-  'lumfile.com',
-  'magicvortex.com',
-  'mediafire.com',
-  'mega.co.nz',
-  'megaload.it',
-  'megafiles.se',
-  'megashares.com',
-  'midupload.com',
-  'mightyupload.com',
-  'mixturecloud.com',
-  'moviesmobile.net',
-  'movshare.net',
-  'movreel.com',
-  'movzap.com',
-  'mozy.com',
-  'muchshare.net',
-  'multiup.org',
-  'multiupload.nl',
-  'netload.in',
-  'nirafile.com',
-  'nosvideo.com',
-  'novafile.com',
-  'novamov.com',
-  'nowdownload.eu',
-  'nowdownload.ch',
-  'nowvideo.eu',
-  'nowvideo.ch',
-  'nowvideo.sx',
-  'obligao.com',
-  'oteupload.com',
-  'peejeshare.com',
-  'pigsonic.com',
-  'putlocker.com',
-  'playwire.com',
-  'project-free-upload.com',
-  'queenshare.com',
-  'rapidgator.net',
-  'rapidshare.com',
-  'restfile.ca',
-  'ryushare.com',
-  'saarie.com',
-  'secureupload.eu',
-  'sendmyway.com',
-  'sendspace.com',
-  'senduit.com',
-  'share-online.biz',
-  'sharebeast.com',
-  'shareblue.eu',
-  'sharefiles.co',
-  'shareflare.net',
-  'sharesend.com',
-  'skydrive.live.com',
-  'slingfile.com',
-  'sockshare.com',
-  'speedyshare.com',
-  'spideroak.com',
-  'streamcloud.org',
-  'stream-this.com',
-  'streamupload.org',
-  'sugarsync.com',
-  'swankshare.com',
-  'syncblaze.com',
-  'syncblazecloud.vembu.com',
-  'syncplicity.com',
-  'temp-share.com',
-  'turbobit.net',
-  'tusfiles.net',
-  'twindocs.com',
-  'ubuntuone.com',
-  'ul.to',
-  'uloz.to',
-  'ultramegabit.com',
-  'unlimitedshare.com',
-  'upafile.com',
-  'upload.ee',
-  'uploadboy.com',
-  'uploadbaz.com',
-  'uploadcare.com',
-  'uploaded.net',
-  'uploadhero.co',
-  'uploadic.com',
-  'uploading.com',
-  'uploadingit.com',
-  'uploadorb.com',
-  'uppit.com',
-  'upstore.net',
-  'uptobox.com',
-  'usaupload.net',
-  'verzend.be',
-  'videobam.com',
-  'videotanker.co',
-  'videoweed.es',
-  'videofox.net',
-  'vidhog.com',
-  'vidxden.com',
-  'vidto.me',
-  'vip-file.com',
-  'vreer.com',
-  'wikisend.com',
-  'wuala.com',
-  'xenubox.com',
-  'yandex.com',
-  'yousendit.com',
-  'ziddu.com',
-  'zippyshare.com',
-  'zomgupload.com',
-  'zoink.it',
-  'zuzvideo.com'
-];
+var COLLECTION = 'cyberlockers';
 
-CyberLockers.idMatchers = {
+/**
+ * Wraps the cyberlockers table.
+ * 
+ * @return {object}
+ */
+var Cyberlockers = module.exports = function() {
+  this.db_ = null;
+  this.cyberlockers_ = null;
+  this.knownDomains_ = null;
+  this.cachedCalls_ = [];
 
-  'hostingbulk.com': {
-    domain: 'hostingbulk.com',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{12}/);
-      return id ? id[0] : null;
-    }
-  },
+  this.init();
+}
 
-  'movshare.net': {
-    domain: 'movshare.net',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{13}/);
-      return id ? id[0] : null;
-    }
-  },
+Cyberlockers.prototype.init = function() {
+  var self = this;
 
-  'movzap.com': {
-    domain: 'movzap.com',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{12}/);
-      return id ? id[0] : null;
-    }
-  },
+  database.connectAndEnsureCollection(COLLECTION, function(err, db, collection) {
+    if (err)
+      return logger.error('Unable to connect to database %s', err);
 
-  'novamov.com': {
-    domain: 'novamov.com',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{13}/);
-      return id ? id[0] : null;
-    }
-  },
+    self.db_ = db;
+    self.cyberlockers_ = collection;
 
-  'nowvideo.eu': {
-    domain: 'nowvideo.eu',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{13}/);
-      return id ? id[0] : null;
-    }
-  },
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
+  });
+}
 
+function defaultCallback(err) {
+  if (err)
+    logger.warn('Reply Error: %s', err);
+}
 
-  'vidto.me': {
-    domain: 'vidto.me',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{12}/);
-      return id ? id[0] : null;
-    }
-  },
+function ifUndefined(test, falsey) {
+  return test ? test : falsey;
+}
 
-  'videoweed.es': {
-    domain: 'videoweed.es',
-    getId: function(uri) {
-      var id = uri.match(/[a-zA-Z0-9]{13}/);
-      return id ? id[0] : null;
-    }
+Cyberlockers.prototype.populateKnownDomains = function(callback) {
+  var self = this;
+  
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.populateKnownDomains, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+  
+  self.cyberlockers_.find({}, { _id: 1 }).toArray(function(err, cls){
+    if(err)
+      return callback(err);
+    callback(null, cls.map(function(cl){ return cl._id}));
+  });
+}
+
+Cyberlockers.prototype.find = function(query, callback) {
+  var self = this;
+  
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.find, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+  
+  self.cyberlockers_.find(query).toArray(callback);
+}
+
+/**
+ * Get a list of known cyberlocker domains.
+ *
+ * @param {function(err, [cyberlockers])} callback.
+ * @return {undefined}
+ */
+Cyberlockers.prototype.knownDomains = function(callback) {
+  var self = this;
+  
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.knownDomains, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.knownDomains_){
+    self.populateKnownDomains(function(err, domains){
+      self.knownDomains_ = domains;
+      callback(null, self.knownDomains_);      
+    });
+  }
+  else{
+    callback(null, self.knownDomains_);      
+  }
+}
+
+/**
+ * Get a cyberlocker's details.
+ *
+ * @param {stringOrObject}             id             The cyberlocker id;
+ * @param {function(err, cyberlocker)}    callback    The cyberlocker details, or error.
+ * @return {undefined}
+ */
+Cyberlockers.prototype.getDetails = function(id, callback) {
+  var self = this;
+
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.cyberlockers_.findOne({ _id: id }, callback);
+}
+
+/**
+ * Adds a cyberlocker.
+ *
+ * @param {string} the domain of the cyberlocker.
+ * @param {function(err,cyberlocker)} callback A callback to receive an error, if one occurs, otherwise the new cyberlocker.
+ * @return {undefined}
+ */
+Cyberlockers.prototype.add = function(cyberlockerDomain, callback) {
+  var self = this
+    , now = Date.now()
+    ;
+
+  if (!(cyberlockerDomain)) { 
+    callback(new Error('cyberlocker domain needed ?'));
+    return;
   }
 
-};
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.add, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+  
+  var entry = {};
+  entry._id = cyberlockerDomain;
+
+  entry.automated = false;
+  entry.loginDetails = {};
+  entry.created = now;
+  entry.uriMatcher = null;
+  self.cyberlockers_.insert(entry, callback);
+}
+
+/**
+ * Update a cyberlocker's details.
+ *
+ * @param {object}          id      The id for the cyberlocker.
+ * @param {object}          updates    An object containing updates for the cyberlocker.
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Cyberlockers.prototype.update = function(id, updates, callback) {
+  var self = this;
+
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  
+  self.cyberlockers_.update({ _id: id }, { $set: updates }, callback);
+}
+
+/**
+ * Remove a cyberlocker.
+ *
+ * @param {object}          id      The domain of the target cyberlocker.
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Cyberlockers.prototype.remove = function(id, callback) {
+  var self = this;
+
+  if (!self.cyberlockers_)
+    return self.cachedCalls_.push([self.remove, Object.values(arguments)]);
+  
+  callback = callback ? callback : defaultCallback;
+  
+  self.cyberlockers_.remove({ _id: id }, callback);
+}

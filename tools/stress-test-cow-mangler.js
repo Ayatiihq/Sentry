@@ -116,7 +116,7 @@ function main() {
       logger.info('availableTabs : ' + manglerAvailableTabs);
       logger.info('busyTabs : ' + manglerBusyTabs);
 
-      var limit = desiredTabs ? desiredTabs : manglerAvailableTabs;
+      var limit = desiredTabs ? parseInt(desiredTabs) : manglerAvailableTabs;
 
       var that = this;
       var searchPromise = findCollection('infringements', 

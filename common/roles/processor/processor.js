@@ -7,7 +7,7 @@
  * downloading it and some other bits-and-bobs.
  *
  */
-
+require('sugar')
 var acquire = require('acquire')
   , blacklist = acquire('blacklist')
   , config = acquire('config')
@@ -35,7 +35,7 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers').knownDomains
+  , Cyberlockers = acquire('cyberlockers')
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
@@ -51,6 +51,7 @@ var Processor = module.exports = function() {
   this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
+  this.cyberlockers_ = null; 
 
   this.job_ = null;
   this.campaign_ = null;
@@ -73,6 +74,7 @@ Processor.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
+  self.cyberlockers_ = new Cyberlockers();
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -292,35 +294,41 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , scheme = infringement.scheme
     ;
 
-  if (meta) {
-    infringement.category = Categories.SEARCH_RESULT
-  
-  } else if (scheme == 'torrent' || scheme == 'magnet') {
-    infringement.category = Categories.TORRENT;
-  
-  } else if (self.isCyberlocker(uri, domain)) {
-    infringement.category = Categories.CYBERLOCKER;
-  
-  } else if (self.isSocialNetwork(uri, hostname)) {
-    infringement.category = Categories.SOCIAL;
-  
-  } else {
-    infringement.category = Categories.WEBSITE;
-  }
+  self.isCyberlocker(uri, domain, infringement, function(err, result){
+    if(err)
+      return done(err);
 
-  logger.info('Putting infringement into initial category of %d', infringement.category);
+    if(result){
+      infringement.category = Categories.CYBERLOCKER;  
 
-  done(null);
-}
+    } else if (meta) {
+      infringement.category = Categories.SEARCH_RESULT
+    
+    } else if (scheme == 'torrent' || scheme == 'magnet') {
+      infringement.category = Categories.TORRENT;
+    
+    } else if (self.isSocialNetwork(uri, hostname)) {
+      infringement.category = Categories.SOCIAL;
+    
+    } else {
+      infringement.category = Categories.WEBSITE;
+    }
 
-Processor.prototype.isCyberlocker = function(uri, hostname) {
-  var ret = false;
+    logger.info('Putting infringement into initial category of %d', infringement.category);
 
-  Cyberlockers.forEach(function(domain) {
-    ret = ret || hostname == domain;
+    done(null);
+
   });
 
-  return ret;
+}
+
+Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
+  var self = this;
+  self.cyberlockers_.knowDomains(function(err, domains){
+    if(err)
+      return done(err)
+    done(null, domains.indexOf(hostname) >= 0);
+  });
 }
 
 Processor.prototype.isSocialNetwork = function(uri, hostname) {
