@@ -8,7 +8,7 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
-  , logger = acquire('logger').forFile('test_logger.js')
+  , logger = acquire('logger')
   , sugar = require('sugar')
   ;
 
@@ -18,6 +18,10 @@ function testerror() {
 
 
 function main() {
+  logger.initServer();
+  logger = logger.forFile('test_logger.js')
+
+  logger.trace('traced logging');
   logger.info('info message ${name} loves ${treat}s', {name:'gord', treat:'hi-chew'});
   logger.warn('warn message: %d', 10);
   logger.error('error message');

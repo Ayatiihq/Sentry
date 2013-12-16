@@ -87,7 +87,6 @@ Worker.prototype.setRole = function(rolename) {
   logger.info('Role change: ' + rolename);
 
   self.currentRoleName_ = rolename;
-  logger.setRole(rolename);
   
   var Role = require('../common/roles/' + rolename);
   self.role_ = new Role();
