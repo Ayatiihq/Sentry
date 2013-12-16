@@ -51,7 +51,7 @@ var Processor = module.exports = function() {
   this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
-  this.cyberlockers = null; 
+  this.cyberlockers_ = null; 
 
   this.job_ = null;
   this.campaign_ = null;
@@ -74,7 +74,7 @@ Processor.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
-  self.cyberlockers = new Cyberlockers();
+  self.cyberlockers_ = new Cyberlockers();
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -324,7 +324,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
 Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
   var self = this;
-  self.cyberlockers.knowDomains(function(err, domains){
+  self.cyberlockers_.knowDomains(function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);
