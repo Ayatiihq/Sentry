@@ -36,7 +36,7 @@ var levels = {
 winston.addColors(colors);
 var logger = new (winston.Logger)({ levels: levels });
 
-var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'info'
+var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'trace'
   , SENTRY_DEBUG_LEVEL = levels[SENTRY_DEBUG]
   ;
 
