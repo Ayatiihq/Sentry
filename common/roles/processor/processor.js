@@ -386,7 +386,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      self.storage.addLocalFile(infringement, outPath, started, finished, this);
+      self.storage.addLocalFile(infringement, outPath, this);
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });

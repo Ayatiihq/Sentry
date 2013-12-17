@@ -25,7 +25,6 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Jobs = acquire('jobs')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
@@ -198,7 +197,7 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
           if (err) return done(err);
 
           logger.info('Uploading %s', tmpDir)
-          self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
+          self.storage_.addLocalDirectory(infringement, tmpDir, function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });

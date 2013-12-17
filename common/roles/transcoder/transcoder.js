@@ -24,7 +24,6 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Jobs = acquire('jobs')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
@@ -59,7 +58,6 @@ Transcoder.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('transcoder');
   self.verifications_ = new Verifications();
@@ -234,7 +232,7 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
 
           logger.info('Uploading %s', tmpDir)
      
-          self.infringements_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
+          self.storage_.addLocalDirectory(infringement, tmpDir, function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });
