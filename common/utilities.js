@@ -125,6 +125,63 @@ Utilities.getURIScheme = function(uri) {
 }
 
 /**
+ * Get a unique name depending on the string passed in.
+ * Use to generate a name for a download file depending on it's url [filename] etc.
+ * Produces a hash.
+ *
+ * Ex: generateName(nameOfFile)
+ *
+ * @param  {string}     nameOfFile  input to generate a unique name.
+ * @return {string}     name
+ */
+Utilities.prototype.generateName = function(nameOfFile) {
+  var string = '';
+
+  Object.values(arguments, function(arg) {
+    if (arg == infringement) {
+      string += infringement._id;
+    } else if (arg) {
+      string += arg;
+    }
+  });
+
+  var shasum = crypto.createHash('sha1');
+  shasum.update(string);
+  return shasum.digest('hex');
+}
+
+/**
+ *
+ * Ex: generateMd5(pathToFile)
+ *
+ * @param  {string}     pathToFile  location of file for input
+ * @return {string}     Md5 of the file.
+ */
+Utilities.prototype.generateMd5 = function(pathToFile) {
+  var promises = new Promise.Promise();
+
+  var shasum = crypto.createHash('md5');
+  var s = fs.ReadStream(pathToFile);
+
+  s.on('data', function(d) {
+    shasum.update(d);
+  });
+
+  s.on('end', function() {
+    var d = shasum.digest('hex');
+    logger.trace('Md5 : ' + d + '  ' + pathToFile);
+    promise.resolve(d);
+  });  
+
+  s.on('err', function(err){
+    promise.reject(err);
+  });
+    
+  return promise;
+}
+
+
+/**
  * Generates a key that can be used in azure for URIs. Will normalize the URI too.
  *
  * @param {string}    uri     The uri to generate a key for.

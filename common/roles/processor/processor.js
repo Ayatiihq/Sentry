@@ -26,7 +26,6 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -48,7 +47,7 @@ var requiredCollections = ['campaigns', 'infringements', 'hosts']
 
 var Processor = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
+
   this.infringements_ = null;
   this.jobs_ = null;
   this.cyberlockers_ = null; 
@@ -70,7 +69,6 @@ Processor.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
