@@ -34,6 +34,7 @@ module.exports.shouldIgnoreUri = function (uri) {
    , XRegExp('adjuggler')
    , XRegExp('yllix') // yllix.com - ads
    , XRegExp('(cineblizz|newzexpress|goindialive|webaddalive|awadhtimes|listenfilmyradio)') // generic add landing pages
+   , XRegExp('\.(js|css)')
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {
@@ -196,7 +197,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   }
 };
 
-var searchTypes = module.exports.searchTypes{
+var searchTypes = module.exports.searchTypes = {
   START: 0,
   MIDDLE: 1,
   END: 2,
