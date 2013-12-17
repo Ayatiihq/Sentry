@@ -130,7 +130,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
-  entity.downloads = [];
+  entity.downloads = {};
   entity.state = states.infringements.state.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
@@ -189,7 +189,6 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
   entity.metadata = metadata;
   entity.parents = { count: 0, uris: [] };
   entity.children = { count: 0, uris: [] };
-  entity.downloads = [];
 
   self.infringements_.insert(entity, function(err) {
     if (!err || err.code === EDUPLICATE) {
@@ -750,19 +749,36 @@ Infringements.prototype.processedBy = function(infringement, processor, callback
 
   callback = callback ? callback : defaultCallback;
 
-  function markEachDownload(download){
-    var promise = new Promise.Promise();
-
-  }
-
-
-  var updates = {
-    $push: {
-      'metadata.processedBy': processor
-    }
-  };
-
-  self.infringements_.update({ _id: infringement._id }, updates, callback);
+  Seq(infringement.downloads))
+    // first try to update the individual downloads
+    .seqEach(function(download){
+      var query = {
+        'downloads.md5' : download.md5;
+      };
+      var updates = {
+        $push: {
+          'downloads.$.processedBy': processor
+        }
+      };  
+      self.infringements_.update(query, updates, this);
+    })
+    .seq(function(){
+      // now update the parent infringement
+      var updates = {
+        $push: {
+          'metadata.processedBy': processor
+        }
+      };
+      self.infringements_.update({ _id: infringement._id }, updates, this);
+    })
+    .seq(function(){
+      callback();
+    });
+    .catch(function(err){
+      logger.warn('unable to update processedBy on infringement : ' + infringement.id);
+      callback(err);
+    })
+    ;
 }
 
 /**

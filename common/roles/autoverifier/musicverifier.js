@@ -127,11 +127,11 @@ MusicVerifier.prototype.examineResults = function(){
     if(success){
       verificationObject = Object.merge (verificationObject,
                                         {"state" : states.VERIFIED,
-                                         "notes" : "Success but Harry Caul found more than one match where the delta between the matches was > 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}))});
+                                         "notes" : "Success but we found more than one match where the delta between the matches was > 0.2, please examine infringement (remixes more than likely), matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}))});
     }
     else{
       verificationObject.state = states.FALSE_POSITIVE
-      verificationObject.notes = "Harry Caul found more than one match where the delta between the matches was < 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
+      verificationObject.notes = "found more than one match where the delta between the matches was < 0.2, please examine infringement, matched tracks are : " + JSON.stringify(matchedTracks.map(function(tr){return tr.title}));
       err = new Error('Hmm matched two originals against an infringement on a given campaign : ' + JSON.stringify(matchedTracks));      
     }
   }
@@ -140,7 +140,7 @@ MusicVerifier.prototype.examineResults = function(){
     if(success){
       verificationObject = Object.merge (verificationObject, 
                                         {"state" : states.VERIFIED,
-                                         "notes" : "Harry Caul is happy to report that this is verified against : " + matchedTracks[0].title});
+                                         "notes" : matchedTracks[0].title});
     }
     else{
       verificationObject.state = states.FALSE_POSITIVE;
