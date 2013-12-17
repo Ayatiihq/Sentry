@@ -34,20 +34,20 @@ Downloader.prototype.init = function(){
 
   if(self.campaign.type.match(/movie/)){
     self.minSize = 10;
-    self.mimeTypes = ["video/"];
+    self.mimetypes = ["video/"];
     self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac', '.aiff']);
   }
   else if(self.campaign.type.match(/music/)){
     self.minSize = 1;
     // Leaving video in there to catch music videos ???
     // we model that ^ scenario more accurately. 
-    self.mimeTypes = ["video/", "audio/"];
+    self.mimetypes = ["video/", "audio/"];
   }
   else{
-    logger.warn('Unable to set the minSize or mimeTypes - what sort of bloody campaign is this ??' + self.campaign.type);
+    logger.warn('Unable to set the minSize or mimetypes - what sort of bloody campaign is this ??' + self.campaign.type);
     // set it anyway.
     self.minSize = 1;
-    self.mimeTypes = ["video/", "audio/"];
+    self.mimetypes = ["video/", "audio/"];
   } 
   // For now We don't care about these at all.
   self.ignoreExts.union(['.png', '.jpg', '.jpeg', '.gif', '.js', '.swf']);
@@ -223,7 +223,7 @@ Downloader.prototype.listenGet = function(uri, done){
   var self = this;
   Seq()
     .seq(function(){
-      self.browser.setDownloadPolicy(uri, self.minSize,  self.mimeTypes, this);
+      self.browser.setDownloadPolicy(uri, self.minSize,  self.mimetypes, this);
     })
     .seq(function(){
       self.browser.getInfringement(uri, this);
@@ -245,7 +245,7 @@ Downloader.prototype.listenGetHoover = function(uri, done){
   var self = this;
   Seq()
     .seq(function(){
-      self.browser.setDownloadPolicy(uri, self.minSize, self.mimeTypes, this);
+      self.browser.setDownloadPolicy(uri, self.minSize, self.mimetypes, this);
     })
     .seq(function(){
       self.browser.getInfringement(uri, this);

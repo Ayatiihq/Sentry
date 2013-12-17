@@ -311,7 +311,7 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
 
   function compare(track){
     var promise = new Promise.Promise();
-    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPathdownl);
+    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
     exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
       function (error, stdout, stderr){
         if(stderr && !stderr.match(/Header\smissing/g))
@@ -406,7 +406,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     Seq(downloads)
       .seqEach(function(download){
         var that = this;
-        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimeType);
+        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimetype);
         if(isAudio){
           logger.info('fetch Download');
           self.fetchDownload(download, that);

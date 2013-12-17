@@ -365,7 +365,7 @@ Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimety
     $push: {
       'downloads': {
         md5: fileMd5,
-        mimeType: fileMimetype,
+        mimetype: fileMimetype,
         processedBy: [],
         size: fileSize,
         created: Date.now()
