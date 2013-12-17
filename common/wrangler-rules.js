@@ -196,7 +196,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   }
 };
 
-var searchTypes = module.exports.searchTypes{
+var searchTypes = module.exports.searchTypes = {
   START: 0,
   MIDDLE: 1,
   END: 2,
