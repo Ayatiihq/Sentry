@@ -106,7 +106,7 @@ Storage.prototype.createFromText = function(name, text, options, callback) {
  * Create a new file in storage, optionally overwrite if one by the same name already
  * exists.
  *
- * @param  {string}            name               The contents name.
+ * @param  {string}            name               The contents name (MD5).
  * @param  {string}            filename           The filename of the file.
  * @param  {object}            options            The options object.
  * @param  {boolean}           [options.replace]  Replace an existing file with the same name.
@@ -229,3 +229,131 @@ Storage.prototype.getURL = function(name) {
 
   return util.format(template, self.container_, name);
 }
+
+/**
+ * This'll upload a directory to S3. It does
+ * not keep directory structure, rather it flattens out the files into the db.
+ *
+ * @param  {object}                    infringement            The infringement that the download belongs to.
+ * @param  {string}                    dir                     Path to the directory to add.
+ * @param  {function(err,nUploaded)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+ Storage.prototype.addLocalDirectory = function(infringement, dir, callback) {
+  var self = this;
+
+  utilities.readAllFiles(dir, function(err, files) {
+    var nUploaded = 0;
+
+    if (err)
+      return callback(err);
+
+    Seq(files)
+      .seqEach(function(file) {
+        var that = this;
+        self.addLocalFile(infringement, file, function(err) {
+          if (err && files.length == 1) {
+            return that(err);
+          } else if (err) {
+            logger.warn('Unable to upload %s for %s, but continuing: %s', file, infringement._id, err);
+          } else {
+            nUploaded++;
+          }
+          that();
+        });
+      })
+      .seq(function() {
+        callback(null, nUploaded);
+      })
+      .catch(function(err) {
+        callback(err);
+      })
+      ;
+  });
+}
+
+/**
+ * @param  {string}          filepath                Path to the file to add.
+ * @param  {function(err)}   callback                Get's called once we know whether it's there or not
+ * @return {undefined}
+ */
+Storage.prototype.doWeHaveThis = function(md5, callback) {
+  var self = this
+  , headers = self.defaultHeaders_
+  , objPath = util.format('/%s/%s', self.container_, md5)
+  ;
+
+  callback = callback ? callback : defaultCallback;
+
+  Seq()
+    .seq(function(){
+      self.client_.getFile(objPath, this);
+    })
+    .seq(function(resp){
+      if(resp.statusCode === 200)
+        return callback(null, true);
+      callback(null, false);
+    })
+    .catch(function(err){
+      callback(err);
+    })
+  });
+}
+
+/**
+ * This is the guts of the uploading a 'download' operation, it basically:
+ * 1. Get's the mimetype of the downloaded file
+ * 2. Get stats about the file
+ * 3. Upload the file to blob storage
+ * Note that it will also check to see if the file is already on S3.
+ *
+ * @param  {object}          infringement            The infringement that the file belongs to.
+ * @param  {string}          filepath                Path to the file to add.
+ * @param  {function(err)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
+  var self = this
+    , mimetype = null
+    , md5 = null
+    , size = 0
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addLocalFile, Object.values(arguments)]);
+
+  Seq()
+    .seq(function() {
+      utilities.getFileMimeType(filepath, this);
+    })
+    .seq(function(mimetype_) {
+      mimetype = mimetype_;
+      fs.stat(filepath, this);
+    })
+    .seq(function(stats_) {
+      size = stats_.size;
+      utilities.generateMd5(filepath, this);
+    });
+    .seq(function(md5_){
+      md5 = md5_;
+      self.doWeHaveThis(md5);
+    })
+    .seq(function(alreadyExists){
+      if(alreadyExists){
+        logger.trace('md5 : ' + md5 + ' already exists');
+        callback();
+      }
+      else{
+        logger.info('Uploading %s to blob storage as MD5 - %s', filepath, md5);
+        self.storage_.createFromFile(md5, filepath, {}, this);
+      }
+    })
+    .seq(function() {
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
+}
+
