@@ -19,7 +19,29 @@ var cluster = require('cluster')
 require('sugar');
 var Papertrail = require('winston-papertrail').Papertrail;
 
-var ROLE = "";
+var levels = {
+      trace: 1,
+      debug: 2,
+      info: 3,
+      warn: 4,
+      error: 5
+    }
+  , colors = {
+      trace: 'white',
+      debug: 'blue',
+      info: 'green',
+      warn: 'yellow',
+      error: 'red'
+    }
+  ;
+
+winston.addColors(colors);
+var logger = new (winston.Logger)({ levels: levels });
+
+var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'debug'
+  , SENTRY_DEBUG_LEVEL = levels[SENTRY_DEBUG]
+  ;
+
 
 var Logger = function(filename) {
   var id = os.hostname()  + '::' + process.pid;
@@ -29,27 +51,36 @@ var Logger = function(filename) {
   }
 
   this.prefix_ = id + ':' + filename + ':';
+  this.logger_ = logger;
+}
+
+Logger.prototype.trace = function () {
+  if (SENTRY_DEBUG_LEVEL > levels['trace']) return;
+  var string = format.apply(null, arguments);
+  this.logger_.trace(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
+}
+
+Logger.prototype.debug = function () {
+  if (SENTRY_DEBUG_LEVEL > levels['debug']) return;
+  var string = format.apply(null, arguments);
+  this.logger_.debug(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
 }
 
 Logger.prototype.info = function() {
+  if (SENTRY_DEBUG_LEVEL > levels['info']) return;
   var string = format.apply(null, arguments);
-  winston.info(this.prefix_ + ':' + ROLE + string);
-}
-
-Logger.prototype.debug = function() {
-  var string = format.apply(null, arguments);
-  winston.debug(this.prefix_ + ROLE + lineNumber() + ': ' + string);
+  this.logger_.info(this.prefix_ + ':' + string);
 }
 
 Logger.prototype.warn = function() {
   var string = format.apply(null, arguments);
-  winston.warn(this.prefix_ + ROLE + lineNumber() + ': ' + string);
+  this.logger_.warn(this.prefix_ + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.error = function() {
   var args = Array.prototype.slice.call(arguments, 0);
   var string = format.apply(null, arguments);
-  var errorString = this.prefix_ + ROLE + lineNumber() + ': ' +  string;
+  var errorString = this.prefix_ + lineNumber() + ': ' +  string;
 
   var error = args.find(function (v) { return v instanceof Error; });
   if (!!error) {
@@ -59,17 +90,7 @@ Logger.prototype.error = function() {
   	errorString += error.stack;
   }
 
-  winston.error(errorString);
-}
-
-Logger.prototype.trace = function () {
-  if (process.env['SENTRY_DEBUG_TRACE'] === undefined) { return; }
-  var string = format.apply(null, arguments);
-  winston.info(this.prefix_ + ROLE + lineNumber() + ':' + functionName() + ': ' + string);
-}
-
-Logger.prototype.setRole = function(role) {
-  //ROLE = role + ':';
+  this.logger_.error(errorString);
 }
 
 exports.forFile = function(filename) {
@@ -77,15 +98,14 @@ exports.forFile = function(filename) {
 }
 
 exports.init = function() {
-  winston.remove(winston.transports.Console);
-  winston.add(winston.transports.Console, { colorize: true, timestamp: true });
+  logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
 }
 
 exports.initServer = function() {
-  winston.remove(winston.transports.Console);
-  winston.add(winston.transports.Console, { colorize: true, timestamp: true });
-  winston.add(winston.transports.Papertrail, { host: 'logs.papertrailapp.com', port: 14963 });
+  logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
+  logger.add(winston.transports.Papertrail, { level: 'info',  host: 'logs.papertrailapp.com', port: 14963 });
 }
+
 
 function lineNumber() {
   return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
