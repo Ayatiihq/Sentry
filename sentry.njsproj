@@ -1,0 +1,259 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{a7978c20-5827-4638-9140-6e715e57abc2}</ProjectGuid>
+    <ProjectHome />
+    <ProjectView>ShowAllFiles</ProjectView>
+    <StartupFile />
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{3AF33F2E-1136-4D97-BBB7-1795711AC8B8};{349c5851-65df-11da-9384-00065b846f21};{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}</ProjectTypeGuids>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <ItemGroup>
+    <Content Include="acquire.json" />
+    <Content Include="common\roles\noticesender\debughtml.html" />
+    <Content Include="package.json" />
+    <Content Include="README.md" />
+    <Content Include=".git\ms-persist.xml" />
+    <Compile Include="cli\hubtask.js" />
+    <Compile Include="cli\runtask.js" />
+    <Compile Include="cli\sentry.js" />
+    <Compile Include="common\analytics.js" />
+    <Compile Include="common\basic-endpoint-wrangler.js" />
+    <Compile Include="common\blacklist.js" />
+    <Compile Include="common\campaigns.js" />
+    <Compile Include="common\clients.js" />
+    <Compile Include="common\confidence-aggregator.js" />
+    <Compile Include="common\config.js" />
+    <Compile Include="common\cyberlockers.js" />
+    <Compile Include="common\database.js" />
+    <Compile Include="common\roles\noticesender\debug-remote-browser.js" />
+    <Compile Include="common\downloads.js" />
+    <Compile Include="common\endpoint-wrangler.js" />
+    <Compile Include="common\hosts.js" />
+    <Compile Include="common\iframe-exploder.js" />
+    <Compile Include="common\infringements.js" />
+    <Compile Include="common\isohunt-parser.js" />
+    <Compile Include="common\jobs.js" />
+    <Compile Include="common\kat-parser.js" />
+    <Compile Include="common\links.js" />
+    <Compile Include="common\logger.js" />
+    <Compile Include="common\notices.js" />
+    <Compile Include="common\role.js" />
+    <Compile Include="common\roles.js" />
+    <Compile Include="common\roles\noticesender\webform-engine-resource.js" />
+    <Compile Include="common\roles\noticesender\webform-engine.js" />
+    <Compile Include="common\scraper.js" />
+    <Compile Include="common\scrapers.js" />
+    <Compile Include="common\settings.js" />
+    <Compile Include="common\shorteners.js" />
+    <Compile Include="common\spider.js" />
+    <Compile Include="common\spidered.js" />
+    <Compile Include="common\spiders.js" />
+    <Compile Include="common\states.js" />
+    <Compile Include="common\storage.js" />
+    <Compile Include="common\torrent-downloader.js" />
+    <Compile Include="common\useragents.js" />
+    <Compile Include="common\users.js" />
+    <Compile Include="common\utilities.js" />
+    <Compile Include="common\verifications.js" />
+    <Compile Include="common\wrangler-rules.js" />
+    <Compile Include="hub\dependencies.js" />
+    <Compile Include="hub\flux-capacitor.js" />
+    <Compile Include="hub\hub.js" />
+    <Compile Include="hub\quartermaster.js" />
+    <Compile Include="hub\scraper-dispatcher.js" />
+    <Compile Include="hub\socket.js" />
+    <Compile Include="hub\spider-dispatcher.js" />
+    <Compile Include="hub\standard-dispatcher.js" />
+    <Compile Include="node\master.js" />
+    <Compile Include="node\node.js" />
+    <Compile Include="node\scheduler.js" />
+    <Compile Include="node\worker.js" />
+    <Compile Include="tools\find-contacts.js" />
+    <Compile Include="tools\reporter.js" />
+    <Compile Include="tools\test_4shared-direct-ban.js" />
+    <Compile Include="tools\test_analytics.js" />
+    <Compile Include="tools\test_autoverifier.js" />
+    <Compile Include="tools\test_basic-endpoint-wrangler.js" />
+    <Compile Include="tools\test_campaigns.js" />
+    <Compile Include="tools\test_clients.js" />
+    <Compile Include="tools\test_count.js" />
+    <Compile Include="tools\test_cyberlocker-downloader.js" />
+    <Compile Include="tools\test_dependencies.js" />
+    <Compile Include="tools\test_dispatcher.js" />
+    <Compile Include="tools\test_downloads.js" />
+    <Compile Include="tools\test_endpoint-wrangler.js" />
+    <Compile Include="tools\test_flux-capacitor.js" />
+    <Compile Include="tools\test_generic.js" />
+    <Compile Include="tools\test_hosts.js" />
+    <Compile Include="tools\test_iframe-exploder.js" />
+    <Compile Include="tools\test_infringements.js" />
+    <Compile Include="tools\test_jobs.js" />
+    <Compile Include="tools\test_links.js" />
+    <Compile Include="tools\test_logger.js" />
+    <Compile Include="tools\test_miner-dispatcher.js" />
+    <Compile Include="tools\test_mongo.js" />
+    <Compile Include="tools\test_music-verifier.js" />
+    <Compile Include="tools\test_notices.js" />
+    <Compile Include="tools\test_role.js" />
+    <Compile Include="tools\test_roles.js" />
+    <Compile Include="tools\test_scraper.js" />
+    <Compile Include="tools\test_scrapers.js" />
+    <Compile Include="tools\test_settings.js" />
+    <Compile Include="tools\test_spider.js" />
+    <Compile Include="tools\test_spiders.js" />
+    <Compile Include="tools\test_storage.js" />
+    <Compile Include="tools\test_users.js" />
+    <Compile Include="tools\test_utilities.js" />
+    <Compile Include="tools\test_verifications.js" />
+    <Content Include="common\testdata\dailymotion-metadata.json" />
+    <Content Include="common\testdata\searchengine-google-metadata-album.json" />
+    <Content Include="common\testdata\searchengine-google-metadata-track.json" />
+    <Content Include="common\testdata\youtube-metadata.json" />
+    <Content Include="common\roles\analytics\package.json" />
+    <Compile Include="common\roles\analytics\analytics.js" />
+    <Compile Include="common\roles\analytics\hostscrunchers.js" />
+    <Compile Include="common\roles\analytics\hostsinfo.js" />
+    <Compile Include="common\roles\analytics\hostsmr.js" />
+    <Compile Include="common\roles\analytics\linkmr.js" />
+    <Content Include="common\roles\autoverifier\package.json" />
+    <Compile Include="common\roles\autoverifier\autoverifier.js" />
+    <Compile Include="common\roles\autoverifier\musicverifier.js" />
+    <Content Include="common\roles\downloader\package.json" />
+    <Compile Include="common\roles\downloader\4shared.js" />
+    <Compile Include="common\roles\downloader\chrome-helper.js" />
+    <Compile Include="common\roles\downloader\downloader.js" />
+    <Compile Include="common\roles\downloader\hulkshare.js" />
+    <Compile Include="common\roles\downloader\mediafire.js" />
+    <Compile Include="common\roles\downloader\rapidshare.js" />
+    <Compile Include="common\roles\downloader\sharebeast.js" />
+    <Compile Include="common\roles\downloader\uploaded-net.js" />
+    <Compile Include="common\roles\downloader\zippyshare.js" />
+    <Content Include="common\roles\downloader-torrent\package.json" />
+    <Compile Include="common\roles\downloader-torrent\downloader-torrent.js" />
+    <Compile Include="common\roles\downloader-torrent\torrent-client.js" />
+    <Content Include="common\roles\miner\package.json" />
+    <Compile Include="common\roles\miner\miner.js" />
+    <Content Include="common\roles\noticesender\package.json" />
+    <Compile Include="common\roles\noticesender\4shared-direct-ban.js" />
+    <Compile Include="common\roles\noticesender\email-engine.js" />
+    <Compile Include="common\roles\noticesender\notice-builder.js" />
+    <Compile Include="common\roles\noticesender\noticesender.js" />
+    <Content Include="common\roles\processor\package.json" />
+    <Compile Include="common\roles\processor\processor.js" />
+    <Content Include="common\roles\scraper\package.json" />
+    <Compile Include="common\roles\scraper\index.js" />
+    <Content Include="common\roles\spider\package.json" />
+    <Compile Include="common\roles\spider\index.js" />
+    <Content Include="common\roles\transcoder\package.json" />
+    <Compile Include="common\roles\transcoder\transcoder.js" />
+    <Content Include="common\roles\unarchiver\package.json" />
+    <Compile Include="common\roles\unarchiver\unarchiver.js" />
+    <Content Include="common\roles\verifier\package.json" />
+    <Compile Include="common\roles\verifier\verifier.js" />
+    <Content Include="common\scrapers\bittorrent\package.json" />
+    <Compile Include="common\scrapers\bittorrent\bittorrent-scraper.js" />
+    <Content Include="common\scrapers\dailymotion\package.json" />
+    <Compile Include="common\scrapers\dailymotion\dailymotion-scraper.js" />
+    <Content Include="common\scrapers\generic\package.json" />
+    <Compile Include="common\scrapers\generic\generic-scraper.js" />
+    <Content Include="common\scrapers\reverse\package.json" />
+    <Compile Include="common\scrapers\reverse\reverse-scraper.js" />
+    <Content Include="common\scrapers\searchengine\package.json" />
+    <Compile Include="common\scrapers\searchengine\searchengine-scraper.js" />
+    <Content Include="common\scrapers\youtube\package.json" />
+    <Compile Include="common\scrapers\youtube\youtube-scraper.js" />
+    <Content Include="common\spiders\fancystreems\package.json" />
+    <Compile Include="common\spiders\fancystreems\index.js" />
+    <Content Include="common\spiders\isohunt\package.json" />
+    <Compile Include="common\spiders\isohunt\index.js" />
+    <Content Include="common\spiders\kat\package.json" />
+    <Compile Include="common\spiders\kat\index.js" />
+    <Content Include="common\spiders\tvchannelsliveonline\package.json" />
+    <Compile Include="common\spiders\tvchannelsliveonline\index.js" />
+    <Content Include="common\spiders\zonytvcom\package.json" />
+    <Compile Include="common\spiders\zonytvcom\index.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include=".git" />
+    <Folder Include="cli" />
+    <Folder Include="common" />
+    <Folder Include="common\roles\" />
+    <Folder Include="common\roles\analytics" />
+    <Folder Include="common\roles\autoverifier" />
+    <Folder Include="common\roles\downloader" />
+    <Folder Include="common\roles\downloader-torrent" />
+    <Folder Include="common\roles\miner" />
+    <Folder Include="common\roles\noticesender" />
+    <Folder Include="common\roles\processor" />
+    <Folder Include="common\roles\scraper" />
+    <Folder Include="common\roles\spider" />
+    <Folder Include="common\roles\transcoder" />
+    <Folder Include="common\roles\unarchiver" />
+    <Folder Include="common\roles\verifier" />
+    <Folder Include="common\scrapers\" />
+    <Folder Include="common\scrapers\bittorrent" />
+    <Folder Include="common\scrapers\dailymotion" />
+    <Folder Include="common\scrapers\generic" />
+    <Folder Include="common\scrapers\reverse" />
+    <Folder Include="common\scrapers\searchengine" />
+    <Folder Include="common\scrapers\youtube" />
+    <Folder Include="common\spiders\" />
+    <Folder Include="common\spiders\fancystreems" />
+    <Folder Include="common\spiders\isohunt" />
+    <Folder Include="common\spiders\kat" />
+    <Folder Include="common\spiders\tvchannelsliveonline" />
+    <Folder Include="common\spiders\zonytvcom" />
+    <Folder Include="common\testdata" />
+    <Folder Include="hub" />
+    <Folder Include="node" />
+    <Folder Include="tools" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsTools.targets" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>False</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>0</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:48022/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>True</UseCustomServer>
+          <CustomServerUrl>http://localhost:1337</CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}" User="">
+        <WebProjectProperties>
+          <StartPageUrl>
+          </StartPageUrl>
+          <StartAction>CurrentPage</StartAction>
+          <AspNetDebugging>True</AspNetDebugging>
+          <SilverlightDebugging>False</SilverlightDebugging>
+          <NativeDebugging>False</NativeDebugging>
+          <SQLDebugging>False</SQLDebugging>
+          <ExternalProgram>
+          </ExternalProgram>
+          <StartExternalURL>
+          </StartExternalURL>
+          <StartCmdLineArguments>
+          </StartCmdLineArguments>
+          <StartWorkingDirectory>
+          </StartWorkingDirectory>
+          <EnableENC>False</EnableENC>
+          <AlwaysStartWebServerOnDebug>False</AlwaysStartWebServerOnDebug>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>
