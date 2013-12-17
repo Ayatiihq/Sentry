@@ -166,28 +166,23 @@ Transcoder.prototype.processVerifications = function(done) {
       return;
     }
 
-    self.downloads_.getInfringementDownloads(infringement, function(err, downloads) {
+    self.processVerification(infringement, function(err) {
       if (err)
         return closeAndGotoNext(err, infringement);
 
-      self.processVerification(infringement, downloads, function(err) {
-        if (err)
-          return closeAndGotoNext(err, infringement);
+      self.infringements_.processedBy(infringement, PROCESSOR);
 
-        self.infringements_.processedBy(infringement, PROCESSOR);
-
-        setTimeout(self.processVerifications.bind(self, done), 1000);
-      });
+      setTimeout(self.processVerifications.bind(self, done), 1000);
     });
   });
 }
 
-Transcoder.prototype.processVerification = function(infringement, downloads, done) {
+Transcoder.prototype.processVerification = function(infringement, done) {
   var self = this
     , inputFiles = []
     ;
   
-  downloads.forEach(function(download) {
+  infringement.downloads.forEach(function(download) {
     if (self.supportedMimeTypes_.some(download.mimetype))
       inputFiles.push(download);
   });
@@ -205,7 +200,7 @@ Transcoder.prototype.transcodeAll = function(infringement, inputFiles, done) {
   var input = inputFiles.pop();
   self.transcode(infringement, input, function(err) {
     if (err)
-      logger.warn(fmt('Unable to transcode %s for %s: %s', input.name, infringement._id, err));
+      logger.warn(fmt('Unable to transcode %s for %s: %s', input.md5, infringement._id, err));
     
     if (inputFiles.length)
       setTimeout(self.transcodeAll.bind(self, infringement, inputFiles, done), 1000);
@@ -216,10 +211,11 @@ Transcoder.prototype.transcodeAll = function(infringement, inputFiles, done) {
 
 Transcoder.prototype.transcode = function(infringement, input, done) {
   var self = this
-    , tmpFile = path.join(os.tmpDir(), 'input-'+ infringement._id + '-' + input.name)
+    
+    , tmpFile = path.join(os.tmpDir(), 'input-'+ infringement._id + '-' + input.md5)
     , tmpFileStream = fs.createWriteStream(tmpFile)
-    , tmpDir = path.join(os.tmpDir(), 'transcoder-'+ infringement._id + '-' + input.name)
-    , uri = self.storage_.getURL(input.name)
+    , tmpDir = path.join(os.tmpDir(), 'transcoder-'+ infringement._id + '-' + input.md5)
+    , uri = self.storage_.getURL(input.md5)
     , started = Date.now()
     ;
 
@@ -238,7 +234,7 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
 
           logger.info('Uploading %s', tmpDir)
      
-          self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
+          self.infringements_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });

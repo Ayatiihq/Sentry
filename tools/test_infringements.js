@@ -132,6 +132,12 @@ function main() {
     infringements.setMetadata(infringement, key, value);  
   }
 
+  if (action === 'popForCampaignByMimetypes') {
+    var campaign = require(argv[3]);
+    var options = {};
+    infringements.popForCampaignByMimetypes(campaign, {}, log);
+  }
+  
   if(action === 'getOneInfringement'){
     infringements.getOneInfringement('a71e8587239e6e91c477f92b26bf58f337811768', log);   
   }

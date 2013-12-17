@@ -130,6 +130,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
+  entity.downloads = [];
   entity.state = states.infringements.state.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
@@ -188,6 +189,7 @@ Infringements.prototype.addMeta = function(campaign, uri, type, source, state, m
   entity.metadata = metadata;
   entity.parents = { count: 0, uris: [] };
   entity.children = { count: 0, uris: [] };
+  entity.downloads = [];
 
   self.infringements_.insert(entity, function(err) {
     if (!err || err.code === EDUPLICATE) {
@@ -341,6 +343,131 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
   };
 
   self.infringements_.update({ _id: infringement._id }, updates, callback);
+}
+
+/**
+ * Adds download to the target infringement.
+ *
+ * @param {object}            infringement    The infringement the points belong to.
+ * @param {string}            fileMd5         The MD5 of the download
+ * @param {string}            fileMimetype    MD5 of the file
+
+**/
+Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimetype, fileSize, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addDownload, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $push: {
+      'downloads': {
+        md5: fileMd5,
+        mimeType: fileMimetype,
+        processedBy: [],
+        size: fileSize,
+        created: Date.now()
+      }
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
+
+}
+
+/**
+ * This'll upload and register the contents of a directory against an infringement. It does
+ * not keep directory structure, rather it flattens out the files into the db.
+ *
+ * @param  {object}                    infringement            The infringement that the file belongs to.
+ * @param  {string}                    dir                     Path to the directory to add.
+ * @param  {function(err,nUploaded)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+ Infringements.prototype.addLocalDirectory = function(infringement, dir, callback) {
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addLocalDirectory, Object.values(arguments)]);
+
+  utilities.readAllFiles(dir, function(err, files) {
+    var nUploaded = 0;
+
+    if (err)
+      return callback(err);
+
+    Seq(files)
+      .seqEach(function(file) {
+        var that = this;
+        self.addLocalFile(infringement, file, started, finished, function(err) {
+          if (err && files.length == 1) {
+            return that(err);
+          } else if (err) {
+            logger.warn('Unable to upload %s for %s, but continuing: %s', file, infringement._id, err);
+          } else {
+            nUploaded++;
+          }
+          that();
+        });
+      })
+      .seq(function() {
+        callback(null, nUploaded);
+      })
+      .catch(function(err) {
+        callback(err);
+      })
+      ;
+  });
+}
+
+/**
+ * This is the guts of the Download operation, it basically:
+ * 1. Get's the mimetype of the downloaded file
+ * 2. Get stats about the file
+ * 3. Upload the file to blob storage
+ *
+ * @param  {object}          infringement            The infringement that the file belongs to.
+ * @param  {string}          filepath                Path to the file to add.
+ * @param  {function(err)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+Infringements.prototype.addLocalFile = function(infringement, filepath, callback) {
+  var self = this
+    , mimetype = null
+    , md5 = path.basename(filepath)
+    , size = 0
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addLocalFile, Object.values(arguments)]);
+
+  Seq()
+    .seq(function() {
+      utilities.getFileMimeType(filepath, this);
+    })
+    .seq(function(mimetype_) {
+      mimetype = mimetype_;
+      fs.stat(filepath, this);
+    })
+    .seq(function(stats_) {
+      size = stats_.size;
+      logger.info('Uploading %s to blob storage as %s', filepath, md5);
+      self.storage_.createFromFile(md5, filepath, {}, this);
+    })
+    .seq(function() {
+      logger.info('Uploaded %s (%s, %s). Adding to the infringement %s', uniqueName, mimetype, size, infringement._id);
+      self.addDownload(infringement, md5, mimetype, size, this);
+    })
+    .seq(function() {
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
 }
 
 /**
@@ -715,6 +842,12 @@ Infringements.prototype.processedBy = function(infringement, processor, callback
 
   callback = callback ? callback : defaultCallback;
 
+  function markEachDownload(download){
+    var promise = new Promise.Promise();
+
+  }
+
+
   var updates = {
     $push: {
       'metadata.processedBy': processor
@@ -806,4 +939,54 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
   callback = callback ? callback : defaultCallback;  
 
   self.infringements_.findOne({_id: infringementID}, callback);
+}
+
+/**
+ * Get all infringements that have downloads of a certain mimetype(s)
+ *
+ * @param {object}                    campaign                 A Campaign
+ * @param {object}                    options                  An options object
+ * @param {array}                     options.mimetypes        Mimetypes to filter on
+ * @param {string}                    options.notProcessedBy   Name of a processor to ignore
+ * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback {
+  var self = this
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.popForCampaignByMimetypes, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  options = options || {};
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign._id,
+    $or: [
+      { popped: { $lt: then } },
+      { popped: { $exists: false } }
+    ]
+  };
+
+  if (options.mimetypes)
+    query.downloads.mimetype = { $in: options.mimetypes };
+
+  if (options.notProcessedBy)
+    query.processedBy = { $ne: options.notProcessedBy };
+
+  var sort = [[ 'created', 1 ]];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
+
 }
