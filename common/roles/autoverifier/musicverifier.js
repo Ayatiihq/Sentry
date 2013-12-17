@@ -18,7 +18,6 @@ var acquire = require('acquire')
   , exec = require('child_process').execFile
   , URI = require('URIjs')   
   , utilities = acquire('utilities') 
-  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   ;
 
@@ -64,7 +63,6 @@ MusicVerifier.prototype.downloadThing = function(downloadURL, target){
   var self = this;
   var promise = new Promise.Promise();
   var out = fs.createWriteStream(target);
-  //logger.info('downloadThing ' + downloadURL);
 
   utilities.requestStream(downloadURL, {}, function(err, req, res, stream){
     if(err){
@@ -285,7 +283,7 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
     self.newCampaignChangeOver(!!self.campaign, campaign, done);
   }
   else{ // Same campaign as before, keep our one in memory but reset the track.score
-    logger.info("we just processed that campaign, use what has already been downloaded.")
+    logger.trace("we just processed that campaign, use what has already been downloaded.")
     self.campaign.metadata.tracks.each(function resetScore(track){
       track.score = 0.0;
     });      
@@ -295,7 +293,7 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
 
 MusicVerifier.prototype.copyDownload = function(download, track){
   var promise = new Promise.Promise();
-  fs.copy(download.tmpFileLocation,
+  fs.copy(path.join(self.tmpDirectory, download.md5),
           path.join(track.folderPath, 'infringement'),
           function(err){
             if(err){
@@ -308,13 +306,12 @@ MusicVerifier.prototype.copyDownload = function(download, track){
   return promise;
 }
 
-// TODO refactor somehow
 MusicVerifier.prototype.goMeasureDownload = function(download, done){
   var self = this;
 
   function compare(track){
     var promise = new Promise.Promise();
-    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
+    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPathdownl);
     exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
       function (error, stdout, stderr){
         if(stderr && !stderr.match(/Header\smissing/g))
@@ -382,9 +379,8 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
  */
 MusicVerifier.prototype.fetchDownload = function(download, done){
   var self = this;
-  var uri = self.storage.getURL(download.name);
-  var target = path.join(self.tmpDirectory, utilities.genLinkKey(download.name));
-  download.tmpFileLocation = target;
+  var uri = self.storage.getURL(download.md5);
+  var target = path.join(self.tmpDirectory, download.md5);
   self.downloadThing(uri, target).then(
     function(){
       done();
@@ -410,7 +406,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     Seq(downloads)
       .seqEach(function(download){
         var that = this;
-        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimetype);
+        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimeType);
         if(isAudio){
           logger.info('fetch Download');
           self.fetchDownload(download, that);
@@ -420,17 +416,19 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       })
       .seqEach(function(download){
         var that = this;
-        if(download.tmpFileLocation){
+        fs.stat(path.join(self.tmpDirectory, download.md5), function(err, result){
+          if(err){
+            logger.trace("didn't find a download locally, must never have been fetched.");
+            return that();// don't evaluate those that were not downloaded (not an audio file)        
+          }
           self.cleanupInfringement().then(function(){
             self.goMeasureDownload(download, that);      
           },
           function(err){
             logger.warn('Problem cleaning infringement %s', err);
             that();
-          })
-        }
-        else
-          that();// don't evaluate those that were not downloaded (not an audio file)        
+          });
+        });
       })
       .seq(function(){
         logger.info('Finished multi-file verification, didnt match obviously');
