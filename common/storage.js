@@ -276,6 +276,7 @@ Storage.prototype.getURL = function(name) {
  * @param  {string}          filepath                Path to the file to add.
  * @param  {function(err)}   callback                Get's called once we know whether it's there or not
  * @return {undefined}
+ Needs testing, api seems right. 
  */
 Storage.prototype.doWeHaveThis = function(md5, callback) {
   var self = this

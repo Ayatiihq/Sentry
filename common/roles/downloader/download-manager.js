@@ -24,9 +24,9 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   , Verifications = acquire('verifications')
+  , Storage = acquire('storage')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
@@ -45,7 +45,7 @@ var PLUGINS = [
 
 var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
+  this.storage_ = null;
   this.infringements_ = null;
   this.verifications_ = null;
   this.jobs_ = null;
@@ -66,7 +66,7 @@ DownloadManager.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
+  self.storage_ = new Storage('downloads');
   self.infringements_ = new Infringements();
   self.verifications_ = new Verifications();
   self.jobs_ = new Jobs('downloader');
@@ -375,7 +375,7 @@ DownloadManager.prototype.goManual = function(infringement, plugin, done) {
       plugin.download(infringement, tmpDir, this);
     })
     .seq(function() {
-      self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), this);
+      self.storage_.addLocalDirectory(infringement, tmpDir, this);
     })
     .seq(function(nUploaded) {
       // TODO - needs to be integrated into whatever manual process needs it
