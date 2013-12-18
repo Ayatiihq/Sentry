@@ -59,6 +59,24 @@ function main() {
     storage.createFromURL(arg0, arg1, {}, log);
   }
 
+  if (action === 'addLocalDirectory'){
+    // tmp infringement
+    var infringement  = {_id: '115934ccf532cb1487ba76822069f6e50052b82f'};
+    storage.addLocalDirectory(infringement, arg0, log);
+  }
+  
+  if (action === 'addLocalFile'){
+    // tmp infringement
+    var infringement  = {_id: '115934ccf532cb1487ba76822069f6e50052b82f'};
+    storage.addLocalFile(infringement, arg0, log);
+  }
+   
+  if (action === 'doWeHaveThis'){
+    // tmp infringement
+    var infringement  = {_id: '115934ccf532cb1487ba76822069f6e50052b82f'};
+    storage.doWeHaveThis(infringement, arg0, log);
+  }
+
   if (action === 'getToText') {
     storage.getToText(arg0, {}, log);
   }

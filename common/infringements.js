@@ -130,7 +130,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
-  entity.downloads = {};
+  entity.downloads = [];
   entity.state = states.infringements.state.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
@@ -905,7 +905,7 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
     query.downloads.mimetype = { $in: options.mimetypes };
 
   if (options.notProcessedBy)
-    query.processedBy = { $ne: options.notProcessedBy };
+    query.downloads.processedBy = { $ne: options.notProcessedBy };
 
   var sort = [[ 'created', 1 ]];
 

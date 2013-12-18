@@ -273,12 +273,69 @@ Storage.prototype.getURL = function(name) {
 }
 
 /**
+ * This is the guts of the uploading a 'download' operation, it basically:
+ * 1. Get's the mimetype of the downloaded file
+ * 2. Get stats about the file
+ * 3. Upload the file to blob storage
+ * Note that it will also check to see if the file is already on S3.
+ *
+ * @param  {object}          infringement            The infringement that the file belongs to (needed to calculate campaign folder).
+ * @param  {string}          filepath                Path to the file to add.
+ * @param  {function(err)}   callback                Get's called when the process is complete, or there is an error.
+ * @return {undefined}
+ */
+Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
+  var self = this
+    , mimetype = null
+    , md5 = null
+    , size = 0
+    ;
+
+  callback = callback ? callback : defaultCallback;
+
+  Seq()
+    .seq(function() {
+      utilities.getFileMimeType(filepath, this);
+    })
+    .seq(function(mimetype_) {
+      mimetype = mimetype_;
+      fs.stat(filepath, this);
+    })
+    .seq(function(stats_) {
+      size = stats_.size;
+      utilities.generateMd5(filepath, this);
+    })
+    .seq(function(md5_){
+      md5 = md5_;
+      self.doWeHaveThis(infringement, md5, this);
+    })
+    .seq(function(alreadyExists){
+      if(alreadyExists){
+        logger.trace('md5 : ' + md5 + ' already exists');
+        callback();
+      }
+      else{
+        logger.info('Uploading %s to blob storage as MD5 - %s', filepath, md5);
+        self.createFromFile(md5, filepath, {}, this);
+      }
+    })
+    .seq(function() {
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    })
+    ;
+}
+
+/**
+ * @param  {object}          infringement            The infringement that the file belongs to (needed to calculate campaign folder).
  * @param  {string}          filepath                Path to the file to add.
  * @param  {function(err)}   callback                Get's called once we know whether it's there or not
  * @return {undefined}
  Needs testing, api seems right. 
  */
-Storage.prototype.doWeHaveThis = function(md5, callback) {
+Storage.prototype.doWeHaveThis = function(infringement, md5, callback) {
   var self = this
   , headers = self.defaultHeaders_
   , objPath = util.format('/%s/%s', self.container_, md5)
@@ -298,63 +355,5 @@ Storage.prototype.doWeHaveThis = function(md5, callback) {
     .catch(function(err){
       callback(err);
     })
-  });
-}
-
-/**
- * This is the guts of the uploading a 'download' operation, it basically:
- * 1. Get's the mimetype of the downloaded file
- * 2. Get stats about the file
- * 3. Upload the file to blob storage
- * Note that it will also check to see if the file is already on S3.
- *
- * @param  {object}          infringement            The infringement that the file belongs to.
- * @param  {string}          filepath                Path to the file to add.
- * @param  {function(err)}   callback                Get's called when the process is complete, or there is an error.
- * @return {undefined}
- */
-Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
-  var self = this
-    , mimetype = null
-    , md5 = null
-    , size = 0
-    ;
-
-  if (!self.infringements_)
-    return self.cachedCalls_.push([self.addLocalFile, Object.values(arguments)]);
-
-  Seq()
-    .seq(function() {
-      utilities.getFileMimeType(filepath, this);
-    })
-    .seq(function(mimetype_) {
-      mimetype = mimetype_;
-      fs.stat(filepath, this);
-    })
-    .seq(function(stats_) {
-      size = stats_.size;
-      utilities.generateMd5(filepath, this);
-    });
-    .seq(function(md5_){
-      md5 = md5_;
-      self.doWeHaveThis(md5);
-    })
-    .seq(function(alreadyExists){
-      if(alreadyExists){
-        logger.trace('md5 : ' + md5 + ' already exists');
-        callback();
-      }
-      else{
-        logger.info('Uploading %s to blob storage as MD5 - %s', filepath, md5);
-        self.storage_.createFromFile(md5, filepath, {}, this);
-      }
-    })
-    .seq(function() {
-      callback();
-    })
-    .catch(function(err) {
-      callback(err);
-    })
     ;
 }
-

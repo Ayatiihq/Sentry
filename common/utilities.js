@@ -133,7 +133,7 @@ Utilities.getURIScheme = function(uri) {
  * @param  {string}     nameOfFile  input.
  * @return {string}     sha1 hex output
  */
-Utilities.prototype.generateName = function(nameOfFile) {
+Utilities.generateName = function(nameOfFile) {
   var string = '';
 
   Object.values(arguments, function(arg) {
@@ -152,27 +152,23 @@ Utilities.prototype.generateName = function(nameOfFile) {
  * @param  {string}     filePath  location of file for input
  * @return {string}     Md5 of the file.
  */
-Utilities.prototype.generateMd5 = function(filePath) {
-  var promises = new Promise();
-
-  var shasum = crypto.createHash('md5');
+Utilities.generateMd5 = function(filePath, callback) {
+  var md5sum = crypto.createHash('md5');
   var s = fs.ReadStream(filePath);
 
   s.on('data', function(d) {
-    shasum.update(d);
+    md5sum.update(d);
   });
 
   s.on('end', function() {
-    var d = shasum.digest('hex');
-    logger.trace('Md5 : ' + d + '  ' + pathToFile);
-    promise.resolve(d);
+    var d = md5sum.digest('hex');
+    logger.trace('Md5 : ' + d + '  ' + filePath);
+    callback(null, d);
   });  
 
   s.on('err', function(err){
-    promise.reject(err);
-  });
-    
-  return promise;
+    callback(err);
+  }); 
 }
 
 
