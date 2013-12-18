@@ -735,6 +735,35 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
 }
 
 /**
+ * Mark this infringement's download processedBy with the processor
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {md5}              md5              The md5 of the target download
+ * @param {integer}          processor        Who has processed this infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.downloadProcessedBy = function(infringement, md5, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.downloadProcessedBy, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var query = {
+    'downloads.md5' : md5;
+  };
+
+  var updates = {
+    $push: {
+      'downloads.$.processedBy': processor
+    }
+  };
+
+  self.infringements_.update(query, updates, callback);
+}
+
+/**
  * Mark this infringement as processedBy the processor
  *
  * @param {object}           infringement     The infringement which we want to work on
@@ -749,36 +778,13 @@ Infringements.prototype.processedBy = function(infringement, processor, callback
 
   callback = callback ? callback : defaultCallback;
 
-  Seq(infringement.downloads))
-    // first try to update the individual downloads
-    .seqEach(function(download){
-      var query = {
-        'downloads.md5' : download.md5;
-      };
-      var updates = {
-        $push: {
-          'downloads.$.processedBy': processor
-        }
-      };  
-      self.infringements_.update(query, updates, this);
-    })
-    .seq(function(){
-      // now update the parent infringement
-      var updates = {
-        $push: {
-          'metadata.processedBy': processor
-        }
-      };
-      self.infringements_.update({ _id: infringement._id }, updates, this);
-    })
-    .seq(function(){
-      callback();
-    });
-    .catch(function(err){
-      logger.warn('unable to update processedBy on infringement : ' + infringement.id);
-      callback(err);
-    })
-    ;
+  var updates = {
+    $push: {
+      'metadata.processedBy': processor
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
 }
 
 /**
