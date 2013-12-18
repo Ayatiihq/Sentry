@@ -329,11 +329,10 @@ Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
 }
 
 /**
- * @param  {object}          infringement            The infringement that the file belongs to (needed to calculate campaign folder).
- * @param  {string}          filepath                Path to the file to add.
- * @param  {function(err)}   callback                Get's called once we know whether it's there or not
+ * @param  {object}                  infringement    The infringement that the file belongs to (needed to calculate campaign folder).
+ * @param  {string}                  filepath        Path to the file to add.
+ * @param  {function(err, result)}   callback        Get's called once we know whether it's there or not
  * @return {undefined}
- Needs testing, api seems right. 
  */
 Storage.prototype.doWeHaveThis = function(infringement, md5, callback) {
   var self = this

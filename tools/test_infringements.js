@@ -134,8 +134,23 @@ function main() {
 
   if (action === 'popForCampaignByMimetypes') {
     var campaign = require(argv[3]);
-    var options = {};
-    infringements.popForCampaignByMimetypes(campaign, {}, log);
+    var supportedMimeTypes_ = [ 'video/x-ms-asf'
+                          , 'video/x-msvideo'
+                          , 'video/x-flv'
+                          , 'video/quicktime'
+                          , 'video/mp4'
+                          , 'video/mpeg'
+                          , 'video/x-ms-wmv'
+                          ];
+
+    var options= {};
+    options.mimetypes = supportedMimeTypes_;
+    infringements.popForCampaignByMimetypes(campaign, options, log);
+  }
+
+  if(action === 'downloadProcessedBy'){
+    var infringement = {_id: 'a71e8587239e6e91c477f92b26bf58f337811768'};
+    infringements.downloadProcessedBy(infringement, 'aRelevantMd5', 'TESTPROCESSOR', log);
   }
   
   if(action === 'getOneInfringement'){

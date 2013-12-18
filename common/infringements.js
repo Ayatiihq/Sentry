@@ -751,7 +751,8 @@ Infringements.prototype.downloadProcessedBy = function(infringement, md5, proces
   callback = callback ? callback : defaultCallback;
 
   var query = {
-    'downloads.md5' : md5;
+    $and: [{'downloads.md5' : md5},
+           { _id: infringement._id }]
   };
 
   var updates = {
@@ -881,7 +882,7 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
  * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
  * @return {undefined}
  */
-Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback {
+Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback) {
   var self = this
     , then = Date.create('15 minutes ago').getTime()
     ;
