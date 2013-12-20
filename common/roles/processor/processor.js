@@ -30,8 +30,8 @@ var Campaigns = acquire('campaigns')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
-  , Verifications = acquire('verifications')
   , Storage = acquire('storage')  
+  , Verifications = acquire('verifications')
   ;
 
 var Categories = states.infringements.category

@@ -903,10 +903,10 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
   };
 
   if (options.mimetypes)
-    query.downloads.mimetype = { $in: options.mimetypes };
+    query['downloads.mimetype'] = { $in: options.mimetypes };
 
   if (options.notProcessedBy)
-    query.downloads.processedBy = { $ne: options.notProcessedBy };
+    query['downloads.processedBy'] = { $ne: options.notProcessedBy };
 
   var sort = [[ 'created', 1 ]];
 

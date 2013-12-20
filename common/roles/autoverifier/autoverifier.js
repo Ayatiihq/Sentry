@@ -21,8 +21,8 @@ var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
+  , Storage = acquire('storage')  
   , Verifications = acquire('verifications')
-  , Storage = acquire('storage')
   ;
 
 var PROCESSOR = 'autoverifier';
@@ -194,9 +194,10 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
     ;
 
   // Find some verifiers that fit the bill for this infringement
-  self.verifierInstances_.forEach(function(instanceObj) {
-    if (instanceObj.mimetypes.intersect(infringement.mimetypes)) {
-      verifiers.push(instanceObj.verifier);
+  var relevantMimetypes = downloads.map(function(download){ return download.mimetype });
+  self.verifierInstances_.forEach(function(verifier) {
+    if (verifier.mimetypes.intersect(relevantMimetypes)) {
+      verifiers.push(verifier.verifier);
     }
   });
 
