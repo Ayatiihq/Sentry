@@ -179,10 +179,9 @@ Campaigns.prototype.add = function(campaign, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
-  campaign._id = {
-    client: campaign.client,
-    campaign: campaign.name
-  };
+  campaign._id = utilities.generateLinkKey(campaign.client,
+                                           campaign.name,
+                                           date.now());
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');
