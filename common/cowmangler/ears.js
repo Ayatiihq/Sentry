@@ -124,7 +124,7 @@ Ears.prototype.flush = function(messages, srcUri){
             startTime: msg.timestamp_start,
             endTime: msg.timestamp_finish,
             md5: msg.md5,
-            mimeType: msg.mimetype,
+            mimetype: msg.mimetype,
             size: msg.size};
   });
   self.sources = self.sources.exclude(srcUri);

@@ -26,11 +26,11 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
+  , Storage = acquire('storage')  
   , Verifications = acquire('verifications')
   ;
 
@@ -46,9 +46,11 @@ var requiredCollections = ['campaigns', 'infringements', 'hosts']
   , TMPDIR = 'processor'
   ;
 
+var STORAGE_NAME = 'downloads';
+
 var Processor = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
+
   this.infringements_ = null;
   this.jobs_ = null;
   this.cyberlockers_ = null; 
@@ -57,7 +59,7 @@ var Processor = module.exports = function() {
   this.campaign_ = null;
   this.collections_ = [];
   this.verifications_ = null
-
+  this.storage_ = null;
   this.started_ = false;
   this.touchId_ = 0;
 
@@ -70,11 +72,11 @@ Processor.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
   self.cyberlockers_ = new Cyberlockers();
+  self.storage_ = new Storage(STORAGE_NAME);
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -343,7 +345,7 @@ Processor.prototype.isSocialNetwork = function(uri, hostname) {
 
 Processor.prototype.downloadInfringement = function(infringement, done) {
   var self = this
-    , outName = self.downloads_.generateName(infringement, 'initialDownload')
+    , outName = utilities.generateName(infringement._id, 'initialDownload')
     , outPath = path.join(self.tmpdir_, outName)
     , started = 0
     , finished = 0
@@ -380,11 +382,11 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     .seq(function() {
       logger.info('Download finished for %s', outPath);
       finished = Date.now();
-      Downloads.getFileMimeType(outPath, this);
+      utilities.getFileMimeType(outPath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      self.downloads_.addLocalFile(infringement, outPath, started, finished, this);
+      self.storage.addLocalFile(infringement, outPath, this);
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });

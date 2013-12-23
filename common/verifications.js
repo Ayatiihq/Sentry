@@ -368,7 +368,7 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
   var query = {
     campaign: campaign,
     state: states.infringements.state.UNVERIFIED,
-    'mimetypes' : {
+    'downloads.mimetype' : {
       $in: types
     },
     'children.count': 0,

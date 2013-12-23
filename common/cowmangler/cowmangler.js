@@ -162,24 +162,24 @@ Cowmangler.prototype.submit = function(selector, done){
 }
 
 /* 
- * Establishes the rules for downloading i.e. minSize & mimeTypes to filter by.
+ * Establishes the rules for downloading i.e. minSize & mimetypes to filter by.
  * It should be noted that some URIs will result in an automatic download. Therefore it is important that this method is called 
  * before you get a suspected infringement and then call any one of the following: downloadAll, downloadTargeted, downloadLinks. 
  * @param {string}          uri       The URI that you will get after calling this. (we need to record signals against this uri)
  * @param {float}           minSize   The minimum size used to disregard downloads.
- * @param {array[''...]}    mimeTypes Array of mimeTypes (depending on the campaign)
+ * @param {array[''...]}    mimetypes Array of mimetypes (depending on the campaign)
  * @param {function}        done      Callback to notify once we are done talking to cowmangler.  
  */
-Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimeTypes, done){
+Cowmangler.prototype.setDownloadPolicy = function(uri, minSize, mimetypes, done){
   var self = this;
 
-  // Add the mimeTypes that we always want to pick up regardless of campaign type.
-  mimeTypes = mimeTypes.union(["/octet-stream", "/zip", "/rar"]);
+  // Add the mimetypes that we always want to pick up regardless of campaign type.
+  mimetypes = mimetypes.union(["/octet-stream", "/zip", "/rar"]);
 
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.setDownloadPolicy, Object.values(arguments)]);
 
-  var data = {'minsize': minSize, 'mimetypes' : mimeTypes};
+  var data = {'minsize': minSize, 'mimetypes' : mimetypes};
   self.ass_.do('setDownloadPolicy', data).then(function(result){
     self.ass_.addSource(uri);
     done();

@@ -24,9 +24,9 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Extensions = acquire('wrangler-rules').typeMediaExtensions
   , Infringements = acquire('infringements')
+  , Storage = acquire('storage')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
@@ -38,11 +38,11 @@ var TorrentClient = require('./torrent-client');
 
 var DownloaderTorrent = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
   this.infringements_ = null;
   this.infringementsCollection_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
+  this.storage_ = null;
 
   this.started_ = 0;
   this.touchId_ = 0;
@@ -60,10 +60,10 @@ DownloaderTorrent.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('downloader-torrent');
   self.verifications_ = new Verifications();
+  self.storage_ = new Storage('downloads');
 
   database.connectAndEnsureCollection('infringements', function(err, db, collection) {
     if (err)
@@ -423,10 +423,8 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
 
   Seq()
     .seq(function() {
-      self.downloads_.addLocalDirectory(infringement,
+      self.storage_.addLocalDirectory(infringement,
                                         directory,
-                                        infringement.downloadStarted,
-                                        Date.now(),
                                         this);
     })
     .seq(function() {

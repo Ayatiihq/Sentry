@@ -25,7 +25,6 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Jobs = acquire('jobs')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
@@ -37,7 +36,6 @@ var PROCESSOR = 'unarchiver';
 
 var Unarchiver = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
@@ -59,7 +57,6 @@ Unarchiver.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('unarchiver');
   self.storage_ = new Storage('downloads');
@@ -152,42 +149,32 @@ Unarchiver.prototype.processDownloads = function(done) {
   options.mimetypes = self.supportedMimeTypes_;
   options.notProcessedBy = PROCESSOR;
   
-  self.downloads_.popForCampaign(self.campaign_, options, function(err, download) {
+  self.infringements_.popForCampaignByMimetypes(self.campaign_, options, function(err, infringement) {
     if (err)
       return done(err);
 
-    if (!download) {
-      logger.info('Ran out of downloads to process');
+    if (!infringement) {
+      logger.info('Ran out of infringements (downloads) to process');
       return done();
     }
 
-    function closeAndGotoNext(err, download, infringement) {
-      logger.warn('Unable to process %s for unarchiving: %s', download._id, err);
-      self.downloads_.processedBy(download, PROCESSOR);
+    function closeAndGotoNext(err, infringement) {
+      logger.warn('Unable to process %s for unarchiving: %s', infringement._id, err);
+      self.infringements_.processedBy(infringement, PROCESSOR);
       setTimeout(self.processDownloads.bind(self, done), 1000);
       return;
     }
 
-    // Get the related infringement, we'll need it to register the extracted files
-    self.infringements_.getOneInfringement(download.infringement, function(err, infringement) {
+    self.unarchive(infringement, function(err) {
       if (err)
-        return closeAndGotoNext(err, download, infringement);
-
-      if (!infringement)
-        return closeAndGotoNext('Infringement does not exist', download, infringement);
-
-      self.unarchive(infringement, download, function(err) {
-        if (err)
-          return closeAndGotoNext(download, infringement);
-
-        self.downloads_.processedBy(download, PROCESSOR);
-        setTimeout(self.processDownloads.bind(self, done), 1000);
-      });
+        return closeAndGotoNext(download, infringement);
+      self.infringements_.processedBy(infringement, PROCESSOR);
+      setTimeout(self.processDownloads.bind(self, done), 1000);
     });
   });
 }
 
-Unarchiver.prototype.unarchive = function(infringement, archive, done) {
+Unarchiver.prototype.unarchive = function(infringement, done) {
   var self = this
     , tmpFile = path.join(os.tmpDir(), 'archive-'+ infringement._id + '-' + archive.name)
     , tmpFileStream = fs.createWriteStream(tmpFile)
@@ -210,7 +197,7 @@ Unarchiver.prototype.unarchive = function(infringement, archive, done) {
           if (err) return done(err);
 
           logger.info('Uploading %s', tmpDir)
-          self.downloads_.addLocalDirectory(infringement, tmpDir, started, Date.now(), function(err) {
+          self.storage_.addLocalDirectory(infringement, tmpDir, function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });

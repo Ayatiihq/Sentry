@@ -125,6 +125,54 @@ Utilities.getURIScheme = function(uri) {
 }
 
 /**
+ * Get a unique name depending on the string passed in.
+ * Produces a sha1 hash.
+ *
+ * Ex: generateName(nameOfFile)
+ *
+ * @param  {string}     nameOfFile  input.
+ * @return {string}     sha1 hex output
+ */
+Utilities.generateName = function(nameOfFile) {
+  var string = '';
+
+  Object.values(arguments, function(arg) {
+      string += arg;
+  });
+
+  var shasum = crypto.createHash('sha1');
+  shasum.update(string);
+  return shasum.digest('hex');
+}
+
+/**
+ *
+ * Ex: generateMd5(filePath)
+ *
+ * @param  {string}     filePath  location of file for input
+ * @return {string}     Md5 of the file.
+ */
+Utilities.generateMd5 = function(filePath, callback) {
+  var md5sum = crypto.createHash('md5');
+  var s = fs.ReadStream(filePath);
+
+  s.on('data', function(d) {
+    md5sum.update(d);
+  });
+
+  s.on('end', function() {
+    var d = md5sum.digest('hex');
+    logger.trace('Md5 : ' + d + '  ' + filePath);
+    callback(null, d);
+  });  
+
+  s.on('err', function(err){
+    callback(err);
+  }); 
+}
+
+
+/**
  * Generates a key that can be used in azure for URIs. Will normalize the URI too.
  *
  * @param {string}    uri     The uri to generate a key for.

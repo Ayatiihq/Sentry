@@ -130,6 +130,7 @@ Infringements.prototype.add = function(campaign, uri, type, source, state, point
   entity.scheme = utilities.getURIScheme(uri);
   entity.type = type;
   entity.source = source;
+  entity.downloads = [];
   entity.state = states.infringements.state.NEEDS_PROCESSING;
   entity.created = Date.now();
   entity.points = {
@@ -341,6 +342,39 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
   };
 
   self.infringements_.update({ _id: infringement._id }, updates, callback);
+}
+
+/**
+ * Adds download to the target infringement.
+ *
+ * @param {object}            infringement    The infringement the points belong to.
+ * @param {string}            fileMd5         The MD5 of the download
+ * @param {string}            fileMimetype    MD5 of the file
+
+**/
+Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimetype, fileSize, callback)
+{
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.addDownload, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var updates = {
+    $push: {
+      'downloads': {
+        md5: fileMd5,
+        mimetype: fileMimetype,
+        processedBy: [],
+        size: fileSize,
+        created: Date.now()
+      }
+    }
+  };
+
+  self.infringements_.update({ _id: infringement._id }, updates, callback);
+
 }
 
 /**
@@ -556,7 +590,7 @@ Infringements.prototype.getForCampaign = function(campaign, options, callback)
   }
 
   if (options.mimetypes) {
-   query.mimetypes = { $in: options.mimetypes };
+   query.['downloads.mimetype'] = { $in: options.mimetypes };
   }
 
   if (options.after) {
@@ -612,7 +646,7 @@ Infringements.prototype.getForClient = function(client, options, callback)
   }
 
   if (options.mimetypes) {
-   query.mimetypes = { $in: options.mimetypes };
+   query.['downloads.mimetype'] = { $in: options.mimetypes };
   }
 
   self.infringements_.find(query, opts).toArray(callback); 
@@ -649,7 +683,7 @@ Infringements.prototype.getCountForCampaign = function(campaign, options, callba
   }
 
   if (options.mimetypes) {
-   query.mimetypes = { $in: options.mimetypes };
+   query.['downloads.mimetype'] = { $in: options.mimetypes };
   }
 
   if (options.after) {
@@ -694,10 +728,40 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
   }
 
  if (options.mimetypes) {
-    query.mimetypes = { $in: options.mimetypes };
+    query.['downloads.mimetype'] = { $in: options.mimetypes };
  }
 
   self.infringements_.find(query).count(callback);
+}
+
+/**
+ * Mark this infringement's download processedBy with the processor
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {md5}              md5              The md5 of the target download
+ * @param {integer}          processor        Who has processed this infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.downloadProcessedBy = function(infringement, md5, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.downloadProcessedBy, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var query = {
+    $and: [{'downloads.md5' : md5},
+           { _id: infringement._id }]
+  };
+
+  var updates = {
+    $push: {
+      'downloads.$.processedBy': processor
+    }
+  };
+
+  self.infringements_.update(query, updates, callback);
 }
 
 /**
@@ -806,4 +870,54 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
   callback = callback ? callback : defaultCallback;  
 
   self.infringements_.findOne({_id: infringementID}, callback);
+}
+
+/**
+ * Get all infringements that have downloads of a certain mimetype(s)
+ *
+ * @param {object}                    campaign                 A Campaign
+ * @param {object}                    options                  An options object
+ * @param {array}                     options.mimetypes        Mimetypes to filter on
+ * @param {string}                    options.notProcessedBy   Name of a processor to ignore
+ * @param {function(err,downloads)}   callback        A callback to receive the downloads or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback) {
+  var self = this
+    , then = Date.create('15 minutes ago').getTime()
+    ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.popForCampaignByMimetypes, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  options = options || {};
+  campaign = normalizeCampaign(campaign);
+
+  var query = {
+    campaign: campaign._id,
+    $or: [
+      { popped: { $lt: then } },
+      { popped: { $exists: false } }
+    ]
+  };
+
+  if (options.mimetypes)
+    query['downloads.mimetype'] = { $in: options.mimetypes };
+
+  if (options.notProcessedBy)
+    query['downloads.processedBy'] = { $ne: options.notProcessedBy };
+
+  var sort = [[ 'created', 1 ]];
+
+  var updates = {
+    $set: {
+      popped: Date.now()
+    }
+  };
+
+  options = { new: true };
+
+  self.infringements_.findAndModify(query, sort, updates, options, callback);
+
 }

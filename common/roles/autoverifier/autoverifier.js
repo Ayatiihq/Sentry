@@ -17,11 +17,11 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Downloads = acquire('downloads')
   , Jobs = acquire('jobs')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
+  , Storage = acquire('storage')  
   , Verifications = acquire('verifications')
   ;
 
@@ -29,7 +29,7 @@ var PROCESSOR = 'autoverifier';
 
 var AutoVerifier = module.exports = function() {
   this.campaigns_ = null;
-  this.downloads_ = null;
+  this.storage_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
@@ -51,10 +51,11 @@ AutoVerifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.downloads_ = new Downloads();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
+  self.storage_ = new Storage('downloads');
+
 }
 
 AutoVerifier.prototype.loadVerifiers = function(done) {
@@ -178,16 +179,11 @@ AutoVerifier.prototype.processVerifications = function(done) {
       return;
     }
 
-    self.downloads_.getInfringementDownloads(infringement, function(err, downloads) {
+    self.processVerification(infringement, infringement.downloads, function(err) {
       if (err)
         return closeAndGotoNext(err, infringement);
 
-      self.processVerification(infringement, downloads, function(err) {
-        if (err)
-          return closeAndGotoNext(err, infringement);
-
-        setTimeout(self.processVerifications.bind(self, done), 1000);
-      });
+      setTimeout(self.processVerifications.bind(self, done), 1000);
     });
   });
 }
@@ -198,9 +194,10 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
     ;
 
   // Find some verifiers that fit the bill for this infringement
-  self.verifierInstances_.forEach(function(instanceObj) {
-    if (instanceObj.mimetypes.intersect(infringement.mimetypes)) {
-      verifiers.push(instanceObj.verifier);
+  var relevantMimetypes = downloads.map(function(download){ return download.mimetype });
+  self.verifierInstances_.forEach(function(verifier) {
+    if (verifier.mimetypes.intersect(relevantMimetypes)) {
+      verifiers.push(verifier.verifier);
     }
   });
 
