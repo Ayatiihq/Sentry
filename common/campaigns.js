@@ -124,7 +124,7 @@ Campaigns.prototype.listCampaignsForClient = function(client, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.listCampaignsForClient, Object.values(arguments)]);
 
-  self.campaigns_.find({ '_id.client': client }).toArray(callback);
+  self.campaigns_.find({ 'client': client }).toArray(callback);
 }
 
 /**
