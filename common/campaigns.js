@@ -69,17 +69,6 @@ function ifUndefined(test, falsey) {
 //
 // Public Methods
 //
-/**
- * Converts the campaign into a unique hash that is useful when needing a key to represent
- * the campaign.
- *
- * @param  {object}       campaign        The campaign to produce a hash for.
- * @return {string}                       The hash.
- */
- Campaigns.prototype.hash = function(campaign) {
-  return utilities.genLinkKey(campaign._id.campaign,
-                              campaign.created);
- }
 
 /**
  * Get a list of campaigns.
@@ -181,7 +170,7 @@ Campaigns.prototype.add = function(campaign, callback) {
 
   campaign._id = utilities.generateLinkKey(campaign.client,
                                            campaign.name,
-                                           date.now());
+                                           Date.now());
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');

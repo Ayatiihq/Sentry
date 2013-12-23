@@ -103,7 +103,7 @@ NoticeSender.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.clients_.get(campaign._id.client, this);
+      self.clients_.get(campaign.client, this);
     })
     .seq(function(client) {
       self.client_ = client;
