@@ -117,8 +117,8 @@ Analytics.prototype.getClientStats = function(client, callback) {
       nNeedsProcessing: 0,
       nNeedsDownload: 0
     }
-    , iStates = states.infringements.state 
     , clientCampaigns = null
+    , iStates = states.infringements.state 
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -335,30 +335,19 @@ Analytics.prototype.getClientAnalytics = function(client, callback) {
   client = normalizeClient(client);
   if (!client || !client._id)
     return callback(new Error('Valid client required'));
-  Seq()
-    .seq(function(){
-      self.collections_.campaigns.find({ 'client': client._id }).toArray(this);
-    })
-    .seq(function(campaigns_) {
-      var that = this;
-      var clientCampaigns = campaigns_.map(function(campaign){return campaign._id});
 
-      self.collections_.analytics.find({ '_id': {$in : clientCampaigns }}).toArray(function(err, docs) {
-        if (err)
-          return that(err);
+  self.collections_.analytics.find({ '_id.client': client._id }).toArray(function(err, docs) {
+    if (err)
+      return callback(err);
 
-        var stats = {};
+    var stats = {};
 
-        docs.forEach(function(doc) {
-          stats[doc._id.statistic] = doc.value;
-        });
-        callback(null, stats);
-      });
-    })
-    .catch(function(err){
-      callback(err);
-    })
-    ;
+    docs.forEach(function(doc) {
+      stats[doc._id.statistic] = doc.value;
+    });
+
+    callback(null, stats);
+  });
 }
 
 /**
