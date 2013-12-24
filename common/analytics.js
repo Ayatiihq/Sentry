@@ -341,7 +341,7 @@ Analytics.prototype.getClientAnalytics = function(client, callback) {
     })
     .seq(function(campaigns_) {
       var that = this;
-      clientCampaigns = campaigns_.map(function(campaign){return campaign._id});
+      var clientCampaigns = campaigns_.map(function(campaign){return campaign._id});
 
       self.collections_.analytics.find({ '_id': {$in : clientCampaigns }}).toArray(function(err, docs) {
         if (err)
