@@ -69,17 +69,6 @@ function ifUndefined(test, falsey) {
 //
 // Public Methods
 //
-/**
- * Converts the campaign into a unique hash that is useful when needing a key to represent
- * the campaign.
- *
- * @param  {object}       campaign        The campaign to produce a hash for.
- * @return {string}                       The hash.
- */
- Campaigns.prototype.hash = function(campaign) {
-  return utilities.genLinkKey(campaign._id.campaign,
-                              campaign.created);
- }
 
 /**
  * Get a list of campaigns.
@@ -135,7 +124,7 @@ Campaigns.prototype.listCampaignsForClient = function(client, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.listCampaignsForClient, Object.values(arguments)]);
 
-  self.campaigns_.find({ '_id.client': client }).toArray(callback);
+  self.campaigns_.find({ 'client': client }).toArray(callback);
 }
 
 /**
@@ -179,10 +168,9 @@ Campaigns.prototype.add = function(campaign, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
-  campaign._id = {
-    client: campaign.client,
-    campaign: campaign.name
-  };
+  campaign._id = utilities.generateLinkKey(campaign.client,
+                                           campaign.name,
+                                           Date.now());
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');

@@ -30,6 +30,7 @@ var Verifications = module.exports = function() {
   this.db_ = null;
   this.infringements_ = null;
   this.verifications_ = null;
+  this.campaigns_ = null;
 
   this.cachedCalls_ = [];
 
@@ -50,6 +51,10 @@ Verifications.prototype.init = function() {
     })
     .seq(function(db, verifications) {
       self.verifications_ = verifications;
+      database.connectAndEnsureCollection('campaigns', this);
+    })
+    .seq(function(db, campaigns){
+      self.campaigns_ = campaigns;
       this();
     })
     .seq(function() {
@@ -320,30 +325,40 @@ Verifications.prototype.popClient = function(client, callback) {
     return self.cachedCalls_.push([self.pop, Object.values(arguments)]);
 
   client = normalizeClient(client);
+  
+  Seq()
+    .seq(function(){
+      self.campaigns_.find({ 'client': client._id }).toArray(this);
+    })
+    .seq(function(campaigns){
+      var query = {
+        'campaign': {$in : campaigns},
+        category: {
+          $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.CYBERLOCKER, Categories.FILE]
+        },
+        state: states.infringements.state.UNVERIFIED,
+        'children.count': 0,
+        popped: {
+          $lt: then
+        }
+      };
 
-  var query = {
-    'campaign.client': client,
-    category: {
-      $in: [Categories.WEBSITE, Categories.SOCIAL, Categories.CYBERLOCKER, Categories.FILE]
-    },
-    state: states.infringements.state.UNVERIFIED,
-    'children.count': 0,
-    popped: {
-      $lt: then
-    }
-  };
+      var sort = [['category', -1 ], ['points.total', -1 ], ['created', 1 ] ];
 
-  var sort = [['category', -1 ], ['points.total', -1 ], ['created', 1 ] ];
+      var updates = {
+        $set: {
+          popped: Date.now()
+        }
+      };
 
-  var updates = {
-    $set: {
-      popped: Date.now()
-    }
-  };
+      var options = { new: true };
 
-  var options = { new: true };
-
-  self.infringements_.findAndModify(query, sort, updates, options, callback);
+      self.infringements_.findAndModify(query, sort, updates, options, callback);
+    })
+    .catch(function(err){
+      callback(err);
+    })
+    ;
 }
 
 /**

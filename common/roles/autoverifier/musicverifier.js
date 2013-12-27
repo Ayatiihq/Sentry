@@ -276,8 +276,7 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
   var self = this;
 
   var sameCampaignAsBefore = self.campaign &&
-                             (self.campaign._id.client === campaign._id.client &&
-                              self.campaign._id.campaign === campaign._id.campaign);
+                             self.campaign._id === campaign._id;
   if(!sameCampaignAsBefore){
     logger.info()
     self.newCampaignChangeOver(!!self.campaign, campaign, done);

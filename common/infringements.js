@@ -626,7 +626,7 @@ Infringements.prototype.getForClient = function(client, options, callback)
   client = normalizeClient(client);
 
   var query = {
-    'campaign.client': client
+    client: client
   };
 
   var opts = { 
@@ -714,7 +714,7 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
   client = normalizeClient(client);
 
   var query = {
-    'campaign.client': client
+    client: client
   };
 
   if (Object.isArray(options.state)) {

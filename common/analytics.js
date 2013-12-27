@@ -29,8 +29,6 @@ var COLLECTION = 'analytics';
 var Analytics = module.exports = function() {
   this.db_ = null;
   this.analytics = null;
-  this.infringements = null;
-
   this.collections_ = [];
 
   this.cachedCalls_ = [];
@@ -41,7 +39,7 @@ var Analytics = module.exports = function() {
 Analytics.prototype.init = function() {
   var self = this;
 
-  var requiredCollections = ['analytics', 'infringements', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
+  var requiredCollections = ['analytics', 'infringements', 'campaigns', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
@@ -119,6 +117,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
       nNeedsProcessing: 0,
       nNeedsDownload: 0
     }
+    , clientCampaigns = null
     , iStates = states.infringements.state 
     ;
 
@@ -132,16 +131,20 @@ Analytics.prototype.getClientStats = function(client, callback) {
     return callback(new Error('Valid client required'));
 
   Seq()
-    .par(function() {
+    .seq(function(){
+      self.collections_.campaigns.find({ 'client': client._id }).toArray(this);
+    })
+    .par(function(campaigns_) {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
+      clientCampaigns = campaigns_.map(function(campaign){return campaign._id});
+      self.collections_.infringements.find({campaign : {$in : clientCampaigns},'state': { $in: [iStates.VERIFIED, iStates.SENT_NOTICE, iStates.TAKEN_DOWN ] } }).count(function(err, count) {
         stats.nInfringements = count ? count : 0;
         that(err);
       });
     })
     .par(function() {
       var that = this
-        , query = { 'campaign.client': client._id, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
+        , query = {campaign : {$in : clientCampaigns}, 'children.count': 0, 'state': { $nin: [iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.NEEDS_PROCESSING ] } }
         ;
       self.collections_.infringements.find(query).count(function(err, count) {
         stats.nEndpoints = count ? count : 0;
@@ -150,7 +153,7 @@ Analytics.prototype.getClientStats = function(client, callback) {
     })
     .par(function() {
       var that = this
-        , query = { 'campaign.client': client._id, 
+        , query = { campaign : {$in : clientCampaigns},
                     'state': {
                       $in: [ iStates.SENT_NOTICE, iStates.TAKEN_DOWN ]
                     }
@@ -164,21 +167,21 @@ Analytics.prototype.getClientStats = function(client, callback) {
     })
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': { $nin: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
+      self.collections_.infringements.find({campaign : {$in : clientCampaigns}, 'state': { $nin: [iStates.VERIFIED, iStates.FALSE_POSITIVE, iStates.UNAVAILABLE, iStates.DEFERRED ] } }).count(function(err, count) {
         stats.nTotal = count ? count : 0;
         that(err);
       });
     })
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
+      self.collections_.infringements.find({ campaign : {$in : clientCampaigns}, 'state': iStates.NEEDS_PROCESSING }).count(function(err, count) {
         stats.nNeedsProcessing = count ? count : 0;
         that(err);
       });
     })
     .par(function() {
       var that = this;
-      self.collections_.infringements.find({ 'campaign.client': client._id, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
+      self.collections_.infringements.find({ campaign : {$in : clientCampaigns}, 'state': iStates.NEEDS_DOWNLOAD }).count(function(err, count) {
         stats.nNeedsDownload = count ? count : 0;
         that(err);
       });

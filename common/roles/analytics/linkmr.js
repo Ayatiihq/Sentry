@@ -8,6 +8,7 @@
  */
 
 var acquire = require('acquire')
+  , Campaigns = acquire('campaigns')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('linkmr.js')
@@ -242,22 +243,33 @@ LinkMR.linkStatsClient = function(db, collections, campaign, reallyDone) {
     timeWindows.push(time);
   }
 
-  var options = {
-    out: {
-      merge: 'linkStats'
-    },
-    query: {
-      'campaign.client': campaign.client,
-      created: {
-        $gte: timeWindows.last()
-      }
-    },
-    scope: {
-      timeWindows: timeWindows
-    }
-  };
+  Seq()
+    .seq(function(){
+      var campaigns = new Campaigns();
+      campaigns.listCampaignsForClient(this);
+    })
+    .seq(function(clientCampaigns){
+      var options = {
+        out: {
+          merge: 'linkStats'
+        },
+        query: {
+          campaign: {$in : clientCampaigns},
+          created: {
+            $gte: timeWindows.last()
+          }
+        },
+        scope: {
+          timeWindows: timeWindows
+        }
+      };
 
-  logger.info('LinkStatsClient: Running mapreduce job for %s', campaign.name);
-  var collection = collections['infringements'];
-  collection.mapReduce(map, reduce, options, reallyDone);
+      logger.info('LinkStatsClient: Running mapreduce job for %s', campaign.name);
+      var collection = collections['infringements'];
+      collection.mapReduce(map, reduce, options, reallyDone);
+    })
+    .catch(function(err){
+      reallyDone(err);
+    })
+    ;
 }
