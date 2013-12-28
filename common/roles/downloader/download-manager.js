@@ -375,7 +375,7 @@ DownloadManager.prototype.goManual = function(infringement, plugin, done) {
       plugin.download(infringement, tmpDir, this);
     })
     .seq(function() {
-      self.storage_.addLocalDirectory(infringement, tmpDir, this);
+      self.storage_.addLocalDirectory(infringement.campaign, tmpDir, this);
     })
     .seq(function(nUploaded) {
       // TODO - needs to be integrated into whatever manual process needs it

@@ -213,7 +213,7 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
     , tmpFile = path.join(os.tmpDir(), 'input-'+ infringement._id + '-' + input.md5)
     , tmpFileStream = fs.createWriteStream(tmpFile)
     , tmpDir = path.join(os.tmpDir(), 'transcoder-'+ infringement._id + '-' + input.md5)
-    , uri = self.storage_.getURL(input.md5)
+    , uri = self.storage_.getURL(self.campaign_.id, input.md5)
     , started = Date.now()
     ;
 
@@ -232,7 +232,7 @@ Transcoder.prototype.transcode = function(infringement, input, done) {
 
           logger.info('Uploading %s', tmpDir)
      
-          self.storage_.addLocalDirectory(infringement, tmpDir, function(err) {
+          self.storage_.addLocalDirectory(infringement.campaign, tmpDir, function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });

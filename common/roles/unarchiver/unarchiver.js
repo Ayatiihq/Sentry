@@ -179,7 +179,7 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
     , tmpFile = path.join(os.tmpDir(), 'archive-'+ infringement._id + '-' + archive.name)
     , tmpFileStream = fs.createWriteStream(tmpFile)
     , tmpDir = path.join(os.tmpDir(), 'unarchiver-'+ infringement._id + '-' + archive.name)
-    , uri = self.storage_.getURL(archive.name)
+    , uri = self.storage_.getURL(self.campaign_._id, archive.name)
     , started = Date.now()
     ;
 
@@ -197,7 +197,7 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
           if (err) return done(err);
 
           logger.info('Uploading %s', tmpDir)
-          self.storage_.addLocalDirectory(infringement, tmpDir, function(err) {
+          self.storage_.addLocalDirectory(infringement.campaign, tmpDir, function(err) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });

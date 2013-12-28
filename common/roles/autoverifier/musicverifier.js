@@ -378,7 +378,7 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
  */
 MusicVerifier.prototype.fetchDownload = function(download, done){
   var self = this;
-  var uri = self.storage.getURL(download.md5);
+  var uri = self.storage.getURL(self.infringement.campaign, download.md5);
   var target = path.join(self.tmpDirectory, download.md5);
   self.downloadThing(uri, target).then(
     function(){

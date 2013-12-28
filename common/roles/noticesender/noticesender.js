@@ -482,7 +482,7 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
       logger.info('escalate notice - have host.hostedBy');
       // Prepare escalation text
       var that = this;
-      self.storage_.getToText(noticeWithHostedBy._id, {}, function(err, originalMsg){
+      self.storage_.getToText(self.campaign_._id, noticeWithHostedBy._id, {}, function(err, originalMsg){
         if(err){
           logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
           return done();
@@ -517,7 +517,7 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
   var self = this;
   Seq()
     .seq(function(){
-      self.storage_.getToText('dmca.escalate', {}, this);
+      self.storage_.getToText('templates', ,'dmca.escalate', {}, this);
     })
     .seq(function(template) {
       var that = this;
