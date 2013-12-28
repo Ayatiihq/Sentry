@@ -517,7 +517,7 @@ NoticeSender.prototype.prepareEscalationText = function(notice, originalMsg, don
   var self = this;
   Seq()
     .seq(function(){
-      self.storage_.getToText('templates', ,'dmca.escalate', {}, this);
+      self.storage_.getToText('templates', 'dmca.escalate', {}, this);
     })
     .seq(function(template) {
       var that = this;
