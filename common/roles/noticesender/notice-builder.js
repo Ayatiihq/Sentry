@@ -60,7 +60,7 @@ NoticeBuilder.prototype.build = function(done) {
   Seq()
     .seq('getTemplate', function() {
       var name = util.format('%s.%s.template', details.metadata.template, campaign.type);
-      self.storage_.getToText(campaign._id, name, {}, this);
+      self.storage_.getToText('templates', name, {}, this);
     })
     .seq('prepareContext', function(template_) {
       template = template_;
