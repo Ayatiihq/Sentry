@@ -60,7 +60,7 @@ NoticeBuilder.prototype.build = function(done) {
   Seq()
     .seq('getTemplate', function() {
       var name = util.format('%s.%s.template', details.metadata.template, campaign.type);
-      self.storage_.getToText(name, {}, this);
+      self.storage_.getToText('templates', name, {}, this);
     })
     .seq('prepareContext', function(template_) {
       template = template_;
@@ -75,10 +75,10 @@ NoticeBuilder.prototype.build = function(done) {
       }
     })
     .seq('done', function(message) {
-      self.storage_.createFromText(self.hash_, message, {}, function(err) {
+      self.storage_.createFromText(campaign._id, self.hash_, message, {}, function(err) {
         if (err) {
          logger.warn('Unable to save message, trying again: %s', err);
-          self.storage_.createFromText(self.hash_, message, {}, logErr);
+          self.storage_.createFromText(campaign._id, self.hash_, message, {}, logErr);
         }
         done(null, self.hash_, message);
       });

@@ -423,9 +423,9 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
 
   Seq()
     .seq(function() {
-      self.storage_.addLocalDirectory(infringement,
-                                        directory,
-                                        this);
+      self.storage_.addLocalDirectory(infringement.campaign,
+                                      directory,
+                                      this);
     })
     .seq(function() {
       rimraf(directory, this.ok);

@@ -70,6 +70,7 @@ Storage.prototype.getContainerName = function() {
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already exists.
  *
+ * @param  {string}            campaignID         The campaign's id. 
  * @param  {string}            name               The content's name.
  * @param  {string}            text               The text of the content.
  * @param  {object}            options            The options object.
@@ -77,10 +78,10 @@ Storage.prototype.getContainerName = function() {
  * @param  {function(err)}     callback           A callback to receive an err, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromText = function(name, text, options, callback) {
+Storage.prototype.createFromText = function(campaignID, name, text, options, callback) {
   var self = this
     , headers = self.defaultHeaders_
-    , objPath = util.format('/%s/%s', self.container_, name)
+    , objPath = util.format('/%s/%s/%s', self.container_, campaignID, name)
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -105,18 +106,18 @@ Storage.prototype.createFromText = function(name, text, options, callback) {
 /*
  * Create a new file in storage, optionally overwrite if one by the same name already
  * exists.
- *
- * @param  {string}            name               The contents name (MD5).
- * @param  {string}            filename           The filename of the file.
+ * @param  {string}            campaignID         The campaign's id.
+ * @param  {string}            md5                File md5.
+ * @param  {string}            filepath           The filepath of the local file to upload.
  * @param  {object}            options            The options object.
  * @param  {boolean}           [options.replace]  Replace an existing file with the same name.
  * @param  {function(err)}     callback           A callback to receive an err, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromFile = function(name, filepath, options, callback) {
+Storage.prototype.createFromFile = function(campaignID, md5, filepath, options, callback) {
   var self = this
     , headers = self.defaultHeaders_
-    , objPath = util.format('/%s/%s', self.container_, name)
+    , objPath = util.format('/%s/%s/%s', self.container_, campaignID, md5)
     ;
 
   callback = callback ? callback : defaultCallback;
@@ -159,6 +160,7 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
 /*
  * Create a new file in storage from a URL, optionally overwrite an existing one.
  *
+ * @param  {string}           campaignID           The campaign's id.
  * @param  {string}           name                 The content's name.
  * @param  {string}           url                  The URL to download.
  * @param  {object}           options              The options object.
@@ -167,7 +169,7 @@ Storage.prototype.createFromFile = function(name, filepath, options, callback) {
  * @param  {function(err)}    callback             A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.createFromURL = function(name, url, options, callback) {
+Storage.prototype.createFromURL = function(campaignID, name, url, options, callback) {
   var self = this;
   callback = callback ? callback : defaultCallback;
 
@@ -177,21 +179,22 @@ Storage.prototype.createFromURL = function(name, url, options, callback) {
 
     options['Content-Type'] = res.headers['content-type'];
 
-    self.createFromText(name, body, options, callback);
+    self.createFromText(campaignID, name, body, options, callback);
   });
 }
 
 /*
  * Get a file from storage as text
  *
+ * @param  {string}                campaignID           The campaign's id. 
  * @param  {string}                name                 The content's name.
  * @param  {object}                options              The options object.
  * @param  {function(err,text)}    callback             A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Storage.prototype.getToText = function(name, options, callback) {
+Storage.prototype.getToText = function(campaignID, name, options, callback) {
   var self = this
-    , objPath = util.format('/%s/%s', self.container_, name)
+    , objPath = util.format('/%s/%s/%s', self.container_, campaignID, name)
     ;
   
   callback = callback ? callback : defaultCallback;
@@ -219,27 +222,27 @@ Storage.prototype.getToText = function(name, options, callback) {
 /*
  * Gets a download url for a name
  *
- * @param  {string}        name          The content's name.
- * @return {string}       A url to download the content.
+ * @param  {string}        campaignID           The campaign's id. 
+ * @param  {string}        MD5                 The content's MD5.
+ * @return {string}        A url to download the content.
  */
-Storage.prototype.getURL = function(name) {
+Storage.prototype.getURL = function(campaignID, MD5) {
   var self = this
-    , template = 'https://s3.amazonaws.com/qarth/%s/%s'
+    , template = 'https://s3.amazonaws.com/qarth/%s/%s/%s'
     ;
-
-  return util.format(template, self.container_, name);
+  return util.format(template, self.container_, campaignID, MD5);
 }
 
 /**
  * This'll upload a directory to S3. It does
  * not keep directory structure, rather it flattens out the files into the db.
  *
- * @param  {object}                    infringement            The infringement that the download belongs to.
+ * @param  {string}                    campaignID              The campaign's id.
  * @param  {string}                    dir                     Path to the directory to add.
  * @param  {function(err,nUploaded)}   callback                Get's called when the process is complete, or there is an error.
  * @return {undefined}
  */
- Storage.prototype.addLocalDirectory = function(infringement, dir, callback) {
+ Storage.prototype.addLocalDirectory = function(campaignID, dir, callback) {
   var self = this;
 
   utilities.readAllFiles(dir, function(err, files) {
@@ -251,11 +254,11 @@ Storage.prototype.getURL = function(name) {
     Seq(files)
       .seqEach(function(file) {
         var that = this;
-        self.addLocalFile(infringement, file, function(err) {
+        self.addLocalFile(campaignID, file, function(err) {
           if (err && files.length == 1) {
             return that(err);
           } else if (err) {
-            logger.warn('Unable to upload %s for %s, but continuing: %s', file, infringement._id, err);
+            logger.warn('Unable to upload %s but continuing: %s', file, err);
           } else {
             nUploaded++;
           }
@@ -274,49 +277,37 @@ Storage.prototype.getURL = function(name) {
 
 /**
  * This is the guts of the uploading a 'download' operation, it basically:
- * 1. Get's the mimetype of the downloaded file
- * 2. Get stats about the file
- * 3. Upload the file to blob storage
+ * 1. Upload the file to blob storage if the file does not exist
  * Note that it will also check to see if the file is already on S3.
  *
- * @param  {object}          infringement            The infringement that the file belongs to (needed to calculate campaign folder).
+ * @param  {string}          campaignID              The campaign's id.
  * @param  {string}          filepath                Path to the file to add.
  * @param  {function(err)}   callback                Get's called when the process is complete, or there is an error.
  * @return {undefined}
  */
-Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
+Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
   var self = this
-    , mimetype = null
     , md5 = null
-    , size = 0
     ;
 
   callback = callback ? callback : defaultCallback;
 
   Seq()
     .seq(function() {
-      utilities.getFileMimeType(filepath, this);
-    })
-    .seq(function(mimetype_) {
-      mimetype = mimetype_;
-      fs.stat(filepath, this);
-    })
-    .seq(function(stats_) {
-      size = stats_.size;
       utilities.generateMd5(filepath, this);
     })
     .seq(function(md5_){
       md5 = md5_;
-      self.doWeHaveThis(infringement, md5, this);
+      self.doWeHaveThis(campaignID, md5, this);
     })
     .seq(function(alreadyExists){
       if(alreadyExists){
-        logger.trace('md5 : ' + md5 + ' already exists');
+        logger.trace('md5 : ' + md5 + ' already exists for campaign ' + infringement.campaign);
         callback();
       }
       else{
-        logger.info('Uploading %s to blob storage as MD5 - %s', filepath, md5);
-        self.createFromFile(md5, filepath, {}, this);
+        logger.info('Uploading %s to blob storage as MD5 - %s', filepath, campaignID + '/' + md5);
+        self.createFromFile(campaignID, md5, filepath, {}, this);
       }
     })
     .seq(function() {
@@ -329,15 +320,15 @@ Storage.prototype.addLocalFile = function(infringement, filepath, callback) {
 }
 
 /**
- * @param  {object}                  infringement    The infringement that the file belongs to (needed to calculate campaign folder).
+ * @param  {string}                  campaignID      The campaign's id.
  * @param  {string}                  filepath        Path to the file to add.
  * @param  {function(err, result)}   callback        Get's called once we know whether it's there or not
  * @return {undefined}
  */
-Storage.prototype.doWeHaveThis = function(infringement, md5, callback) {
+Storage.prototype.doWeHaveThis = function(campaignID, md5, callback) {
   var self = this
   , headers = self.defaultHeaders_
-  , objPath = util.format('/%s/%s', self.container_, md5)
+  , objPath = util.format('/%s/%s/%s', self.container_, campaignID, md5)
   ;
 
   callback = callback ? callback : defaultCallback;

@@ -168,7 +168,10 @@ BittorrentPortal.prototype.emitInfringements = function () {
                 leechers: torrent.leechers,
                 seeders: torrent.seeders});                
     self.emit('relation', torrent.directLink, torrent.hash_ID);
-    self.storage.createFromURL(torrent.name, torrent.directLink, {replace:false})
+    self.storage.createFromURL(self.campaign._id,
+                               torrent.name,
+                               torrent.directLink,
+                               {replace:false})
   });
   self.cleanup();
 };
