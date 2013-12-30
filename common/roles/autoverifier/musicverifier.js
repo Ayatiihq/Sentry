@@ -27,6 +27,7 @@ var logger = acquire('logger').forFile('musicverifier.js')
   ;
 
 var Storage = acquire('storage');
+var MEDIA = 'https://qarth.s3.amazonaws.com/media/';
 
 var MusicVerifier = module.exports = function() {
   this.init();
@@ -219,11 +220,12 @@ MusicVerifier.prototype.fetchCampaignAudio = function(done) {
 
   function fetchTrack(track){
     var promise = new Promise.Promise();
-    var folderName = utilities.genLinkKey(track.title + track.artist[0] + Date.now());
-    track.folderPath = path.join(self.tmpDirectory, folderName);
+    track.folderPath = path.join(self.tmpDirectory, track.md5);
     track.score = 0.0;
     fs.mkdirSync(track.folderPath);
-    self.downloadThing(track.uri, path.join(track.folderPath, "original")).then(
+    var original = path.join(MEDIA, self.campaign._id, track.md5);
+
+    self.downloadThing(original, path.join(track.folderPath, "original")).then(
       function(){
         promise.resolve();
       },
