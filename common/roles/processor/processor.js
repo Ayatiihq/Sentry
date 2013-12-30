@@ -326,7 +326,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
 Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
   var self = this;
-  self.cyberlockers_.knowDomains(function(err, domains){
+  self.cyberlockers_.knownDomains(function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);
@@ -345,7 +345,7 @@ Processor.prototype.isSocialNetwork = function(uri, hostname) {
 
 Processor.prototype.downloadInfringement = function(infringement, done) {
   var self = this
-    , outName = utilities.generateLinkKey(infringement._id, Date.now());
+    , outName = utilities.genLinkKey(infringement._id, Date.now());
     , outPath = path.join(self.tmpdir_, outName)
     , started = 0
     , finished = 0
