@@ -130,7 +130,7 @@ Campaigns.prototype.listCampaignsForClient = function(client, callback) {
 /**
  * Get a campaign's details.
  *
- * @param {stringOrObject}             id          The campaign id;
+ * @param {string}             id          The campaign id;
  * @param {function(err, campaign)}    callback    The campaign details, or error.
  * @return {undefined}
  */
@@ -141,7 +141,6 @@ Campaigns.prototype.getDetails = function(id, callback) {
     return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
-  id = Object.isString(id) ? JSON.parse(id) : id;
 
   self.campaigns_.findOne({ _id: id }, callback);
 }
@@ -236,19 +235,18 @@ Campaigns.prototype.save = function(campaign, callback) {
 
 /**
  * Turn a campaign off or on.
- * @param {object}          campaign      The id selecting the campaign.
+ * @param {string}          campaignID      The id selecting the campaign.
  * @param {boolean}         value         Off or On.
  * @param {function(err)}   callback      A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.sweep = function(campaign, update, callback){
+Campaigns.prototype.sweep = function(campaignID, update, callback){
   var self = this;
 
   callback = callback ? callback : defaultCallback;
-  var id = Object.isString(campaign) ? JSON.parse(campaign) : campaign;
   
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
 
-  self.campaigns_.update({_id : id}, { $set: {'sweep' : update} }, callback);
+  self.campaigns_.update({_id : campaignID}, { $set: {'sweep' : update} }, callback);
 }
