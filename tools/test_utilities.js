@@ -51,10 +51,11 @@ utilities.getVersion(console.log);
 
 //utilities.notify('hello');
 
-utilities.request('http://www.index-of-mp3s.com/download/lagu/bd076ea5/kanye-west-i-am-god/',
+/*utilities.request('http://www.index-of-mp3s.com/download/lagu/bd076ea5/kanye-west-i-am-god/',
                   { followRedirects: true }, 
                   function(err, res, body) {
   console.log('requestURL', err ? err : body);
-});
+});*/
+
 
 setTimeout(process.exit, 5 * 1000);

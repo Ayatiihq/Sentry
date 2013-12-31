@@ -173,8 +173,8 @@ Utilities.genURIKey = function(uri, meta) {
 /**
  * Generates a SHA1 hash of the input, useful for creating unique IDs.
  *
- * @param {args}    arguments     The arguments to generate the key for.
- * @return {string} key           The key.
+ * @param  {args}    arguments     The arguments to generate the key for.
+ * @return {string}  key           The key.
  */
 Utilities.genLinkKey = function() {
   var string = '';
