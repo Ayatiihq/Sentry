@@ -130,7 +130,7 @@ Campaigns.prototype.listCampaignsForClient = function(client, callback) {
 /**
  * Get a campaign's details.
  *
- * @param {stringOrObject}             id          The campaign id;
+ * @param {string}                     id          The campaign id;
  * @param {function(err, campaign)}    callback    The campaign details, or error.
  * @return {undefined}
  */
@@ -141,7 +141,6 @@ Campaigns.prototype.getDetails = function(id, callback) {
     return self.cachedCalls_.push([self.getDetails, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
-  id = Object.isString(id) ? JSON.parse(id) : id;
 
   self.campaigns_.findOne({ _id: id }, callback);
 }
@@ -149,7 +148,7 @@ Campaigns.prototype.getDetails = function(id, callback) {
 /**
  * Adds a campaign.
  *
- * @param {object}          campaign     An object containing details of the campaign.
+ * @param {object}                   campaign   An object containing details of the campaign.
  * @param {function(err,campaign)}   callback   A callback to receive an error, if one occurs, otherwise the new campaign.
  * @return {undefined}
  */
@@ -191,7 +190,7 @@ Campaigns.prototype.add = function(campaign, callback) {
 /**
  * Update a campaign's details.
  *
- * @param {object}          id      The id selecting the client.
+ * @param {object}          id         The id selecting the client.
  * @param {object}          updates    An object containing updates for the campaign.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
@@ -209,7 +208,7 @@ Campaigns.prototype.update = function(id, updates, callback) {
 /**
  * Remove a campaign.
  *
- * @param {object}          id      The id selecting the client(s).
+ * @param {object}          id         The id selecting the client(s).
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
@@ -236,16 +235,15 @@ Campaigns.prototype.save = function(campaign, callback) {
 
 /**
  * Turn a campaign off or on.
- * @param {object}          campaign      The id selecting the campaign.
+ * @param {string}          id            The id selecting the campaign.
  * @param {boolean}         value         Off or On.
  * @param {function(err)}   callback      A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.sweep = function(campaign, update, callback){
+Campaigns.prototype.sweep = function(id, update, callback){
   var self = this;
 
   callback = callback ? callback : defaultCallback;
-  var id = Object.isString(campaign) ? JSON.parse(campaign) : campaign;
   
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
