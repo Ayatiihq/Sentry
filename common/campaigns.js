@@ -148,7 +148,7 @@ Campaigns.prototype.getDetails = function(id, callback) {
 /**
  * Adds a campaign.
  *
- * @param {object}          campaign     An object containing details of the campaign.
+ * @param {object}                   campaign   An object containing details of the campaign.
  * @param {function(err,campaign)}   callback   A callback to receive an error, if one occurs, otherwise the new campaign.
  * @return {undefined}
  */
@@ -190,7 +190,7 @@ Campaigns.prototype.add = function(campaign, callback) {
 /**
  * Update a campaign's details.
  *
- * @param {object}          id      The id selecting the client.
+ * @param {object}          id         The id selecting the client.
  * @param {object}          updates    An object containing updates for the campaign.
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
@@ -208,7 +208,7 @@ Campaigns.prototype.update = function(id, updates, callback) {
 /**
  * Remove a campaign.
  *
- * @param {object}          id      The id selecting the client(s).
+ * @param {object}          id         The id selecting the client(s).
  * @param {function(err)}   callback   A callback to receive an error, if one occurs.
  * @return {undefined}
  */
@@ -235,12 +235,12 @@ Campaigns.prototype.save = function(campaign, callback) {
 
 /**
  * Turn a campaign off or on.
- * @param {string}          campaignID      The id selecting the campaign.
+ * @param {string}          id            The id selecting the campaign.
  * @param {boolean}         value         Off or On.
  * @param {function(err)}   callback      A callback to receive an error, if one occurs.
  * @return {undefined}
  */
-Campaigns.prototype.sweep = function(campaignID, update, callback){
+Campaigns.prototype.sweep = function(id, update, callback){
   var self = this;
 
   callback = callback ? callback : defaultCallback;
@@ -248,5 +248,5 @@ Campaigns.prototype.sweep = function(campaignID, update, callback){
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.sweep, Object.values(arguments)]);
 
-  self.campaigns_.update({_id : campaignID}, { $set: {'sweep' : update} }, callback);
+  self.campaigns_.update({_id : id}, { $set: {'sweep' : update} }, callback);
 }
