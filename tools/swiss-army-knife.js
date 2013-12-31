@@ -306,7 +306,6 @@ function main() {
       logger.info('not enough args');
       process.exit();
     }    
-    console.log('about to search');
     searchForErrors(process.argv[3], process.argv[4]).then(function(results){
       logger.info(JSON.stringify(results));
     });
