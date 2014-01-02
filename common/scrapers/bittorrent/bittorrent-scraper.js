@@ -5,24 +5,24 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
+  , Campaigns = acquire('campaigns')  
+  , Cowmangler = acquire('cowmangler')
   , config = acquire('config')
   , events = require('events')
+  , isohuntparser = acquire('isohunt-parser')  
+  , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
-  , util = require('util')
-  , webdriver = require('selenium-webdriver')
+  , Promise = require('node-promise')
+  , Settings = acquire('settings')  
+  , Seq = require('seq')
+  , Storage = acquire('storage')
   , sugar = require('sugar')
   , URI = require('URIjs')  
-  , Settings = acquire('settings')  
-  , katparser = acquire('kat-parser')
-  , isohuntparser = acquire('isohunt-parser')  
-  , Storage = acquire('storage')
-  , Promise = require('node-promise')
-  , Campaigns = acquire('campaigns')
+  , util = require('util')
 ;
 
 var Scraper = acquire('scraper');
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
 
@@ -32,9 +32,10 @@ var BittorrentPortal = function (campaign, types) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities(CAPABILITIES).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
+
+  self.browser = new Cowmangler();
+  self.browser.newTab();
+  self.browser.on('error', function(err){logger.error(err)});
 
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -50,9 +51,14 @@ util.inherits(BittorrentPortal, events.EventEmitter);
 
 BittorrentPortal.prototype.handleResults = function () {
   var self = this;
-  self.remoteClient.sleep(2500);
+  self.browser.wait(2500, function(err){
+    if(err)
+      logger.error('Error waiting ' + err);
+  });
 
-  self.remoteClient.getPageSource().then(function sourceParser(source) {
+  self.browser.getSource(function sourceParser(err, source) {
+    if(err)
+      return self.emit('error', err);
     var newresults = self.getTorrentsFromResults(source);
     self.results = self.results.union(newresults);
     if (newresults.length < 1 && self.results.isEmpty()) {
@@ -72,7 +78,7 @@ BittorrentPortal.prototype.handleResults = function () {
       }
     }
   });
-};
+}
 
 BittorrentPortal.prototype.buildSearchQuery = function () {
   var self = this;
@@ -120,7 +126,7 @@ BittorrentPortal.prototype.buildSearchQueryTrack = function () {
 };
 
 BittorrentPortal.prototype.cleanup = function () {
-  this.remoteClient.quit();
+  this.browser.quit();
   this.emit('finished');
 };
 
@@ -211,8 +217,17 @@ KatScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
-  self.remoteClient.get(self.root); 
-  self.remoteClient.sleep(2000);
+  Seq()
+    .seq(function(){
+      self.browser.get(self.root, this);     
+    })
+    .seq(function(){
+      self.browser.wait(2000, this);    
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;  
   self.searchQuery(1);//pageNumber
 };
 
@@ -227,29 +242,43 @@ KatScraper.prototype.searchQuery = function(pageNumber){
                     self.campaignCategories[self.campaign.type] + 
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
-  self.remoteClient.get(queryString);
-  try{
-    self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(){
-      self.handleResults();
-    });
-  }
-  catch(error){
-    logger.warning('Unable to find a table with data as the class, more than likely KAT is down at the moment ');
-    // Don't emit the error, sentry will try it again in time, more than likely Kat is down at the moment, 
-    // no point in retrying continiously (which if you emitted the error that is what would have happened)
-    self.cleanup();    
-  }
+  self.browser.get(queryString, function(err){
+    if(err){
+      logger.error('Unable to get ' + queryString + ' - ' + err);
+      return;
+    }
+    try{
+      self.browser.find(webdriver.By.css('table.data')).then(function gotSearchResults(){
+        self.handleResults();
+      });
+    }
+    catch(error){
+      logger.warning('Unable to find a table with data as the class, more than likely KAT is down at the moment ');
+      // Don't emit the error, sentry will try it again in time, more than likely Kat is down at the moment, 
+      // no point in retrying continiously (which if you emitted the error that is what would have happened)
+      self.cleanup();    
+    }
+  });
 }
 
 KatScraper.prototype.getTorrentsDetails = function(){
   var self = this;
   function torrentDetails(torrent){
     function goGetIt(prom){
-      self.remoteClient.get(torrent.activeLink.uri);
-      self.remoteClient.getPageSource().then(function(source){
-        katparser.torrentPage(source, torrent);
-        prom.resolve();
-      });
+      Seq()
+        .seq(function(){
+          self.browser.get(torrent.activeLink.uri, this);
+        })
+        .seq(function(){
+          self.browser.getSource(this);
+        })
+        .seq(function(source){    
+          katparser.torrentPage(source, torrent);
+          prom.resolve();
+        })
+        .catch(function(err){
+          prom.reject(err);
+        })
     }
     var promise = new Promise.Promise;
     var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
@@ -296,10 +325,21 @@ IsoHuntScraper.prototype.beginSearch = function () {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
-  self.remoteClient.get(self.root); 
-  self.remoteClient.sleep(2000);
-  self.searchQuery(1);//pageNumber
-};
+  Seq()
+    .seq(function(){
+      self.browser.get(self.root, this);    
+    })
+    .seq(function(){
+      self.browser.wait(2000, this);    
+    })
+    .seq(function(){
+      self.searchQuery(1);//pageNumber
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;
+}
 
 IsoHuntScraper.prototype.searchQuery = function(pageNumber){
   var self = this;
@@ -312,8 +352,9 @@ IsoHuntScraper.prototype.searchQuery = function(pageNumber){
                     'iht=' + self.campaignCategories[self.campaign.type] +
                     '&ihp=' + pageNumber +
                     '&ihs1=5&iho1=d';
-  self.remoteClient.get(queryString);
-  self.remoteClient.findElement(webdriver.By.css('table#serps')).then(function gotSearchResults(element) {
+
+  self.browser.get(queryString);
+  self.browser.findElement(webdriver.By.css('table#serps')).then(function gotSearchResults(element) {
     if (element) {
       self.handleResults();
     }
@@ -328,9 +369,13 @@ IsoHuntScraper.prototype.getTorrentsDetails = function(){
   var self = this;
   function torrentDetails(torrent){
     var promise = new Promise.Promise;
-    self.remoteClient.sleep(1000 * Number.random(1,5));
-    self.remoteClient.get(torrent.activeLink.uri);
-    self.remoteClient.getPageSource().then(function(source){
+    self.browser.wait(1000 * Number.random(1,5), 
+      function(err){
+        if(err)
+          logger.error('Error waiting ' + err);
+    });
+    self.browser.get(torrent.activeLink.uri);
+    self.browser.getPageSource().then(function(source){
       isohuntparser.torrentPage(source, torrent);
       promise.resolve();
     });
