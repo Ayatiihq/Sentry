@@ -39,7 +39,6 @@
     <Compile Include="common\hosts.js" />
     <Compile Include="common\iframe-exploder.js" />
     <Compile Include="common\infringements.js" />
-    <Compile Include="common\isohunt-parser.js" />
     <Compile Include="common\jobs.js" />
     <Compile Include="common\kat-parser.js" />
     <Compile Include="common\links.js" />
@@ -172,8 +171,6 @@
     <Compile Include="common\scrapers\youtube\youtube-scraper.js" />
     <Content Include="common\spiders\fancystreems\package.json" />
     <Compile Include="common\spiders\fancystreems\index.js" />
-    <Content Include="common\spiders\isohunt\package.json" />
-    <Compile Include="common\spiders\isohunt\index.js" />
     <Content Include="common\spiders\kat\package.json" />
     <Compile Include="common\spiders\kat\index.js" />
     <Content Include="common\spiders\tvchannelsliveonline\package.json" />
@@ -207,7 +204,6 @@
     <Folder Include="common\scrapers\youtube" />
     <Folder Include="common\spiders\" />
     <Folder Include="common\spiders\fancystreems" />
-    <Folder Include="common\spiders\isohunt" />
     <Folder Include="common\spiders\kat" />
     <Folder Include="common\spiders\tvchannelsliveonline" />
     <Folder Include="common\spiders\zonytvcom" />

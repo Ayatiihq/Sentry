@@ -23,7 +23,7 @@ var SIGNALS = ['started', 'finished', 'error', 'infringement', 'metaInfringement
 
 function parseObject(arg) {
   var ret = arg;
-
+  console.log('parseObject ' + arg);
   try {
     ret = require(arg);
   } catch (err) {
@@ -46,9 +46,9 @@ function main() {
 
   setupSignals();
 
-  if (process.argv.length < 4)
+  if (process.argv.length < 3)
   {
-    logger.warn("Usage: node test_scraper.js <nameOfScraper> <campaignId> <jobId>");
+    logger.warn("Usage: node test_scraper.js <nameOfScraper> <job>");
     process.exit(1);
   }
 
@@ -71,21 +71,17 @@ function main() {
     });
   });
 
-  var campaign = parseObject(process.argv[3]);
-  var job = parseObject(process.argv[4]);
+  var campaigns = new Campaigns();
 
-  if (Object.isObject(campaign)) {
-    instance.start(campaign, job);
-  } else {
-    var campaignId = process.argv[3];
-    var campaigns = new Campaigns();
-    campaigns.getDetails(campaignId, function(err, campaign) {
-      if (err)
-        console.error(err);
-      else
-        instance.start(campaign, job);
-    });
-  }
+  var job = parseObject(process.argv[3]);
+  var campaignID = job._id.owner;
+  
+  campaigns.getDetails(campaignID, function(err, campaign) {
+    if (err)
+      console.error(err);
+    else
+      instance.start(campaign, job);
+  });
 }
 
 main(); 
