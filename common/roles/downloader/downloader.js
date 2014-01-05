@@ -81,7 +81,6 @@ Downloader.prototype.download = function(infringement, done){
 
   Seq()
     .seq(function(){
-      logger.info('!!!!! download');
       self.login(this);
     })   
     .seq(function(){
@@ -97,7 +96,7 @@ Downloader.prototype.download = function(infringement, done){
           shouldIgnore = true; 
         }
       });
-
+      
       if(shouldIgnore)
         return this(null, {verdict: states.downloaders.verdict.UNAVAILABLE, payLoad: []});
       

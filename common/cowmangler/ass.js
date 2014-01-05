@@ -49,6 +49,7 @@ Ass.prototype.new = function(done){
       newTab(done);
     });
   }
+  newTab();
 }
 
 /*
