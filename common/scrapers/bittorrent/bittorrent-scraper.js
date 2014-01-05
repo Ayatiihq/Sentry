@@ -6,7 +6,7 @@
  */
 var acquire = require('acquire')
   , Campaigns = acquire('campaigns')  
-  , Cowmangler = acquire('cowmangler')
+  //, Cowmangler = acquire('cowmangler')
   , config = acquire('config')
   , events = require('events') 
   , katparser = acquire('kat-parser')
@@ -32,12 +32,13 @@ var BittorrentPortal = function (campaign, types) {
   self.storage = new Storage('torrent');
   self.campaign = campaign;
 
-  self.browser = new Cowmangler();
-  self.browser.newTab();
+  self.browser = null;
+
+  /*self.browser.newTab();
   self.browser.on('error', function(err){
     self.emit('error', err);
     self.cleanup();
-  });
+  });*/
 
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -224,13 +225,15 @@ var KatScraper = function (campaign, types) {
 
 util.inherits(KatScraper, BittorrentPortal);
 
-KatScraper.prototype.beginSearch = function () {
+KatScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.resultsCount = 0;
+  self.browser = browser;
   self.emit('started');
   Seq()
     .seq(function(){
       self.browser.get(self.root, this);     
+      logger.info('kat scrape get');
     })
     .seq(function(){
       self.browser.wait(2000, this);    
@@ -333,7 +336,7 @@ var Bittorrent = module.exports = function () {
 util.inherits(Bittorrent, Scraper);
 
 Bittorrent.prototype.init = function () {
-  var self = this;
+  
 };
 
 //
@@ -343,7 +346,7 @@ Bittorrent.prototype.getName = function () {
   return "Bittorrent";
 };
 
-Bittorrent.prototype.start = function (campaign, job) {
+Bittorrent.prototype.start = function (campaign, job, browser) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
@@ -370,8 +373,7 @@ Bittorrent.prototype.start = function (campaign, job) {
     self.emit('relation', parent, child);
   });
 
-  self.scraper.beginSearch();
-  self.emit('started');
+  self.scraper.beginSearch(browser);
 };
 
 Bittorrent.prototype.stop = function () {

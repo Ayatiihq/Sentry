@@ -6,12 +6,12 @@
  */
 
 var acquire = require('acquire')
+  , Campaigns = acquire('campaigns')
   , config = acquire('config')
+  , Cowmangler = acquire('cowmangler')
   , logger = acquire('logger')
   , sugar = require('sugar')
   ;
-
-var Campaigns = acquire('campaigns');
 
 function setupSignals() {
   process.on('SIGINT', function () {
@@ -56,6 +56,8 @@ function main() {
   var Scraper = require('../common/scrapers/' + scrapername);
   var instance = new Scraper();
 
+  logger.info('create ' + scrapername);
+
   SIGNALS.forEach(function (name) {
     instance.on(name, function () {
       console.log('\nreceived signal', name);
@@ -72,16 +74,27 @@ function main() {
   });
 
   var campaigns = new Campaigns();
-
   var job = parseObject(process.argv[3]);
   var campaignID = job._id.owner;
-  
-  campaigns.getDetails(campaignID, function(err, campaign) {
-    if (err)
-      console.error(err);
-    else
-      instance.start(campaign, job);
+  var browser = new Cowmangler();
+
+  browser.on('error', function(err){
+    logger.info('error with the cow ' + err);
+    process.exit();
+  }); 
+
+  browser.on('ready', function(){
+    logger.info('Cow is ready ');
+    campaigns.getDetails(campaignID, function(err, campaign) {
+      logger.info("campaign " + campaign.name);
+      if (err)
+        console.error(err);
+      else
+        instance.start(campaign, job, browser);
+    });
   });
+
+  browser.newTab();
 }
 
 main(); 

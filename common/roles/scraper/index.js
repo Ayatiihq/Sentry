@@ -8,6 +8,7 @@
  */
 var acquire = require('acquire')
   , config = acquire('config')
+  , Cowmangler = acquire('cowmangler')
   , events = require('events')
   , logger = acquire('logger').forFile('index.js')
   , states = acquire('states')  
@@ -44,6 +45,8 @@ Scraper.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('scraper');
   self.scrapers_ = new Scrapers();
+  self.browser = new Cowmangler();
+  self.browser.newTab();
 }
 
 Scraper.prototype.processJob = function(err, job) {
@@ -128,7 +131,7 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   var scraper = null;
   var err = null;
   try {
-    scraper = self.scrapers_.loadScraper(scraperInfo.name);
+    scraper = self.scrapers_.loadScraper(scraperInfo.name, self.browser);
   } catch(error) {
     err = error;
   }

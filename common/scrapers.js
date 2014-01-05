@@ -184,8 +184,8 @@ Scrapers.prototype.hasScraperForType = function(scraperName, types) {
   return false;
 }
 
-Scrapers.prototype.loadScraper = function(scrapername) {
+Scrapers.prototype.loadScraper = function(scrapername, browser) {
   var modPath = SCRAPERS_DIR + '/' + scrapername;
   var Scraper = require(modPath);
-  return new Scraper();
+  return new Scraper(browser);
 }

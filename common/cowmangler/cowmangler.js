@@ -39,7 +39,6 @@ Cowmangler.prototype.init = function()
 */
 Cowmangler.prototype.newTab = function(){
   var self = this;
-
   function done(err){
     if(err)
       return self.emit("error", err);

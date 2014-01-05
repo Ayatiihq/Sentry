@@ -8,7 +8,6 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('downloader.js')
-  , Downloads = acquire('downloads')
   , util = require('util')
   , utilities = acquire('utilities')
   , sugar = require('sugar')
@@ -23,7 +22,6 @@ var Downloader = module.exports = function (campaign, browser, attributes) {
   this.browser = browser;
   this.attributes = attributes;
   this.init();
-  this.downloads = new Downloads();
 };
 
 util.inherits(Downloader, events.EventEmitter);
@@ -75,6 +73,7 @@ Downloader.prototype.download = function(infringement, done){
 
   var self  = this;
 
+
   if(!self.validURI(infringement.uri)){
     logger.info('return, pointless - ' + infringement.uri);
     return done(null, {verdict: states.downloaders.verdict.RUBBISH});
@@ -82,6 +81,7 @@ Downloader.prototype.download = function(infringement, done){
 
   Seq()
     .seq(function(){
+      logger.info('!!!!! download');
       self.login(this);
     })   
     .seq(function(){
