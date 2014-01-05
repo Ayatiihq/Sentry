@@ -44,7 +44,7 @@ Ass.prototype.new = function(done){
     function(err){
       if(attempt > MAXATTEMPTS)
         return done(err);
-      logger.info('Failed to create new tab, try again (on attempt %i)',  attempt);
+      logger.info('Failed to create new tab because %s, try again (on attempt %i)', err, attempt);
       attempt += 1;
       newTab(done);
     });
