@@ -131,7 +131,7 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   var scraper = null;
   var err = null;
   try {
-    scraper = self.scrapers_.loadScraper(scraperInfo.name, self.browser);
+    scraper = self.scrapers_.loadScraper(scraperInfo.name);
   } catch(error) {
     err = error;
   }
@@ -164,7 +164,7 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
     self.doScraperTakesTooLongWatch(scraper, job);
     
     try {
-      scraper.start(campaign, job);
+      scraper.start(campaign, job, self.browser);
     } catch(err) {
       self.onScraperError(scraper, job, err);
     }

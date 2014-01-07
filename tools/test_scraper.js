@@ -84,7 +84,7 @@ function main() {
   }); 
 
   browser.on('ready', function(){
-    logger.info('Cow is ready ');
+    logger.info('Cow is ready');
     campaigns.getDetails(campaignID, function(err, campaign) {
       logger.info("campaign " + campaign.name);
       if (err)

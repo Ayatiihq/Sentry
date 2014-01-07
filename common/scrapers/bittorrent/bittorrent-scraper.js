@@ -32,14 +32,6 @@ var BittorrentPortal = function (campaign, types) {
   self.storage = new Storage('torrent');
   self.campaign = campaign;
 
-  self.browser = null;
-
-  /*self.browser.newTab();
-  self.browser.on('error', function(err){
-    self.emit('error', err);
-    self.cleanup();
-  });*/
-
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
   self.engineName = 'UNDEFINED';

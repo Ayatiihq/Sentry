@@ -22,7 +22,6 @@ var acquire = require('acquire')
   , urlmatch = acquire('wrangler-rules').urlMatch
   , util = require('util')
   , utilities = acquire('utilities')
-  , webdriver = require('selenium-webdriver')
   , XRegExp = require('xregexp').XRegExp
   ;
 
@@ -30,7 +29,6 @@ var Scraper = acquire('scraper')
   , Settings = acquire('settings')
   ;
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 50;
 
@@ -38,9 +36,6 @@ var GenericSearchEngine = function (campaign) {
   events.EventEmitter.call(this);
   var self = this;
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities(CAPABILITIES).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(10000); // waits 10000ms before erroring, gives pages enough time to load
   self.settings = new Settings('scraper.searchengine');
   
   self.idleTime = [5, 10]; // min/max time to click next page
@@ -90,31 +85,41 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
 GenericSearchEngine.prototype.handleResults = function () {
   var self = this;
   // we sleep 2500ms first to let the page render
-  self.remoteClient.sleep(2500);
-
-  self.remoteClient.getPageSource().then(function sourceParser(source) {
-    var newresults = self.filterSearchResults(self.getLinksFromSource(source));
-    if (newresults.length < 1) {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
-    else {
-
-      self.emitLinks(newresults);
-
-      if (self.checkHasNextPage(source)) {
-        var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
-        setTimeout(function () {
-          self.nextPage();
-        }, randomTime * 1000);
-      }
-      else {
-        logger.info('finished scraping succesfully');
+  Seq()
+    .seq(function(){
+      self.browser.wait(2500, this);
+    })
+    .seq(function(){
+      self.browser.getSource(this);
+    })
+    .seq(function(source){
+      var newresults = self.filterSearchResults(self.getLinksFromSource(source));
+      if (newresults.length < 1) {
+        self.emit('error', ERROR_NORESULTS);
         self.cleanup();
       }
-    }
-  });
-};
+      else {
+
+        self.emitLinks(newresults);
+
+        if (self.checkHasNextPage(source)) {
+          var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
+          setTimeout(function () {
+            self.nextPage();
+          }, randomTime * 1000);
+        }
+        else {
+          logger.info('finished scraping succesfully');
+          self.cleanup();
+        }
+      }        
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
+}
 
 GenericSearchEngine.prototype.filterSearchResults = function(scrapedLinks){
   var self = this;
@@ -345,8 +350,19 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
 
 
 GenericSearchEngine.prototype.cleanup = function () {
-  this.emit('finished');
-  this.remoteClient.quit();
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.browser.quit(this);
+    })
+    .seq(function(){
+      self.emit('finished');
+      this();
+    })
+    .catch(function(err){
+      self.emit('ERROR', err);
+    })
+    ;
 };
 
 GenericSearchEngine.prototype.emitLinks = function (linkList) {
@@ -426,38 +442,48 @@ var GoogleScraper = function (campaign) {
 util.inherits(GoogleScraper, GenericSearchEngine);
 
 
-GoogleScraper.prototype.beginSearch = function () {
+GoogleScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
+  
+  self.browser = browser;
 
-  self.buildSearchQuery(function(err, searchTerm) {
-    if (err)
-      return self.emit('error', err);
-
-    self.searchTerm = searchTerm;
-
-    self.remoteClient.get('http://www.google.com'); // start at google.com
-
-    self.remoteClient.findElement(webdriver.By.css('input[name=q]')) //finds <input name='q'>
-    .sendKeys(self.searchTerm); // types out our search term into the input box
-
-    // just submit the query for now
-    self.remoteClient.findElement(webdriver.By.css('input[name=q]')).submit();
-    logger.info('searching google with search query: ' + self.searchTerm);
-
-    // waits for a #search selector
-    self.remoteClient.findElement(webdriver.By.css('#search')).then(function gotSearchResults(element) {
-      if (element) {
-        self.handleResults();
-      }
-      else {
-        self.emit('error', ERROR_NORESULTS);
-        self.cleanup();
-      }
-    });
-  });
-};
+  Seq()
+    .seq(function(){
+      self.buildSearchQuery(this);
+    })
+    .seq(function(searchTerm){
+      self.searchTerm = searchTerm;
+      this();
+    })
+    .seq(function(){
+      self.browser.get('http://www.google.com', this); // start at google.com      
+    })
+    .seq(function(){
+      self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //finds <input name='q'>      
+    })
+    .seq(function(){
+      self.browser.submit('input[name=q]', this);
+    })
+    .seq(function(){
+      self.browser.find('div[id=search]', function(err){
+        if(err){
+          self.emit('error', ERROR_NORESULTS);
+          self.cleanup();
+        }
+        else{
+          self.handleResults();
+        }
+        this();
+      });
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
+}
 
 
 GoogleScraper.prototype.getLinksFromSource = function (source) {
@@ -488,12 +514,22 @@ GoogleScraper.prototype.nextPage = function () {
   self.pageNumber += 1;
   if (self.pageNumber > self.maxPages) {
     logger.info('Reached maximum of %d pages', self.maxPages);
-    self.cleanup();
-    return;
+    return self.cleanup();
   }
 
-  // clicks the next page element.
-  self.remoteClient.findElement(webdriver.By.css('#pnnext')).click().then(function () { self.handleResults(); });
+  Seq()
+    .seq(function(){
+      self.browser.click('#pnnext', this);
+    })
+    .seq(function(){
+      self.handleResults();
+      this();
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
 };
 
 GoogleScraper.prototype.checkHasNextPage = function (source) {
@@ -514,36 +550,47 @@ var YahooScraper = function (campaign) {
 util.inherits(YahooScraper, GenericSearchEngine);
 
 
-YahooScraper.prototype.beginSearch = function () {
+YahooScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.emit('started');
 
-  self.buildSearchQuery(function(err, searchTerm) {
-    if (err)
-      return self.emit('error', err);
+  self.browser = browser;
 
-    self.searchTerm = searchTerm;
-    self.remoteClient.get('http://www.yahoo.com'); // start at yahoo.com
-
-    self.remoteClient.findElement(webdriver.By.css('input[name=p]')) //finds <input name='q'>
-    .sendKeys(self.searchTerm); // types out our search term into the input box
-
-    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-    self.remoteClient.findElement(webdriver.By.css('input[name=p]')).submit();
-
-    logger.info('searching Yahoo with search query: ' + self.searchTerm);
-
-    // waits for a #search selector
-    self.remoteClient.findElement(webdriver.By.css('div#web')).then(function gotSearchResults(element) {
-      if (element) {
-        self.handleResults();
-      }
-      else {
-        self.emit('error', ERROR_NORESULTS);
-        self.cleanup();
-      }
-    });
-  });
+  Seq()
+    .seq(function(){
+      self.buildSearchQuery(this);
+    })
+    .seq(function(searchTerm){
+      self.searchTerm = searchTerm;
+      this();
+    })
+    .seq(function(){
+      self.browser.get('http://www.yahoo.com', this); // start at google.com      
+    })
+    .seq(function(){
+      self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //finds <input name='q'>      
+    })
+    .seq(function(){
+      self.browser.submit('input[name=q]', this);
+      logger.info('searching Yahoo with search query: ' + self.searchTerm);
+    })
+    .seq(function(){
+      self.browser.find('div#web', function(err){
+        if(err){
+          self.emit('error', ERROR_NORESULTS);
+          self.cleanup();
+        }
+        else{
+          self.handleResults();
+        }
+        this();
+      });
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
 };
 
 YahooScraper.prototype.getLinksFromSource = function (source) {
@@ -574,8 +621,19 @@ YahooScraper.prototype.nextPage = function () {
     return;
   }
 
-  // clicks the next page element.
-  self.remoteClient.findElement(webdriver.By.css('a#pg-next')).click().then(function () { self.handleResults(); });
+  Seq()
+    .seq(function(){
+      self.browser.click('a#pg-next', this);
+    })
+    .seq(function(){
+      self.handleResults();
+      this();
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
 };
 
 YahooScraper.prototype.checkHasNextPage = function (source) {
@@ -598,33 +656,45 @@ util.inherits(BingScraper, GenericSearchEngine);
 BingScraper.prototype.beginSearch = function () {
   var self = this;
   self.emit('started');
-  self.buildSearchQuery(function(err, searchTerm) {
-    if (err)
-      return self.emit('error', err);
 
-    self.searchTerm = searchTerm;
-    self.remoteClient.get('http://www.bing.com'); // start at bing
+  self.browser = browser;
 
-    self.remoteClient.findElement(webdriver.By.css('input[id=sb_form_q]')) //finds <input name='q'>
-    .sendKeys(self.searchTerm); // types out our search term into the input box
-
-    // find our search button, once we find it we build an action sequence that moves the cursor to the button and clicks
-    self.remoteClient.findElement(webdriver.By.css('input#sb_form_go')).submit();
-
-    logger.info('searching Bing with search query: ' + self.searchTerm);
-
-    // waits for a #search selector
-    self.remoteClient.findElement(webdriver.By.css('div#b_content')).then(function gotSearchResults(element) {
-      if (element) {
-        self.handleResults();
-      }
-      else {
-        self.emit('error', ERROR_NORESULTS);
-        self.cleanup();
-      }
-    });
-  });
-};
+  Seq()
+    .seq(function(){
+      self.buildSearchQuery(this);
+    })
+    .seq(function(searchTerm){
+      self.searchTerm = searchTerm;
+      this();
+    })
+    .seq(function(){
+      self.browser.get('http://www.bing.com', this); // start at google.com      
+    })
+    .seq(function(){
+      self.browser.input({selector: 'input[id=sb_form_q]', value: self.searchTerm}, this); //finds <input name='q'>      
+    })
+    .seq(function(){
+      self.browser.submit('input#sb_form_go', this);
+      logger.info('searching bing with search query: ' + self.searchTerm);
+    })
+    .seq(function(){
+      self.browser.find('div#b_content', function(err){
+        if(err){
+          self.emit('error', ERROR_NORESULTS);
+          self.cleanup();
+        }
+        else{
+          self.handleResults();
+        }
+        this();
+      });
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
+}
 
 BingScraper.prototype.getLinksFromSource = function (source) {
   var self = this
@@ -651,8 +721,20 @@ BingScraper.prototype.nextPage = function () {
     self.cleanup();
     return;
   }
-  // clicks the next page element.
-  self.remoteClient.findElement(webdriver.By.css('a.sb_pagN')).click().then(function () { self.handleResults(); });
+
+  Seq()
+    .seq(function(){
+      self.browser.click('a.sb_pagN', this);
+    })
+    .seq(function(){
+      self.handleResults();
+      this();
+    })
+    .catch(function(err){
+      self.emit('error', err);
+      self.cleanup();
+    })
+    ;
 };
 
 BingScraper.prototype.checkHasNextPage = function (source) {
@@ -723,7 +805,7 @@ SearchEngine.prototype.getSourceName = function () {
   return this.sourceName_;
 };
 
-SearchEngine.prototype.start = function (campaign, job) {
+SearchEngine.prototype.start = function (campaign, job, browser) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
@@ -750,7 +832,7 @@ SearchEngine.prototype.start = function (campaign, job) {
     self.emit('metaInfringement', link, points);
   });
 
-  self.scraper.beginSearch();
+  self.scraper.beginSearch(browser);
   self.emit('started');
 };
 
