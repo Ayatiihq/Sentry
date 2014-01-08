@@ -6,7 +6,6 @@
  */
 var acquire = require('acquire')
   , Campaigns = acquire('campaigns')  
-  //, Cowmangler = acquire('cowmangler')
   , config = acquire('config')
   , events = require('events') 
   , katparser = acquire('kat-parser')

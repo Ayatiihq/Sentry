@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('searchengine-scraper.js')
   , request = require('request')
+  , Seq = require('seq')  
   , sugar = require('sugar')
   , URI = require('URIjs')
   , urlmatch = acquire('wrangler-rules').urlMatch
@@ -467,6 +468,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
       self.browser.submit('input[name=q]', this);
     })
     .seq(function(){
+      var that = this;
       self.browser.find('div[id=search]', function(err){
         if(err){
           self.emit('error', ERROR_NORESULTS);
@@ -475,7 +477,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
         else{
           self.handleResults();
         }
-        this();
+        that();
       });
     })
     .catch(function(err){
@@ -575,6 +577,7 @@ YahooScraper.prototype.beginSearch = function (browser) {
       logger.info('searching Yahoo with search query: ' + self.searchTerm);
     })
     .seq(function(){
+      var that = this;
       self.browser.find('div#web', function(err){
         if(err){
           self.emit('error', ERROR_NORESULTS);
@@ -583,7 +586,7 @@ YahooScraper.prototype.beginSearch = function (browser) {
         else{
           self.handleResults();
         }
-        this();
+        that();
       });
     })
     .catch(function(err){
@@ -653,7 +656,7 @@ var BingScraper = function (campaign) {
 util.inherits(BingScraper, GenericSearchEngine);
 
 
-BingScraper.prototype.beginSearch = function () {
+BingScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.emit('started');
 
@@ -678,15 +681,16 @@ BingScraper.prototype.beginSearch = function () {
       logger.info('searching bing with search query: ' + self.searchTerm);
     })
     .seq(function(){
+      var that = this;
       self.browser.find('div#b_content', function(err){
         if(err){
           self.emit('error', ERROR_NORESULTS);
-          self.cleanup();
+          //self.cleanup();
         }
         else{
           self.handleResults();
         }
-        this();
+        //that();
       });
     })
     .catch(function(err){
@@ -754,7 +758,7 @@ var FilestubeScraper = function (campaign) {
 util.inherits(FilestubeScraper, GenericSearchEngine);
 
 
-FilestubeScraper.prototype.beginSearch = function () {
+FilestubeScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.resultsCount = 0;
   self.emit('started');
