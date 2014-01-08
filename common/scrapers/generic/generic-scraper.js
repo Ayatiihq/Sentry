@@ -23,7 +23,7 @@ var acquire = require('acquire')
   , states = acquire('states')
   , Promise = require('node-promise')
   , blacklist = acquire('blacklist')
-  , wranglerRules = wranglerRules
+  , wranglerRules = acquire('wrangler-rules')
 ;
 
 var Scraper = acquire('scraper');
@@ -104,11 +104,13 @@ Generic.prototype.search_with_one_url = function (campaign, url) {
   self.emit('started');
 }
 
-Generic.prototype.start = function (campaign, job) {
+Generic.prototype.start = function (campaign, job, browser) {
   var self = this;
   self.campaign = campaign;
   self.job = job;
 
+  browser.quit(); // not using it right now.
+  
   self.activeInfringements = [];
   self.activeScrapes = 0;
   self.suspendedScrapes = 0;

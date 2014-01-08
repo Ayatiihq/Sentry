@@ -760,6 +760,8 @@ util.inherits(FilestubeScraper, GenericSearchEngine);
 
 FilestubeScraper.prototype.beginSearch = function (browser) {
   var self = this;
+  // we don't need no browser, we is restful like.
+  browser.quit(); 
   self.resultsCount = 0;
   self.emit('started');
   self.buildSearchQuery(function(err, searchTerm) {
@@ -829,7 +831,8 @@ SearchEngine.prototype.start = function (campaign, job, browser) {
   });
 
   self.scraper.on('error', function onError(err) {
-    // do nuffink right now, handled elsewhere
+    self.emit('error', err);
+    // do nuffink right now, handled elsewhere - where ? (cc)
   });
 
   self.scraper.on('found-link', function onFoundLink(link, points) {

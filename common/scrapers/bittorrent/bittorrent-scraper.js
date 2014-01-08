@@ -180,7 +180,13 @@ BittorrentPortal.prototype.emitInfringements = function () {
     self.storage.createFromURL(self.campaign._id,
                                torrent.name,
                                torrent.directLink,
-                               {replace:false})
+                               {replace:false}, 
+                               function(err){
+                                  if(err)
+                                    logger.warn("create from url issues : " + err);
+                                  else
+                                    logger.warn("create from url completed successfully");
+                               });
   });
   self.cleanup();
 }

@@ -73,9 +73,12 @@ Youtube.prototype.getName = function () {
   return "youtube";
 };
 
-Youtube.prototype.start = function (campaign, job) {
+Youtube.prototype.start = function (campaign, job, browser) {
   var self = this;
   var success = false;
+
+  browser.quit(); // not using it right now.  
+  
   if (!!(campaign.metadata)) {
     try {
       self.aggregator.installAnalyzer(ConfidenceAggregator.analyzerLargeDurations(campaign.metadata.suspiciousVideoDuration), 1); // 20 minutes
