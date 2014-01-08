@@ -62,14 +62,11 @@ function ifUndefined(test, falsey) {
 
 function normalizeCampaign(campaign) {
   if (Object.isString(campaign)) {
-    // It's the _id of the campaign stringified
-    return JSON.parse(campaign);
+    // It's the _id of the campaign
+    return campaign;
   } else if (campaign._id) {
     // It's an entire campaign row
     return campaign._id;
-  } else {
-    // It's just the _id object
-    return campaign;
   }
 }
 

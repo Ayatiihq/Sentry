@@ -7,21 +7,20 @@
  *
  */
 var acquire = require('acquire')
+  , Campaigns = acquire('campaigns')
   , config = acquire('config')
   , Cowmangler = acquire('cowmangler')
   , events = require('events')
+  , Jobs = acquire('jobs')
+  , Infringements = acquire('infringements')
   , logger = acquire('logger').forFile('index.js')
+  , Role = acquire('role')
+  , Scrapers = acquire('scrapers')
+  , Seq = require('seq')
   , states = acquire('states')  
   , util = require('util')
   ;
 
-var Campaigns = acquire('campaigns')
-  , Infringements = acquire('infringements')
-  , Jobs = acquire('jobs')
-  , Role = acquire('role')
-  , Scrapers = acquire('scrapers')
-  , Seq = require('seq')
-  ;
  
 var Scraper = module.exports = function() {
   this.campaigns_ = null;

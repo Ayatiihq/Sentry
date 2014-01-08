@@ -682,7 +682,7 @@ BingScraper.prototype.beginSearch = function (browser) {
     })
     .seq(function(){
       var that = this;
-      self.browser.find('div#b_content', function(err){
+      self.browser.find('div#content', function(err){
         if(err){
           self.emit('error', ERROR_NORESULTS);
           //self.cleanup();
