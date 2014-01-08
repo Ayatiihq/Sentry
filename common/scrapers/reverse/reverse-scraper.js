@@ -20,7 +20,6 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   , util = require('util')
   , utilities = acquire('utilities')
-  , webdriver = require('selenium-webdriver')
   ;
 
 var Scraper = acquire('scraper')
@@ -28,13 +27,12 @@ var Scraper = acquire('scraper')
   , Seq = require('seq')
   ;
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' }
-  , MAX_SCRAPER_POINTS = 50
-  ;
+var MAX_SCRAPER_POINTS = 50;
 
 var ENGINES = {}; // This is the object engines register themselves in
 
 var ReverseScraper = module.exports = function() {
+  this.browser_ = null;
   this.engineName_ = 'unknown';
 
   this.campaign_ = null;
@@ -44,7 +42,6 @@ var ReverseScraper = module.exports = function() {
   this.infringements_ = null;
   this.settings_ = null;
 
-  this.remoteClient_ = null;
   this.idleTime_ = [5, 10];
   this.resultsCount_ = 0;
   this.maxPages_ = 40;
@@ -62,7 +59,6 @@ ReverseScraper.prototype.init = function() {
 
   self.settings_ = new Settings('scraper.reverse');
   self.setupDatabase();
-  self.setupBrowser();
 }
 
 ReverseScraper.prototype.setupDatabase = function() {
@@ -80,18 +76,6 @@ ReverseScraper.prototype.setupDatabase = function() {
     });
     self.cachedCalls_ = [];
   });
-}
-
-ReverseScraper.prototype.setupBrowser = function() {
-  var self = this;
-
-  self.remoteClient_ = new webdriver.Builder()
-                                    .usingServer(config.SELENIUM_HUB_ADDRESS)
-                                    .withCapabilities(CAPABILITIES)
-                                    .build();
-  self.remoteClient_.manage()
-                    .timeouts()
-                    .implicitlyWait(10000);
 }
 
 ReverseScraper.prototype.run = function() {
@@ -176,21 +160,29 @@ ReverseScraper.prototype.scrape = function(searchTerm, done) {
   self.scrapeDoneCallback_ = done;
 
   logger.info('Searching Google for %s', searchTerm);
-  self.remoteClient_.get('http://www.google.com');
-  self.remoteClient_.findElement(webdriver.By.css('input[name=q]'))
-                    .sendKeys(searchTerm)
-                    ;
-  self.remoteClient_.findElement(webdriver.By.css('input[name=q]'))
-                    .submit()
-                    ;
-  self.remoteClient_.findElement(webdriver.By.css('#search')).then(function(element) {
-    if (!element) {
-      logger.warn('No results returned for %s', searchTerm);
-      return done();
-    }
-
-    self.scrapeSearchResults();
-  });
+  Seq()
+    .seq(function(){
+      self.browser_.get('http://www.google.com');
+    })
+    .seq(function(){
+      self.browser_.input({selector: 'input[name=q]', value: searchTerm}, this);
+    })
+    .seq(function(){
+      self.browser_.submit('input[name=q]', this);
+    })
+    .seq(function(){
+      self.browser_.find('#search', function(err){
+        if(err){
+          logger.warn('No results returned for %s', searchTerm);
+          return done();
+        }
+        self.scrapeSearchResults();
+      });
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 ReverseScraper.prototype.scrapeSearchResults = function() {
@@ -202,7 +194,11 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
 
   Seq()
     .seq(function() {
-      self.remoteClient_.getPageSource().then(this.bind(null, null));
+      self.browser_.wait(2500, this);
+      
+    })
+    .seq(function(){
+      self.browser_.getSource(this);
     })
     .seq(function(source_) {
       source = source_;
@@ -220,9 +216,8 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
     })
     .seq(function() {
       self.pageNumber_ += 1;
-
       logger.info('Going to next page');
-      self.remoteClient_.findElement(webdriver.By.css('#pnnext')).click().then(this.bind(null, null));
+      self.browser_.click('#pnnext', this);
     })
     .seq(function() {
       self.scrapeSearchResults();
@@ -280,13 +275,14 @@ ReverseScraper.prototype.getSourceName = function() {
   return 'searchengine.google';
 }
 
-ReverseScraper.prototype.start = function(campaign, job) {
+ReverseScraper.prototype.start = function(campaign, job, browser) {
   var self = this;
 
   logger.info('Started for %j', job);
 
   self.campaign_ = campaign;
   self.job_ = job;
+  self.browser_ = browser;
 
   if (campaign.metadata.searchengineMaxPages)
     self.maxPages_ = (campaign.metadata.searchengineMaxPages / 3).ceil();
