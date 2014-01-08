@@ -230,7 +230,6 @@ KatScraper.prototype.beginSearch = function (browser) {
   Seq()
     .seq(function(){
       self.browser.get(self.root, this);     
-      logger.info('kat scrape get');
     })
     .seq(function(){
       self.browser.wait(2000, this);    

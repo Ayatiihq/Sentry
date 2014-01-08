@@ -94,6 +94,7 @@ GenericSearchEngine.prototype.handleResults = function () {
       self.browser.getSource(this);
     })
     .seq(function(source){
+
       var newresults = self.filterSearchResults(self.getLinksFromSource(source));
       if (newresults.length < 1) {
         self.emit('error', ERROR_NORESULTS);
@@ -494,6 +495,8 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
     , $ = cheerio.load(source)
     ;
   
+  logger.info('scraper results from  ' + source);
+
   $('#search').find('#ires').find('#rso').children().each(function () {
     // Find out if this is a link we really want
     var title = $(this).find('a').text()
@@ -505,7 +508,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
     if (self.checkResultRelevancy(title, url, date))
       links.push(url);
   });
-
+  logger.info('managed to scrape ' + JSON.stringify(links));
   return links;
 };
 
@@ -570,10 +573,10 @@ YahooScraper.prototype.beginSearch = function (browser) {
       self.browser.get('http://www.yahoo.com', this); // start at google.com      
     })
     .seq(function(){
-      self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //finds <input name='q'>      
+      self.browser.input({selector: 'input[title="Search"]', value: self.searchTerm}, this); //finds <input name='q'>      
     })
     .seq(function(){
-      self.browser.submit('input[name=q]', this);
+      self.browser.submit('input[title="Search"]', this);
       logger.info('searching Yahoo with search query: ' + self.searchTerm);
     })
     .seq(function(){
