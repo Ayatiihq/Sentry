@@ -85,6 +85,9 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
 
 GenericSearchEngine.prototype.handleResults = function () {
   var self = this;
+  
+  logger.info('HandleResults !');
+
   // we sleep 2500ms first to let the page render
   Seq()
     .seq(function(){
@@ -94,26 +97,33 @@ GenericSearchEngine.prototype.handleResults = function () {
       self.browser.getSource(this);
     })
     .seq(function(source){
-
-      var newresults = self.filterSearchResults(self.getLinksFromSource(source));
+      // Be more verbose
+      var newresults = self.getLinksFromSource(source);
+      
       if (newresults.length < 1) {
-        self.emit('error', ERROR_NORESULTS);
+        self.emit('error', "We found results but were unable to extract them !");
         self.cleanup();
+        return this();
+      }
+
+      var filteredResults = self.filterSearchResults(newresults);
+      if(filteredResults < 1){ //this is not an error
+        logger.info('Any results we found were deemed to be irrelevant.');
+        self.cleanup();
+        return this();        
+      }
+
+      self.emitLinks(newresults);
+
+      if (self.checkHasNextPage(source)) {
+        var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
+        setTimeout(function () {
+          self.nextPage();
+        }, randomTime * 1000);
       }
       else {
-
-        self.emitLinks(newresults);
-
-        if (self.checkHasNextPage(source)) {
-          var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
-          setTimeout(function () {
-            self.nextPage();
-          }, randomTime * 1000);
-        }
-        else {
-          logger.info('finished scraping succesfully');
-          self.cleanup();
-        }
+        logger.info('finished scraping succesfully');
+        self.cleanup();
       }        
     })
     .catch(function(err){
@@ -315,7 +325,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   }
 
   // Now the tracks
-  tracks.forEach(function(track) {
+  /*tracks.forEach(function(track) {
     if (soundtrack) {
       if (track.searchWithAlbum) {
         searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
@@ -327,11 +337,11 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     } else if (compilation) {
       // do nothing
     } else {
-      searchTerms1.push(fmt('+%s %s %s song download', artist, albumTitle, track));
+      searchTerms1.push(fmt('+%s %s %s download', artist, albumTitle, track));
       searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
       searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
     }
-  });
+  });*/
 
   // Compile the list
   searchTerms = searchTerms1.add(searchTerms2);
@@ -463,16 +473,18 @@ GoogleScraper.prototype.beginSearch = function (browser) {
       self.browser.get('http://www.google.com', this); // start at google.com      
     })
     .seq(function(){
-      self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //finds <input name='q'>      
+      logger.info('Search google with ' + self.searchTerm);
+      self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //   
     })
     .seq(function(){
       self.browser.submit('input[name=q]', this);
     })
     .seq(function(){
       var that = this;
-      self.browser.find('div[id=search]', function(err){
+      self.browser.find('ol[id="rso"]', function(err){
         if(err){
-          self.emit('error', ERROR_NORESULTS);
+          logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
+          // This is not an error, no results means our search terms are off.
           self.cleanup();
         }
         else{
@@ -495,7 +507,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
     , $ = cheerio.load(source)
     ;
   
-  logger.info('scraper results from  ' + source);
+  //logger.info('scraper results from  ' + source);
 
   $('#search').find('#ires').find('#rso').children().each(function () {
     // Find out if this is a link we really want
@@ -685,15 +697,16 @@ BingScraper.prototype.beginSearch = function (browser) {
     })
     .seq(function(){
       var that = this;
-      self.browser.find('div#content', function(err){
+      self.browser.find('div[id="results"]', function(err){
         if(err){
-          self.emit('error', ERROR_NORESULTS);
-          //self.cleanup();
+          logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
+          // This is not an error, no results means our search terms are off.
+          self.cleanup();
         }
         else{
           self.handleResults();
         }
-        //that();
+        that();
       });
     })
     .catch(function(err){
@@ -709,10 +722,12 @@ BingScraper.prototype.getLinksFromSource = function (source) {
     , $ = cheerio.load(source)
     ;
 
-  $('ol#b_results').children('li.b_algo').each(function () {
+  logger.info('get links from source !');
+
+  $('ul.sb_results').children('li.sa_wr').each(function () {
     var url = $(this).find('a').attr('href');
     var title = $(this).find('a').text().replace(/cached/i, '');
-
+    logger.info('just scraped for bing url : ' + url + ' and title : ' + title);
     if (self.checkResultRelevancy(title, url))
       links.push(url);
   });
