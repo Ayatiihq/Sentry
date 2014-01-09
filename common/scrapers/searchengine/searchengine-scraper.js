@@ -102,14 +102,14 @@ GenericSearchEngine.prototype.handleResults = function () {
       
       if (newresults.length < 1) {
         self.emit('error', "We found results but were unable to extract them !");
-        //self.cleanup();
+        self.cleanup();
         return this();
       }
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults < 1){ //this is not an error
         logger.info('Any results we found were deemed to be irrelevant.');
-        //self.cleanup();
+        self.cleanup();
         return this();        
       }
 
@@ -506,11 +506,8 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
     , links = []
     , $ = cheerio.load(source)
     ;
-  
-  //logger.info('scraper results from  ' + source);
 
   $('#search').find('#ires').find('#rso').children().each(function () {
-    logger.info('found ' + $(this).text());
     // Find out if this is a link we really want
     var title = $(this).find('a').text()
       , url = $(this).find('a').attr('href')
