@@ -492,3 +492,13 @@ Cowmangler.prototype.getStatus = function(done){
     done(err);
   });
 }
+
+Cowmangler.prototype.getCurrentUrl = function(done){
+  var self = this;
+  self.ass_.do('getURL', {}).then(function(url){
+    done(null, url.result);
+  },
+  function(err){
+    done(err);
+  });
+}

@@ -102,14 +102,14 @@ GenericSearchEngine.prototype.handleResults = function () {
       
       if (newresults.length < 1) {
         self.emit('error', "We found results but were unable to extract them !");
-        self.cleanup();
+        //self.cleanup();
         return this();
       }
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults < 1){ //this is not an error
         logger.info('Any results we found were deemed to be irrelevant.');
-        self.cleanup();
+        //self.cleanup();
         return this();        
       }
 
@@ -325,7 +325,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   }
 
   // Now the tracks
-  /*tracks.forEach(function(track) {
+  tracks.forEach(function(track) {
     if (soundtrack) {
       if (track.searchWithAlbum) {
         searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
@@ -341,7 +341,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
       searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
       searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
     }
-  });*/
+  });
 
   // Compile the list
   searchTerms = searchTerms1.add(searchTerms2);
@@ -510,6 +510,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
   //logger.info('scraper results from  ' + source);
 
   $('#search').find('#ires').find('#rso').children().each(function () {
+    logger.info('found ' + $(this).text());
     // Find out if this is a link we really want
     var title = $(this).find('a').text()
       , url = $(this).find('a').attr('href')
@@ -539,7 +540,24 @@ GoogleScraper.prototype.nextPage = function () {
       self.browser.click('#pnnext', this);
     })
     .seq(function(){
-      self.handleResults();
+      self.browser.getCurrentUrl(this);
+    })
+    .seq(function(currentUrl){
+      logger.info('currently on ' + currentUrl);
+      this();
+    })
+    .seq(function(){
+      self.browser.find('ol[id="rso"]', function(err){
+        if(err){
+          logger.info('Oh ran out of pages to scrape while trying to scrape : ' + self.pageNumber);
+          // This is not an error, no results means our search terms are off.
+          self.cleanup();
+        }
+        else{
+          logger.info('Go scrape page ' + self.pageNumber);      
+          self.handleResults();
+        }
+      });
       this();
     })
     .catch(function(err){
