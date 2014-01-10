@@ -2,7 +2,7 @@
   "name": "scraper",
   "main": "./index.js",
   "dependencies": {
-    "selenium": 1
+    "cowmangler": 1
   },
   "dispatcher": "scraper"
 }

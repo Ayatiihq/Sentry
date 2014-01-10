@@ -15,8 +15,9 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Infringements = acquire('infringements')
+  , Cowmangler = acquire('cowmangler')
   , Jobs = acquire('jobs')
+  , Infringements = acquire('infringements')  
   , Role = acquire('role')
   , Scrapers = acquire('scrapers')
   , Seq = require('seq')
@@ -44,6 +45,8 @@ Scraper.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('scraper');
   self.scrapers_ = new Scrapers();
+  self.browser = new Cowmangler();
+  self.browser.newTab();
 }
 
 Scraper.prototype.processJob = function(err, job) {
@@ -161,7 +164,7 @@ Scraper.prototype.runScraper = function(scraper, job, done) {
     self.doScraperTakesTooLongWatch(scraper, job);
     
     try {
-      scraper.start(campaign, job);
+      scraper.start(campaign, job, self.browser);
     } catch(err) {
       self.onScraperError(scraper, job, err);
     }

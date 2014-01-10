@@ -34,12 +34,16 @@ Cowmangler.prototype.init = function()
   self.ass_ = new Ass();
 }
 
+function defaultCallback(err) {
+  if (err)
+    return logger.warn('Cowmangler Error: %s', err);
+  logger.trace('Cowmanger operation completed without errors');
+}
 /*
   New tab
 */
 Cowmangler.prototype.newTab = function(){
   var self = this;
-
   function done(err){
     if(err)
       return self.emit("error", err);
@@ -326,6 +330,7 @@ Cowmangler.prototype.find = function(selector, done){
 
 Cowmangler.prototype.quit = function(done){
   var self = this;
+  var cb = done ? done : defaultCallback;
 
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.quit, Object.values(arguments)]);
@@ -333,14 +338,14 @@ Cowmangler.prototype.quit = function(done){
   self.ass_.deafen().then(function(){
     self.ass_.do('destroy', {}).then(function(result){
       logger.info('browser destroyed');
-      done();
+      cb()
     },
     function(err){
-      done(err);
+      cb(err);
     });     
   },
   function(err){
-    done(err);
+    cb(err);
   });
 }
 
@@ -482,6 +487,16 @@ Cowmangler.prototype.getStatus = function(done){
 
   self.ass_.query('getNodes').then(function(results){
     done(null, results);
+  },
+  function(err){
+    done(err);
+  });
+}
+
+Cowmangler.prototype.getCurrentUrl = function(done){
+  var self = this;
+  self.ass_.do('getURL', {}).then(function(url){
+    done(null, url.result);
   },
   function(err){
     done(err);

@@ -19,7 +19,7 @@ var acquire = require('acquire')
   ;
 
 var MAXTTABIMEOUT = 180000;
-var MAXTHUBIMEOUT = 6000;
+var MAXTHUBIMEOUT = 60000;
 var MAXATTEMPTS = 3;
 
 var Ass = module.exports = function() {
@@ -44,11 +44,12 @@ Ass.prototype.new = function(done){
     function(err){
       if(attempt > MAXATTEMPTS)
         return done(err);
-      logger.info('Failed to create new tab, try again (on attempt %i)',  attempt);
       attempt += 1;
-      newTab(done);
+      logger.info("Attempt " + attempt + " failed to create new tab : " + err);
+      setTimeout(newTab.bind(), 5000 * attempt);
     });
   }
+  newTab();
 }
 
 /*
@@ -88,11 +89,12 @@ Ass.prototype.query = function(action){
   var self = this;
   self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
   var query =  self.hub + "/" + action;
+  logger.info('query ' + query);
   var promise = new Promise.Promise();
 
   request.get({uri: query, timeout: MAXTHUBIMEOUT}, function(data, response){
     if(!response){
-      promise.reject(new Error('No data or response from cowmangler...'));
+      promise.reject(new Error('No data or response from Hub ...'));
       return;
     }
     var statusCode = response.statusCode;

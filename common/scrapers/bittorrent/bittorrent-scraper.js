@@ -5,24 +5,22 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
+  , Campaigns = acquire('campaigns')  
   , config = acquire('config')
-  , events = require('events')
+  , events = require('events') 
+  , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
-  , util = require('util')
-  , webdriver = require('selenium-webdriver')
+  , Promise = require('node-promise')
+  , Settings = acquire('settings')  
+  , Seq = require('seq')
+  , Storage = acquire('storage')
   , sugar = require('sugar')
   , URI = require('URIjs')  
-  , Settings = acquire('settings')  
-  , katparser = acquire('kat-parser')
-  , isohuntparser = acquire('isohunt-parser')  
-  , Storage = acquire('storage')
-  , Promise = require('node-promise')
-  , Campaigns = acquire('campaigns')
+  , util = require('util')
 ;
 
 var Scraper = acquire('scraper');
 
-var CAPABILITIES = { browserName: 'chrome', seleniumProtocol: 'WebDriver' };
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
 
@@ -32,9 +30,6 @@ var BittorrentPortal = function (campaign, types) {
   self.results = [];
   self.storage = new Storage('torrent');
   self.campaign = campaign;
-  self.remoteClient = new webdriver.Builder().usingServer(config.SELENIUM_HUB_ADDRESS)
-                          .withCapabilities(CAPABILITIES).build();
-  self.remoteClient.manage().timeouts().implicitlyWait(30000); // waits 30000ms before erroring, gives pages enough time to load
 
   self.idleTime = [5, 10]; // min/max time to click next page
   self.resultsCount = 0;
@@ -44,35 +39,45 @@ var BittorrentPortal = function (campaign, types) {
   types.each(function(camType){
     self.campaignCategories[camType] = '';
   });
-};
+}
 
 util.inherits(BittorrentPortal, events.EventEmitter);
 
 BittorrentPortal.prototype.handleResults = function () {
   var self = this;
-  self.remoteClient.sleep(2500);
 
-  self.remoteClient.getPageSource().then(function sourceParser(source) {
-    var newresults = self.getTorrentsFromResults(source);
-    self.results = self.results.union(newresults);
-    if (newresults.length < 1 && self.results.isEmpty()) {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
-    else {
-      if (self.checkHasNextPage(source)) {
-        var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
-        setTimeout(function () {
-          self.nextPage(source);
-        }, randomTime * 1000);
+  Seq()
+    .seq(function(){
+      self.browser.wait(2500, this);    
+    })
+    .seq(function(){
+      self.browser.getSource(this);
+    })
+    .seq(function(source){
+      var newresults = self.getTorrentsFromResults(source);
+      self.results = self.results.union(newresults);
+      if (newresults.length < 1 && self.results.isEmpty()) {
+        self.emit('error', ERROR_NORESULTS);
+        self.cleanup();
+        this();
       }
       else {
-        logger.info('managed to scrape ' + self.results.length + ' torrents');
-        self.getTorrentsDetails();
+        if (self.checkHasNextPage(source)) {
+          var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
+          setTimeout(function(){self.nextPage(source);}, randomTime * 1000);
+        }
+        else {
+          logger.info('managed to scrape ' + self.results.length + ' torrents');
+          self.getTorrentsDetails();
+          this();
+        }
       }
-    }
-  });
-};
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;
+}
 
 BittorrentPortal.prototype.buildSearchQuery = function () {
   var self = this;
@@ -102,14 +107,14 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var albumTitle = self.campaign.metadata.albumTitle;
   var query = albumTitle.escapeURL(true);
   return query;
-};
+}
 
 BittorrentPortal.prototype.buildSearchQueryMovie = function () {
   var self = this;
   var movieTitle = self.campaign.metadata.movieTitle;
   var query = movieTitle.escapeURL(true);
   return query;
-};
+}
 
 BittorrentPortal.prototype.buildSearchQueryTrack = function () {
   var self = this;
@@ -117,12 +122,16 @@ BittorrentPortal.prototype.buildSearchQueryTrack = function () {
   var artist = self.campaign.metadata.artist;
   var query = util.format('"%s" "%s" %s', artist, trackTitle, self.keywords.join(' '));
   return query;
-};
+}
 
 BittorrentPortal.prototype.cleanup = function () {
-  this.remoteClient.quit();
-  this.emit('finished');
-};
+  var self = this;
+  self.browser.quit(function(err){
+    if(err)
+      self.emit('error', err);
+    self.emit('finished');
+  });
+}
 
 BittorrentPortal.prototype.emitInfringements = function () {
   var self = this;
@@ -171,31 +180,37 @@ BittorrentPortal.prototype.emitInfringements = function () {
     self.storage.createFromURL(self.campaign._id,
                                torrent.name,
                                torrent.directLink,
-                               {replace:false})
+                               {replace:false}, 
+                               function(err){
+                                  if(err)
+                                    logger.warn("create from url issues : " + err);
+                                  else
+                                    logger.warn("create from url completed successfully");
+                               });
   });
   self.cleanup();
-};
+}
 
 BittorrentPortal.prototype.beginSearch = function () {
   throw new Error('Stub!');
-};
+}
 
 BittorrentPortal.prototype.getTorrentsFromResults = function (source) {
   throw new Error('Stub!');
-};
+}
 
 BittorrentPortal.prototype.getTorrentsDetails = function (source) {
   throw new Error('Stub!');
-};
+}
 
 // clicks on the next page, waits for new results
 BittorrentPortal.prototype.nextPage = function () {
   throw new Error('Stub!');
-};
+}
 
 BittorrentPortal.prototype.checkHasNextPage = function (source) {
   throw new Error('Stub!');
-};
+}
 
 /* -- KAT Scraper */
 var KatScraper = function (campaign, types) {
@@ -207,13 +222,26 @@ var KatScraper = function (campaign, types) {
 
 util.inherits(KatScraper, BittorrentPortal);
 
-KatScraper.prototype.beginSearch = function () {
+KatScraper.prototype.beginSearch = function (browser) {
   var self = this;
   self.resultsCount = 0;
+  self.browser = browser;
   self.emit('started');
-  self.remoteClient.get(self.root); 
-  self.remoteClient.sleep(2000);
-  self.searchQuery(1);//pageNumber
+  Seq()
+    .seq(function(){
+      self.browser.get(self.root, this);     
+    })
+    .seq(function(){
+      self.browser.wait(2000, this);    
+    })
+    .seq(function(){
+      self.searchQuery(1);//pageNumber
+      this();
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;  
 };
 
 KatScraper.prototype.searchQuery = function(pageNumber){
@@ -227,29 +255,44 @@ KatScraper.prototype.searchQuery = function(pageNumber){
                     self.campaignCategories[self.campaign.type] + 
                     pageNumber + '/' + 
                     "?field=time_add&sorder=desc";
-  self.remoteClient.get(queryString);
-  try{
-    self.remoteClient.findElement(webdriver.By.css('table.data')).then(function gotSearchResults(){
+  Seq()
+    .seq(function(){
+      self.browser.get(queryString, this);    
+    })
+    .seq(function(){
+      self.browser.find('table[class="data"]', this);
+    })
+    .seq(function(){
       self.handleResults();
-    });
-  }
-  catch(error){
-    logger.warning('Unable to find a table with data as the class, more than likely KAT is down at the moment ');
-    // Don't emit the error, sentry will try it again in time, more than likely Kat is down at the moment, 
-    // no point in retrying continiously (which if you emitted the error that is what would have happened)
-    self.cleanup();    
-  }
+      this();      
+    })
+    .catch(function(err){
+      logger.error('Unable to get ' + queryString + ' - ' + err);
+      self.cleanup();
+    })
+    ;
 }
 
 KatScraper.prototype.getTorrentsDetails = function(){
   var self = this;
   function torrentDetails(torrent){
     function goGetIt(prom){
-      self.remoteClient.get(torrent.activeLink.uri);
-      self.remoteClient.getPageSource().then(function(source){
-        katparser.torrentPage(source, torrent);
-        prom.resolve();
-      });
+      Seq()
+        .seq(function(){
+          self.browser.get(torrent.activeLink.uri, this);
+        })
+        .seq(function(){
+          self.browser.getSource(this);
+        })
+        .seq(function(source){    
+          katparser.torrentPage(source, torrent);
+          prom.resolve();
+          this();
+        })
+        .catch(function(err){
+          prom.reject(err);
+        })
+        ;
     }
     var promise = new Promise.Promise;
     var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
@@ -282,86 +325,6 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   return true; 
 };
 
-/* -- ISOHunt Scraper */
-var IsoHuntScraper = function (campaign, types) {
-  var self = this;
-  self.constructor.super_.call(self, campaign, types);
-  self.engineName = 'isohunt';
-  self.root = 'http://www.isohunt.com';
-};
-
-util.inherits(IsoHuntScraper, BittorrentPortal);
-
-IsoHuntScraper.prototype.beginSearch = function () {
-  var self = this;
-  self.resultsCount = 0;
-  self.emit('started');
-  self.remoteClient.get(self.root); 
-  self.remoteClient.sleep(2000);
-  self.searchQuery(1);//pageNumber
-};
-
-IsoHuntScraper.prototype.searchQuery = function(pageNumber){
-  var self = this;
-  self.campaignCategories['music.album'] = 2;
-  self.campaignCategories.movie = 1;
-
-  var queryString = self.root + 
-                    '/torrents/' + 
-                    self.searchTerm + '?' +
-                    'iht=' + self.campaignCategories[self.campaign.type] +
-                    '&ihp=' + pageNumber +
-                    '&ihs1=5&iho1=d';
-  self.remoteClient.get(queryString);
-  self.remoteClient.findElement(webdriver.By.css('table#serps')).then(function gotSearchResults(element) {
-    if (element) {
-      self.handleResults();
-    }
-    else {
-      self.emit('error', ERROR_NORESULTS);
-      self.cleanup();
-    }
-  });
-}
-
-IsoHuntScraper.prototype.getTorrentsDetails = function(){
-  var self = this;
-  function torrentDetails(torrent){
-    var promise = new Promise.Promise;
-    self.remoteClient.sleep(1000 * Number.random(1,5));
-    self.remoteClient.get(torrent.activeLink.uri);
-    self.remoteClient.getPageSource().then(function(source){
-      isohuntparser.torrentPage(source, torrent);
-      promise.resolve();
-    });
-    return promise;
-  }
-  var promiseArray;
-  promiseArray = self.results.map(function(r){ return torrentDetails.bind(self, r)});
-  Promise.seq(promiseArray).then(function(){
-    self.emitInfringements();
-  }); 
-}
-
-IsoHuntScraper.prototype.getTorrentsFromResults = function (source) {
-  var self = this;
-  return isohuntparser.resultsPage(source, self.campaign);
-};
-
-IsoHuntScraper.prototype.nextPage = function (source) {
-  var self = this;
-  var result = isohuntparser.paginationDetails(source);
-  self.searchQuery(result.currentPage + 1);
-};
-
-IsoHuntScraper.prototype.checkHasNextPage = function (source) {
-  var self = this;
-  var result = isohuntparser.paginationDetails(source);
-  if(result.otherPages.isEmpty() || (result.otherPages.max() <= result.currentPage))
-    return false;
-  return true;  
-};
-
 /* Scraper Interface */
 var Bittorrent = module.exports = function () {
   this.init();
@@ -369,7 +332,7 @@ var Bittorrent = module.exports = function () {
 util.inherits(Bittorrent, Scraper);
 
 Bittorrent.prototype.init = function () {
-  var self = this;
+  
 };
 
 //
@@ -379,13 +342,12 @@ Bittorrent.prototype.getName = function () {
   return "Bittorrent";
 };
 
-Bittorrent.prototype.start = function (campaign, job) {
+Bittorrent.prototype.start = function (campaign, job, browser) {
   var self = this;
 
   logger.info('started for %s', campaign.name);
   var scraperMap = {
-    'kat': KatScraper,
-    'isohunt' : IsoHuntScraper
+    'kat': KatScraper
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
@@ -407,8 +369,7 @@ Bittorrent.prototype.start = function (campaign, job) {
     self.emit('relation', parent, child);
   });
 
-  self.scraper.beginSearch();
-  self.emit('started');
+  self.scraper.beginSearch(browser);
 };
 
 Bittorrent.prototype.stop = function () {
