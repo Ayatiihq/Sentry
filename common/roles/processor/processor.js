@@ -155,7 +155,7 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.tmpdir_ = path.join(os.tmpDir(), 'processor-' + utilities.genLinkKey(campaign.name));
+      self.tmpdir_ = path.join(os.tmpDir(), 'processor-' + campaign._id);
       rimraf(self.tmpdir_, this.ok);
     })
     .seq(function() {
@@ -347,8 +347,6 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
   var self = this
     , outName = utilities.genLinkKey(infringement._id, Date.now())
     , outPath = path.join(self.tmpdir_, outName)
-    , started = 0
-    , finished = 0
     , mimetype = 'text/html'
     ;
 
@@ -362,7 +360,6 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
   Seq()
     .seq(function() {
       utilities.requestStream(infringement.uri, {}, this);
-      started = Date.now();
     })
     .seq(function(req, res, stream) {
       var totalSize = 0;
@@ -374,19 +371,23 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
           done(null, mimetype);
         }
       });
-
       stream.pipe(outStream);
       stream.on('end', this);
       stream.on('error', this);
     })
     .seq(function() {
       logger.info('Download finished for %s', outPath);
-      finished = Date.now();
       utilities.getFileMimeType(outPath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      self.storage.addLocalFile(infringement.campaign, outPath, this);
+      if(mimetype.match(/octet\-stream|unknown/)){
+        //md5s are generated in storage, if the file exists already it will return immediately.
+        self.storage.addLocalFile(infringement.campaign, outPath, this);
+      }
+      else{
+        this();
+      }
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });
