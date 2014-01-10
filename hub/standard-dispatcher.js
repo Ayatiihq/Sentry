@@ -16,6 +16,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Clients = acquire('clients')
   , Jobs = acquire('jobs')
   , Roles = acquire('roles')
   ;
@@ -23,6 +24,7 @@ var Campaigns = acquire('campaigns')
 var StandardDispatcher = module.exports = function() {
   this.campaigns_ = null;
   this.roles_ = null;
+  this.clients_ = null;
 
   this.init();
 }
@@ -33,6 +35,7 @@ StandardDispatcher.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.clients_ = new Clients();
   self.roles_ = new Roles();
 
   setInterval(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
@@ -47,11 +50,21 @@ StandardDispatcher.prototype.iterateCampaigns = function() {
     if (err)
       logger.warn(err);
     else
-      campaigns.forEach(self.checkRoles.bind(self));
+      campaigns.forEach(self.preCheckRoles.bind(self));
   });
 }
 
-StandardDispatcher.prototype.checkRoles = function(campaign) {
+StandardDispatcher.prototype.preCheckRoles = function(campaign) {
+  var self = this;
+  
+  self.clients_.get(campaign.client, function(err, client){
+    if(err)
+      return logger.warn('Error retrieving Client from campaign ' + campaign.name);
+    self.checkRoles(campaign, client);
+  })
+}
+
+StandardDispatcher.prototype.checkRoles = function(campaign, client) {
   var self = this;
 
   self.roles_.getRoles().forEach(function(role) {
@@ -64,6 +77,12 @@ StandardDispatcher.prototype.checkRoles = function(campaign) {
         if (campaign.type.startsWith(type))
           supported = true;
       });
+
+      if(role.name === 'noticesender' && (!client_.authorization || !client_.copyrightContact)){
+        logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
+        supported = false;
+      }
+
       if (!supported) {
         logger.info('%s does not support %s (%s)', role.name, campaign.name, campaign.type);
         return;
@@ -83,8 +102,7 @@ StandardDispatcher.prototype.checkRoles = function(campaign) {
 StandardDispatcher.prototype.checkRole = function(campaign, role, consumer) {
   var self = this
     , jobs = new Jobs(role.name)
-    ;
-
+    ;  
   self.checkCampaign(campaign, jobs, role, consumer);
 }
 
