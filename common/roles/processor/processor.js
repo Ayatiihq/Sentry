@@ -14,6 +14,7 @@ var acquire = require('acquire')
   , database = acquire('database')
   , events = require('events')
   , fs = require('fs')
+  , isBinaryFile = require("isbinaryfile")
   , logger = acquire('logger').forFile('processor.js')
   , os = require('os')
   , path = require('path')
@@ -375,13 +376,16 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       stream.on('end', this);
       stream.on('error', this);
     })
-    .seq(function() {
+    .seq(function(){
       logger.info('Download finished for %s', outPath);
       utilities.getFileMimeType(outPath, this);
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      if(mimetype.match(/octet\-stream|unknown/)){
+      isBinaryFileSync(outPath, this);
+    })
+    .seq(function(isBinary) {
+      if(isBinary){
         //md5s are generated in storage, if the file exists already it will return immediately.
         self.storage.addLocalFile(infringement.campaign, outPath, this);
       }
@@ -401,7 +405,6 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       else {
         infringement.errors.push(err);
       }
-      
       done(null, mimetype);
     })
     ;
