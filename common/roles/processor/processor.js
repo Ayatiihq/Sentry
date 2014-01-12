@@ -382,7 +382,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      isBinaryFileSync(outPath, this);
+      isBinaryFile(outPath, this);
     })
     .seq(function(isBinary) {
       if(isBinary){
