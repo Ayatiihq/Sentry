@@ -67,7 +67,7 @@ StandardDispatcher.prototype.preCheckRoles = function(campaign) {
 StandardDispatcher.prototype.checkRoles = function(campaign, client) {
   var self = this;
 
-  self.roles_.getRoles().forEach(function(role) {
+  self.roles_.getRoles().forEach(function(role) { 
     if (role.dispatcher)
       return;
 
@@ -78,15 +78,16 @@ StandardDispatcher.prototype.checkRoles = function(campaign, client) {
           supported = true;
       });
 
-      if(role.name === 'noticesender' && (!client_.authorization || !client_.copyrightContact)){
-        logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
-        supported = false;
-      }
-
       if (!supported) {
         logger.info('%s does not support %s (%s)', role.name, campaign.name, campaign.type);
         return;
       }
+    }
+    
+    // Special case for the notice sender.
+    if(role.name === 'noticesender' && (!client.authorization || !client.copyrightContact)){
+      logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
+      return;
     }
 
     if (role.engines && role.engines.length) {
