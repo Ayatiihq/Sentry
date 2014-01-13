@@ -126,6 +126,7 @@ DownloadManager.prototype.preRun = function(job, done) {
 
   self.browser = new Cowmangler();
   self.browser.newTab();
+  self.browser.setAdBlock(true);
 
   self.browser.on('error', function(err){done(err)});
 
