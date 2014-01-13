@@ -732,6 +732,28 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
 }
 
 /**
+ * Get irrelvant infringements for the purger.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Infringements.prototype.getPurgableIrrelevants = function(campaign, options, callback)
+{
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getPurgableIrrelevants, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  var query = {
+    $or: [{'state' : states.infringements.state.FALSE_POSITIVE},
+          {'state' : states.infringements.state.UNAVAILABLE}]
+  };
+
+  self.infringements_.find(query).toArray(callback);
+}
+
+
+/**
  * Mark this infringement's download processedBy with the processor
  *
  * @param {object}           infringement     The infringement which we want to work on
