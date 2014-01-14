@@ -407,54 +407,6 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
 }
 
 /**
- * Submit a verification for an infringement.
- *
- * @param  {object}                       infringement    The infringement that has been verified.
- * @param  {object}                       verification    The verification result of the infringement.
- * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
- * @return {undefined}
- */
-Verifications.prototype.submit = function(infringement, verification, callback) {
-  var self = this;
-
-  if (!self.infringements_ || !self.verifications_)
-    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
-
-  if (!infringement || !infringement._id)
-    return callback('Invalid infringement');
-
-  // First add the verification to the verifications table. Do an upsert because we're cool
-  verification.created = Date.now();
-
-  var updates = {
-    $push: { 
-      verifications: verification
-    }
-  };
-
-  var options = { upsert: true };
-
-  self.verifications_.update({ _id: infringement._id }, updates, options, function(err) {
-    if (err)
-      return callback(err);
-
-    // Now update the infringement
-    var query = {
-      _id: infringement._id
-    };
-
-    var updates = {
-      $set: {
-        state: verification.state,
-        verified: Date.now()
-      }
-    };
-
-    self.infringements_.update(query, updates, callback);
-  });
-}
-
-/**
  * Get verifications for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
@@ -594,3 +546,46 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
 
   self.infringements_.update(query, updates, callback);
 }
+
+/**
+ * Submit a verification for an infringement.
+ *
+ * @param  {object}                       infringement    The infringement that has been verified.
+ * @param  {enum}                         newState        The new state to update the infringement with
+ * @param  {object}                       verifications    An array of verification objects with md5 details (optional)
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
+ * @return {undefined}
+ */
+Verifications.prototype.submit = function(infringement, newState, verifications, callback) {
+  var self = this;
+
+  if (!self.infringements_ || !self.verifications_)
+    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
+
+  if (!infringement || !infringement._id)
+    return callback('Invalid infringement');
+
+  function updateVerifications(){
+    var promise = new Promise();
+    
+    verifications.each(function(verification){
+    // First add the verification to the verifications table. Do an upsert because we're cool
+
+    self.verifications_.insert()
+  });
+
+  // Finally and always update the infringement
+  var query = {
+    _id: infringement._id
+  };
+
+  var updates = {
+    $set: {
+      state: newState,
+      verified: Date.now()
+    }
+  };
+
+  self.infringements_.update(query, updates, callback);
+}
+

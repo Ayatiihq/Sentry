@@ -375,7 +375,6 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     , verifiedhashes = []
     , needsVerifying = []
     , iStates = states.infringements.state
-    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
     ;
 
   logger.info('Starting Torrent engine');
@@ -424,8 +423,8 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     .set(needsVerifying)
     // Go through each one and mark as verified
     .seqEach(function(infringement) {
-      logger.info('Verifying %s', infringement.uri);
-      self.verifications_.submit(infringement, verification, this);
+      logger.info('Setting state on %s', infringement.uri);
+      self.infringements_.setStateBy(infringement, iStates.VERIFIED, 'verifier', this);
     })
     .seq(function() {
       logger.info('Torrent known id verifier finished');
@@ -444,13 +443,11 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     , verifiedIds = []
     , needsVerifying = []
     , iStates = states.infringements.state
-    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
     ;
 
   logger.info('Starting %s known id verifier', matcher.domain);
 
   Seq()
-    // Find verified torrent:// endpoints so we can get a list of hashes
     .seq(function() {
       var cur = infringements.find({ campaign: self.campaign_._id,
                                      category: states.infringements.category.CYBERLOCKER,
@@ -496,8 +493,8 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     .set(needsVerifying)
     // Go through each one and mark as verified
     .seqEach(function(infringement) {
-      logger.info('Verifying %s', infringement.uri);
-      self.verifications_.submit(infringement, verification, this);
+      logger.info('Setting state on %s', infringement.uri);
+      self.infringements_.setStateBy(infringement, iStates.VERIFIED, 'verifier', this);
     })
     .seq(function() {
       logger.info('%s known-id verifier finished', cyberlocker._id);

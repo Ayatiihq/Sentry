@@ -234,9 +234,12 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
 
         if (!good) {
           logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
-          var verification = { state: State.FALSE_POSITIVE, who: 'downloader-torrent', notes: reason, started: Date.now(), finished: Date.now() };
-          self.verifications_.submit(infringement, verification, function(err) { if (err) logger.warn(err) });
-          
+
+          self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'downloader-torrent', function(err){
+            if (err)
+              logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
+          });
+
           logger.info('Attempting to get another infringement');
           setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
           return;
