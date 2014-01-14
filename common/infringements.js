@@ -732,24 +732,69 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
 }
 
 /**
- * Get irrelvant infringements for the purger.
+ * Get infringements for the purger.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
 */
-Infringements.prototype.getPurgableIrrelevants = function(campaign, options, callback)
+Infringements.prototype.getPurgable = function(campaign, callback)
 {
   if (!self.infringements_)
-    return self.cachedCalls_.push([self.getPurgableIrrelevants, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.getPurgable, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
+  var iStates = states.infringements.state;
 
-  var query = {
-    $or: [{'state' : states.infringements.state.FALSE_POSITIVE},
-          {'state' : states.infringements.state.UNAVAILABLE}]
-  };
+  
+  var query = {'campaign' : campaign._id,
+               'state' : {$in : [iStates.FALSE_POSITIVE,
+                                 iStates.UNAVAILABLE,
+                                 iStates.VERIFIED]},
+               'metadata.processedBy' : {$nin : ['purger']
+              };
 
   self.infringements_.find(query).toArray(callback);
+}
+
+/**
+ * Purge that infringement
+ * @param {object}                infringement     The infringement which we want to work on
+ * @param {boolean}               beBrutal         Allow for the option to trim verified infringements (slightly) also.
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error
+*/
+Infringements.prototype.purge = function(infringement, beBrutal, callback)
+{
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.purge, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  var targets = {};
+
+  if(beBrutal){
+    targets = {'children' : 1,
+               'parents' : 1,
+               'type' : 1,
+               'source' : 1, 
+               'scheme' : 1, 
+               'processed' : 1, 
+               'popped' : 1, 
+               'entries' : 1, 
+               'modified' : 1, 
+               'points' : 1};
+  }
+  else{
+    targets = {'points' : 1,
+               'popped' : 1,
+               'entries' : 1,
+               'scheme' : 1
+              };
+  }
+
+  var query = {
+    $unset : targets
+  };
+
+  self.infringements_.update({_id: infringement._id}, query, callback);
 }
 
 
@@ -940,3 +985,5 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
   self.infringements_.findAndModify(query, sort, updates, options, callback);
 
 }
+
+

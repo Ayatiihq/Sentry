@@ -2,7 +2,55 @@
  * campaigns.js: the campaigns table
  *
  * Wraps the campaigns table.
- *
+ * Example
+ * {
+  "avatar": "",
+  "client": "",
+  "description": "",
+  "metadata": {
+    "albumTitle": "",
+    "artist": "",
+    "blacklist": [
+      ""
+    ],
+    "engineKeywords": [
+      ""
+    ],
+    "language": "",
+    "lowPriorityWordList": [
+      "",
+      ""
+    ],
+    "releaseDate": "",
+    "searchengineMaxPages": 0,
+    "soundtrack": false,
+    "tracks": [
+      {
+        "title": "Pt. I",
+        "artist": [
+          "Tomonari Nozaki"
+        ],
+        "md5": "cc84e1301992a4b7bba4ce4a12bb71d5"
+      },
+      .
+      .
+      .
+    ],
+    "url": "",
+    "year": 2013
+  },
+  "name": "",
+  "names": [],
+  "scrapersEnabled": [],
+  "scrapersIgnored": [],
+  "sweep": true,
+  "sweepFrom": 1384890890004,
+  "sweepIntervalMinutes": 120,
+  "sweepTo": 1398898800000,
+  "type": "music.album",
+  "_id": "3344f2ce6399f7b1ac9ea0620947d30b809d94bc",
+  "created": 1388424996373
+}
  * (C) 2012 Ayatii Limited
  *
  */

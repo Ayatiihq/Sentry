@@ -551,43 +551,53 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
  * Submit a verification of some sorts for a download.
  *
  * @param  {object}                       infringement    The infringement that has been verified
- * @param  {boolean}                      verified        False positive or not
+ * @param  {boolean}                      verified        Is this relevant
  * @param  {string}                       md5             Md5 of the download
- * @param  {int}                          trackId         Index into the campaign's track array.
+ * @param  {int}                          trackId         Index into the campaign's track array (-1 signifying that you don't know)
+ * @param  {boolean}                      isPurger        Is this the purger (then don't bump the count).
  * @param  {function(err)}                callback        A callback to receive an error, if one occurs
  * @return {undefined}
  */
-Verifications.prototype.submit = function(infringement, verified, md5, trackId, callback) {
+Verifications.prototype.submit = function(infringement, verified, md5, trackId, isPurger, callback) {
   var self = this;
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
 
-  var verification = self.verifications_.findOne({_id: {campaignId : infringement.campaign,
-                                                        clientId: infringement.client,
-                                                        md5: md5}}); 
+  var verification = self.verifications_.findOne({_id: {campaign : infringement.campaign,
+                                                        client : infringement.client,
+                                                        md5 : md5}}); 
   if(verification){
     // ensure the same verdict was reached before and now
     if(verification.verified !== verified)
-      logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to an update');
-    verfication.verified = verified;
-    verification.count += 1;
-    verification.modified =  Date.now();
-    logger.info('We have seen this before, bump the count and move on');
-    return callback();
+      logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to a previous submit');
+    
+    var update = {$set : {"verified" : verified,
+                          "modified" : Date.now()
+                          }};
+
+    if(!isPurger){
+      logger.info('We have seen this before on another infringement, bump the count and move on - md5 : ' + md5);
+      update.merge({$inc : {"count" : 1});
+    }
+    
+    self.verifications_.update({"_id.md5" : md5}, query, callback);    
+    
   }
+  else{
 
-  var entity = {
-    _id : {campaignId : infringement.campaign,
-           clientId : infringement.clientId,
-           md5: md5},
-    created : Date.now(),
-    modified : Date.now(),
-    verified: verified,
-    count : 1,
-    trackId: trackId
-  };
+    var entity = {
+      _id : {campaign : infringement.campaign,
+             client : infringement.clientId,
+             md5: md5},
+      created : Date.now(),
+      modified : Date.now(),
+      verified: verified,
+      count : 1,
+      trackId: trackId
+    };
 
-  self.verifications_.insert(entity, callback);
+    self.verifications_.insert(entity, callback);
+  }
 }
 
