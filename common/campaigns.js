@@ -42,7 +42,7 @@
   "name": "",
   "names": [],
   "scrapersEnabled": []
-  "useTracksForScraping: true,
+  "useTracksForSearches: true,
   "scrapersIgnored": [],
   "sweep": truw,
   "sweepFrom": 0,
