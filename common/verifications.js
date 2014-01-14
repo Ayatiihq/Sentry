@@ -75,14 +75,11 @@ function defaultCallback(err) {
 }
 
 function normalizeCampaign(campaign) {
-  if (Object.isString(campaign)) {
-    // It's the _id of the campaign stringified
-    return JSON.parse(campaign);
-  } else if (campaign._id) {
+  if (campaign._id) {
     // It's an entire campaign row
     return campaign._id;
   } else {
-    // It's just the _id object
+    // It's just the _id.
     return campaign;
   }
 }

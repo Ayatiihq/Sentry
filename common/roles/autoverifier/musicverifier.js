@@ -96,7 +96,7 @@ MusicVerifier.prototype.examineResults = function(){
                            };
 
   // First check that fpeval could carry out a match, if any of the match attempts fail (score === -1) then return with error.
-  var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.score < 0}).unique();
+  var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.fpevalResults.score < 0}).unique();
   if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
     logger.warn(self.infringement._id + ': Failed to match with FPeval, more than likely an issue with downloading the infringment');
     return [new Error('FpEval failed to carry out any match'), verificationObject];
@@ -104,10 +104,10 @@ MusicVerifier.prototype.examineResults = function(){
 
   // Next attempt to filter which tracks have a score above the MATCHER_THRESHOLD
   self.campaign.metadata.tracks.each(function(track){
-    if(track.score > MATCHER_THRESHOLD){ 
+    if(track.fpevalResults.score > MATCHER_THRESHOLD){ 
       if(!matchedTracks.isEmpty())
         logger.warn(self.infringement._id + ": Music Verifier has found two potential matches for one infringement in the same album - other score = " + 
-                     matchedTracks.last().score + ' and this score : ' + track.score + " for uri : " + self.infringement.uri);
+                     matchedTracks.last().fpevalResults.score + ' and this score : ' + track.fpevalResults.score + " for uri : " + self.infringement.uri);
       matchedTracks.push(track);
     }
   });
@@ -221,7 +221,7 @@ MusicVerifier.prototype.fetchCampaignAudio = function(done) {
   function fetchTrack(track){
     var promise = new Promise.Promise();
     track.folderPath = path.join(self.tmpDirectory, track.md5);
-    track.score = 0.0;
+    track.fpevalResults = {};
     fs.mkdirSync(track.folderPath);
     var original = path.join(MEDIA, self.campaign._id, track.md5);
 
@@ -283,10 +283,10 @@ MusicVerifier.prototype.prepCampaign = function(campaign, done){
     logger.info()
     self.newCampaignChangeOver(!!self.campaign, campaign, done);
   }
-  else{ // Same campaign as before, keep our one in memory but reset the track.score
+  else{ // Same campaign as before, keep our one in memory but reset the track.fpevalResults
     logger.trace("we just processed that campaign, use what has already been downloaded.")
     self.campaign.metadata.tracks.each(function resetScore(track){
-      track.score = 0.0;
+      track.fpevalResults = {};
     });      
     done();
   }
@@ -323,11 +323,11 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
         try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
           var result = JSON.parse(stdout);
           logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
-          track.score = result.score;
+          track.fpevalResults = {download: download.md5, score: result.score};
         }
         catch(err){
           logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
-          track.score = -1;// -1 signifying fpeval failed for some reason.
+          track.fpevalResults = {download: download.md5, score: -1};// -1 signifying fpeval failed for some reason.
         }
         promise.resolve();
       });
