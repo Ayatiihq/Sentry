@@ -548,44 +548,46 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
 }
 
 /**
- * Submit a verification for an infringement.
+ * Submit a verification of some sorts for a download.
  *
- * @param  {object}                       infringement    The infringement that has been verified.
- * @param  {enum}                         newState        The new state to update the infringement with
- * @param  {object}                       verifications    An array of verification objects with md5 details (optional)
- * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
+ * @param  {object}                       infringement    The infringement that has been verified
+ * @param  {boolean}                      verified        False positive or not
+ * @param  {string}                       md5             Md5 of the download
+ * @param  {int}                          trackId         Index into the campaign's track array.
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs
  * @return {undefined}
  */
-Verifications.prototype.submit = function(infringement, newState, verifications, callback) {
+Verifications.prototype.submit = function(infringement, verified, md5, trackId, callback) {
   var self = this;
 
-  if (!self.infringements_ || !self.verifications_)
+  if (!self.verifications_)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
 
-  if (!infringement || !infringement._id)
-    return callback('Invalid infringement');
+  var verification = self.verifications_.findOne({_id: {campaignId : infringement.campaign,
+                                                        clientId: infringement.client,
+                                                        md5: md5}}); 
+  if(verification){
+    // ensure the same verdict was reached before and now
+    if(verification.verified !== verified)
+      logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to an update');
+    verfication.verified = verified;
+    verification.count += 1;
+    verification.modified =  Date.now();
+    logger.info('We have seen this before, bump the count and move on');
+    return callback();
+  }
 
-  function updateVerifications(){
-    var promise = new Promise();
-    
-    verifications.each(function(verification){
-    // First add the verification to the verifications table. Do an upsert because we're cool
-
-    self.verifications_.insert()
-  });
-
-  // Finally and always update the infringement
-  var query = {
-    _id: infringement._id
+  var entity = {
+    _id : {campaignId : infringement.campaign,
+           clientId : infringement.clientId,
+           md5: md5},
+    created : Date.now(),
+    modified : Date.now(),
+    verified: verified,
+    count : 1,
+    trackId: trackId
   };
 
-  var updates = {
-    $set: {
-      state: newState,
-      verified: Date.now()
-    }
-  };
-
-  self.infringements_.update(query, updates, callback);
+  self.verifications_.insert(entity, callback);
 }
 
