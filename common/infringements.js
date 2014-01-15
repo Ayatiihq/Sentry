@@ -750,7 +750,7 @@ Infringements.prototype.getPurgable = function(campaign, callback)
                'state' : {$in : [iStates.FALSE_POSITIVE,
                                  iStates.UNAVAILABLE,
                                  iStates.VERIFIED]},
-               'metadata.processedBy' : {$nin : ['purger']
+               'metadata.processedBy' : {$nin : ['purger']}
               };
 
   self.infringements_.find(query).toArray(callback);

@@ -564,40 +564,47 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
 
-  var verification = self.verifications_.findOne({_id: {campaign : infringement.campaign,
-                                                        client : infringement.client,
-                                                        md5 : md5}}); 
-  if(verification){
-    // ensure the same verdict was reached before and now
-    if(verification.verified !== verified)
-      logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to a previous submit');
-    
-    var update = {$set : {"verified" : verified,
-                          "modified" : Date.now()
-                          }};
 
-    if(!isPurger){
-      logger.info('We have seen this before on another infringement, bump the count and move on - md5 : ' + md5);
-      update.merge({$inc : {"count" : 1});
+  function doSubmit(err, verification){
+    if(err)
+      return callback(err)
+    
+    if(verification){
+      // ensure the same verdict was reached before and now
+      if(verification.verified !== verified)
+        logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to a previous submit');
+      
+      var update = {$set : {"verified" : verified,
+                            "modified" : Date.now()
+                            }};
+
+      if(!isPurger){
+        logger.info('We have seen this before on another infringement, bump the count and move on - md5 : ' + md5);
+        update.merge({$inc : {"count" : 1}});
+      }
+      
+      self.verifications_.update({"_id.md5" : md5}, query, callback);    
+      
     }
-    
-    self.verifications_.update({"_id.md5" : md5}, query, callback);    
-    
-  }
-  else{
+    else{
 
-    var entity = {
-      _id : {campaign : infringement.campaign,
-             client : infringement.clientId,
-             md5: md5},
-      created : Date.now(),
-      modified : Date.now(),
-      verified: verified,
-      count : 1,
-      trackId: trackId
-    };
+      var entity = {
+        _id : {campaign : infringement.campaign,
+               client : infringement.clientId,
+               md5: md5},
+        created : Date.now(),
+        modified : Date.now(),
+        verified: verified,
+        count : 1,
+        trackId: trackId
+      };
 
-    self.verifications_.insert(entity, callback);
+      self.verifications_.insert(entity, callback);
+    }    
   }
-}
+
+  self.verifications_.findOne({_id: {campaign : infringement.campaign,
+                                     client : infringement.client,
+                                     md5 : md5}}, doSubmit); 
+ }
 
