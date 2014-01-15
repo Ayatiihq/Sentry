@@ -347,7 +347,6 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            fileMd5         The MD5 of the download
  * @param {string}            fileMimetype    MD5 of the file
-
 **/
 Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimetype, fileSize, callback)
 {
