@@ -6,30 +6,34 @@
  * Have yet to come across a high scoring match (i.e one with 1-9/10 score) which is not a match.
  */
 var acquire = require('acquire')
-  , Seq = require('seq')
+  , config = acquire('config')
   , events = require('events')
-  , util = require('util')
+  , exec = require('child_process').execFile
   , fs = require('fs-extra')
+  , logger = acquire('logger').forFile('musicverifier.js')  
   , os = require('os')
-  , Promise = require('node-promise')
   , path = require('path')
   , request = require('request')
   , rimraf = require('rimraf')
-  , exec = require('child_process').execFile
-  , URI = require('URIjs')   
+  , states = acquire('states').infringements.state  
+  , util = require('util')
   , utilities = acquire('utilities') 
-  , Infringements = acquire('infringements')
   ;
 
-var logger = acquire('logger').forFile('musicverifier.js')
-  , config = acquire('config')
-  , states = acquire('states').infringements.state
+var Infringements = acquire('infringements')
+  , Promise = require('node-promise')
+  , Seq = require('seq')
+  , Storage = acquire('storage')
+  , URI = require('URIjs')   
+  , Verifications = acquire('verifications');
   ;
 
-var Storage = acquire('storage');
 var MEDIA = 'https://qarth.s3.amazonaws.com/media/';
 
 var MusicVerifier = module.exports = function() {
+  this.infringements_ = null;
+  this.storage_ = null;
+  this.verifications_ = null;
   this.init();
 }
 
@@ -38,8 +42,8 @@ util.inherits(MusicVerifier, events.EventEmitter);
 MusicVerifier.prototype.init = function() {
   var self = this;
   self.tmpDirectory = null;
-  self.storage = new Storage('downloads');
-  self.infringements = new Infringements();
+  self.storage_ = new Storage('downloads');
+  self.infringements_ = new Infringements();
 }
 
 MusicVerifier.prototype.createParentFolder = function(){
@@ -95,9 +99,15 @@ MusicVerifier.prototype.examineResults = function(){
                             finished : Date.now()
                            };
 
-  // First check that fpeval could carry out a match, if any of the match attempts fail (score === -1) then return with error.
-  var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ return track.fpevalResults.score < 0}).unique();
-  if(failedEvaluation.length === 1 && failedEvaluation.first() === true){
+  // First check that fpeval could carry out a match, if any of the match attempts fail (score === -1 | no score at all !)
+  // then return with error.
+  var failedEvaluation = self.campaign.metadata.tracks.map(function(track){ 
+    if(!track.fpevalResults.score)
+      return track;
+    return track.fpevalResults.score < 0;
+  }).unique();
+
+  if(!failedEvaluation.isEmpty()){
     logger.warn(self.infringement._id + ': Failed to match with FPeval, more than likely an issue with downloading the infringment');
     return [new Error('FpEval failed to carry out any match'), verificationObject];
   }
@@ -112,19 +122,22 @@ MusicVerifier.prototype.examineResults = function(){
     }
   });
   
-  var success;
-  // Update the DB with the matched tracks (regardless of what we decide on below)
-  var matchedCombined = self.infringement.metadata.matchedTracks ? self.infringement.metadata.matchedTracks.union(matchedTracks) : matchedTracks;
-  self.infringements.setMetadata(self.infringement, 'matchedTracks', matchedCombined);
-  // At this point if we have more than 1 track which matched successfully we want to make sure the delta between the scores
-  // is greater than 0.2 inorder to be confident that we have a genuine match. Deltas which are less than 0.2 indicate a very
-  // inaccurate and fuzzy resultset => mark unsuccessfull
+  var success = false;
+
+  if(!matchedTracks.isEmpty()){ // Only update when we have something to write there.
+    // Update the DB with the matched tracks (regardless of what we decide on below)
+    var matchedCombined = self.infringement.metadata.matchedTracks ? self.infringement.metadata.matchedTracks.union(matchedTracks) : matchedTracks;
+    self.infringements_.setMetadata(self.infringement, 'matchedTracks', matchedCombined);
+  }
   if(matchedTracks.length > 1){
+    // At this point if we have more than 1 track which matched successfully we want to make sure the delta between the scores
+    // is greater than 0.2 inorder to be confident that we have a genuine match. Deltas which are less than 0.2 indicate a very
+    // inaccurate and fuzzy resultset => mark unsuccessfull
     var delta = matchedTracks.reduce(function(a, b){
       return a-b;
     });
     logger.warn(self.infringement._id + ': We found ' + matchedTracks.length + ' matches and the delta between them is ' + delta);
-    success = delta > 0.2;
+    success = delta > 0.2; // simplistic but safe.
     if(success){
       verificationObject = Object.merge (verificationObject,
                                         {"state" : states.VERIFIED,
@@ -247,7 +260,7 @@ MusicVerifier.prototype.fetchCampaignAudio = function(done) {
   }); 
 }
 
-MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready, campaign, done){
+MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready, campaign, done, autoverifierDone){
   // if we had a different previous campaign, nuke it.
   var self = this; 
   var cleansing;
@@ -269,12 +282,12 @@ MusicVerifier.prototype.newCampaignChangeOver = function(haveRunAlready, campaig
       self.fetchCampaignAudio(done);
     },
     function(err){
-      self.done(err);
+      autoverifierDone(err);//let's get out of here if we have trouble swapping campaigns.
     });
   });
 }
 
-MusicVerifier.prototype.prepCampaign = function(campaign, done){
+MusicVerifier.prototype.prepCampaign = function(campaign, done, autoverifierDone){
   var self = this;
 
   var sameCampaignAsBefore = self.campaign &&
@@ -307,7 +320,7 @@ MusicVerifier.prototype.copyDownload = function(download, track){
   return promise;
 }
 
-MusicVerifier.prototype.goMeasureDownload = function(download, done){
+MusicVerifier.prototype.goMeasureDownload = function(download, done, autoverifierDone){
   var self = this;
 
   function compare(track){
@@ -352,17 +365,19 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
 
   var promiseArray;
   promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
-  Promise.seq(promiseArray).then(
+  // Gather scores against each campaign track, submit fpeval results per md5,
+  // then return verification decision to autoverifier
+  Promise.seq(promiseArray).then(function(){ return self.recordVerfications()}).then(
     function(){
       var results = self.examineResults();
       if(results[0]){
-        self.done(new Error('examine Results returned a nonsensical result'));
+        autoverifierDone(new Error('examine Results returned a nonsensical result'));
         return;
       }
       if(results[1].state === states.VERIFIED){
         // report back immediately once we are confident we have one match.
         logger.info('We have found a match ! - return immediately');
-        self.done(null, results[1]);
+        autoverifierDone(null, results[1]);
       }
       else{ // Move on to the next track, nothing to report back here.
         logger.info('moving to the next track');
@@ -375,12 +390,39 @@ MusicVerifier.prototype.goMeasureDownload = function(download, done){
   );
 }
 
+MusicVerifier.prototype.recordVerfications = function(){
+  var self = this;
+
+  Seq(self.campaign.metadata.tracks)
+    .seqEach(function(track){
+      
+
+    })
+    .seq(function(){
+
+    })
+    .catch(function(err){
+
+    })
+    ;
+  var promise = new Promise.Promise();
+  // RECORD
+  function record(verification){
+    var promise = new Promise.Promise();
+    self.verifications_
+  };
+  self.campaign.metadata.tracks.each(function(track){
+
+  });
+  return promise;
+}
+
 /*
  * Fetch a download
  */
 MusicVerifier.prototype.fetchDownload = function(download, done){
   var self = this;
-  var uri = self.storage.getURL(self.infringement.campaign, download.md5);
+  var uri = self.storage_.getURL(self.infringement.campaign, download.md5);
   var target = path.join(self.tmpDirectory, download.md5);
   self.downloadThing(uri, target).then(
     function(){
@@ -397,53 +439,54 @@ MusicVerifier.prototype.fetchDownload = function(download, done){
 //
 MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
   var self = this;
-  self.done = done;
   self.infringement = infringement;
   self.startedAt = Date.now();
 
   logger.info(self.infringement._id + ': Trying music verification for %s', infringement.uri);
-
-  self.prepCampaign(campaign, function(){
-    Seq(downloads)
-      .seqEach(function(download){
-        var that = this;
-        var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimetype);
-        if(isAudio){
-          logger.info('fetch Download');
-          self.fetchDownload(download, that);
+  
+  Seq()
+    .seq(function(){
+      self.prepCampaign(campaign, this, done);
+    })
+    set(downloads)
+    .seqEach(function(download){
+      var that = this;
+      var isAudio = MusicVerifier.getSupportedMimeTypes().some(download.mimetype);
+      if(isAudio){
+        logger.info('fetch Download');
+        self.fetchDownload(download, that);
+      }
+      else
+        that();
+    })
+    .seqEach(function(download){
+      var that = this;
+      fs.stat(path.join(self.tmpDirectory, download.md5), function(err, result){
+        if(err){
+          logger.warn("didn't find a download locally, must never have been fetched.");
+          return that();// don't evaluate those that were not downloaded (not an audio file)        
         }
-        else
+        self.cleanupInfringement().then(function(){
+          self.goMeasureDownload(download, that, done);      
+        },
+        function(err){
+          logger.warn('Problem cleaning infringement %s', err);
           that();
-      })
-      .seqEach(function(download){
-        var that = this;
-        fs.stat(path.join(self.tmpDirectory, download.md5), function(err, result){
-          if(err){
-            logger.trace("didn't find a download locally, must never have been fetched.");
-            return that();// don't evaluate those that were not downloaded (not an audio file)        
-          }
-          self.cleanupInfringement().then(function(){
-            self.goMeasureDownload(download, that);      
-          },
-          function(err){
-            logger.warn('Problem cleaning infringement %s', err);
-            that();
-          });
         });
-      })
-      .seq(function(){
-        logger.info('Finished multi-file verification, didnt match obviously');
-        self.done(null, {started : self.startedAt,
-                         who : "MusicVerifer AKA Harry Caul",
-                         finished : Date.now(),
-                         state: states.FALSE_POSITIVE,
-                         notes: 'Harry Caul failed to match'});
-      })
-      .catch(function(err) {
-        logger.warn('Unable to process music-verification: %s', err);
-      })    
+      });
+    })
+    .seq(function(){
+      logger.info('Finished multi-file verification, didnt match obviously');
+      done(null, {started : self.startedAt,
+                  who : "MusicVerifer AKA Harry Caul",
+                  finished : Date.now(),
+                  state: states.FALSE_POSITIVE,
+                  notes: 'Harry Caul failed to match'});
+    })
+    .catch(function(err) {
+      logger.warn('Unable to process music-verification: %s', err);
+    })    
     ;
-  });
 }
 
 MusicVerifier.prototype.finish = function(){

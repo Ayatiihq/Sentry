@@ -3,9 +3,11 @@
  *
  * Wraps the campaigns table.
  * Example
- * {
+ {
+  "_id": "",
   "avatar": "",
   "client": "",
+  "created": 0,
   "description": "",
   "metadata": {
     "albumTitle": "",
@@ -13,25 +15,32 @@
     "blacklist": [
       ""
     ],
+    "catNo" : ""
+    "duration" : 0,
     "engineKeywords": [
       ""
     ],
+    "label" : "",
     "language": "",
     "lowPriorityWordList": [
-      "",
       ""
     ],
+    "mbReleaseId" : "",
     "releaseDate": "",
     "searchengineMaxPages": 0,
     "soundtrack": false,
     "tracks": [
       {
-        "title": "",
+        "altTitles": [""],
         "artist": [
           ""
         ],
-        "md5": ""
-      },
+        "duration": 0,
+        "mbTrackId": "",
+        "md5": "", 
+        "position": 0,
+        "title": "" 
+      }
       .
       .
       .
@@ -39,18 +48,16 @@
     "url": "",
     "year": 0
   },
-  "name": "",
+  "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
   "scrapersEnabled": []
-  "useTracksForSearches: true,
   "scrapersIgnored": [],
-  "sweep": truw,
+  "sweep": true,
   "sweepFrom": 0,
   "sweepIntervalMinutes": 0,
   "sweepTo": 0,
   "type": "",
-  "_id": "",
-  "created": 0
+  "useTracksForSearches: true
 }
  * (C) 2012 Ayatii Limited
  *

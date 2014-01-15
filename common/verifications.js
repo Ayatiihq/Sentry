@@ -548,17 +548,18 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
 }
 
 /**
- * Submit a verification of some sorts for a download.
+ * Submit a verification of some sorts for a download - end of pipeline.
  *
  * @param  {object}                       infringement    The infringement that has been verified
  * @param  {boolean}                      verified        Is this relevant
  * @param  {string}                       md5             Md5 of the download
  * @param  {int}                          trackId         Index into the campaign's track array (-1 signifying that you don't know)
+ * @param  {float}                        score           Score returned from the autoverifier (-1 signifying that you don't know) 
  * @param  {boolean}                      isPurger        Is this the purger (then don't bump the count).
  * @param  {function(err)}                callback        A callback to receive an error, if one occurs
  * @return {undefined}
  */
-Verifications.prototype.submit = function(infringement, verified, md5, trackId, isPurger, callback) {
+Verifications.prototype.submit = function(infringement, verified, md5, trackId, score, isPurger, callback) {
   var self = this;
 
   if (!self.verifications_)
@@ -570,24 +571,27 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
       return callback(err)
     
     if(verification){
-      // ensure the same verdict was reached before and now
+      // Check the same verdict was reached before and now
       if(verification.verified !== verified)
         logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to a previous submit');
       
-      var update = {$set : {"verified" : verified,
-                            "modified" : Date.now()
-                            }};
+      // Set the verified and score regardless (maybe its a correction)
+      var update = {"$set" : { "verified" : verified,
+                               "modified" : Date.now()
+                              }};
+      if(trackId >= 0)
+        update["$set"].trackId = trackId;
+      if(score >= 0)
+        update["$set"].score = score;
 
       if(!isPurger){
         logger.info('We have seen this before on another infringement, bump the count and move on - md5 : ' + md5);
-        update.merge({$inc : {"count" : 1}});
-      }
-      
-      self.verifications_.update({"_id.md5" : md5}, query, callback);    
-      
+        update.merge({"$inc" : {"count" : 1}});
+      }      
+      self.verifications_.update({"_id.md5" : md5}, query, callback);
     }
     else{
-
+      // not there already ? => insert a new one.
       var entity = {
         _id : {campaign : infringement.campaign,
                client : infringement.clientId,
@@ -595,6 +599,7 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
         created : Date.now(),
         modified : Date.now(),
         verified: verified,
+        score: scored
         count : 1,
         trackId: trackId
       };
