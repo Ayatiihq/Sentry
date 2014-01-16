@@ -38,7 +38,8 @@
         "duration": 0,
         "mbTrackId": "",
         "md5": "", 
-        "position": 0,
+        "noSearch",
+        "number": 0,
         "title": "" 
       }
       .
@@ -56,8 +57,7 @@
   "sweepFrom": 0,
   "sweepIntervalMinutes": 0,
   "sweepTo": 0,
-  "type": "",
-  "useTracksForSearches: true
+  "type": ""
 }
  * (C) 2012 Ayatii Limited
  *
