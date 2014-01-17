@@ -92,8 +92,10 @@ function main() {
   instance.verify(campaign, infringement, infringement.downloads, function(err){
     if(err)
       logger.warn('Verify Err : ' + err);
-    else
+    else{
       logger.info('Verify finished');
+      process.exit(1);
+    }
   });
 }
 

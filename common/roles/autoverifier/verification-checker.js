@@ -15,7 +15,8 @@ var Seq = require('seq');
 
 var VerChecker = module.exports;
 
-VerChecker.checkDownload = function(verifications, campaign, download, results, done){
+
+VerChecker.checkDownload = function(verifications, campaign, download, done){
 
   Seq()
     .seq(function(){
@@ -27,19 +28,20 @@ VerChecker.checkDownload = function(verifications, campaign, download, results, 
     		return done();
     	}
 
-  		if(verifications.length > 1){
-  			logger.warn('We have multiple verications against a single md5, thats a problem - ' + JSON.stringify(verifications));
-        return done();
+  		if(verification.length > 1){
+  			logger.warn('We have multiple verications against a single md5, thats a problem - ' + JSON.stringify(verification));
+        return done(new Error("Getting multiple verifications for one md5")); //should this error here
   		}
+
+      logger.info('\n\n\nJust found a singular verification against this md5 ' + JSON.stringify(verification[0]));
+      
       // Success
-      var result = {score: verification.score,
-                    verified: verification.verified,
-                    assetNumber: verification.assetNumber};
+      var result = {score: verification[0].score,
+                    verified: verification[0].verified,
+                    assetNumber: verification[0].assetNumber};
+      
 
-			results[download.md5].insert(result, verification.assetNumber);
-      logger.info('Just found a singular verification against this md5 ' + JSON.stringify(result));
-
-      done();
+      done(null, result);
     })
     .catch(function(err){
       done(err);
@@ -82,12 +84,22 @@ VerChecker.checkDownloads = function(verifications, campaign, downloads, done){
 		results[dl.md5] = arr; 
 	});
 
+
   Seq(downloads)
     .seqEach(function(download){
-      VerChecker.checkDownload(verifications, campaign, download, results, this);
+      var that = this;
+      VerChecker.checkDownload(verifications, campaign, download, function(err, verification){
+        if(err)
+          return that(err);
+        if(!verification)
+          return that();
+        // otherwise go populate
+        results[download.md5][verification.assetNumber -1] = verification;
+        that();
+      });
     })
     .seq(function(){
-      done(results);
+      done(null, results);
     })
     .catch(function(err){
       done(err);

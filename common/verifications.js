@@ -614,18 +614,28 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
                                      md5 : md5}}, doSubmit); 
  }*/
 
-// Assume we have checked to make sure that we don't have any other verifications
-// which have the same _id. Just add it.
+/* 
+*  Assume we have checked to make sure that we don't have any other verifications
+*  which have the same _id. 
+*  At least supply -> { _id : {campaign : $id,
+*                              client: $id, 
+*                              md5 : md5}, 
+*                       verified : true or false,
+*                       score : $float }
+*/
 Verifications.prototype.submit = function(args, callback) {
   var self = this;
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
   
-  if(!args_id.md5 || !args._id.campaign || args._id.client){
-    var s = "Not enought args - at least supply -> {_id : {campaign : $id, client: $id, md5 : md5}, verified : true or false}" ;
-    return callback(new Error(s));
-  }
+  if(!args._id.md5 ||
+     !args._id.campaign ||
+     !args._id.client ||
+     !args.verified ||
+     !args.score)
+    return callback(new Error("Not enought args - " + JSON.stringify(args)));
+  
 
   logger.info('About to add this verification ' + JSON.stringify(args));
   self.verifications_.insert(args, callback);
@@ -659,5 +669,5 @@ Verifications.prototype.get = function(options, callback){
 
   logger.info('about to query verifications with ' + JSON.stringify(query));
 
-  self.verifications_.find(query).toArray(callback);
+  self.verifications_.find({_id : query}).toArray(callback);
 }

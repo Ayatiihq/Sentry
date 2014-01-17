@@ -29,7 +29,7 @@ MusicVerifier.prototype.init = function() {
   var self = this;
   self.audioMatcher_ = new AudioMatcher();
   self.verifications_ = new Verifications();
-  self.results = {};
+  self.results_ = {};
 }
 
 
@@ -50,7 +50,9 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       verificationChecker.checkDownloads(self.verifications_, campaign, downloads, this);
     })
     .seq(function(initialVerdict){
-      Object.merge(self.results, initialVerdict);
+      Object.merge(self.results_, initialVerdict);
+      logger.info("\n\nAfter verification check our results look like : \n " + JSON.stringify(self.results_));
+      done();
       // Three potential outcomes
       // 1. all good return with confidence a verdict
       // 2. Know the verdict but still need to process some more downloads
