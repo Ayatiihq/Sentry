@@ -667,7 +667,7 @@ Verifications.prototype.get = function(options, callback){
   if(Object.size(query) === 0)
     return callback(new Error('no relevant query options'))
 
-  logger.info('about to query verifications with ' + JSON.stringify(query));
+  //logger.info('about to query verifications with ' + JSON.stringify(query));
 
   self.verifications_.find({_id : query}).toArray(callback);
 }

@@ -87,7 +87,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
   
   dlMd5s = downloads.map(function(dl){ return dl.md5});
 
-  logger.info(infringement._id + ': Trying music verification for %s with downloads',
+  logger.info(infringement._id + ': Trying music verification for %s with downloads length : ',
    infringement.uri, downloads.length);
   
   Seq()
@@ -128,17 +128,16 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       result.finished = Date.now();
 
       if(verified){
-        logger.info('Certain that we have a positive from one of the downloads.');
+        logger.info('Certain that we have a positive from a previous verification(s).');
         result.state = states.VERIFIED;
       }
       else if(!verified && remaining.isEmpty()){
-        logger.info('Certain that we have a false positive from all of the downloads.');
+        logger.info('Certain that we have a false positive from all downloads in verifications.');
         result.state = states.FALSE_POSITIVE;
       }
       else if(!verified && !remaining.isEmpty()){
-        logger.info("it looks as if we didn't process all the downloads, verdict stands at false positive")
+        logger.info("it looks as if we didn't process all the downloads, verdict stands at UNVERIFIED")
       }
-    
       done(null, result);
     })
     .catch(function(err){

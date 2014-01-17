@@ -24,7 +24,7 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
     })
     .seq(function(verification){
     	if(verification.isEmpty()){
-    		logger.info('No recorded verification for this download for this campaign ');
+    		logger.info('No recorded verification for ' + download.md5 + ' on ' + campaign.name);
     		return done();
     	}
 
@@ -33,7 +33,7 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
         return done(new Error("Getting multiple verifications for one md5")); //should this error here
   		}
 
-      logger.info('\n\n Just found a singular verification against this md5 ' + JSON.stringify(verification[0]));
+      //logger.info('\n\n Just found a singular verification against this md5 ' + JSON.stringify(verification[0]));
       
       // Success
       done(null, verification[0]);

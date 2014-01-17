@@ -107,7 +107,7 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
         promise.resolve();
       },
       function(err){
-        logger.error(self.infringement._id + ': Unable to fetch file for ' + track.title + ' error : ' + err);
+        logger.error(': Unable to fetch file for ' + track.title + ' error : ' + err);
         promise.reject(err);
       }
     );
@@ -149,9 +149,9 @@ AudioMatcher.prototype.goMeasureDownload = function(download, done){
     exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
       function (error, stdout, stderr){
         if(stderr && !stderr.match(/Header\smissing/g))
-          logger.error(self.infringement._id + ": Fpeval standard error : " + stderr);
+          logger.error(": Fpeval standard error : " + stderr);
         if(error && !stderr.match(/Header\smissing/g))
-          logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
+          logger.warn(": warning running Fpeval: " + error);                    
         
         try{ // Try it anyway (sometimes warnings about headers are seen but FFMPEG should be able to handle it)
           var result = JSON.parse(stdout);
@@ -159,7 +159,7 @@ AudioMatcher.prototype.goMeasureDownload = function(download, done){
           results.push({_id : {md5 : download.md5}, score: result.score, assetNumber : track.number});
         }
         catch(err){
-          logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
+          logger.error(": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
 
         }
         promise.resolve();
