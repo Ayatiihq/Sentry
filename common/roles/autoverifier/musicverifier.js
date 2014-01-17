@@ -62,11 +62,13 @@ MusicVerifier.prototype.processMatching = function(campaign, work, done){
 MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
   var self = this
     , previousVerifications = []
+    , dlMd5s = []
     , result = {started : Date.now(),
                 who : "MusicVerifer AKA Harry Caul",
                 state : states.UNVERIFIED}
   ;
   
+  dlMd5s = downloads.map(function(dl){ return dl.md5});
 
   logger.info(infringement._id + ': Trying music verification for %s with downloads',
    infringement.uri, downloads.length);
@@ -82,20 +84,16 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       if(previous.isEmpty())
         return this(downloads);
 
-      var remaining = downloads.map(function(dl){ return dl.md5}).subtract(previous.map(function(verdict){return verdict._id.md5}));
+      var remaining = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
       previousVerifications = previous;
       
       // Do we have a full history of verifications
-      if(remaining.isEmpty())
+      if(remaining.isEmpty()){
+        logger.info('We think we have no more downloads to process, previous verifications exist for all downloads');
         return this();
-
+      }
+      // Send on the remaining work to the matcher.
       this(remaining);
-      
-      // Three potential outcomes
-      // 1. all good return with confidence a verdict
-      // 2. Know the verdict but still need to process some more downloads
-      // 3. Need to process all downloads.
-      // 2 & 3 require audio_matcher, 1 can return, done.
     })
     .seq(function(workToDo){
       if(!workToDo || workToDo.isEmpty())
@@ -103,22 +101,25 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       self.processMatching(campaign, workToDo, this);
     })
     .seq(function(newResults){
-      var fullSet = newResults.union(previousVerifications);
-      // Double check we have a full set of verifications
-      var remaining = downloads.map(function(dl){ return dl.md5}).subtract(fullset.map(function(verdict){return verdict._id.md5}));
-      var verified = fullset.map(function(verdict){ return verdict.verified }).max();
+      if(newResults)
+        previousVerifications = newResults.union(previousVerifications);
+
+      // Final check to see if we have a full set of verifications
+      var remaining = dlMd5s.subtract(previousVerifications.map(function(verdict){ return verdict._id.md5 }));
+      var verified = previousVerifications.map(function(verdict){ return verdict.verified }).max();
       
       result.finished = Date.now();
 
       if(verified){
-        logger.info('looks like we verified against this');
-        result.state = state.VERIFIED;
+        logger.info('Certain that we have a positive from one of the downloads.');
+        result.state = states.VERIFIED;
       }
       else if(!verified && remaining.isEmpty()){
-        result.state = state.FALSE_POSITIVE;
+        logger.info('Certain that we have a false positive from all of the downloads.');
+        result.state = states.FALSE_POSITIVE;
       }
       else if(!verified && !remaining.isEmpty()){
-        // can't be certain
+        logger.info("it looks as if we didn't process all the downloads, verdict stands at false positive")
       }
     
       done(null, result);
