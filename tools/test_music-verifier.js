@@ -52,13 +52,19 @@ function main() {
 
   var campaign = parseObject(process.argv[2]);
   var infringement = {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                      "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
+                      "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
                       "category":3,
-                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},"mimetypes":["audio/mpeg"],
+                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
+                      "mimetypes":["audio/mpeg"],
                       "parents":{"count":1,"modified":1370545325749,
                       "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
                       "points":{"total":20,"modified":1370545325747,
                       "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
+                      "downloads" : [{"md5": "cc84e1301992a4b7bba4ce4a12bb71d5",
+                                      "mimetype" : "audio/mpeg",
+                                      "fileSize" : "19.4",
+                                      "processedBy" : [],
+                                      "created" : Date.now()}],
                       "popped":1370548822088,
                       "processed":1370546427068,
                       "scheme":"http",
@@ -66,39 +72,7 @@ function main() {
                       "state":2,"type":"music.album",
                       "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
                       "verified":1370548862188}
-  var downloads = [{"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
-                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
-                    "mimetype": "audio/mpeg",
-                    "size":35172936,
-                    "created":1370546427052,
-                    "started":1370546311579,
-                    "finished":1370546329413,
-                    'testName': 'first-validmp3'},
-                    {"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
-                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
-                    "mimetype":'notaudio/audionot',//"audio/mpeg",
-                    "size":35172936,
-                    "created":1370546427052,
-                    "started":1370546311579,
-                    "finished":1370546329413,
-                    'testName': 'second-invalid'},
-                    {"_id":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "campaign":{"client":"Warp Records","campaign":"Tomorrow's Harvest"},
-                    "infringement":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                    "name":"ceffa1ee7f440b3f1690a9ce0370d40fe33e2457",
-                    "origName":"7baeded110e4be805de106a8cb289e7141254e66",
-                    "mimetype":"audio/mpeg",
-                    "size":35172936,
-                    "created":1370546427052,
-                    "started":1370546311579,
-                    "finished":1370546329413,
-                    'testName': 'third-validmp3'}];
+
 
   var MusicVerifier = require('../common/roles/autoverifier/musicverifier');
   var instance = new MusicVerifier();
@@ -115,7 +89,7 @@ function main() {
     });
   });
 
-  instance.verify(campaign, infringement, downloads, function(err){
+  instance.verify(campaign, infringement, infringement.downloads, function(err){
     if(err)
       logger.warn('Verify Err : ' + err);
     else

@@ -407,14 +407,14 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
 }
 
 /**
- * Get verifications for a campaign at the specified points.
+ * Get those infringements that need the verifier role to sort out endpoints
  *
- * @param {object}                campaign         The campaign which we want unverified links for
- * @param {date}                  from             The time from which the verifications should be gotten.
+ * @param {object}                campaign         The campaign which we want infringements from
+ * @param {date}                  from             The time from which the infringements verified state should be gotten from.
  * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
 */
-Verifications.prototype.getVerifications = function(campaign, from, limit, callback)
+Verifications.prototype.getThoseInNeedOfVerification = function(campaign, from, limit, callback)
 {
   var self = this
     , iStates = states.infringements.state
@@ -549,7 +549,7 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
 
 /**
  * Submit a verification of some sorts for a download - end of pipeline.
- *
+ * TODO refactor with options arg.
  * @param  {object}                       infringement    The infringement that has been verified
  * @param  {boolean}                      verified        Is this relevant
  * @param  {string}                       md5             Md5 of the download
@@ -559,6 +559,7 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
  * @param  {function(err)}                callback        A callback to receive an error, if one occurs
  * @return {undefined}
  */
+ /*
 Verifications.prototype.submit = function(infringement, verified, md5, trackId, score, isPurger, callback) {
   var self = this;
 
@@ -599,9 +600,9 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
         created : Date.now(),
         modified : Date.now(),
         verified: verified,
-        score: scored
+        score: scored,
         count : 1,
-        trackId: trackId
+        assetNumber: trackId
       };
 
       self.verifications_.insert(entity, callback);
@@ -611,5 +612,52 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
   self.verifications_.findOne({_id: {campaign : infringement.campaign,
                                      client : infringement.client,
                                      md5 : md5}}, doSubmit); 
- }
+ }*/
 
+// Assume we have checked to make sure that we don't have any other verifications
+// which have the same _id. Just add it.
+Verifications.prototype.submit = function(args, callback) {
+  var self = this;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
+  
+  if(!args_id.md5 || !args._id.campaign || args._id.client){
+    var s = "Not enought args - at least supply -> {_id : {campaign : $id, client: $id, md5 : md5}, verified : true or false}" ;
+    return callback(new Error(s));
+  }
+
+  logger.info('About to add this verification ' + JSON.stringify(args));
+  self.verifications_.insert(args, callback);
+}
+
+/**
+ * Get verification(s) based on optional args
+ *
+ * @param  {object}                       options         The options hash
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs
+ * @return {undefined}
+ */
+Verifications.prototype.get = function(options, callback){
+  var self = this
+    , query = {}
+    ;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.get, Object.values(arguments)]);
+
+  if(options.campaign){
+    Object.merge(query, {campaign : options.campaign._id});
+    Object.merge(query, {client : options.campaign.client});
+  }
+
+  if(options.md5)
+    Object.merge(query, {md5 : options.md5});
+
+  if(Object.size(query) === 0)
+    return callback(new Error('no relevant query options'))
+
+  logger.info('about to query verifications with ' + JSON.stringify(query));
+
+  self.verifications_.find(query).toArray(callback);
+}

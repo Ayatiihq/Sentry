@@ -179,6 +179,7 @@ AutoVerifier.prototype.processVerifications = function(done) {
       return;
     }
 
+    // We actually have something todo here.
     self.processVerification(infringement, infringement.downloads, function(err) {
       if (err)
         return closeAndGotoNext(err, infringement);

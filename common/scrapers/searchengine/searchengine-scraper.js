@@ -74,7 +74,7 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
     // Nothing special yet for movies
 
   } else if (campaign.type == 'music.album') {
-    campaign.metadata.tracks.forEach(function(track) {
+    campaign.metadata.assets.forEach(function(track) {
       self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.title, { anyWord: false }), 'i'));
     });
   } else {
@@ -303,7 +303,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     , searchTerms2 = []
     , soundtrack = self.campaign.metadata.soundtrack
     , compilation = self.campaign.metadata.compilation
-    , tracks = self.campaign.metadata.tracks.map(function(track){return '\"' + getValFromObj('title', track) + '\"'});
+    , assets = self.campaign.metadata.assets.map(function(track){return '\"' + getValFromObj('title', track) + '\"'});
     ;
 
   // First is the basic album searches
@@ -324,8 +324,8 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
   }
 
-  // Now the tracks
-  tracks.forEach(function(track) {
+  // Now the assets
+  assets.forEach(function(track) {
     if (soundtrack) {
       if (track.searchWithAlbum) {
         searchTerms1.push(fmt('+%s %s song download', track, albumTitle));

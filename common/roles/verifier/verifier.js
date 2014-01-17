@@ -169,7 +169,7 @@ Verifier.prototype.processAllVerifications = function(campaign, done, lastId) {
 
   logger.info('Verifying links for %j from timestamp %s', campaign._id, from);
 
-  self.verifications_.getVerifications(campaign, Date.create(from), MAX_LINKS, function(err, endpoints) {
+  self.verifications_.getThoseInNeedOfVerification(campaign, Date.create(from), MAX_LINKS, function(err, endpoints) {
     if (err || endpoints.length == 0 || endpoints.last()._id == lastId)
       return done(err);
 

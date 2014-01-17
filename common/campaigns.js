@@ -2,7 +2,7 @@
  * campaigns.js: the campaigns table
  *
  * Wraps the campaigns table.
- * Example
+ * 
  {
   "_id": "",
   "avatar": "",
@@ -29,16 +29,16 @@
     "releaseDate": "",
     "searchengineMaxPages": 0,
     "soundtrack": false,
-    "tracks": [
+    "assets": [ 
       {
         "altTitles": [""],
         "artist": [
           ""
         ],
-        "duration": 0,
+        "duration": 0, // in seconds
         "mbTrackId": "",
         "md5": "", 
-        "noSearch",
+        "noSearch": false,
         "number": 0,
         "title": "" 
       }
@@ -47,7 +47,7 @@
       .
     ],
     "url": "",
-    "year": 0
+    "year": ""
   },
   "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
