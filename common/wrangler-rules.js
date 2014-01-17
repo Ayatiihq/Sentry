@@ -208,7 +208,7 @@ var searchTypes = module.exports.searchTypes = {
  * Constructs a list of all possible links before searching for matches from the extensionList
  * depending on the matching algorithm chosen (searchTypes).
  */
-var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionList, searchType) {
+var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionList, searchType, mimeMatch) {
 
   var ret = function findExtensions(extensions, searchType, $, source, uri, foundItems) {
     var hostname = URI(uri).pathname('').href()
@@ -308,13 +308,39 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         }
       });
 
-      promise.resolve(foundItems);
+      // actually not finally, we want to go through each of the links now and ping them to check the mimetypes
+      // slow as all hell but will find things that are binary that don't have extensions
+      var pingPromises = [];
+      if (mimeMatch === undefined) { // early exit as the way this was coded is a little awkward, called many times and we only want do this once
+        promise.resolve(foundItems);
+      }
+      else {
+        Object.keys(links, function (link) {
+          var p = new Promise();
+          pingPromises.push(p);
+          util.requestURLStream(function cb(err, req, response, stream) {
+            if (err) { p.reject(); return; }
+
+            mimeType = response.headers['content-type'];
+            if (mimeMatch.test(mimeType)) {
+              var item = new Endpoint(link);
+              item.isEndpoint = true;
+              foundItems.push(item);
+            }
+
+            promise.resolve();
+            req.abort(); // we don't care about the actual stream for now
+          })
+        });
+
+        all(pingPromises).then(function() { promise.resolve(foundItems); });
+      }
     });
 
     return promise;
   }
 
-  return ret.bind(null, extensionList, searchType); 
+  return ret.bind(null, extensionList, searchType, mimeMatch); 
 }
 
 
@@ -370,14 +396,14 @@ var magnetPrefixs = ['magnet:'];
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
 module.exports.rulesDownloadsMusic = [
-    ruleSearchAllLinks(audioExtensions, searchTypes.END)
+    ruleSearchAllLinks(audioExtensions, searchTypes.END, /(audio)\//gi)
   , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
   , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
 
 module.exports.rulesDownloadsMovie = [
-    ruleSearchAllLinks(videoExtensions, searchTypes.END)
+    ruleSearchAllLinks(videoExtensions, searchTypes.END, /(video)\//gi)
   , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
   , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
