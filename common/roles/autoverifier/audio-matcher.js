@@ -50,17 +50,20 @@ AudioMatcher.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
+  
   self.cleanupEverything().then(function(){
-    logger.info('Creating parent folder : ' + self.tmpDirectory);
     fs.mkdir(self.tmpDirectory, function(err){
       if(err){
         logger.error('Error creating parenting folder : ' + err);
-        promise.reject(err);
-        return;
+        return promise.reject(err);
       }
       promise.resolve();
-    });    
+    });
+   },
+   function(err){
+    promise.reject(err);
   });
+
   return promise;
 }
 
@@ -242,37 +245,40 @@ AudioMatcher.prototype.cleanupInfringement = function() {
 }
 
 AudioMatcher.prototype.cleanupEverything = function() {
-  var self = this;
-  logger.info('cleanupEverything');  
-  var promise = new Promise.Promise();
+  var self = this
+    , promise = new Promise.Promise()
+  ;
+  fs.exists(self.tmpDirectory, function(present){
+    if(!present)
+      return promise.resolve();
 
-  if(!self.tmpDirectory)// first pass.
-    return promise.resolve();
-
-  rimraf(self.tmpDirectory, function(err){
-    if(err){
-      logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
-      return promise.reject(err);
-    }
-    promise.resolve();
+    logger.info('cleanupEverything');  
+    rimraf(self.tmpDirectory, function(err){
+      if(err){
+        logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+        return promise.reject(err);
+      }
+      logger.info('deleted campaign folder');
+      promise.resolve();
+    });
   });
+
   return promise;
 }
 
 AudioMatcher.prototype.newCampaignChangeOver = function(campaign, done){
-  var self = this; 
+  var self = this;
   logger.info('New campaign - ' + campaign.name);
-  self.cleanupEverything().then(function(){
-    // Only on a new campaign do we overwrite 
-    // (We want to still know about folderpaths)
-    self.campaign = campaign; 
 
-    self.createParentFolder().then(function(){
-      self.fetchCampaignAudio(done);
-     },
-     function(err){
-      done(err);
-    });
+  // Only on a new campaign do we overwrite 
+  // (We want to still know about folderpaths)
+  self.campaign = campaign; 
+
+  self.createParentFolder().then(function(){
+    self.fetchCampaignAudio(done);
+   },
+   function(err){
+    done(err);
   });
 }
 
@@ -287,7 +293,7 @@ AudioMatcher.prototype.prepCampaign = function(campaign, done){
 
   logger.info("Use the same campaign");
 
-  self.cleanupInfringement().then(function(){
+  self.cleanupInfringement(campaign).then(function(){
     done();
    },
    function(err){

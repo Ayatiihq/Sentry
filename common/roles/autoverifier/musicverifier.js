@@ -31,21 +31,38 @@ MusicVerifier.prototype.init = function() {
   self.verifications_ = new Verifications();
 }
 
+MusicVerifier.prototype.record = function(results, done) {
+  var self = this;
+  Seq(results)
+    .seqEach(function(){
+      self.verifications_.submit(result, this);
+    })
+    .seq(function(){
+      logger.info('finished recording each verification')
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+
 MusicVerifier.prototype.processMatching = function(campaign, work, done){
   var self = this;
   var newResults = [];
   Seq(work)
     .seqEach(function(download){
+      var that = this;
       self.audioMatcher_.process(campaign, download, function(err, result){
         if(err)
-          return this();
+          return that();
         newResults.push(result);
-        this();
+        that();
       });
     })
-    set(newResults)
-    .seqEach(function(result){
-      self.verifications_.submit(result, this);
+    .seq(function(){
+      self.record(newResults, this);
     })
     .seq(function(){
       done(null, newResults);
@@ -82,7 +99,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
       if(previous.isEmpty())
-        return this(downloads);
+        return this(null, downloads);
 
       var remaining = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
       previousVerifications = previous;
@@ -93,7 +110,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
         return this();
       }
       // Send on the remaining work to the matcher.
-      this(remaining);
+      this(null, remaining);
     })
     .seq(function(workToDo){
       if(!workToDo || workToDo.isEmpty())

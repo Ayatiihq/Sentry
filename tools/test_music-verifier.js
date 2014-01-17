@@ -62,7 +62,12 @@ function main() {
                       "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
                       "downloads" : [{"md5": "cc84e1301992a4b7bba4ce4a12bb71d5",
                                       "mimetype" : "audio/mpeg",
-                                      "fileSize" : "19.4",
+                                      "fileSize" : "19.4", //obviously this should be in bytes 
+                                      "processedBy" : [],
+                                      "created" : Date.now()},
+                                      {"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
+                                      "mimetype" : "audio/mpeg",
+                                      "fileSize" : "8.3",
                                       "processedBy" : [],
                                       "created" : Date.now()}],
                       "popped":1370548822088,
