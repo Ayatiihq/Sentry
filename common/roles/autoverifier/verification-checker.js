@@ -29,19 +29,14 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
     	}
 
   		if(verification.length > 1){
-  			logger.warn('We have multiple verications against a single md5, thats a problem - ' + JSON.stringify(verification));
+  			logger.warn('We have multiple verications for this campaign against a single md5, thats a problem - ' + JSON.stringify(verification));
         return done(new Error("Getting multiple verifications for one md5")); //should this error here
   		}
 
-      logger.info('\n\n\nJust found a singular verification against this md5 ' + JSON.stringify(verification[0]));
+      logger.info('\n\n Just found a singular verification against this md5 ' + JSON.stringify(verification[0]));
       
       // Success
-      var result = {score: verification[0].score,
-                    verified: verification[0].verified,
-                    assetNumber: verification[0].assetNumber};
-      
-
-      done(null, result);
+      done(null, verification[0]);
     })
     .catch(function(err){
       done(err);
@@ -50,21 +45,7 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
 }
 
 /**
- * Returns a results map
- * {
-    downloadMd5 : [
-                    {score: 0.0,
-                     verified:t/f,
-                     assetNumber: 0 .. campaign.metadata.assets.length || -1},
-                      .
-                      . 
-                      n = campaign.metadata.assets.length
-                    ],
-                    .
-                    .
-                    N number of downloads
-  }
-
+ * Returns a results array of verification objects
  *
  * @param  {object}   verifications      A handle on a verifications object.
  * @param  {object}   campaign           The campaign in question.
@@ -73,17 +54,7 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
  */
 VerChecker.checkDownloads = function(verifications, campaign, downloads, done){
   	
-	var results = {};
-	
-	// setup the results map
-	downloads.each(function(dl){
-		var arr = [];
-		campaign.metadata.assets.each(function(track){
-			arr.push({score: 0.0, verified: false, assetNumber: -1});
-		});
-		results[dl.md5] = arr; 
-	});
-
+	var results = [];
 
   Seq(downloads)
     .seqEach(function(download){
@@ -94,7 +65,7 @@ VerChecker.checkDownloads = function(verifications, campaign, downloads, done){
         if(!verification)
           return that();
         // otherwise go populate
-        results[download.md5][verification.assetNumber -1] = verification;
+        results.push(verification);
         that();
       });
     })
@@ -106,4 +77,5 @@ VerChecker.checkDownloads = function(verifications, campaign, downloads, done){
     })
     ;
 }
+
 
