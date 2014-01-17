@@ -19,15 +19,16 @@ var acquire = require('acquire')
   , states = acquire('states').infringements.state  
   , util = require('util')
   , utilities = acquire('utilities') 
-  ;
+;
 
 var Infringements = acquire('infringements')
   , Promise = require('node-promise')
+  , All = require('node-promise').all
   , Seq = require('seq')
   , Storage = acquire('storage')
   , URI = require('URIjs')   
   , Verifications = acquire('verifications');
-  ;
+;
 
 var MEDIA = 'https://qarth.s3.amazonaws.com/media/';
 
@@ -41,8 +42,7 @@ var AudioMatcher = module.exports = function() {
 util.inherits(AudioMatcher, events.EventEmitter);
 
 AudioMatcher.prototype.init = function() {
-  this.results = {};
-  this.tmpDirectory = '';
+  this.tmpDirectory = null;
   this.campaign = null;
 }
 
@@ -51,16 +51,16 @@ AudioMatcher.prototype.createParentFolder = function(){
   var promise = new Promise.Promise();
   self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
   self.cleanupEverything().then(function(){
-    logger.info('%s: creating parent folder %s', self.infringement._id, self.tmpDirectory);
+    logger.info('Creating parent folder : ' + self.tmpDirectory);
     fs.mkdir(self.tmpDirectory, function(err){
       if(err){
-        logger.error('%s: Error creating parenting folder called %s', self.infringement._id, self.tmpDirectory);
+        logger.error('Error creating parenting folder : ' + err);
         promise.reject(err);
         return;
       }
       promise.resolve();
     });    
-  });// Call this just in case we have a hangover from some other failed run on the same campaign
+  });
   return promise;
 }
 
@@ -84,65 +84,6 @@ AudioMatcher.prototype.downloadThing = function(downloadURL, target){
   return promise;
 }
 
-AudioMatcher.prototype.cleanupEverything = function() {
-  var self = this;
-  var promise = new Promise.Promise();
-  logger.info('cleanupEverything');  
-
-  rimraf(self.tmpDirectory, function(err){
-    if(err){
-      logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
-    }
-    promise.resolve();
-  });
-  return promise;
-}
-
-/*
- * Attempt to clean the file called infringement from each track folder
- */
-AudioMatcher.prototype.cleanupInfringement = function() {
-  var self = this;
-  var wrapperPromise = new Promise.Promise();
-
-  function deleteInfringement(dir) {
-    var promise = new Promise.Promise();
-    fs.readdir(dir, function(err, files){
-      if(err){
-        promise.reject(err);
-        return;
-      }
-      var matched = false;
-      files.each(function(file){
-        if(file.match(/infringement/g)){
-          matched = true;
-          fs.unlink(path.join(dir, file), function (errr) {
-            if(errr){
-              logger.warn('error deleting ' + errr + path.join(dir, file));
-              promise.reject(errr);
-              return;              
-            }
-            promise.resolve();
-          });
-        }
-      });
-      // Make sure to resolve the mother even if there isn't a match (failed download or whatever)
-      if(!matched)promise.resolve();
-    });
-    return promise;
-  }
-
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ if(track.folderPath) return deleteInfringement.bind(self, track.folderPath)});
-  Promise.seq(promiseArray).then(function(){
-    logger.info('Finished deleting infringement from track folders...')
-    wrapperPromise.resolve();
-  },
-  function(err){
-    wrapperPromise.reject(err);   
-  });   
-  return wrapperPromise;
-}
 
 /* 
  * Go through each track for that campaign, create a folder for it.
@@ -171,7 +112,7 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
   }
 
   var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){ return fetchTrack.bind(self, track)});
+  promiseArray = self.campaign.metadata.assets.map(function(track){ return fetchTrack.bind(self, track)});
   Promise.seq(promiseArray).then(function(){
     done();
   },
@@ -195,8 +136,9 @@ AudioMatcher.prototype.copyDownload = function(download, track){
   return promise;
 }
 
-AudioMatcher.prototype.goMeasureDownload = function(download, done, autoverifierDone){
+AudioMatcher.prototype.goMeasureDownload = function(download, done){
   var self = this;
+  var results = [];
 
   function compare(track){
     var promise = new Promise.Promise();
@@ -208,14 +150,14 @@ AudioMatcher.prototype.goMeasureDownload = function(download, done, autoverifier
         if(error && !stderr.match(/Header\smissing/g))
           logger.warn(self.infringement._id + ": warning running Fpeval: " + error);                    
         
-        try{ // Try it anyway (sometimes errors are seen with headers but FFMPEG should be able to handle it)
+        try{ // Try it anyway (sometimes warnings about headers are seen but FFMPEG should be able to handle it)
           var result = JSON.parse(stdout);
           logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
-          track.fpevalResults = {download: download.md5, score: result.score};
+          results.push({_id : {md5 : download.md5}, score: result.score, assetNumber : track.number});
         }
         catch(err){
           logger.error(self.infringement._id + ": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
-          track.fpevalResults = {download: download.md5, score: -1};// -1 signifying fpeval failed for some reason.
+
         }
         promise.resolve();
       });
@@ -238,97 +180,139 @@ AudioMatcher.prototype.goMeasureDownload = function(download, done, autoverifier
     return promise;
   }
 
-  var promiseArray;
-  promiseArray = self.campaign.metadata.tracks.map(function(track){return doIt.bind(null, track)});
-  // Gather scores against each campaign track, submit fpeval results per md5,
-  // then return verification decision to autoverifier
-  Promise.seq(promiseArray)
-    .then(function(){ return self.examineDownloadScores(download) })
-    .then(function(results){
-
-      if(results[0]){
-        autoverifierDone(new Error('Music Verifier returned a non-sensical result'));
-        return;
-      }
-      if(results[1].state === states.VERIFIED){
-        // report back immediately once we are confident we have one match.
-        logger.info('We have found a match ! - return immediately');
-        autoverifierDone(null, results[1]);
-      }
-      else{ // Move on to the next track, nothing to report back here.
-        logger.info('moving to the next track');
-        done();
-      }
+  var matchOperations;
+  
+  matchOperations = self.campaign.metadata.assets.map(function(track){return doIt.bind(null, track)});
+  
+  All(matchOperations).then(function(){
+    done(null, results);
     },
     function(err){
-      done(err);
-    }
-  );
-}
-
-AudioMatcher.prototype.fetchDownload = function(download, done){
-  var self = this;
-  var uri = self.storage_.getURL(self.infringement.campaign, download.md5);
-  var target = path.join(self.tmpDirectory, download.md5);
-  self.downloadThing(uri, target).then(
-    function(){
-      done();
-    },
-    function(err){
-      logger.info(' Problem fetching the file : ' + err);
       done(err);
   });
 }
 
 
-AudioMatcher.prototype.newCampaignChangeOver = function(haveRunAlready, campaign, done, autoverifierDone){
-  // if we had a different previous campaign, nuke it.
+/*
+ * Attempt to clean the file called infringement from each track folder
+ */
+AudioMatcher.prototype.cleanupInfringement = function() {
+  var self = this;
+  var wrapperPromise = new Promise.Promise();
+
+  function deleteInfringement(dir) {
+    var promise = new Promise.Promise();
+    fs.readdir(dir, function(err, files){
+      if(err)
+        return promise.reject(err);
+
+      var matched = false;
+      files.each(function(file){
+        if(file.match(/infringement/g)){
+          matched = true;
+          fs.unlink(path.join(dir, file), function (err) {
+            if(err){
+              logger.warn('error deleting ' + err + path.join(dir, file));
+              return promise.reject(errr);              
+            }
+            promise.resolve();
+          });
+        }
+      });
+      // Make sure to resolve the mother even if there isn't a match (failed download or whatever)
+      if(!matched)promise.resolve();
+    });
+    return promise;
+  }
+
+  var promiseArray;
+  promiseArray = self.campaign.metadata.assets.map(function(track){ 
+    if(track.folderPath) 
+      return deleteInfringement.bind(null, track.folderPath);
+  });
+
+  Promise.seq(promiseArray).then(function(){
+    logger.info('Finished deleting infringements from track folders.')
+    wrapperPromise.resolve();
+   },
+   function(err){
+    wrapperPromise.reject(err);   
+  });   
+  return wrapperPromise;
+}
+
+AudioMatcher.prototype.cleanupEverything = function() {
+  var self = this;
+  logger.info('cleanupEverything');  
+  var promise = new Promise.Promise();
+
+  if(!self.tmpDirectory)// first pass.
+    return promise.resolve();
+
+  rimraf(self.tmpDirectory, function(err){
+    if(err){
+      logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+      return promise.reject(err);
+    }
+    promise.resolve();
+  });
+  return promise;
+}
+
+AudioMatcher.prototype.newCampaignChangeOver = function(campaign, done){
   var self = this; 
-  var cleansing;
-
-  if(haveRunAlready){
-    cleansing = self.cleanupEverything();
-  }
-  else{
-    cleansing  = new Promise.Promise();
-    cleansing.resolve();
-  }
-
-  cleansing.then(function(){
+  logger.info('New campaign - ' + campaign.name);
+  self.cleanupEverything().then(function(){
     // Only on a new campaign do we overwrite 
-    // (We want to still know about folderpaths etc.)
+    // (We want to still know about folderpaths)
     self.campaign = campaign; 
 
     self.createParentFolder().then(function(){
       self.fetchCampaignAudio(done);
-    },
-    function(err){
-      autoverifierDone(err);//let's get out of here if we have trouble swapping campaigns.
+     },
+     function(err){
+      done(err);
     });
   });
 }
 
-AudioMatcher.prototype.prepCampaign = function(campaign, done, autoverifierDone){
+AudioMatcher.prototype.prepCampaign = function(campaign, done){
   var self = this;
 
   var sameCampaignAsBefore = self.campaign &&
                              self.campaign._id === campaign._id;
-  if(!sameCampaignAsBefore){
-    logger.info()
-    self.newCampaignChangeOver(!!self.campaign, campaign, done);
-  }
-  else{ // Same campaign as before, keep our one in memory but reset the track.fpevalResults
-    logger.trace("we just processed that campaign, use what has already been downloaded.")
-    self.campaign.metadata.tracks.each(function resetScore(track){
-      track.fpevalResults = {};
-    });      
+
+  if(!sameCampaignAsBefore)
+    return self.newCampaignChangeOver(campaign, done);
+
+  logger.info("Use the same campaign");
+
+  self.cleanupInfringement().then(function(){
     done();
-  }
+   },
+   function(err){
+    done(err);
+  });
 }
 
-AudioMatcher.prototype.match = function(campaign, download, done){
+AudioMatcher.prototype.process = function(campaign, download, done){
+  var self = this;
 
+  Seq()
+    .seq(function(){
+      self.prepCampaign(campaign, this)
+    })
+    .seq(function(){
+      logger.info('measure ' + download.md5 +' against ' + campaign.name);
+      self.goMeasureDownload(download, this);
+    })
+    .seq(function(results){
+      logger.info('Results ' + JSON.stringify(results));
+      done(results);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
-
-
 
