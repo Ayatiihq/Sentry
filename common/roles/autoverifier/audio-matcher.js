@@ -23,14 +23,14 @@ var acquire = require('acquire')
 
 var Infringements = acquire('infringements')
   , Promise = require('node-promise')
-  , All = require('node-promise').all
   , Seq = require('seq')
   , Storage = acquire('storage')
   , URI = require('URIjs')   
   , Verifications = acquire('verifications');
 ;
 
-var MEDIA = 'https://s3.amazonaws.com/qarth/media';
+var MEDIA = 'https://s3.amazonaws.com/qarth/media/';
+var DOWNLOADS = 'https://s3.amazonaws.com/qarth/downloads/';
 
 var AudioMatcher = module.exports = function() {
   this.infringements_ = null;
@@ -67,29 +67,6 @@ AudioMatcher.prototype.createParentFolder = function(){
   return promise;
 }
 
-AudioMatcher.prototype.downloadThing = function(downloadURL, target){
-  var self = this;
-  var promise = new Promise.Promise();
-  var out = fs.createWriteStream(target);
-
-  utilities.requestStream(downloadURL, {}, function(err, req, res, stream){
-    if(err){
-      logger.error('unable to downloadThing ' + downloadURL + ' error : ' + err);
-      promise.reject(err);
-      return;
-    }
-    stream.pipe(out);
-    stream.on('error', function(err){
-      promise.reject(err);
-    });
-    stream.on('end', function() {
-      logger.info('successfully downloaded ' + downloadURL);
-      promise.resolve();
-    });
-  });
-  return promise;
-}
-
 
 /* 
  * Go through each track for that campaign, create a folder for it.
@@ -107,7 +84,7 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
         return promise.reject(err);
       
       var out = fs.createWriteStream(path.join(track.folderPath, 'original'));
-      var original = path.join(MEDIA, self.campaign._id, track.md5);
+      var original = MEDIA + path.join(self.campaign._id, track.md5);
       logger.info('fetch this ' + original);      
       utilities.requestStream(original, {}, function(err, req, res, stream) {
         if(err){
@@ -139,80 +116,9 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
   }); 
 }
 
-AudioMatcher.prototype.copyDownload = function(download, track){
-  var promise = new Promise.Promise();
-  fs.copy(path.join(self.tmpDirectory, download.md5),
-          path.join(track.folderPath, 'infringement'),
-          function(err){
-            if(err){
-              logger.error('Error copying file : ' + err);
-              promise.reject(err);
-              return;
-            }
-            promise.resolve();
-          });
-  return promise;
-}
-
-AudioMatcher.prototype.goMeasureDownload = function(download, done){
-  var self = this;
-  var results = [];
-
-  function compare(track){
-    var promise = new Promise.Promise();
-    logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
-    exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
-      function (error, stdout, stderr){
-        if(stderr && !stderr.match(/Header\smissing/g))
-          logger.error(": Fpeval standard error : " + stderr);
-        if(error && !stderr.match(/Header\smissing/g))
-          logger.warn(": warning running Fpeval: " + error);                    
-        
-        try{ // Try it anyway (sometimes warnings about headers are seen but FFMPEG should be able to handle it)
-          var result = JSON.parse(stdout);
-          logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
-          results.push({_id : {md5 : download.md5}, score: result.score, assetNumber : track.number});
-        }
-        catch(err){
-          logger.error(": Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
-
-        }
-        promise.resolve();
-      });
-    return promise;
-  } 
-
-  function doIt(track){
-    var promise = new Promise.Promise();
-    self.copyDownload(download, track).then(function(){
-      compare(track).then(function(){
-        promise.resolve();
-      },
-      function(err){
-        promise.reject(err);
-      });
-    },
-    function(err){
-      promise.reject(err);
-    });
-    return promise;
-  }
-
-  var matchOperations;
-  
-  matchOperations = self.campaign.metadata.assets.map(function(track){return doIt.bind(null, track)});
-  
-  All(matchOperations).then(function(){
-    done(null, results);
-    },
-    function(err){
-      done(err);
-  });
-}
-
-
 /*
  * Attempt to clean the file called infringement from each track folder
+ * TODO refactor
  */
 AudioMatcher.prototype.cleanupInfringement = function() {
   var self = this;
@@ -259,6 +165,57 @@ AudioMatcher.prototype.cleanupInfringement = function() {
   return wrapperPromise;
 }
 
+AudioMatcher.prototype.queryFpEval = function (track, cb){
+  logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
+  exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
+    function (error, stdout, stderr){
+      if(stderr && !stderr.match(/Header\smissing/g))
+        logger.error(": Fpeval standard error : " + stderr);
+      if(error && !stderr.match(/Header\smissing/g))
+        logger.warn(": warning running Fpeval: " + error);                    
+      
+      try{ // Try it anyway (sometimes warnings about headers are seen but FFMPEG should be able to handle it)
+        var result = JSON.parse(stdout);
+        logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
+        // might aswell fill out as much as possible the soon to be created verification object
+        var result = {_id : {md5 : download.md5,
+                             campaignId : self.campaign._id,
+                             clientId : self.campaign.client},
+                      score: result.score,
+                      assetNumber : track.number};
+        cb(null, result);
+      }
+      catch(err){
+        logger.error("Error parsing FPEval output (" + err + "): " + stdout + ':' + stderr);
+        cb(err);
+      }
+    });
+}
+
+AudioMatcher.prototype.match = function(download, done){
+  var self = this
+    , results = []
+  ;
+
+  Seq(self.campaign.metadata.assets)
+    .seqEach(function(track){
+      var that = this;
+      self.queryFpEval(track, function(err, result){
+        if(err)
+          return done(err);
+        results.push(result);
+        that();
+      });
+    })
+    .seq(function(){
+      done(null, results);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
 AudioMatcher.prototype.cleanupEverything = function() {
   var self = this
     , promise = new Promise.Promise()
@@ -279,6 +236,59 @@ AudioMatcher.prototype.cleanupEverything = function() {
   });
 
   return promise;
+}
+
+AudioMatcher.prototype.positionDownload = function(download, done){
+  var self = this
+    , remoteDownload = DOWNLOADS + path.join(self.campaign._id, download.md5)
+    , out = fs.createWriteStream(path.join(self.tmpDirectory, 'infringement'))
+  ;
+
+  function moveToTracks(done){
+    Seq(self.campaign.assets)
+      .seqEach(function(track){
+        fs.copy(path.join(self.tmpDirectory, 'infringement'),
+                path.join(track.folderPath, 'infringement'),
+                this);
+      })
+      .seq(function(){
+        done();
+      })
+      .catch(function(err){
+        done(err);
+      })
+      ;
+  }
+
+  Seq()
+    .seq(function(){
+      var that = this;
+      utilities.requestStream(remoteDownload, {}, function(err, req, res, stream) {
+        if(err){
+          logger.error('unable to fetch ' + remoteDownload + ' error : ' + err);
+          return that(err);
+        }
+        stream.pipe(out);
+        stream.on('error', function(err){
+          that(err);
+        });
+        stream.on('end', function() {
+          logger.info('infringement download fetched');
+          that();
+        });
+      });
+    })
+    .seq(function(){
+      moveToTracks(this);
+    })
+    .seq(function(){
+      logger.info('download in place, ready for comparison');
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 AudioMatcher.prototype.newCampaignChangeOver = function(campaign, done){
@@ -324,14 +334,18 @@ AudioMatcher.prototype.process = function(campaign, download, done){
       self.prepCampaign(campaign, this)
     })
     .seq(function(){
+      self.positionDownload(download, this);
+    })
+    .seq(function(){
       logger.info('measure ' + download.md5 +' against ' + campaign.name);
-      self.goMeasureDownload(download, this);
+      self.match(download, this);
     })
     .seq(function(results){
-      logger.info('Results ' + JSON.stringify(results));
-      done(results);
+      logger.info('FPEval Results ' + JSON.stringify(results));
+      done(null, results);
     })
     .catch(function(err){
+      logger.info('problem audio matching ' + err);
       done(err);
     })
     ;

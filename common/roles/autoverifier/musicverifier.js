@@ -34,7 +34,7 @@ MusicVerifier.prototype.init = function() {
 MusicVerifier.prototype.record = function(results, done) {
   var self = this;
   Seq(results)
-    .seqEach(function(){
+    .seqEach(function(result){
       self.verifications_.submit(result, this);
     })
     .seq(function(){
@@ -56,7 +56,7 @@ MusicVerifier.prototype.processMatching = function(campaign, work, done){
       var that = this;
       self.audioMatcher_.process(campaign, download, function(err, result){
         if(err)
-          return that();
+          return that(err);
         newResults.push(result);
         that();
       });
@@ -115,7 +115,8 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     .seq(function(workToDo){
       if(!workToDo || workToDo.isEmpty())
         return this();
-      self.processMatching(campaign, workToDo, this);
+      var cherryPicked = downloads.filter(function(dld){return workToDo.some(dld.md5)});
+      self.processMatching(campaign, cherryPicked, this);
     })
     .seq(function(newResults){
       if(newResults)
