@@ -30,7 +30,7 @@ var Infringements = acquire('infringements')
   , Verifications = acquire('verifications');
 ;
 
-var MEDIA = 'https://qarth.s3.amazonaws.com/media/';
+var MEDIA = 'https://s3.amazonaws.com/qarth/media';
 
 var AudioMatcher = module.exports = function() {
   this.infringements_ = null;
@@ -79,6 +79,9 @@ AudioMatcher.prototype.downloadThing = function(downloadURL, target){
       return;
     }
     stream.pipe(out);
+    stream.on('error', function(err){
+      promise.reject(err);
+    });
     stream.on('end', function() {
       logger.info('successfully downloaded ' + downloadURL);
       promise.resolve();
@@ -98,25 +101,37 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
   function fetchTrack(track){
     var promise = new Promise.Promise();
     track.folderPath = path.join(self.tmpDirectory, track.md5);
-    track.fpevalResults = {};
-    fs.mkdirSync(track.folderPath);
-    var original = path.join(MEDIA, self.campaign._id, track.md5);
-
-    self.downloadThing(original, path.join(track.folderPath, "original")).then(
-      function(){
-        promise.resolve();
-      },
-      function(err){
-        logger.error(': Unable to fetch file for ' + track.title + ' error : ' + err);
-        promise.reject(err);
-      }
-    );
+    
+    fs.mkdir(track.folderPath, function(err){
+      if(err)
+        return promise.reject(err);
+      
+      var out = fs.createWriteStream(path.join(track.folderPath, 'original'));
+      var original = path.join(MEDIA, self.campaign._id, track.md5);
+      logger.info('fetch this ' + original);      
+      utilities.requestStream(original, {}, function(err, req, res, stream) {
+        if(err){
+          logger.error('unable to fetch ' + original + ' error : ' + err);
+          promise.reject(err);
+          return;
+        }
+        stream.pipe(out);
+        stream.on('error', function(err){
+          promise.reject(err);
+        });
+        stream.on('end', function() {
+          logger.info('successfully downloaded ' + original);
+          promise.resolve();
+        });
+      });
+    });
     return promise;
   }
 
   var promiseArray;
-  promiseArray = self.campaign.metadata.assets.map(function(track){ return fetchTrack.bind(self, track)});
+  promiseArray = self.campaign.metadata.assets.map(function(track){ return fetchTrack.bind(null, track)});
   Promise.seq(promiseArray).then(function(){
+    logger.info('all campaign assets downloaded');
     done();
   },
   function(err){
