@@ -15,35 +15,6 @@ var Seq = require('seq');
 
 var VerChecker = module.exports;
 
-
-VerChecker.checkDownload = function(verifications, campaign, download, done){
-
-  Seq()
-    .seq(function(){
-      verifications.get({"campaign" : campaign, "md5": download.md5}, this);
-    })
-    .seq(function(verification){
-    	if(verification.isEmpty()){
-    		logger.info('No recorded verification for ' + download.md5 + ' on ' + campaign.name);
-    		return done();
-    	}
-
-  		if(verification.length > 1){
-  			logger.warn('We have multiple verications for this campaign against a single md5, thats a problem - ' + JSON.stringify(verification));
-        return done(new Error("Getting multiple verifications for one md5")); //should this error here
-  		}
-
-      //logger.info('\n\n Just found a singular verification against this md5 ' + JSON.stringify(verification[0]));
-      
-      // Success
-      done(null, verification[0]);
-    })
-    .catch(function(err){
-      done(err);
-    })
-    ;
-}
-
 /**
  * Returns a results array of verification objects
  *
@@ -55,27 +26,22 @@ VerChecker.checkDownload = function(verifications, campaign, download, done){
 VerChecker.checkDownloads = function(verifications, campaign, downloads, done){
   	
 	var results = [];
+  var md5s = downloads.map(function(download){return download.md5});
 
-  Seq(downloads)
-    .seqEach(function(download){
-      var that = this;
-      VerChecker.checkDownload(verifications, campaign, download, function(err, verification){
-        if(err)
-          return that(err);
-        if(!verification)
-          return that();
-        // otherwise go populate
-        results.push(verification);
-        that();
-      });
+  Seq()
+    .seq(function(){    
+      verifications.get({"campaign" : campaign, "md5s": md5s}, this);
     })
-    .seq(function(){
-      done(null, results);
+    .seq(function(verifications){
+      logger.info('verifications : ' + JSON.stringify(verifications));
+      if(verifications.isEmpty()){
+        logger.info('No recorded verifications for ' + JSON.stringify(md5s));
+        return done();
+      }
+      done(null, verifications);
     })
     .catch(function(err){
       done(err);
     })
     ;
 }
-
-

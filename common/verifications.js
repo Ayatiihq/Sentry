@@ -656,18 +656,19 @@ Verifications.prototype.get = function(options, callback){
   if (!self.verifications_)
     return self.cachedCalls_.push([self.get, Object.values(arguments)]);
 
-  if(options.campaign){
+  if(options.md5s){
+    md5Query = [];
+    options.md5s.each(function(md5){
+      md5Query.push({"_id.md5" : md5});
+    });
+    logger.info('about to query verifications with ' + JSON.stringify(md5Query));
+    self.verifications_.find({$or : md5Query}).toArray(callback);
+  }
+  else if(options.campaign){
+    // Query with just a campaign and client
     Object.merge(query, {campaign : options.campaign._id});
     Object.merge(query, {client : options.campaign.client});
+    self.verifications_.find({_id : query}).toArray(callback);
   }
 
-  if(options.md5)
-    Object.merge(query, {md5 : options.md5});
-
-  if(Object.size(query) === 0)
-    return callback(new Error('no relevant query options'))
-
-  //logger.info('about to query verifications with ' + JSON.stringify(query));
-
-  self.verifications_.find({_id : query}).toArray(callback);
 }
