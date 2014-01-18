@@ -35,7 +35,8 @@ MusicVerifier.prototype.record = function(results, done) {
   var self = this;
   Seq(results)
     .seqEach(function(result){
-      self.verifications_.submit(result, this);
+      
+      //self.verifications_.submit(result, this);
     })
     .seq(function(){
       logger.info('finished recording each verification')

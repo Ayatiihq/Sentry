@@ -166,6 +166,7 @@ AudioMatcher.prototype.cleanupInfringement = function() {
 }
 
 AudioMatcher.prototype.queryFpEval = function (track, cb){
+  var self = this;
   logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
@@ -178,11 +179,6 @@ AudioMatcher.prototype.queryFpEval = function (track, cb){
         var result = JSON.parse(stdout);
         logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
         // might aswell fill out as much as possible the soon to be created verification object
-        var result = {_id : {md5 : download.md5,
-                             campaignId : self.campaign._id,
-                             clientId : self.campaign.client},
-                      score: result.score,
-                      assetNumber : track.number};
         cb(null, result);
       }
       catch(err){
@@ -200,9 +196,14 @@ AudioMatcher.prototype.match = function(download, done){
   Seq(self.campaign.metadata.assets)
     .seqEach(function(track){
       var that = this;
-      self.queryFpEval(track, function(err, result){
+      self.queryFpEval(track, function(err, score){
         if(err)
           return done(err);
+        var result = {_id : {md5 : download.md5,
+                     campaignId : self.campaign._id,
+                     clientId : self.campaign.client},
+              score: score.score,
+              assetNumber : track.number};
         results.push(result);
         that();
       });
