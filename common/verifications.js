@@ -614,6 +614,23 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
                                      md5 : md5}}, doSubmit); 
  }*/
 
+/*
+* Bump the count on a given set of verifications
+*/
+Verifications.prototype.bumpCounts = function(verifications, callback) {
+  var self = this;
+  var verificationMd5s = verifications.map(function(prev){return prev._id.md5});
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.bumpCount, Object.values(arguments)]);
+  
+  var md5s = [];
+  verificationMd5s.each(function(md5){
+    md5s.push({"_id.md5" : md5});
+  });
+
+  self.verifications_.update({$or : md5s}, {$inc : {count : 1}}, callback);
+}
 /* 
 *  Assume we have checked to make sure that we don't have any other verifications
 *  which have the same _id. 
@@ -671,4 +688,47 @@ Verifications.prototype.get = function(options, callback){
     self.verifications_.find({_id : query}).toArray(callback);
   }
 
+}
+
+/**
+ * Returns a results array of verification objects
+ *
+ * @param  {object}   campaign           The campaign in question.
+ * @param  {object}   downloads          An array of download objects (from the infringement).
+ * @param  {function} done               Exit point.
+ */
+Verifications.prototype.checkDownloads = function(campaign, downloads, done){
+  var self = this
+    , query = {}
+    ;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.checkDownloads, Object.values(arguments)]);    
+
+  var results = [];
+  var md5s = downloads.map(function(download){return download.md5});
+  var previousVerifications = [];
+
+  Seq()
+    .seq(function(){    
+      self.get({"campaign" : campaign, "md5s": md5s}, this);
+    })
+    .seq(function(previousVerifications_){
+      logger.info('verifications : ' + JSON.stringify(previousVerifications));
+      if(previousVerifications.isEmpty()){
+        logger.info('No recorded verifications for ' + JSON.stringify(md5s));
+        return done();
+      }
+      previousVerifications = previousVerifications_
+      // We have verifications against these downloads, therefore weed
+      var positives = previousVerifications.filter(function(verif){ return verif.verified });
+      self.bumpCounts(positives, this);      
+    })
+    .seq(function(){
+      done(null, previousVerifications);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }

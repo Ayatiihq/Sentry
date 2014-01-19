@@ -200,10 +200,10 @@ AudioMatcher.prototype.match = function(download, done){
         if(err)
           return done(err);
         var result = {_id : {md5 : download.md5,
-                     campaignId : self.campaign._id,
-                     clientId : self.campaign.client},
-              score: score.score,
-              assetNumber : track.number};
+                             campaign : self.campaign._id,
+                             client : self.campaign.client},
+                      score: score.score,
+                      assetNumber : track.number};
         results.push(result);
         that();
       });

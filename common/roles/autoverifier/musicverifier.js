@@ -29,13 +29,14 @@ MusicVerifier.prototype.init = function() {
   var self = this;
   self.audioMatcher_ = new AudioMatcher();
   self.verifications_ = new Verifications();
+  self.results = [];
 }
 
-MusicVerifier.prototype.record = function(results, done) {
+MusicVerifier.prototype.analyseAndRecord = function(results, done) {
   var self = this;
   Seq(results)
     .seqEach(function(result){
-      
+      logger.info('analyse and submit ' + JSON.stringify(result));
       //self.verifications_.submit(result, this);
     })
     .seq(function(){
@@ -48,25 +49,20 @@ MusicVerifier.prototype.record = function(results, done) {
     ;
 }
 
-
 MusicVerifier.prototype.processMatching = function(campaign, work, done){
   var self = this;
-  var newResults = [];
+
   Seq(work)
     .seqEach(function(download){
       var that = this;
       self.audioMatcher_.process(campaign, download, function(err, result){
         if(err)
           return that(err);
-        newResults.push(result);
-        that();
+        self.analyseAndRecord(result, that);
       });
     })
     .seq(function(){
-      self.record(newResults, this);
-    })
-    .seq(function(){
-      done(null, newResults);
+      done();
     })
     .catch(function(err){
       done(err);
@@ -74,12 +70,12 @@ MusicVerifier.prototype.processMatching = function(campaign, work, done){
     ;
 }
 
+
 //
 // Public
 //
 MusicVerifier.prototype.verify = function(campaign, infringement, downloads, done){
   var self = this
-    , previousVerifications = []
     , dlMd5s = []
     , result = {started : Date.now(),
                 who : "MusicVerifer AKA Harry Caul",
@@ -94,16 +90,16 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
   Seq()
     .seq(function(){
       // Check if to see if there are records against these downloads 
-      // And populate results accordingly
-      verificationChecker.checkDownloads(self.verifications_, campaign, downloads, this);
+      // Bump positive verifications if they exist.
+      self.verifications_.checkDownloads(campaign, downloads, this);
     })
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
-      if(previous.isEmpty())
+      if(previous || previous.isEmpty())
         return this(null, downloads);
 
       var remaining = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
-      previousVerifications = previous;
+      self.results = previous; // cache the previous verifications
       
       // Do we have a full history of verifications
       if(remaining.isEmpty()){
@@ -119,13 +115,11 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       var cherryPicked = downloads.filter(function(dld){return workToDo.some(dld.md5)});
       self.processMatching(campaign, cherryPicked, this);
     })
-    .seq(function(newResults){
-      if(newResults)
-        previousVerifications = newResults.union(previousVerifications);
+    .seq(function(){
 
       // Final check to see if we have a full set of verifications
-      var remaining = dlMd5s.subtract(previousVerifications.map(function(verdict){ return verdict._id.md5 }));
-      var verified = previousVerifications.map(function(verdict){ return verdict.verified }).max();
+      var remaining = dlMd5s.subtract(self.results.map(function(verdict){ return verdict._id.md5 }));
+      var verified = self.results.map(function(verdict){ return verdict.verified }).max();
       
       result.finished = Date.now();
 
