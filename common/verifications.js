@@ -615,11 +615,12 @@ Verifications.prototype.submit = function(infringement, verified, md5, trackId, 
  }*/
 
 /*
-* Bump the count on a given set of verifications
-*/
-Verifications.prototype.bumpCounts = function(verifications, callback) {
+ * Bump the count on a given set of verifications
+ * 
+ */
+Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
   var self = this;
-  var verificationMd5s = verifications.map(function(prev){return prev._id.md5});
+  var verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.bumpCount, Object.values(arguments)]);
@@ -666,9 +667,7 @@ Verifications.prototype.submit = function(args, callback) {
  * @return {undefined}
  */
 Verifications.prototype.get = function(options, callback){
-  var self = this
-    , query = {}
-    ;
+  var self = this;
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.get, Object.values(arguments)]);
@@ -678,34 +677,34 @@ Verifications.prototype.get = function(options, callback){
     options.md5s.each(function(md5){
       md5Query.push({"_id.md5" : md5});
     });
-    logger.info('about to query verifications with ' + JSON.stringify(md5Query));
+    //logger.info('about to query verifications with ' + JSON.stringify(md5Query));
     self.verifications_.find({$or : md5Query}).toArray(callback);
   }
   else if(options.campaign){
+    var query = {};
     // Query with just a campaign and client
     Object.merge(query, {campaign : options.campaign._id});
     Object.merge(query, {client : options.campaign.client});
     self.verifications_.find({_id : query}).toArray(callback);
   }
-
 }
 
 /**
- * Returns a results array of verification objects
+ * Attempts to grab verifications which are associated with the campaign and downloads
+ * bumps the count on verifications that match and are verified.
  *
  * @param  {object}   campaign           The campaign in question.
  * @param  {object}   downloads          An array of download objects (from the infringement).
  * @param  {function} done               Exit point.
  */
-Verifications.prototype.checkDownloads = function(campaign, downloads, done){
+Verifications.prototype.getRelevantAndBumpPositives = function(campaign, downloads, done){
   var self = this
     , query = {}
     ;
 
   if (!self.verifications_)
-    return self.cachedCalls_.push([self.checkDownloads, Object.values(arguments)]);    
+    return self.cachedCalls_.push([self.getRelevantAndBumpPositives, Object.values(arguments)]);    
 
-  var results = [];
   var md5s = downloads.map(function(download){return download.md5});
   var previousVerifications = [];
 
@@ -714,15 +713,14 @@ Verifications.prototype.checkDownloads = function(campaign, downloads, done){
       self.get({"campaign" : campaign, "md5s": md5s}, this);
     })
     .seq(function(previousVerifications_){
-      logger.info('verifications : ' + JSON.stringify(previousVerifications));
-      if(previousVerifications.isEmpty()){
+      if(previousVerifications_.isEmpty()){
         logger.info('No recorded verifications for ' + JSON.stringify(md5s));
         return done();
       }
-      previousVerifications = previousVerifications_
-      // We have verifications against these downloads, therefore weed
+      previousVerifications = previousVerifications_;
+      // We have verifications against these downloads, therefore weed out false positives and bump
       var positives = previousVerifications.filter(function(verif){ return verif.verified });
-      self.bumpCounts(positives, this);      
+      self.bumpCount(positives, this);      
     })
     .seq(function(){
       done(null, previousVerifications);

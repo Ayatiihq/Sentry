@@ -91,11 +91,11 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     .seq(function(){
       // Check if to see if there are records against these downloads 
       // Bump positive verifications if they exist.
-      self.verifications_.checkDownloads(campaign, downloads, this);
+      self.verifications_.getRelevantAndBumpPositives(campaign, downloads, this);
     })
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
-      if(previous || previous.isEmpty())
+      if(!previous || previous.isEmpty())
         return this(null, downloads);
 
       var remaining = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
@@ -116,7 +116,6 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       self.processMatching(campaign, cherryPicked, this);
     })
     .seq(function(){
-
       // Final check to see if we have a full set of verifications
       var remaining = dlMd5s.subtract(self.results.map(function(verdict){ return verdict._id.md5 }));
       var verified = self.results.map(function(verdict){ return verdict.verified }).max();
