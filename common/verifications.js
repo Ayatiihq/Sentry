@@ -632,31 +632,36 @@ Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
 
   self.verifications_.update({$or : md5s}, {$inc : {count : 1}}, callback);
 }
+
 /* 
 *  Assume we have checked to make sure that we don't have any other verifications
 *  which have the same _id. 
 *  At least supply -> { _id : {campaign : $id,
 *                              client: $id, 
-*                              md5 : md5}, 
+*                              md5 : ""}, 
 *                       verified : true or false,
-*                       score : $float }
+*                       score : }
 */
-Verifications.prototype.submit = function(args, callback) {
+Verifications.prototype.create = function(entity, callback) {
   var self = this;
 
   if (!self.verifications_)
-    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.create, Object.values(arguments)]);
   
-  if(!args._id.md5 ||
-     !args._id.campaign ||
-     !args._id.client ||
-     !args.verified ||
-     !args.score)
-    return callback(new Error("Not enought args - " + JSON.stringify(args)));
-  
+  var essentials = ["_id", "verified", "score"];
+  var idEssentials = ['campaign', 'client', 'md5'];
 
-  logger.info('About to add this verification ' + JSON.stringify(args));
-  self.verifications_.insert(args, callback);
+  if(Object.keys(entity).intersect(essentials).length !== 3 &&
+     Object.keys(entity._id).intersect(idEssentials).length !== 3){
+    return callback(new Error("Not enough args - " + JSON.stringify(entity)));
+  }
+
+  // strip the assetNumber if false, irrelevant
+  if(!entity.verified && Object.keys(entity).some('assetNumber'))
+    delete entity.assetNumber;
+
+  logger.info('About to add this verification ' + JSON.stringify(entity));
+  self.verifications_.insert(entity, callback);
 }
 
 /**
