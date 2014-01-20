@@ -21,24 +21,7 @@ function setupSignals() {
   });
 }
 
-function parseObject(arg) {
-  var ret = arg;
-
-  try {
-    ret = require(arg);
-  } catch (err) {
-    if (arg.endsWith('.json'))
-      console.error(err);
-    try {
-      ret = JSON.parse(arg);
-    } catch (err) { 
-      console.log(err); 
-    }
-  }
-  return ret;
-}
-
-var SIGNALS = ['started', 'finished', 'error', 'campaign-audio-ready'];
+var SIGNALS = ['started', 'finished', 'error'];
 
 function main() {
   logger.init();
@@ -52,71 +35,58 @@ function main() {
     process.exit(1);
   }
 
-  var campaign = parseObject(process.argv[2]);
+  var campaign = require(process.argv[2]);
   var infringements = [{"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                      "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
-                      "category":3,
-                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
-                      "created": 1389484800000,
-                      "mimetypes":["audio/mpeg"],
-                      "parents":{"count":1,"modified":1370545325749,
-                      "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
-                      "points":{"total":20,"modified":1370545325747,
-                      "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
-                      "downloads" : [{"md5": "cc84e1301992a4b7bba4ce4a12bb71d5",
-                                      "mimetype" : "audio/mpeg",
-                                      "fileSize" : "19.4", //obviously this should be in bytes 
-                                      "processedBy" : [],
-                                      "created" : Date.now()},
-                                      {"md5": "fb91ccc5041a1f7f06eda8b7b6647099",
-                                      "mimetype" : "audio/mpeg",
-                                      "fileSize" : "8.3",
-                                      "processedBy" : [],
-                                      "created" : Date.now()}],
-                      "popped":1370548822088,
-                      "processed":1370546427068,
-                      "scheme":"http",
-                      "source":"generic",
-                      "type":"music.album",
-                      "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
-                      "verified":1370548862188,
-                      "state" : 1}, //verified
-                      {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
-                      "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
-                      "category":3,
-                      "created": 1389484800000,
-                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
-                      "mimetypes":["audio/mpeg"],
-                      "parents":{"count":1,"modified":1370545325749,
-                      "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
-                      "points":{"total":20,"modified":1370545325747,
-                      "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
-                      "downloads" :  [{"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
-                                      "mimetype" : "audio/mpeg",
-                                      "fileSize" : "8.3",
-                                      "processedBy" : [],
-                                      "created" : Date.now()}],
-                      "popped":1370548822088,
-                      "processed":1370546427068,
-                      "scheme":"http",
-                      "source":"generic",
-                      "state":2,// false positive
-                      "type":"music.album",
-                      "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
-                      "verified":1370548862188}];
-
-  /*
-                                      {"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
-                                      "mimetype" : "audio/mpeg",
-                                      "fileSize" : "8.3",
-                                      "processedBy" : [],
-                                      "created" : Date.now()},
-                                      {"md5": "fb91ccc5041a1f7f06eda8b7b6647099",
-                                      "mimetype" : "audio/mpeg",
-                                      "fileSize" : "8.3",
-                                      "processedBy" : [],
-                                      "created" : Date.now()}],
-  */
+                        "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
+                        "category":3,
+                        "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
+                        "created": 1389484800000,
+                        "mimetypes":["audio/mpeg"],
+                        "parents":{"count":1,"modified":1370545325749,
+                        "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
+                        "points":{"total":20,"modified":1370545325747,
+                        "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
+                        "downloads" : [{"md5": "cc84e1301992a4b7bba4ce4a12bb71d5",
+                                        "mimetype" : "audio/mpeg",
+                                        "fileSize" : "19.4", //obviously this should be in bytes 
+                                        "processedBy" : [],
+                                        "created" : Date.now()},
+                                        {"md5": "fb91ccc5041a1f7f06eda8b7b6647099",
+                                        "mimetype" : "audio/mpeg",
+                                        "fileSize" : "8.3",
+                                        "processedBy" : [],
+                                        "created" : Date.now()}],
+                        "popped":1370548822088,
+                        "processed":1370546427068,
+                        "scheme":"http",
+                        "source":"generic",
+                        "type":"music.album",
+                        "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
+                        "verified":1370548862188,
+                        "state" : 1}, //verified
+                        {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e30",
+                        "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
+                        "category":3,
+                        "created": 1389484800000,
+                        "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
+                        "mimetypes":["audio/mpeg"],
+                        "parents":{"count":1,"modified":1370545325749,
+                        "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
+                        "points":{"total":20,"modified":1370545325747,
+                        "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
+                        "downloads" :  [{"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
+                                        "mimetype" : "audio/mpeg",
+                                        "fileSize" : "8.3",
+                                        "processedBy" : [],
+                                        "created" : Date.now()}],
+                        "popped":1370548822088,
+                        "processed":1370546427068,
+                        "scheme":"http",
+                        "source":"generic",
+                        "state":2,// false positives
+                        "type":"music.album",
+                        "uri":"http://mrfalseuri.net/nothere.mp3",
+                        "verified":1370548862188}];
 
   var MusicVerifier = require('../common/roles/autoverifier/musicverifier');
   var instance = new MusicVerifier();
