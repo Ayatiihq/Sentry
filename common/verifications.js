@@ -576,7 +576,10 @@ Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
 
   logger.info('bump count on : ' + JSON.stringify(verificationMd5s));
 
-  self.verifications_.update(query, {$inc : {count : 1}}, callback);
+  self.verifications_.update(query,
+                             {$inc : {count : 1}},
+                             {multi : true},
+                             callback);
 }
 
 /* 
@@ -679,7 +682,7 @@ Verifications.prototype.getRelevantAndBumpPositives = function(campaign, downloa
       }
       previousVerifications = previousVerifications_;
       // We have verifications against these downloads, therefore weed out false positives and bump
-      var positives = previousVerifications.filter(function(verif){ return verif.verified });
+      var positives = previousVerifications_.filter(function(verif){ return verif.verified });
       if(positives.isEmpty())
         return this();
       self.bumpCount(positives, this);      

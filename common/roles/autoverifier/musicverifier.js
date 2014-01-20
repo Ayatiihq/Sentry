@@ -122,8 +122,8 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     })
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
-      logger.info('Previous : ' + JSON.stringify(previous));
-      logger.info('downloads : ' + JSON.stringify(downloads));
+      //logger.info('Previous : ' + JSON.stringify(previous));
+      //logger.info('downloads : ' + JSON.stringify(downloads));
       if(!previous || previous.isEmpty())
         return this(null, downloads);
       
