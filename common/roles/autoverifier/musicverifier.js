@@ -12,12 +12,14 @@ var acquire = require('acquire')
   ;
 
 var AudioMatcher = require('./audio-matcher.js')
+  , Infringements = acquire('infringements') 
   , Seq = require('seq')   
   , Verifications = acquire('verifications');
   ;
 
 var MusicVerifier = module.exports = function() {
   this.verifications_ = null;
+  this.infringements_ = null;
   this.audioMatcher_ = null;
   this.init();
 }
@@ -30,6 +32,7 @@ util.inherits(MusicVerifier, events.EventEmitter);
 MusicVerifier.prototype.init = function() {
   var self = this;
   self.audioMatcher_ = new AudioMatcher();
+  self.infringements_ = new Infringements();
   self.verifications_ = new Verifications();
   self.results = [];
 }
@@ -165,6 +168,19 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       else if(!verified && !remaining.isEmpty()){
         logger.info("it looks as if we didn't process all the downloads, verdict stands at UNVERIFIED")
       }
+      // finally keep track of matched assets on verified, needed for precise notices
+      if(verified){
+        var verifiedAssetNumbers = self.results.filter(function(verdict){ 
+          if(verdict.verified)
+            return verdict.assetNumber;  
+        });
+        self.infringements_.setMetaData(infringement, 'matchedAssets', verifiedAssetNumbers, this);
+      }
+      else{
+        this();
+      }
+    })
+    .seq(function(){
       done(null, result);
     })
     .catch(function(err){
