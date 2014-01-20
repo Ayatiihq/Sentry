@@ -738,6 +738,7 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
 */
 Infringements.prototype.getPurgable = function(campaign, callback)
 {
+  var self = this;
   if (!self.infringements_)
     return self.cachedCalls_.push([self.getPurgable, Object.values(arguments)]);
 
@@ -773,7 +774,8 @@ Infringements.prototype.purge = function(infringement, callback)
 
   callback = callback ? callback : defaultCallback;
   
-  var irrelevant = infringement.state === iStates.UNAVAILABLE || infringement.state === FALSE_POSITIVE;
+  var irrelevant = infringement.state === iStates.UNAVAILABLE ||
+                   infringement.state === iStates.FALSE_POSITIVE;
   var overAWeekOld = Date.create(infringement.created).addDays(7).isPast();
 
   var beBrutal = overAWeekOld && irrelevant;
@@ -791,13 +793,16 @@ Infringements.prototype.purge = function(infringement, callback)
                'entries' : 1, 
                'modified' : 1, 
                'points' : 1,
-               'downloads' : 1};
+               'downloads' : 1,
+               'verified' : 1};
   }
   else{
     targets = {'points' : 1,
                'popped' : 1,
                'entries' : 1,
-               'scheme' : 1
+               'scheme' : 1,
+               'processed' : 1,
+               'verified' : 1
               };
   }
 

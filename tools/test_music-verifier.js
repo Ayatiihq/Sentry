@@ -1,5 +1,5 @@
 /*
- * test_musicverifier.js: test an musicverifier
+ * test_musicverifier.js:
  * (C) 2013 Ayatii Limited
  */
 
