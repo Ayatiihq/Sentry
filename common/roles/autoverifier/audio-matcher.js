@@ -84,8 +84,7 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
         return promise.reject(err);
       
       var out = fs.createWriteStream(path.join(track.folderPath, 'original'));
-      var original = MEDIA + path.join(self.campaign._id, track.md5);
-      logger.info('fetch this ' + original);      
+      var original = MEDIA + path.join(self.campaign._id, track.md5);      
       utilities.requestStream(original, {}, function(err, req, res, stream) {
         if(err){
           logger.error('unable to fetch ' + original + ' error : ' + err);
@@ -97,7 +96,7 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
           promise.reject(err);
         });
         stream.on('end', function() {
-          logger.info('successfully downloaded ' + original);
+          //logger.info('successfully downloaded ' + original);
           promise.resolve();
         });
       });
@@ -167,7 +166,6 @@ AudioMatcher.prototype.cleanupInfringement = function() {
 
 AudioMatcher.prototype.queryFpEval = function (track, cb){
   var self = this;
-  logger.info('about to evaluate ' + track.title + ' at ' + track.folderPath);
   exec(path.join(process.cwd(), 'bin', 'fpeval'), [track.folderPath],
     function (error, stdout, stderr){
       if(stderr && !stderr.match(/Header\smissing/g))
@@ -177,7 +175,7 @@ AudioMatcher.prototype.queryFpEval = function (track, cb){
       
       try{ // Try it anyway (sometimes warnings about headers are seen but FFMPEG should be able to handle it)
         var result = JSON.parse(stdout);
-        logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
+        // logger.info('Track : ' + track.title + '-  result : ' + JSON.stringify(result));
         // might aswell fill out as much as possible the soon to be created verification object
         cb(null, result);
       }
@@ -248,8 +246,6 @@ AudioMatcher.prototype.positionDownload = function(download, done){
   function moveToTracks(done){
     Seq(self.campaign.metadata.assets)
       .seqEach(function(track){
-        logger.info('move ' + path.join(self.tmpDirectory, 'infringement'));
-        logger.info(' to ' + path.join(track.folderPath, 'infringement'));
         fs.copy(path.join(self.tmpDirectory, 'infringement'),
                 path.join(track.folderPath, 'infringement'),
                 this);
@@ -276,7 +272,6 @@ AudioMatcher.prototype.positionDownload = function(download, done){
           that(err);
         });
         stream.on('end', function() {
-          logger.info('infringement download fetched');
           that();
         });
       });
@@ -344,7 +339,8 @@ AudioMatcher.prototype.process = function(campaign, download, done){
       self.match(download, this);
     })
     .seq(function(results){
-      logger.info('FPEval Results ' + JSON.stringify(results));
+      logger.info('Campaign : ' + campaign.name + 
+                  '\nMd5 : ' + download.md5 + '\nAudio-Matcher Results : ' + JSON.stringify(results));
       done(null, results);
     })
     .catch(function(err){

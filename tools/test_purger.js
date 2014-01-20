@@ -66,19 +66,6 @@ function main() {
     })
     .seq(function(){
       logger.info('finished purging - check results');
-      if(purgableIds.length === 1)
-        infringements_.find({_id : purgableIds[0]}, this);
-      else if (purgableIds.length > 1){
-        var query = [];
-        purgableIds.each(function(id){
-          query.push({_id : id});
-        })
-        infringements_.find({$or : query}, this);
-      }
-      else{
-        logger.info('no purgable ids ?');
-        this();
-      }
     })
     .seq(function(results){
       logger.info('results after purging : ' + JSON.stringify(results));
