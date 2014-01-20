@@ -932,7 +932,7 @@ Infringements.prototype.touch = function(infringement, callback) {
 Infringements.prototype.setMetadata = function(infringement, key, value, callback) {
   var self = this;
   tempMetadata = infringement.metadata ? infringement.metadata : {};
-  tempMetadata.key = value;
+  tempMetadata[key] = value;
  
   callback = callback ? callback : defaultCallback;
 

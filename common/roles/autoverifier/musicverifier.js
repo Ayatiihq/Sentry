@@ -113,6 +113,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
   ;
   
   dlMd5s = downloads.map(function(dl){ return dl.md5});
+  self.results.length = 0; //zero our results array.
 
   logger.info(infringement._id + ': Trying music verification for %s with downloads length : ',
    infringement.uri, downloads.length);
@@ -125,11 +126,8 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     })
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
-      //logger.info('Previous : ' + JSON.stringify(previous));
-      //logger.info('downloads : ' + JSON.stringify(downloads));
       if(!previous || previous.isEmpty())
         return this(null, downloads);
-      
 
       var remainingMd5s = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
       self.results = previous; // cache the previous verifications
@@ -170,11 +168,12 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       }
       // finally keep track of matched assets on verified, needed for precise notices
       if(verified){
-        var verifiedAssetNumbers = self.results.filter(function(verdict){ 
-          if(verdict.verified)
-            return verdict.assetNumber;  
-        });
-        self.infringements_.setMetaData(infringement, 'matchedAssets', verifiedAssetNumbers, this);
+        var verifiedAssetNumbers = self.results.filter(function(verdict){
+          return verdict.verified}).map(function(positive){
+        return positive.assetNumber});
+
+        logger.info('update metadata with  ' + JSON.stringify(verifiedAssetNumbers));
+        self.infringements_.setMetadata(infringement, 'matchedAssets', verifiedAssetNumbers, this);
       }
       else{
         this();
