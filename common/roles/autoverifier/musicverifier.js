@@ -9,7 +9,6 @@ var acquire = require('acquire')
   , states = acquire('states').infringements.state  
   , util = require('util')
   , utilities = acquire('utilities') 
-  , verificationChecker = require('./verification-checker')
   ;
 
 var AudioMatcher = require('./audio-matcher.js')
@@ -123,25 +122,30 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
     })
     .seq(function(previous){
       // If no previous verifications then move straight on to matching
+      logger.info('Previous : ' + JSON.stringify(previous));
+      logger.info('downloads : ' + JSON.stringify(downloads));
       if(!previous || previous.isEmpty())
         return this(null, downloads);
+      
 
-      var remaining = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
+      var remainingMd5s = dlMd5s.subtract(previous.map(function(verdict){return verdict._id.md5}));
       self.results = previous; // cache the previous verifications
       
       // Do we have a full history of verifications
-      if(remaining.isEmpty()){
+      if(remainingMd5s.isEmpty()){
         logger.info('We think we have no more downloads to process, previous verifications exist for all downloads');
         return this();
       }
+      var remaining = downloads.filter(function(dld){return remainingMd5s.some(dld.md5)});
       // Send on the remaining work to the matcher.
       this(null, remaining);
     })
     .seq(function(workToDo){
-      if(!workToDo || workToDo.isEmpty())
+      if(!workToDo || workToDo.isEmpty()){
         return this();
-      var cherryPicked = downloads.filter(function(dld){return workToDo.some(dld.md5)});
-      self.processMatching(campaign, cherryPicked, this);
+      }
+      //var cherryPicked = downloads.filter(function(dld){return workToDo.some(dld.md5)});
+      self.processMatching(campaign, workToDo, this);
     })
     .seq(function(){
       // Final check to see if we have a full set of verifications
@@ -151,7 +155,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
       result.finished = Date.now();
 
       if(verified){
-        logger.info('Certain that we have a positive from a previous verification(s).');
+        logger.info('Certain that we have a positive from old or new verification(s).');
         result.state = states.VERIFIED;
       }
       else if(!verified && remaining.isEmpty()){

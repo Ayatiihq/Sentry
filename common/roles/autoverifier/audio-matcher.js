@@ -246,8 +246,10 @@ AudioMatcher.prototype.positionDownload = function(download, done){
   ;
 
   function moveToTracks(done){
-    Seq(self.campaign.assets)
+    Seq(self.campaign.metadata.assets)
       .seqEach(function(track){
+        logger.info('move ' + path.join(self.tmpDirectory, 'infringement'));
+        logger.info(' to ' + path.join(track.folderPath, 'infringement'));
         fs.copy(path.join(self.tmpDirectory, 'infringement'),
                 path.join(track.folderPath, 'infringement'),
                 this);

@@ -547,90 +547,37 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
   self.infringements_.update(query, updates, callback);
 }
 
-/**
- * Submit a verification of some sorts for a download - end of pipeline.
- * TODO refactor with options arg.
- * @param  {object}                       infringement    The infringement that has been verified
- * @param  {boolean}                      verified        Is this relevant
- * @param  {string}                       md5             Md5 of the download
- * @param  {int}                          trackId         Index into the campaign's track array (-1 signifying that you don't know)
- * @param  {float}                        score           Score returned from the autoverifier (-1 signifying that you don't know) 
- * @param  {boolean}                      isPurger        Is this the purger (then don't bump the count).
- * @param  {function(err)}                callback        A callback to receive an error, if one occurs
- * @return {undefined}
- */
- /*
-Verifications.prototype.submit = function(infringement, verified, md5, trackId, score, isPurger, callback) {
-  var self = this;
-
-  if (!self.verifications_)
-    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
-
-
-  function doSubmit(err, verification){
-    if(err)
-      return callback(err)
-    
-    if(verification){
-      // Check the same verdict was reached before and now
-      if(verification.verified !== verified)
-        logger.warn('Verification ' + JSON.stringify(verification._id) + ' has conflicting verified value to a previous submit');
-      
-      // Set the verified and score regardless (maybe its a correction)
-      var update = {"$set" : { "verified" : verified,
-                               "modified" : Date.now()
-                              }};
-      if(trackId >= 0)
-        update["$set"].trackId = trackId;
-      if(score >= 0)
-        update["$set"].score = score;
-
-      if(!isPurger){
-        logger.info('We have seen this before on another infringement, bump the count and move on - md5 : ' + md5);
-        update.merge({"$inc" : {"count" : 1}});
-      }      
-      self.verifications_.update({"_id.md5" : md5}, query, callback);
-    }
-    else{
-      // not there already ? => insert a new one.
-      var entity = {
-        _id : {campaign : infringement.campaign,
-               client : infringement.clientId,
-               md5: md5},
-        created : Date.now(),
-        modified : Date.now(),
-        verified: verified,
-        score: scored,
-        count : 1,
-        assetNumber: trackId
-      };
-
-      self.verifications_.insert(entity, callback);
-    }    
-  }
-
-  self.verifications_.findOne({_id: {campaign : infringement.campaign,
-                                     client : infringement.client,
-                                     md5 : md5}}, doSubmit); 
- }*/
 
 /*
  * Bump the count on a given set of verifications
  * 
  */
 Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
-  var self = this;
-  var verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
+  var self = this
+    , query = {}
+    , verificationMd5s = []
+  ;
+
+  verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.bumpCount, Object.values(arguments)]);
   
-  var md5s = [];
-  verificationMd5s.each(function(md5){
-    md5s.push({"_id.md5" : md5});
-  });
 
-  self.verifications_.update({$or : md5s}, {$inc : {count : 1}}, callback);
+    if(verificationMd5s.length === 1){
+      query = {"_id.md5" : verificationMd5s.first()};
+    }
+    else{
+      md5Query = [];
+      verificationMd5s.each(function(md5){
+        md5Query.push({"_id.md5" : md5});
+      });
+      query = {$or : md5Query};
+    }
+
+  logger.info('bump count on : ' + JSON.stringify(verificationMd5s));
+
+  self.verifications_.update(query, {$inc : {count : 1}}, callback);
 }
 
 /* 
@@ -672,21 +619,28 @@ Verifications.prototype.create = function(entity, callback) {
  * @return {undefined}
  */
 Verifications.prototype.get = function(options, callback){
-  var self = this;
+  var self = this
+    , query = {}
+  ;
 
   if (!self.verifications_)
     return self.cachedCalls_.push([self.get, Object.values(arguments)]);
 
   if(options.md5s){
-    md5Query = [];
-    options.md5s.each(function(md5){
-      md5Query.push({"_id.md5" : md5});
-    });
-    //logger.info('about to query verifications with ' + JSON.stringify(md5Query));
-    self.verifications_.find({$or : md5Query}).toArray(callback);
+    if(options.md5s.length === 1){
+      query = {"_id.md5" : options.md5s.first()};
+    }
+    else{
+      md5Query = [];
+      options.md5s.each(function(md5){
+        md5Query.push({"_id.md5" : md5});
+      });
+      query = {$or : md5Query};
+    }
+    //logger.info('about to query verifications with ' + JSON.stringify(query));
+    self.verifications_.find(query).toArray(callback);
   }
   else if(options.campaign){
-    var query = {};
     // Query with just a campaign and client
     Object.merge(query, {campaign : options.campaign._id});
     Object.merge(query, {client : options.campaign.client});
@@ -696,7 +650,7 @@ Verifications.prototype.get = function(options, callback){
 
 /**
  * Attempts to grab verifications which are associated with the campaign and downloads
- * bumps the count on verifications that match and are verified.
+ * bumps the count on verifications that md5 match and are verified.
  *
  * @param  {object}   campaign           The campaign in question.
  * @param  {object}   downloads          An array of download objects (from the infringement).
@@ -725,6 +679,8 @@ Verifications.prototype.getRelevantAndBumpPositives = function(campaign, downloa
       previousVerifications = previousVerifications_;
       // We have verifications against these downloads, therefore weed out false positives and bump
       var positives = previousVerifications.filter(function(verif){ return verif.verified });
+      if(positives.isEmpty())
+        return this();
       self.bumpCount(positives, this);      
     })
     .seq(function(){

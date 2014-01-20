@@ -6,10 +6,12 @@
 var acquire = require('acquire')
   , config = acquire('config')
   , logger = acquire('logger')
-  , sugar = require('sugar')
-  , Promise = require('node-promise')
   , fs = require('fs')
   , path = require('path')
+  , sugar = require('sugar')
+
+var Promise = require('node-promise')
+  , Seq = require('seq')
   , URI = require('URIjs')  
   ;
 
@@ -51,7 +53,7 @@ function main() {
   }
 
   var campaign = parseObject(process.argv[2]);
-  var infringement = {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+  var infringements = [{"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
                       "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
                       "category":3,
                       "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
@@ -64,8 +66,24 @@ function main() {
                                       "mimetype" : "audio/mpeg",
                                       "fileSize" : "19.4", //obviously this should be in bytes 
                                       "processedBy" : [],
-                                      "created" : Date.now()},
-                                      {"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
+                                      "created" : Date.now()}],
+                      "popped":1370548822088,
+                      "processed":1370546427068,
+                      "scheme":"http",
+                      "source":"generic",
+                      "state":2,"type":"music.album",
+                      "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
+                      "verified":1370548862188},
+                      {"_id":"8806fb6bf54366344f08eea1a9f1ecb0c32a6e31",
+                      "campaign": "9cf6eb20f3a151f867548578d21c7de002435dcd",
+                      "category":3,
+                      "children":{"count":0,"uris":[]},"created":1370545325747,"downloads":1,"metadata":{},
+                      "mimetypes":["audio/mpeg"],
+                      "parents":{"count":1,"modified":1370545325749,
+                      "uris":["http://mp3oak.com/song/file/1/board-of-canada-mp3.html"]},
+                      "points":{"total":20,"modified":1370545325747,
+                      "entries":[{"score":20,"source":"scraper.generic","message":"Endpoint","created":1370545325747}]},
+                      "downloads" :  [{"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
                                       "mimetype" : "audio/mpeg",
                                       "fileSize" : "8.3",
                                       "processedBy" : [],
@@ -81,8 +99,21 @@ function main() {
                       "source":"generic",
                       "state":2,"type":"music.album",
                       "uri":"http://mp3oak.com/sc/file/tL0jB/TgfgwPFbNS2o.mp3",
-                      "verified":1370548862188}
+                      "verified":1370548862188}];
 
+
+  /*
+                                      {"md5": "9c1c2abf163d4536c3ff790c43adf4cb",
+                                      "mimetype" : "audio/mpeg",
+                                      "fileSize" : "8.3",
+                                      "processedBy" : [],
+                                      "created" : Date.now()},
+                                      {"md5": "fb91ccc5041a1f7f06eda8b7b6647099",
+                                      "mimetype" : "audio/mpeg",
+                                      "fileSize" : "8.3",
+                                      "processedBy" : [],
+                                      "created" : Date.now()}],
+  */
 
   var MusicVerifier = require('../common/roles/autoverifier/musicverifier');
   var instance = new MusicVerifier();
@@ -99,14 +130,26 @@ function main() {
     });
   });
 
-  instance.verify(campaign, infringement, infringement.downloads, function(err){
-    if(err)
-      logger.warn('Verify Err : ' + err);
-    else{
-      logger.info('Verify finished');
+  Seq(infringements)
+    .seqEach(function(infringement){
+      var that = this;
+      instance.verify(campaign, infringement, infringement.downloads, function(err){
+        if(err){
+          logger.warn('Verify Err : ' + err);
+          return that(err);
+        }
+        that();
+      });
+    })
+    .seq(function(){
+      logger.info('finished verifying');
+      process.exit(0);
+    })
+    .catch(function(err){
+      logger.error(err);
       process.exit(1);
-    }
-  });
+    })
+    ;
 }
 
 main(); 
