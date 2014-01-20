@@ -558,22 +558,21 @@ Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
     , verificationMd5s = []
   ;
 
-  verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
-
   if (!self.verifications_)
     return self.cachedCalls_.push([self.bumpCount, Object.values(arguments)]);
   
-
-    if(verificationMd5s.length === 1){
-      query = {"_id.md5" : verificationMd5s.first()};
-    }
-    else{
-      md5Query = [];
-      verificationMd5s.each(function(md5){
-        md5Query.push({"_id.md5" : md5});
-      });
-      query = {$or : md5Query};
-    }
+  verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
+  
+  if(verificationMd5s.length === 1){
+    query = {"_id.md5" : verificationMd5s.first()};
+  }
+  else{
+    md5Query = [];
+    verificationMd5s.each(function(md5){
+      md5Query.push({"_id.md5" : md5});
+    });
+    query = {$or : md5Query};
+  }
 
   logger.info('bump count on : ' + JSON.stringify(verificationMd5s));
 
@@ -606,6 +605,8 @@ Verifications.prototype.create = function(entity, callback) {
   // strip the assetNumber if false, irrelevant
   if(!entity.verified && Object.keys(entity).some('assetNumber'))
     delete entity.assetNumber;
+
+  entity.count = 1;
 
   logger.info('About to add this verification ' + JSON.stringify(entity));
   self.verifications_.insert(entity, callback);

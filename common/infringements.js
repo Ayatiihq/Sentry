@@ -748,7 +748,9 @@ Infringements.prototype.getPurgable = function(campaign, callback)
   var query = {'campaign' : campaign._id,
                'state' : {$in : [iStates.FALSE_POSITIVE,
                                  iStates.UNAVAILABLE,
-                                 iStates.VERIFIED]},
+                                 iStates.VERIFIED,
+                                 iStates.SENT_NOTICE,
+                                 iStates.TAKEN_DOWN]},
                'metadata.processedBy' : {$nin : ['purger']}
               };
 
@@ -757,16 +759,25 @@ Infringements.prototype.getPurgable = function(campaign, callback)
 
 /**
  * Purge that infringement
- * @param {object}                infringement     The infringement which we want to work on
- * @param {boolean}               beBrutal         Allow for the option to trim verified infringements (slightly) also.
- * @param {function(err,list)}    callback         A callback to receive the infringements, or an error
+ * @param {object}                infringement      The infringement which we want to work on
+ * @param {function(err,list)}    callback          A callback to receive the infringements, or an error
 */
-Infringements.prototype.purge = function(infringement, beBrutal, callback)
+Infringements.prototype.purge = function(infringement, callback)
 {
+  var self = this
+    , iStates = states.infringements.state;
+  ;
+
   if (!self.infringements_)
     return self.cachedCalls_.push([self.purge, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
+  
+  var irrelevant = infringement.state === iStates.UNAVAILABLE || infringement.state === FALSE_POSITIVE;
+  var overAWeekOld = Date.create(infringement.created).addDays(7).isPast();
+
+  var beBrutal = overAWeekOld && irrelevant;
+
   var targets = {};
 
   if(beBrutal){
@@ -779,7 +790,8 @@ Infringements.prototype.purge = function(infringement, beBrutal, callback)
                'popped' : 1, 
                'entries' : 1, 
                'modified' : 1, 
-               'points' : 1};
+               'points' : 1,
+               'downloads' : 1};
   }
   else{
     targets = {'points' : 1,
