@@ -39,7 +39,7 @@
         "mbTrackId": "",
         "md5": "", 
         "noSearch": false,
-        "number": 0,
+        "number": [0-assets.Length],
         "title": "" 
       }
       .
