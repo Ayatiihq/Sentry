@@ -66,9 +66,6 @@ function main() {
     })
     .seq(function(){
       logger.info('finished purging - check results');
-    })
-    .seq(function(results){
-      logger.info('results after purging : ' + JSON.stringify(results));
       process.exit(0);
     })
     .catch(function(err){
