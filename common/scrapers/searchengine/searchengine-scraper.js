@@ -518,11 +518,10 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
       , dateString = $(this).find('span.f').text().parameterize().replace('min', 'minute')
       , date = dateString.length > 8 ? Date.create(dateString) : null
       ;
-    logger.info('check this ' + title + ' \n date : ' + date + ' \n url : ' + url); 
+    
     if (self.checkResultRelevancy(title, url, date))
       links.push(url);
   });
-  logger.info('managed to scrape ' + JSON.stringify(links));
   return links;
 };
 
@@ -746,7 +745,7 @@ BingScraper.prototype.getLinksFromSource = function (source) {
   $('ul.sb_results').children('li.sa_wr').each(function () {
     var url = $(this).find('a').attr('href');
     var title = $(this).find('a').text().replace(/cached/i, '');
-    logger.info('just scraped for bing url : ' + url + ' and title : ' + title);
+    
     if (self.checkResultRelevancy(title, url))
       links.push(url);
   });
