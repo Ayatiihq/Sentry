@@ -51,7 +51,7 @@ Cowmangler.prototype.newTab = function(){
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
     });
-
+    self.setAdBlock(true);
     self.emit('ready');
   }
 

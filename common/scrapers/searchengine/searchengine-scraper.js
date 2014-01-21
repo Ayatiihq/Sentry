@@ -85,8 +85,6 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
 
 GenericSearchEngine.prototype.handleResults = function () {
   var self = this;
-  
-  logger.info('HandleResults !');
 
   // we sleep 2500ms first to let the page render
   Seq()
@@ -101,14 +99,15 @@ GenericSearchEngine.prototype.handleResults = function () {
       var newresults = self.getLinksFromSource(source);
       
       if (newresults.length < 1) {
-        self.emit('finished', "We found results but they were irrelevant due to date and title !");
+        logger.info("We found results but they were irrelevant due to date, url or title");
+        self.emit('finished');
         self.cleanup();
         return this();
       }
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults < 1){ //this is not an error
-        logger.info('Any results we found were filtered out due to blacklists.');
+        logger.info('Any results we found were filtered out due to blacklists');
         self.cleanup();
         return this();        
       }
@@ -500,7 +499,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
     })
     .catch(function(err){
       self.emit('error', err);
-      //self.cleanup();
+      self.cleanup();
     })
     ;
 }
