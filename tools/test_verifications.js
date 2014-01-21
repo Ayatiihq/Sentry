@@ -73,16 +73,15 @@ function main() {
   }
 
   if (action === 'submit') {
-    var infringement = require(argv[3]);
-    var verification = require(argv[4]);
-    verifications.submit(infringement, verification, log);
+    var verification = require(argv[3]);
+    verifications.submit(verification, log);
   }
 
-  if (action === 'getVerifications') {
+  if (action === 'getThoseInNeedOfVerification') {
     var campaign = require(argv[3]);
     var from = Date.create(Number(argv[4]));
     var limit = Number(argv[5]);
-    verifications.getVerifications(campaign, from, limit, log);
+    verifications.getThoseInNeedOfVerification(campaign, from, limit, log);
   }
 
   if (action === 'getAdoptedEndpoints') {

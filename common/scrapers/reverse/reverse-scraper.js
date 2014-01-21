@@ -407,8 +407,8 @@ CyberlockerScraper.prototype.getSearchTermForCampaign = function(campaign, id) {
     ;
 
   if (type == 'music.album') {
-    if (metadata.tracks.length == 1) { //Single
-      var track = metadata.tracks[0];
+    if (metadata.assets.length == 1) { //Single
+      var track = metadata.assets[0];
       if (track.searchWithAlbum) {
         return util.format('"%s" %s %s', track.title, metadata.albumTitle, id)
       } else {

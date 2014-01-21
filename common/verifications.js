@@ -75,14 +75,11 @@ function defaultCallback(err) {
 }
 
 function normalizeCampaign(campaign) {
-  if (Object.isString(campaign)) {
-    // It's the _id of the campaign stringified
-    return JSON.parse(campaign);
-  } else if (campaign._id) {
+  if (campaign._id) {
     // It's an entire campaign row
     return campaign._id;
   } else {
-    // It's just the _id object
+    // It's just the _id.
     return campaign;
   }
 }
@@ -410,62 +407,14 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
 }
 
 /**
- * Submit a verification for an infringement.
+ * Get those infringements that need the verifier role to sort out endpoints
  *
- * @param  {object}                       infringement    The infringement that has been verified.
- * @param  {object}                       verification    The verification result of the infringement.
- * @param  {function(err)}                callback        A callback to receive an error, if one occurs;
- * @return {undefined}
- */
-Verifications.prototype.submit = function(infringement, verification, callback) {
-  var self = this;
-
-  if (!self.infringements_ || !self.verifications_)
-    return self.cachedCalls_.push([self.submit, Object.values(arguments)]);
-
-  if (!infringement || !infringement._id)
-    return callback('Invalid infringement');
-
-  // First add the verification to the verifications table. Do an upsert because we're cool
-  verification.created = Date.now();
-
-  var updates = {
-    $push: { 
-      verifications: verification
-    }
-  };
-
-  var options = { upsert: true };
-
-  self.verifications_.update({ _id: infringement._id }, updates, options, function(err) {
-    if (err)
-      return callback(err);
-
-    // Now update the infringement
-    var query = {
-      _id: infringement._id
-    };
-
-    var updates = {
-      $set: {
-        state: verification.state,
-        verified: Date.now()
-      }
-    };
-
-    self.infringements_.update(query, updates, callback);
-  });
-}
-
-/**
- * Get verifications for a campaign at the specified points.
- *
- * @param {object}                campaign         The campaign which we want unverified links for
- * @param {date}                  from             The time from which the verifications should be gotten.
+ * @param {object}                campaign         The campaign which we want infringements from
+ * @param {date}                  from             The time from which the infringements verified state should be gotten from.
  * @param {number}                limit            Limit the number of results. Anything less than 1 is limited to 1000.
  * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
 */
-Verifications.prototype.getVerifications = function(campaign, from, limit, callback)
+Verifications.prototype.getThoseInNeedOfVerification = function(campaign, from, limit, callback)
 {
   var self = this
     , iStates = states.infringements.state
@@ -596,4 +545,153 @@ Verifications.prototype.verifyParent = function(infringement, state, callback) {
   };
 
   self.infringements_.update(query, updates, callback);
+}
+
+
+/*
+ * Bump the count on a given set of verifications
+ * 
+ */
+Verifications.prototype.bumpCount = function(positiveVerifications, callback) {
+  var self = this
+    , query = {}
+    , verificationMd5s = []
+  ;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.bumpCount, Object.values(arguments)]);
+  
+  verificationMd5s = positiveVerifications.map(function(prev){return prev._id.md5});
+  
+  if(verificationMd5s.length === 1){
+    query = {"_id.md5" : verificationMd5s.first()};
+  }
+  else{
+    md5Query = [];
+    verificationMd5s.each(function(md5){
+      md5Query.push({"_id.md5" : md5});
+    });
+    query = {$or : md5Query};
+  }
+
+  logger.info('bump count on : ' + JSON.stringify(verificationMd5s));
+
+  self.verifications_.update(query,
+                             {$inc : {count : 1}},
+                             {multi : true},
+                             callback);
+}
+
+/* 
+*  Assume we have checked to make sure that we don't have any other verifications
+*  which have the same _id. 
+*  At least supply -> { _id : {campaign : $id,
+*                              client: $id, 
+*                              md5 : ""}, 
+*                       verified : true or false,
+*                       score : }
+*/
+Verifications.prototype.create = function(entity, callback) {
+  var self = this;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.create, Object.values(arguments)]);
+  
+  var essentials = ["_id", "verified", "score"];
+  var idEssentials = ['campaign', 'client', 'md5'];
+
+  if(Object.keys(entity).intersect(essentials).length !== 3 &&
+     Object.keys(entity._id).intersect(idEssentials).length !== 3){
+    return callback(new Error("Not enough args - " + JSON.stringify(entity)));
+  }
+
+  // strip the assetNumber if false, irrelevant
+  if(!entity.verified && Object.keys(entity).some('assetNumber'))
+    delete entity.assetNumber;
+
+  entity.count = 1;
+
+  logger.info('About to add this verification ' + JSON.stringify(entity));
+  self.verifications_.insert(entity, callback);
+}
+
+/**
+ * Get verification(s) based on optional args
+ *
+ * @param  {object}                       options         The options hash
+ * @param  {function(err)}                callback        A callback to receive an error, if one occurs
+ * @return {undefined}
+ */
+Verifications.prototype.get = function(options, callback){
+  var self = this
+    , query = {}
+  ;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.get, Object.values(arguments)]);
+
+  if(options.md5s){
+    if(options.md5s.length === 1){
+      query = {"_id.md5" : options.md5s.first()};
+    }
+    else{
+      md5Query = [];
+      options.md5s.each(function(md5){
+        md5Query.push({"_id.md5" : md5});
+      });
+      query = {$or : md5Query};
+    }
+    //logger.info('about to query verifications with ' + JSON.stringify(query));
+    self.verifications_.find(query).toArray(callback);
+  }
+  else if(options.campaign){
+    // Query with just a campaign and client
+    Object.merge(query, {campaign : options.campaign._id});
+    Object.merge(query, {client : options.campaign.client});
+    self.verifications_.find({_id : query}).toArray(callback);
+  }
+}
+
+/**
+ * Attempts to grab verifications which are associated with the campaign and downloads
+ * bumps the count on verifications that md5 match and are verified.
+ *
+ * @param  {object}   campaign           The campaign in question.
+ * @param  {object}   downloads          An array of download objects (from the infringement).
+ * @param  {function} done               Exit point.
+ */
+Verifications.prototype.getRelevantAndBumpPositives = function(campaign, downloads, done){
+  var self = this
+    , query = {}
+    ;
+
+  if (!self.verifications_)
+    return self.cachedCalls_.push([self.getRelevantAndBumpPositives, Object.values(arguments)]);    
+
+  var md5s = downloads.map(function(download){return download.md5});
+  var previousVerifications = [];
+
+  Seq()
+    .seq(function(){    
+      self.get({"campaign" : campaign, "md5s": md5s}, this);
+    })
+    .seq(function(previousVerifications_){
+      if(previousVerifications_.isEmpty()){
+        logger.info('No recorded verifications for ' + JSON.stringify(md5s));
+        return done();
+      }
+      previousVerifications = previousVerifications_;
+      // We have verifications against these downloads, therefore weed out false positives and bump
+      var positives = previousVerifications_.filter(function(verif){ return verif.verified });
+      if(positives.isEmpty())
+        return this();
+      self.bumpCount(positives, this);      
+    })
+    .seq(function(){
+      done(null, previousVerifications);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }

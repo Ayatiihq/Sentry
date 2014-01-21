@@ -51,7 +51,7 @@ Cowmangler.prototype.newTab = function(){
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
     });
-
+    self.setAdBlock(true);
     self.emit('ready');
   }
 
@@ -351,46 +351,49 @@ Cowmangler.prototype.quit = function(done){
 
 Cowmangler.prototype.injectJs = function(js, done){
   var self = this;
+  var cb = done ? done : defaultCallback;
 
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.injectJs, Object.values(arguments)]);
 
   var payload = {value: js};
   self.ass_.do('addPreLoadInjection', payload).then(function(result){
-    done();
+    cb();
   },
   function(err){
-    done(err);
+    cb(err);
   });  
 }
 
 Cowmangler.prototype.removeJs = function(scriptId, done){
   var self = this;
-  
+  var cb = done ? done : defaultCallback;
+
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.removeJs, Object.values(arguments)]);
  
   var payload = {value: scriptId};
   self.ass_.do('removePreLoadInjection', payload).then(function(result){
-    done();
+    cb();
   },
   function(err){
-    done(err);
+    cb(err);
   });  
 }
 
 Cowmangler.prototype.setAdBlock = function(turnOn, done){
   var self = this;
-
+  var cb = done ? done : defaultCallback;
+  
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.setAdBlock, Object.values(arguments)]);
 
   var payload = {value: turnOn};
   self.ass_.do('setAdBlock', payload).then(function(result){
-    done();
+    cb();
   },
   function(err){
-    done(err);
+    cb(err);
   });  
 }
 
@@ -400,14 +403,17 @@ Cowmangler.prototype.setAdBlock = function(turnOn, done){
  */
 Cowmangler.prototype.wait = function(waitTime, done){
   var self = this;
+  
+  var cb = done ? done : defaultCallback;
+
   if (!self.tabConnected)
     return self.cachedCalls_.push([self.wait, Object.values(arguments)]);
   var payload = {value: waitTime};
   self.ass_.do('wait', payload).then(function(result){
-    done();
+    cb();
   },
   function(err){
-    done(err);
+    cb(err);
   });  
 }
 

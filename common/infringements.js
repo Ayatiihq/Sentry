@@ -347,7 +347,6 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            fileMd5         The MD5 of the download
  * @param {string}            fileMimetype    MD5 of the file
-
 **/
 Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimetype, fileSize, callback)
 {
@@ -549,6 +548,31 @@ Infringements.prototype.getNeedsScrapingCount = function(campaign, callback) {
 }
 
 /**
+ * Get infringements which have this download
+ *
+ * @param  {object}                download      The query
+ * @param  {function(err,count)}   callback      A callback to receive the count, or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.getForDownload = function(download, callback) {
+  var self = this;
+  
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getForDownload, Object.values(arguments)]);
+  var iStates = states.infringements.state;
+  
+  var query = {
+    'downloads.md5' : download.md5,
+    'state' : {$nin : [iStates.FALSE_POSITIVE,
+                       iStates.UNAVAILABLE,
+                       iStates.VERIFIED,
+                       iStates.SENT_NOTICE,
+                       iStates.TAKEN_DOWN]},    
+  };
+
+  self.infringements_.find(query).toArray(callback); 
+}
+/**
  * Get infringements for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for
@@ -732,6 +756,78 @@ Infringements.prototype.getCountForClient = function(client, options, callback)
 }
 
 /**
+ * Get infringements for the purger.
+ *
+ * @param {object}                campaign         The campaign which we want unverified links for
+ * @param {function(err,list)}    callback         A callback to receive the infringements, or an error;
+*/
+Infringements.prototype.getPurgable = function(campaign, callback)
+{
+  var self = this;
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getPurgable, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  var iStates = states.infringements.state;
+  
+  var query = {'campaign' : campaign._id,
+               'state' : {$in : [iStates.FALSE_POSITIVE,
+                                 iStates.UNAVAILABLE,
+                                 iStates.VERIFIED,
+                                 iStates.SENT_NOTICE,
+                                 iStates.TAKEN_DOWN]},
+               'metadata.processedBy' : {$nin : ['purger']},
+               'verified': {$lt: Date.create('7 days ago').getTime()} 
+              };
+
+  self.infringements_.find(query).toArray(callback);
+}
+
+/**
+ * Purge that infringement
+ * @param {object}                infringement      The infringement which we want to work on
+ * @param {function(err,list)}    callback          A callback to receive the infringements, or an error
+*/
+Infringements.prototype.purge = function(infringement, callback)
+{
+  var self = this
+    , iStates = states.infringements.state;
+  ;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.purge, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  
+  var irrelevant = infringement.state === iStates.UNAVAILABLE ||
+                   infringement.state === iStates.FALSE_POSITIVE;
+
+  if(irrelevant){
+    targets = {'type' : 1,
+               'source' : 1, 
+               'scheme' : 1, 
+               'processed' : 1, 
+               'popped' : 1, 
+               'entries' : 1, 
+               'modified' : 1, 
+               'points' : 1,
+               'downloads' : 1};
+  }
+  else{
+    targets = {'points' : 1,
+               'entries' : 1,
+               'scheme' : 1};
+  }
+
+  var query = {
+    $unset : targets
+  };
+
+  self.infringements_.update({_id: infringement._id}, query, callback);
+}
+
+
+/**
  * Mark this infringement's download processedBy with the processor
  *
  * @param {object}           infringement     The infringement which we want to work on
@@ -849,7 +945,7 @@ Infringements.prototype.touch = function(infringement, callback) {
 Infringements.prototype.setMetadata = function(infringement, key, value, callback) {
   var self = this;
   tempMetadata = infringement.metadata ? infringement.metadata : {};
-  tempMetadata.key = value;
+  tempMetadata[key] = value;
  
   callback = callback ? callback : defaultCallback;
 
@@ -918,3 +1014,5 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
   self.infringements_.findAndModify(query, sort, updates, options, callback);
 
 }
+
+

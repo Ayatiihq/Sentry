@@ -126,6 +126,7 @@ DownloadManager.prototype.preRun = function(job, done) {
 
   self.browser = new Cowmangler();
   self.browser.newTab();
+  self.browser.setAdBlock(true);
 
   self.browser.on('error', function(err){done(err)});
 
@@ -394,11 +395,9 @@ DownloadManager.prototype.goManual = function(infringement, plugin, done) {
 DownloadManager.prototype.verifyUnavailable = function(infringement, done) {
   var self = this;
 
-
-  var verification = { state: State.UNAVAILABLE, who: 'downloader', started: self.started_, finished: Date.now() };
-  self.verifications_.submit(infringement, verification, function(err) {
+  self.infringements_.setStateBy(infringement, State.UNAVAILABLE, 'downloader', function(err){
     if (err)
-      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+      logger.warn('Error setting %s to UNAVAILABLE: %s', infringement.uri, err);
     done();
   });
 }

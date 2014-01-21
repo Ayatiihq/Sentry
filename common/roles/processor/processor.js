@@ -527,10 +527,9 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
   });
 
   if (blacklisted) {
-    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
-    self.verifications_.submit(infringement, verification, function(err) {
+    self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'processor', function(err){
       if (err)
-        logger.warn('Error verifiying %s to FALSE POSITIVE: %s', infringement.uri, err);
+        logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
       done();
     });
   } else {
@@ -549,10 +548,9 @@ Processor.prototype.checkIfDomain = function(infringement, mimetype, done) {
   isDomain = !utilities.uriHasPath(infringement.uri);
 
   if (isDomain) {
-    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
-    self.verifications_.submit(infringement, verification, function(err) {
+    self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'processor', function(err){
       if (err)
-        logger.warn('Error verifiying domain %s to FALSE POSITIVE: %s', infringement.uri, err);
+        logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
       done();
     });
   } else {
@@ -566,12 +564,12 @@ Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
   if (infringement.verified || infringement.state != State.UNAVAILABLE)
     return done();
 
-  var verification = { state: State.UNAVAILABLE, who: 'processor', started: Date.now(), finished: Date.now() };
-  self.verifications_.submit(infringement, verification, function(err) {
+  self.infringements_.setStateBy(infringement, State.UNAVAILABLE, 'processor', function(err){
     if (err)
-      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+      logger.warn('Error setting %s to UNAVAILABLE: %s', infringement.uri, err);
     done();
   });
+
 }
 
 Processor.prototype.checkIfExtensionLedToWebpage = function(infringement, mimetype, done) {
