@@ -744,7 +744,6 @@ Infringements.prototype.getPurgable = function(campaign, callback)
 
   callback = callback ? callback : defaultCallback;
   var iStates = states.infringements.state;
-
   
   var query = {'campaign' : campaign._id,
                'state' : {$in : [iStates.FALSE_POSITIVE,
@@ -752,7 +751,8 @@ Infringements.prototype.getPurgable = function(campaign, callback)
                                  iStates.VERIFIED,
                                  iStates.SENT_NOTICE,
                                  iStates.TAKEN_DOWN]},
-               'metadata.processedBy' : {$nin : ['purger']}
+               'metadata.processedBy' : {$nin : ['purger']},
+               'verified': {$lt: Date.create('7 days ago').getTime()} 
               };
 
   self.infringements_.find(query).toArray(callback);
@@ -776,16 +776,9 @@ Infringements.prototype.purge = function(infringement, callback)
   
   var irrelevant = infringement.state === iStates.UNAVAILABLE ||
                    infringement.state === iStates.FALSE_POSITIVE;
-  var overAWeekOld = Date.create(infringement.created).addDays(7).isPast();
 
-  var beBrutal = overAWeekOld && irrelevant;
-
-  var targets = {};
-
-  if(beBrutal){
-    targets = {'children' : 1,
-               'parents' : 1,
-               'type' : 1,
+  if(irrelevant){
+    targets = {'type' : 1,
                'source' : 1, 
                'scheme' : 1, 
                'processed' : 1, 
@@ -793,17 +786,12 @@ Infringements.prototype.purge = function(infringement, callback)
                'entries' : 1, 
                'modified' : 1, 
                'points' : 1,
-               'downloads' : 1,
-               'verified' : 1};
+               'downloads' : 1};
   }
   else{
     targets = {'points' : 1,
-               'popped' : 1,
                'entries' : 1,
-               'scheme' : 1,
-               'processed' : 1,
-               'verified' : 1
-              };
+               'scheme' : 1};
   }
 
   var query = {
