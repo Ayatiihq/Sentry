@@ -101,14 +101,14 @@ GenericSearchEngine.prototype.handleResults = function () {
       var newresults = self.getLinksFromSource(source);
       
       if (newresults.length < 1) {
-        self.emit('error', "We found results but were unable to extract them !");
+        self.emit('finished', "We found results but they were irrelevant due to date and title !");
         self.cleanup();
         return this();
       }
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults < 1){ //this is not an error
-        logger.info('Any results we found were deemed to be irrelevant.');
+        logger.info('Any results we found were filtered out due to blacklists.');
         self.cleanup();
         return this();        
       }
@@ -322,24 +322,29 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s lossless', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s flac', artist, albumTitle));
   }
 
   // Now the assets
-  assets.forEach(function(track) {
-    if (soundtrack) {
-      if (track.searchWithAlbum) {
-        searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
-        searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
+  self.campaign.metadata.assets.forEach(function(asset) {
+    if(!asset.noSearch){
+      var track = '\"' + getValFromObj('title', asset) + '\"';
+      if (soundtrack) {
+        if (track.searchWithAlbum) { // did this ever work ?
+          searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
+          searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
+        } else {
+          searchTerms1.push(fmt('+%s song download', track));
+          searchTerms2.push(fmt('+%s mp3', track));
+        }
+      } else if (compilation) {
+        // do nothing
       } else {
-        searchTerms1.push(fmt('+%s song download', track));
-        searchTerms2.push(fmt('+%s mp3', track));
+        searchTerms1.push(fmt('+%s %s %s download', artist, albumTitle, track));
+        searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
+        searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
       }
-    } else if (compilation) {
-      // do nothing
-    } else {
-      searchTerms1.push(fmt('+%s %s %s download', artist, albumTitle, track));
-      searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
-      searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
     }
   });
 
@@ -495,7 +500,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
     })
     .catch(function(err){
       self.emit('error', err);
-      self.cleanup();
+      //self.cleanup();
     })
     ;
 }
@@ -514,7 +519,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
       , dateString = $(this).find('span.f').text().parameterize().replace('min', 'minute')
       , date = dateString.length > 8 ? Date.create(dateString) : null
       ;
-
+    logger.info('check this ' + title + ' \n date : ' + date + ' \n url : ' + url); 
     if (self.checkResultRelevancy(title, url, date))
       links.push(url);
   });
