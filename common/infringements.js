@@ -548,6 +548,31 @@ Infringements.prototype.getNeedsScrapingCount = function(campaign, callback) {
 }
 
 /**
+ * Get infringements which have this download
+ *
+ * @param  {object}                download      The query
+ * @param  {function(err,count)}   callback      A callback to receive the count, or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.getForDownload = function(download, callback) {
+  var self = this;
+  
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getForDownload, Object.values(arguments)]);
+  var iStates = states.infringements.state;
+  
+  var query = {
+    'downloads.md5' : download.md5,
+    'state' : {$nin : [iStates.FALSE_POSITIVE,
+                       iStates.UNAVAILABLE,
+                       iStates.VERIFIED,
+                       iStates.SENT_NOTICE,
+                       iStates.TAKEN_DOWN]},    
+  };
+
+  self.infringements_.find(query).toArray(callback); 
+}
+/**
  * Get infringements for a campaign at the specified points.
  *
  * @param {object}                campaign         The campaign which we want unverified links for

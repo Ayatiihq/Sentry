@@ -195,18 +195,20 @@ Purger.prototype.deleteDownloads = function(infringement, verifications, done){
   Seq(infringement.downloads)
     .seqEach(function(download){
       var that = this;
+      
+      if(!Object.keys(previous).some(download.md5)){
+        return self.deleteUnverifiedDownload(infringement, download, that); 
+      }
+
       if(previous[download.md5].verified){
         // don't delete verified download md5s (dashboard needs 'em')
         logger.info('This is a verified download, leave it where it is.');
-        return that();
-      }      
-      // Otherwise nuke it. 
-      self.storage_.deleteFile(infringement.campaign, download.md5, function(err){
-        if(err) 
-          that(err);
-        logger.info('just deleted ' + download.md5);
-        self.infringements_.downloadProcessedBy(infringement, download.md5, self.getName(), that);
-      });   
+        that();
+      }
+      else if(previous[download.md5].verified === false){
+        // Otherwise if its set to false, nuke it. 
+        self.deleteDownload(infringement, download, that);
+      }
     })
     .seq(function(){
       done();
@@ -217,6 +219,41 @@ Purger.prototype.deleteDownloads = function(infringement, verifications, done){
     ;
 } 
 
+Purger.prototype.deleteDownload = function(infringement, download, done){
+  var self = this;
+  self.storage_.deleteFile(infringement.campaign, download.md5, function(err){
+    if(err) 
+      done(err);
+    logger.info('just purged download ' + download.md5);
+    self.infringements_.downloadProcessedBy(infringement, download.md5, self.getName(), done);
+  });
+}
+/*
+ * This will only delete a download which has no verification associated with it
+ * only if no other infringements have this download. 
+ */
+Purger.prototype.deleteUnverifiedDownload = function(infringement, download, done)
+{
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.infringements_.getForDownload(download, this);
+    })
+    .seq(function(infrgs_){
+      if((infrgs_.length === 1 && infrgs_.first()._id === infringement._id) ||
+        infrgs_.isEmpty()){
+        self.deleteDownload(infringement, download, this);
+      }
+      else{
+        logger.info("Looks like other infringements (of relevance) might be pointing at this download, dont delete");
+        logger.info('And they are ' + JSON.stringify(infrgs_));
+      }
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
 
 //
 // Overrides
