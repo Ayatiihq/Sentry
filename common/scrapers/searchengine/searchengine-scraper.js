@@ -106,13 +106,14 @@ GenericSearchEngine.prototype.handleResults = function () {
       }
 
       var filteredResults = self.filterSearchResults(newresults);
-      if(filteredResults < 1){ //this is not an error
+      if(filteredResults.isEmpty()){ 
         logger.info('Any results we found were filtered out due to blacklists');
+        self.emit('finished');
         self.cleanup();
         return this();        
       }
 
-      self.emitLinks(newresults);
+      self.emitLinks(filteredResults);
 
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
