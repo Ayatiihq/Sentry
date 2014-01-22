@@ -23,7 +23,7 @@ var Role = module.exports = function() {
   //
 
   // "started" - When the role starts working
-  
+  // "decided" - When the role has decided how many jobs it would like, emits quantity.
   // "ended" - When the role ends working
   
   // "finished" - When the role has no more tasks to complete
@@ -41,8 +41,15 @@ Role.prototype.getName = function() {
   return "role";
 }
 
+
 Role.prototype.getDisplayName = function() {
   return "Role";
+}
+
+Role.prototype.jobsDecision = function(work) {
+  var self = this;
+  logger.error(self.getName() + " has no jobsDecision");
+  process.exit();
 }
 
 Role.prototype.start = function() {

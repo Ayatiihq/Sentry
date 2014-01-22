@@ -51,6 +51,7 @@
   },
   "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
+  "priority": 0,
   "scrapersEnabled": []
   "scrapersIgnored": [],
   "sweep": true,

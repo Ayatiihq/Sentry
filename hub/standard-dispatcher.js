@@ -19,6 +19,7 @@ var Campaigns = acquire('campaigns')
   , Clients = acquire('clients')
   , Jobs = acquire('jobs')
   , Roles = acquire('roles')
+  , Seq = require('seq')
   ;
 
 var StandardDispatcher = module.exports = function() {
@@ -38,22 +39,66 @@ StandardDispatcher.prototype.init = function() {
   self.clients_ = new Clients();
   self.roles_ = new Roles();
 
-  setInterval(self.iterateCampaigns.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
+  setInterval(self.iterateClients.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
   
-  self.roles_.on('ready', self.iterateCampaigns.bind(self));
+  self.roles_.on('ready', self.iterateClients.bind(self));
 }
 
-StandardDispatcher.prototype.iterateCampaigns = function() {
-  var self = this;
 
-  self.campaigns_.listActiveCampaigns(function(err, campaigns) {
+StandardDispatcher.prototype.iterateClients = function() {
+  var self = this
+    , prioritised = []
+  ;
+
+  self.clients_.listPriorityClients(function(err, clients) {
     if (err)
-      logger.warn(err);
-    else
-      campaigns.forEach(self.preCheckRoles.bind(self));
+     return logger.warn(err);
+    
+    Seq(clients)
+      .seqEach(function(client){
+        var that = this;
+        self.prioritiseCampaigns(client, function(err, result){
+          if(err)
+            return that(err);
+          prioritised.push(result);
+          that();
+        });
+      })
+      .seq(function(){
+        logger.info('Work lined up for the roles : ' + JSON.stringify(prioritised));
+      })
+      .catch(function(err){
+        logger.warn(err);
+      })
+      ;
   });
 }
 
+StandardDispatcher.prototype.prioritiseCampaigns = function(client, done) {
+  var self = this
+  ;
+
+  self.campaigns_.listCampaignsForClient(client._id, function(err, campaigns) {
+    if (err)
+      return done(err);
+    
+    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep});
+    
+    if(activeCampaigns.isEmpty())
+      return done();
+
+    var work = {'client' : client,
+                'campaigns' : activeCampaigns.sort(function(a,b){return a.priority > b.priority})};
+
+    done(null, work);     
+  });
+}  
+
+      /*  campaigns.forEach(self.preCheckRoles.bind(self));
+    });
+  }
+}
+*/
 StandardDispatcher.prototype.preCheckRoles = function(campaign) {
   var self = this;
   
