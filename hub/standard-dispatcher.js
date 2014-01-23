@@ -76,7 +76,7 @@ StandardDispatcher.prototype.findWork = function() {
         self.makeWork(workItem, this);
       })
       .seq(function(){
-        logger.info('makeWork done.');
+        logger.info('finished finding and making jobs.');
         this();
       })
       .catch(function(err){
@@ -105,7 +105,7 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
   });
 }  
 
-StandardDispatcher.prototype.makeWork = function(workItem){
+StandardDispatcher.prototype.makeWork = function(workItem, done){
   var self = this;
   logger.info('Make work for client : ' + workItem.client._id +
               ' with ' + workItem.campaigns.length + ' campaigns');
@@ -114,11 +114,12 @@ StandardDispatcher.prototype.makeWork = function(workItem){
       self.makeJobs(campaign, workItem.client, this);
     })
     .seq(function(){
-      logger.info('making work');
-
+      logger.info('finished job creation');
+      done();
     })
     .catch(function(err){
       logger.warn(err);
+      done(err);
     })
     ;
 }
@@ -136,6 +137,9 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
     }
     return !role.dispatcher && supported;
   });
+  
+  logger.info('rolesOfInterest ' +
+              JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
 
   Seq(rolesOfInterest)
     .seqEach(function(role){
@@ -154,7 +158,6 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
 StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, done) {
   var self = this
     , jobs = new Jobs(role.name)
-    , ordersFromRole = []
     , roleInstance = null
   ;
   
@@ -171,25 +174,36 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
       if(!roleInstance)
         done(new Error('Failed to instantiate role instance'));
       
-      var result = roleInstance.orderJobs(campaign, client, this);
+      var result = roleInstance.orderJobs(campaign, client);
       logger.info('%s ordered : ', role.name,  JSON.stringify(result));
-      this(result);
+      this(null, result);
     })
-    .seq(function(ordersFromRole_){
-      logger.info('%s wants %i jobs for %s', role.name, ordersFromRole_.length, campaign.name);
-      ordersFromRole = ordersFromRole_;
-      this();
-    })
-    .set(ordersFromRole)
-    .seqEach(function(roleOrder){
-      jobs.push(roleOrder.campaign._id, roleOrder.consumer, roleOrder.metadata, this);
+    .seq(function(orders){
+      logger.info('Orders ', JSON.stringify(orders));
+      self.createJobsFromOrders(orders, jobs, this);
     })
     .seq(function(){
-      logger.info('makeWorkForRole ' + role.name + ' finished.');
+      logger.info('makeWorkForRole "' + role.name + '" finished.');
       done();
     })
     .catch(function(err){
       logger.warn('Problems determining whether Role %s wants work ', role.name, campaign.name);
+    })
+    ;
+}
+
+StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done){
+  var self = this;
+  Seq(orders)
+    .seqEach(function(order){
+      logger.info('push this job ' + JSON.stringify(order));
+      jobs.push(order.campaign._id, order.consumer, order.metadata, this);
+    })
+    .seq(function(){
+      done();
+    })
+    .catch(function(err){
+      done(err);
     })
     ;
 }
