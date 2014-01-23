@@ -116,88 +116,11 @@ StandardDispatcher.prototype.checkRoles = function(campaign, client) {
     if (role.dispatcher)
       return;
 
-    if (role.types) {
-      var supported = false;
-      Object.keys(role.types, function(type) {
-        if (campaign.type.startsWith(type))
-          supported = true;
-      });
+    var jobsQuantity = role.jobsDecision(campaign, client);
 
-      if (!supported) {
-        logger.info('%s does not support %s (%s)', role.name, campaign.name, campaign.type);
-        return;
-      }
-    }
-    
-    // Special case for the notice sender.
-    if(role.name === 'noticesender' && (!client.authorization || !client.copyrightContact)){
-      logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
-      return;
-    }
-
-    if (role.engines && role.engines.length) {
-      role.engines.forEach(function(engine) {
-        self.checkRole(campaign, role, getRoleConsumerId(role.name, engine));
-      });
-    } else {
-      self.checkRole(campaign, role, role.name);
-    }
   });
 }
 
-StandardDispatcher.prototype.checkRole = function(campaign, role, consumer) {
-  var self = this
-    , jobs = new Jobs(role.name)
-    ;  
-  self.checkCampaign(campaign, jobs, role, consumer);
-}
-
-StandardDispatcher.prototype.checkCampaign = function(campaign, jobs, role, consumer) {
-  var self = this
-    ;
-
-  jobs.listActiveJobs(campaign._id, function(err, array, existingJobs) {
-    if (err) {
-      return logger.warn('Unable to get active jobs for campaign %s, %s', consumer, err);
-    }
-
-    if (self.doesCampaignNeedJob(campaign, role, jobs, existingJobs[consumer])) {
-      self.createJob(campaign, jobs, role, consumer);
-    } else {
-      logger.info('Existing job for %s', consumer);
-    }
-  });
-}
-
-StandardDispatcher.prototype.doesCampaignNeedJob = function(campaign, role, jobs, lastJob) {
-  var self = this;
-
-  if (!lastJob)
-    return true;
-
-  switch(lastJob.state) {
-    case states.QUEUED:
-    case states.PAUSED:
-      return false;
-
-    case states.STARTED:
-      if (role.longRunning)
-        return false;
-
-      var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
-      if (tooLong)
-        jobs.close(lastJob, states.ERRORED, new Error('Timed out'));
-      return tooLong;
-
-    case states.COMPLETED:
-      var waitBeforeNextRun = role.intervalMinutes ? role.intervalMinutes : campaign.sweepIntervalMinutes;
-      var waitedLongEnough = Date.create(lastJob.finished).isBefore(waitBeforeNextRun + ' minutes ago');
-      return waitedLongEnough;
-
-    default:
-      return true;
-  }
-}
 
 StandardDispatcher.prototype.createJob = function(campaign, jobs, role, consumer) {
   var self = this;
@@ -208,11 +131,4 @@ StandardDispatcher.prototype.createJob = function(campaign, jobs, role, consumer
     else
       logger.info('Created job for %j: %s', campaign._id, id);
   });
-}
-
-function getRoleConsumerId(role, consumer) {
-  if (role === consumer)
-    return role;
-  else
-    return role + '.' + consumer;
 }
