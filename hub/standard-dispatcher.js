@@ -39,33 +39,45 @@ StandardDispatcher.prototype.init = function() {
   self.clients_ = new Clients();
   self.roles_ = new Roles();
 
-  setInterval(self.iterateClients.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
+  setInterval(self.findWork.bind(self), config.STANDARD_CHECK_INTERVAL_MINUTES * 60 * 1000);
   
-  self.roles_.on('ready', self.iterateClients.bind(self));
+  self.roles_.on('ready', self.findWork.bind(self));
 }
 
 
-StandardDispatcher.prototype.iterateClients = function() {
+StandardDispatcher.prototype.findWork = function() {
   var self = this
-    , prioritised = []
+    , workToDo = []
   ;
-
-  self.clients_.listPriorityClients(function(err, clients) {
+  // in time filter on client 'account state' (0 => acive, 1 => suspended)
+  self.clients_.listClients(function(err, clients) {
     if (err)
      return logger.warn(err);
     
     Seq(clients)
       .seqEach(function(client){
         var that = this;
-        self.prioritiseCampaigns(client, function(err, result){
-          if(err)
+        // temp
+        if(client._id !== 'Forwind')
+          return that();
+
+        self.getClientCampaigns(client, function(err, result){
+          if(err || !result)
             return that(err);
-          prioritised.push(result);
+          workToDo.push(result);
           that();
         });
       })
       .seq(function(){
-        logger.info('Work lined up for the roles : ' + JSON.stringify(prioritised));
+        this();
+      })
+      .set(workToDo)
+      .seqEach(function(workItem){
+        self.makeWork(workItem, this);
+      })
+      .seq(function(){
+        logger.info('makeWork done.');
+        this();
       })
       .catch(function(err){
         logger.warn(err);
@@ -74,9 +86,8 @@ StandardDispatcher.prototype.iterateClients = function() {
   });
 }
 
-StandardDispatcher.prototype.prioritiseCampaigns = function(client, done) {
-  var self = this
-  ;
+StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
+  var self = this;
 
   self.campaigns_.listCampaignsForClient(client._id, function(err, campaigns) {
     if (err)
@@ -94,41 +105,155 @@ StandardDispatcher.prototype.prioritiseCampaigns = function(client, done) {
   });
 }  
 
-      /*  campaigns.forEach(self.preCheckRoles.bind(self));
-    });
-  }
+StandardDispatcher.prototype.makeWork = function(workItem){
+  var self = this;
+  logger.info('Make work for client : ' + workItem.client._id +
+              ' with ' + workItem.campaigns.length + ' campaigns');
+  Seq(workItem.campaigns)
+    .seqEach(function(campaign){
+      self.makeJobs(campaign, workItem.client, this);
+    })
+    .seq(function(){
+      logger.info('making work');
+
+    })
+    .catch(function(err){
+      logger.warn(err);
+    })
+    ;
 }
-*/
-StandardDispatcher.prototype.preCheckRoles = function(campaign) {
+
+StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
   var self = this;
   
-  self.clients_.get(campaign.client, function(err, client){
-    if(err)
-      return logger.warn('Error retrieving Client from campaign ' + campaign.name);
-    self.checkRoles(campaign, client);
-  })
+  var rolesOfInterest = self.roles_.getRoles().filter(function(role){
+    var supported = false;
+    if (role.types) {
+      Object.keys(role.types, function(type) {
+        if (campaign.type.startsWith(type))
+          supported = true;
+      });
+    }
+    return !role.dispatcher && supported;
+  });
+
+  Seq(rolesOfInterest)
+    .seqEach(function(role){
+      self.makeJobsForRole(campaign, client, role, this);
+    })
+    .seq(function(){
+      logger.info('finished with campaign ' + campaign.name);
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
-StandardDispatcher.prototype.checkRoles = function(campaign, client) {
+StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, done) {
+  var self = this
+    , jobs = new Jobs(role.name)
+    , ordersFromRole = []
+    , roleInstance = null
+  ;
+  
+  Seq()
+    .seq(function(){
+      self.doesRoleHaveJobs(role, campaign, jobs, this);
+    })
+    .seq(function(inProgress){
+      if(inProgress){
+        logger.info('looks like we dont need to create jobs for ' + role.name + ' on campaign ' + campaign.name);
+        return done();
+      }
+      roleInstance = self.roles_.loadRole(role.name);
+      if(!roleInstance)
+        done(new Error('Failed to instantiate role instance'));
+      
+      var result = roleInstance.orderJobs(campaign, client, this);
+      logger.info('%s ordered : ', role.name,  JSON.stringify(result));
+      this(result);
+    })
+    .seq(function(ordersFromRole_){
+      logger.info('%s wants %i jobs for %s', role.name, ordersFromRole_.length, campaign.name);
+      ordersFromRole = ordersFromRole_;
+      this();
+    })
+    .set(ordersFromRole)
+    .seqEach(function(roleOrder){
+      jobs.push(roleOrder.campaign._id, roleOrder.consumer, roleOrder.metadata, this);
+    })
+    .seq(function(){
+      logger.info('makeWorkForRole ' + role.name + ' finished.');
+      done();
+    })
+    .catch(function(err){
+      logger.warn('Problems determining whether Role %s wants work ', role.name, campaign.name);
+    })
+    ;
+}
+
+StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, done){
   var self = this;
 
-  self.roles_.getRoles().forEach(function(role) { 
-    if (role.dispatcher)
-      return;
+  jobs.listActiveJobs(campaign._id, function(err, array, existingJobs) {
+    if (err) {
+      logger.warn('Unable to get active jobs for campaign %s, %s', consumer, err);
+      return done(err);
+    }
 
-    var jobsQuantity = role.jobsDecision(campaign, client);
+    // messy but handles the whole engine thing inline.
+    var lastJobs = [];
 
+    if(role.engines){
+      role.engines.each(function(engine){
+        if(existingJobs[getRoleConsumerId(role.name, engine)])
+          lastJobs.push(existingJobs[getRoleConsumerId(role.name, engine)])
+      });
+    }
+    else{
+      lastJobs.push(existingJobs[role.name]);
+    }
+
+    if (!lastJobs){
+      logger.info(' no jobs recently like this, go create ');
+      return done(null, false);
+    }
+    
+    // Just pick the one created last, the engine jobs run in tandem anyway.
+    var lastJob = lastJobs.sortBy(function(job){ return job.created }).last();
+
+    if (!lastJob){
+      logger.info(' no jobs recently like this, go create ');
+      return done(null, false);
+    }
+
+    switch(lastJob.state) {
+      case states.QUEUED:
+      case states.PAUSED:
+        return done(null, true);
+
+      case states.STARTED:
+        if (role.longRunning)
+          return done(null, true);
+        
+        var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
+        if (tooLong)
+          jobs.close(lastJob, states.ERRORED, new Error('Timed out'));
+        return done(null, !tooLong); 
+
+      case states.COMPLETED:
+        var waitBeforeNextRun = role.intervalMinutes ? role.intervalMinutes : campaign.sweepIntervalMinutes;
+        var waitedLongEnough = Date.create(lastJob.finished).isBefore(waitBeforeNextRun + ' minutes ago');
+        done(null, !waitedLongEnough); 
+    }
   });
 }
 
-
-StandardDispatcher.prototype.createJob = function(campaign, jobs, role, consumer) {
-  var self = this;
-
-  jobs.push(campaign._id, consumer, {}, function(err, id) {
-    if (err)
-      logger.warn('Unable to create job for %j: %s: %s', campaign._id, consumer, err);
-    else
-      logger.info('Created job for %j: %s', campaign._id, id);
-  });
+function getRoleConsumerId(role, consumer) {
+  if (role === consumer)
+    return role;
+  else
+    return role + '.' + consumer;
 }
