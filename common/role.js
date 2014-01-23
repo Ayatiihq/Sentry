@@ -12,6 +12,7 @@
 var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('role.js')
+  , sugar = require('sugar')
   , util = require('util')
   ;
 
@@ -55,7 +56,7 @@ Role.prototype.orderJobs = function(campaign, client, engines) {
                   metadata : {}}
   ;
   
-  if(!engines)
+  if(!engines || engines.isEmpty())
     return [template];
 
   var orders = [];
@@ -63,12 +64,10 @@ Role.prototype.orderJobs = function(campaign, client, engines) {
   logger.info('create multiple jobs for an engine based role ' + JSON.stringify(engines));
 
   engines.each(function(engine){
-    var order = template;
+    var order = Object.clone(template, true);
     order.consumer = self.getName() + '.' + engine;
-    logger.info('push this ' + JSON.stringify(order));
     orders.push(order);
   })
-
   return orders;
 }
 
