@@ -174,12 +174,11 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
       if(!roleInstance)
         done(new Error('Failed to instantiate role instance'));
       
-      var result = roleInstance.orderJobs(campaign, client);
+      var result = roleInstance.orderJobs(campaign, client, role.engines);
       logger.info('%s ordered : ', role.name,  JSON.stringify(result));
       this(null, result);
     })
     .seq(function(orders){
-      logger.info('Orders ', JSON.stringify(orders));
       self.createJobsFromOrders(orders, jobs, this);
     })
     .seq(function(){
@@ -197,7 +196,8 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
   Seq(orders)
     .seqEach(function(order){
       logger.info('push this job ' + JSON.stringify(order));
-      jobs.push(order.campaign._id, order.consumer, order.metadata, this);
+      this();
+      //jobs.push(order.owner, order.consumer, order.metadata, this);
     })
     .seq(function(){
       done();

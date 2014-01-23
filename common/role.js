@@ -48,15 +48,28 @@ Role.prototype.getDisplayName = function() {
 /*
  * Default jobs order from a role
  */
-Role.prototype.orderJobs = function(campaign, client) {
+Role.prototype.orderJobs = function(campaign, client, engines) {
   var self = this
+    , template = {owner : campaign._id,
+                  consumer : self.getName(),
+                  metadata : {}}
   ;
   
-  var template = {owner : campaign._id,
-                  consumer : self.getName(),
-                  metadata : {}};
+  if(!engines)
+    return [template];
 
-  return [template];
+  var orders = [];
+  
+  logger.info('create multiple jobs for an engine based role ' + JSON.stringify(engines));
+
+  engines.each(function(engine){
+    var order = template;
+    order.consumer = self.getName() + '.' + engine;
+    logger.info('push this ' + JSON.stringify(order));
+    orders.push(order);
+  })
+
+  return orders;
 }
 
 Role.prototype.start = function() {
