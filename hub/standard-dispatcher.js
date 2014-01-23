@@ -195,8 +195,7 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
   Seq(orders)
     .seqEach(function(order){
       logger.info('Create this job ' + JSON.stringify(order));
-      this();
-      //jobs.push(order.owner, order.consumer, order.metadata, this);
+      jobs.push(order.owner, order.consumer, order.metadata, this);
     })
     .seq(function(){
       done();
