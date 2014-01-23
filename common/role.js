@@ -56,13 +56,7 @@ Role.prototype.orderJobs = function(campaign, client) {
                   consumer : self.getName(),
                   metadata : {}};
 
-  logger.info('template Job order ' + JSON.stringify(template));
   return [template];
-  // Special case for the notice sender.
-  //if(self.name === 'noticesender' && (!client.authorization || !client.copyrightContact)){
-  //  logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
-  //  return quantity;
-  //}    
 }
 
 Role.prototype.start = function() {
