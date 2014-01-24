@@ -12,6 +12,7 @@
 var acquire = require('acquire')
   , events = require('events')
   , logger = acquire('logger').forFile('role.js')
+  , sugar = require('sugar')
   , util = require('util')
   ;
 
@@ -23,7 +24,6 @@ var Role = module.exports = function() {
   //
 
   // "started" - When the role starts working
-  
   // "ended" - When the role ends working
   
   // "finished" - When the role has no more tasks to complete
@@ -41,8 +41,34 @@ Role.prototype.getName = function() {
   return "role";
 }
 
+
 Role.prototype.getDisplayName = function() {
   return "Role";
+}
+
+/*
+ * Default jobs order from a role
+ */
+Role.prototype.orderJobs = function(campaign, client, engines) {
+  var self = this
+    , template = {owner : campaign._id,
+                  consumer : self.getName(),
+                  metadata : {}}
+  ;
+  
+  if(!engines || engines.isEmpty())
+    return [template];
+
+  var orders = [];
+  
+  logger.info('create multiple jobs for an engine based role ' + JSON.stringify(engines));
+
+  engines.each(function(engine){
+    var order = Object.clone(template, true);
+    order.consumer = self.getName() + '.' + engine;
+    orders.push(order);
+  })
+  return orders;
 }
 
 Role.prototype.start = function() {

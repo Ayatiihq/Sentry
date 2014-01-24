@@ -67,6 +67,27 @@ exports.infringements = {
   ]
 };
 
+/*
+LOW:
+Bottom feeder => scan once a day
+MEDIUM:
+Normal throttling
+HIGH:
+For continuous new release scanning, normal to use this for the
+first week of a campaign until we have a handle on things
+URGENT:
+Reserved for extreme cases where we need to direct attention
+to that client or campaign. 
+*/
+exports.client = {
+  priority: {
+    LOW: 0,
+    MEDIUM : 1,  
+    HIGH: 2, 
+    URGENT: 3 
+  }
+};
+
 exports.hub = {
   state: {
     RUNNING: 0,

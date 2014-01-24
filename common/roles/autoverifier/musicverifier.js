@@ -190,7 +190,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
 
 MusicVerifier.prototype.finish = function(){
   var self = this;
-  self.audioMatcher_.cleanEverything();
+  self.audioMatcher_.cleanupEverything();
 }
 
 MusicVerifier.getSupportedMimeTypes = function() {

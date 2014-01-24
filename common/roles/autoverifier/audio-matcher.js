@@ -219,6 +219,10 @@ AudioMatcher.prototype.cleanupEverything = function() {
   var self = this
     , promise = new Promise.Promise()
   ;
+
+  if(!self.tmpDirectory) // first run.
+    return promise.resolve;
+
   fs.exists(self.tmpDirectory, function(present){
     if(!present)
       return promise.resolve();

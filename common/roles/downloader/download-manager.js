@@ -34,12 +34,12 @@ var Campaigns = acquire('campaigns')
   ;
 
 var PLUGINS = [
-  'hulkshare'
-  '4shared'
-  'zippyshare'
-  'rapidgator'
-  'rapidshare'
-  'mediafire'
+  'hulkshare',
+  '4shared',
+  'zippyshare',
+  'rapidgator',
+  'rapidshare',
+  'mediafire',
   'sharebeast'
 ];
 
@@ -133,6 +133,7 @@ DownloadManager.prototype.preRun = function(job, done) {
   Seq()
     .seq(function(){
       self.job_ = job;
+      logger.info('get campaign details of ' + job._id.owner);
       self.campaigns_.getDetails(job._id.owner, this);
     })
     .seq(function(campaign) {

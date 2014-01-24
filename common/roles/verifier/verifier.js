@@ -39,7 +39,6 @@ var Verifier = module.exports = function() {
   this.verifications_ = null;
 
   this.campaign_ = null;
-
   this.started_ = false;
 
   this.lastTimestamp_ = 0;
@@ -513,6 +512,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
 Verifier.prototype.getName = function() {
   return "verifier";
 }
+
 
 Verifier.prototype.start = function() {
   var self = this;

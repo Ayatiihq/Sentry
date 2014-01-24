@@ -221,8 +221,8 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
 
       if (verification.state == iStates.VERIFIED ||
           verification.state == iStates.FALSE_POSITIVE) {
-        logger.info('Changing %s to state %s', infringement.uri
-                     verification.state == iStates.VERIFIED ? 'VERIFIED' : 'FALSE_POSITIVE');
+        logger.info('Changing %s to state %s', infringement.uri,
+                    verification.state == iStates.VERIFIED ? 'VERIFIED' : 'FALSE_POSITIVE');
         return self.infringements_.setStateBy(infringement, verification.state, PROCESSOR, done);
 
       } else {
