@@ -608,7 +608,7 @@ NoticeSender.prototype.orderJobs = function(campaign, client){
     logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
     return [];
   } 
-  return NoticeSender.super_.prototype.orderJobs.apply(this);
+  return NoticeSender.super_.prototype.orderJobs.apply(this, arguments);
 }
 
 NoticeSender.prototype.start = function() {
