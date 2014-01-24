@@ -57,19 +57,14 @@ StandardDispatcher.prototype.findWork = function() {
     Seq(clients)
       .seqEach(function(client){
         var that = this;
-        // temp
-        if(client._id !== 'Forwind')
+        if(client.state === 0)
           return that();
-
         self.getClientCampaigns(client, function(err, result){
           if(err || !result)
             return that(err);
           workToDo.push(result);
           that();
         });
-      })
-      .seq(function(){
-        this();
       })
       .set(workToDo)
       .seqEach(function(workItem){
@@ -93,7 +88,7 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
     if (err)
       return done(err);
     
-    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep});
+    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep && campaign.sweepTo < Date.now()});
     
     if(activeCampaigns.isEmpty())
       return done();
