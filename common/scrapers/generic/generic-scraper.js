@@ -208,7 +208,7 @@ Generic.prototype.checkInfringement = function (infringement) {
     return promise;
   }
 
-  self.hosts.getDomainsByCategory([Category.CYBERLOCKER],(function(err, domains){
+  self.hosts.getDomainsByCategory(Category.CYBERLOCKER,(function(err, domains){
 
     if (arrayHas(infringement.uri, domains)) {
       logger.info('%s is a cyberlocker', infringement.uri);
@@ -236,7 +236,7 @@ Generic.prototype.checkInfringement = function (infringement) {
       var musicRules = wranglerRules.rulesDownloadsMusic;
       var movieRules = wranglerRules.rulesDownloadsMovie;
 
-      self.hosts.getDomainsByCategory([Category.CYBERLOCKER], function(err, domains){
+      self.hosts.getDomainsByCategory(Category.CYBERLOCKER, function(err, domains){
         if(err)
           return logger.warn('Error fetching knownDomains ' + err);
   

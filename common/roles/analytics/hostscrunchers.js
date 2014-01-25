@@ -557,7 +557,7 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
     var map = {};
     var values = [];
 
-    hosts.getDomainsByCategory([Category.CYBERLOCKER], function(err, knownDomains){
+    hosts.getDomainsByCategory(Category.CYBERLOCKER, function(err, knownDomains){
       if (err)
         return done('topTenLinkCyberlockersClient: Error compiling top ten infringement hosts: ' + err);
       docs.forEach(function(doc) {

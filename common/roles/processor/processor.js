@@ -332,7 +332,7 @@ Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) 
     , category = states.infringements.category.CYBERLOCKER
   ;
 
-  self.hosts_.getDomainsByCategory([category], function(err, domains){
+  self.hosts_.getDomainsByCategory(category, function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);

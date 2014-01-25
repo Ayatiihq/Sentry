@@ -49,7 +49,7 @@ var Seq = require('seq');
 var Hosts = module.exports = function() {
   this.db_ = null;
   this.hosts_ = null;
-
+  this.cache_ = {};
   this.cachedCalls_ = [];
 
   this.init();
@@ -140,20 +140,24 @@ Hosts.prototype.shouldAutomateEscalation = function(host)
 }
 
 /*
-* Fetch a list of hosts' domains filtered by categories
-* @param {array}   categories   A list of valid of states.infringement.categories
-* returns an array of the domains of the hosts filtered by categories.
+* Fetch a list of hosts' domains filtered by category
+* @param {enum}   category   A valid states.infringement.category
+* returns an array of the domains of the hosts filtered by category.
 */
-Hosts.prototype.getDomainsByCategory = function(categories, callback)
+Hosts.prototype.getDomainsByCategory = function(category, callback)
 {
   var self = this;
 
   if (!self.hosts_)
     return self.cachedCalls_.push([self.getDomainsByCategory, Object.values(arguments)]);
 
-  self.hosts_.find({ category : {$in : [categories]}}).toArray(function(err, results){
+  if(Object.keys(self.cache_).some(category))
+    return callback(err, self.cache_[category].map(function(host){return host._id}));
+
+  self.hosts_.find({'category' : [category]}).toArray(function(err, results){
     if(err)
       return callback(err);
+    self.cache_[category] = results;
     var domains  = results.map(function(host){return host._id});
     callback(null, domains);
   });
