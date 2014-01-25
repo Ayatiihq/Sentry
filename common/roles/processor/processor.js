@@ -27,6 +27,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -36,7 +37,6 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers')
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
@@ -52,9 +52,10 @@ var STORAGE_NAME = 'downloads';
 var Processor = module.exports = function() {
   this.campaigns_ = null;
 
+  this.hosts_ = null;
   this.infringements_ = null;
+
   this.jobs_ = null;
-  this.cyberlockers_ = null; 
 
   this.job_ = null;
   this.campaign_ = null;
@@ -73,10 +74,10 @@ Processor.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.hosts_ = new Hosts();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
-  self.cyberlockers_ = new Cyberlockers();
   self.storage_ = new Storage(STORAGE_NAME);
 }
 
@@ -288,6 +289,7 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   infringements.findAndModify(query, sort, updates, options, done);
 }
 
+// Refactor hitting db everytime for domain lists
 Processor.prototype.categorizeInfringement = function(infringement, done) {
   var self = this
     , domain = utilities.getDomain(infringement.uri)
@@ -326,8 +328,11 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 }
 
 Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
-  var self = this;
-  self.cyberlockers_.knownDomains(function(err, domains){
+  var self = this
+    , category = states.infringements.category.CYBERLOCKER
+  ;
+
+  self.hosts_.getDomainsByCategory([category], function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);

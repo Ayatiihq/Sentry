@@ -11,19 +11,21 @@
  */
 
 var acquire = require('acquire')
-  , Cyberlockers = acquire('cyberlockers')
+  , blacklist = acquire('blacklist')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
   , utilities = acquire('utilities')
   , url = require('url')
   , sugar = require('sugar')
-  , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
-  , Infringements = acquire('infringements')
   , states = acquire('states')
-  , Promise = require('node-promise')
-  , blacklist = acquire('blacklist')
   , wranglerRules = acquire('wrangler-rules')
+;
+
+var BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
+  , Hosts = acquire('hosts')
+  , Infringements = acquire('infringements')
+  , Promise = require('node-promise')
 ;
 
 var Scraper = acquire('scraper');
@@ -43,8 +45,8 @@ Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
+  self.hosts = new Hosts();
   self.infringements = new Infringements();
-  self.cyberlockers = new Cyberlockers();
 
   self.activeScrapes = 0;
   self.maxActive = 10;
@@ -206,7 +208,7 @@ Generic.prototype.checkInfringement = function (infringement) {
     return promise;
   }
 
-  self.cyberlockers.knownDomains(function(err, domains){
+  self.hosts.getDomainsByCategory([Category.CYBERLOCKER],(function(err, domains){
 
     if (arrayHas(infringement.uri, domains)) {
       logger.info('%s is a cyberlocker', infringement.uri);
@@ -234,7 +236,7 @@ Generic.prototype.checkInfringement = function (infringement) {
       var musicRules = wranglerRules.rulesDownloadsMusic;
       var movieRules = wranglerRules.rulesDownloadsMovie;
 
-      self.cyberlockers.knownDomains(function(err, domains){
+      self.hosts.getDomainsByCategory([Category.CYBERLOCKER], function(err, domains){
         if(err)
           return logger.warn('Error fetching knownDomains ' + err);
   

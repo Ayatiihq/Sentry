@@ -5,6 +5,29 @@
  *
  * (C) 2012 Ayatii Limited
  *
+  { "_id" : "",
+    "category" : [],
+    "name" : "",
+    "loginDetails" : {},
+    "noticeDetails" : { "batch" : true,
+                        "batchMaxSize" : 0,
+                        "metadata" : { "template" : "dmca",
+                                       "to" : "abuse@getindianstuff.org" },
+                        "testing" : false,
+                        "triggers" : { "minutesSinceLast" : 720 },
+                        "type" : "email" },
+                        "serverInfo" : { "ipAddress" : "67.228.81.180",
+                                         "countryCode" : "US",
+                                         "countryName" : "UNITED STATES",
+                                         "regionName" : "WASHINGTON",
+                                         "cityName" : "SEATTLE",
+                                         "zipCode" : "98101",
+                                         "latitude" : "47.6062",
+                                         "longitude" : "-122.332",
+                                         "timeZone" : "-08:00",
+                                         "created" : 1388521639153 },
+    "uri" : "",
+    "created": 0}
  */
 
 var acquire = require('acquire')
@@ -115,3 +138,24 @@ Hosts.prototype.shouldAutomateEscalation = function(host)
 
   return noValidDirect && validHostedBy;
 }
+
+/*
+* Fetch a list of hosts' domains filtered by categories
+* @param {array}   categories   A list of valid of states.infringement.categories
+* returns an array of the domains of the hosts filtered by categories.
+*/
+Hosts.prototype.getDomainsByCategory = function(categories, callback)
+{
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.getDomainsByCategory, Object.values(arguments)]);
+
+  self.hosts_.find({ category : {$in : [categories]}}).toArray(function(err, results){
+    if(err)
+      return callback(err);
+    var domains  = results.map(function(host){return host._id});
+    callback(null, domains);
+  });
+}
+
