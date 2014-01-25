@@ -127,6 +127,26 @@ Hosts.prototype.add = function(host, callback)
 }
 
 /**
+ * Update a host's details.
+ *
+ * @param {object}          id         The id for the host.
+ * @param {object}          updates    An object containing updates for the host.
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Hosts.prototype.update = function(hostId, updates, callback){
+
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  
+  self.hosts_.update({ _id: hostId }, { $set: updates }, callback);
+}
+
+/**
  * Check if we can automatically escalate with this host
  *
  * @param {object}                host           The host which we need to determine if it we can automatically escalate.
