@@ -6,7 +6,7 @@
  * (C) 2012 Ayatii Limited
  *
   { "_id" : "",
-    "category" : [],
+    "categories" : [],
     "name" : "",
     "loginDetails" : {},
     "noticeDetails" : { "batch" : true,
@@ -144,6 +144,30 @@ Hosts.prototype.update = function(hostId, updates, callback){
   callback = callback ? callback : defaultCallback;
   
   self.hosts_.update({ _id: hostId }, { $set: updates }, callback);
+}
+
+/**
+ * Add a category to the categories arry
+ *
+ * @param {string}          id         The id for the host.
+ * @param {int}             category   The int from infrgs.category
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Hosts.prototype.addCategory = function(hostId, category, callback){
+
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.addCategory, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  if(!Object.values(states.infringements.category).some(category))
+    return callback(new Error('Category needs to be within range of enum'));
+
+  self.hosts_.update({ _id: hostId }, { $unset: {category : 1 }}, callback);
+  //self.hosts_.update({ _id: hostId }, { $push: {categories : category }}, callback);
 }
 
 /**
