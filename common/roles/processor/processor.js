@@ -289,7 +289,6 @@ Processor.prototype.getUnprocessedInfringement = function(done) {
   infringements.findAndModify(query, sort, updates, options, done);
 }
 
-// Refactor hitting db everytime for domain lists
 Processor.prototype.categorizeInfringement = function(infringement, done) {
   var self = this
     , domain = utilities.getDomain(infringement.uri)
@@ -299,14 +298,14 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , scheme = infringement.scheme
     ;
 
-  self.isCyberlocker(uri, domain, infringement, function(err, result){
+  self.isCyberlockerOrTorrent(uri, domain, infringement, function(err, result){
     if(err)
       return done(err);
 
-    if(result){
-      infringement.category = Categories.CYBERLOCKER;  
-
-    } else if (meta) {
+    if(result.success){
+      infringement.category = result.category;
+    } 
+    else if (meta) {
       infringement.category = Categories.SEARCH_RESULT
     
     } else if (scheme == 'torrent' || scheme == 'magnet') {
@@ -317,7 +316,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     
     } else {
       infringement.category = Categories.WEBSITE;
-    }
+    }    
 
     logger.info('Putting infringement into initial category of %d', infringement.category);
 
@@ -327,15 +326,44 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
 }
 
-Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
+Processor.prototype.isTorrentSite = function(uri, hostname, infringement, done) {
   var self = this
-    , category = states.infringements.category.CYBERLOCKER
+    , category = states.infringements.category.TORRENT
   ;
 
   self.hosts_.getDomainsByCategory(category, function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);
+  });
+}
+
+Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringement, done) {
+  var self = this
+    , result = {success: false, category: ''}
+  ;
+  self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
+    if(err)
+      return done(err)
+
+    if(isTorrent){
+      result.success = true;
+      result.category = , category = states.infringements.category.TORRENT;
+
+      return done(null, result);
+    }
+    self.hosts_.getDomainsByCategory(states.infringements.category.CYBERLOCKER, function(err, domains){
+      if(err)
+        return done(err)
+      var isCl = domains.indexOf(hostname) >= 0;
+      if(isCl){
+        result.success = true;
+        result.category = , category = states.infringements.category.CYBERLOCKER;
+
+        return done(null, result);        
+      } 
+      done(null, result);
+    });   
   });
 }
 
