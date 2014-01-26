@@ -166,8 +166,7 @@ Hosts.prototype.addCategory = function(hostId, category, callback){
   if(!Object.values(states.infringements.category).some(category))
     return callback(new Error('Category needs to be within range of enum'));
 
-  self.hosts_.update({ _id: hostId }, { $unset: {category : 1 }}, callback);
-  //self.hosts_.update({ _id: hostId }, { $push: {categories : category }}, callback);
+  self.hosts_.update({ _id: hostId }, { $push: {categories : category }}, callback);
 }
 
 /**
@@ -196,9 +195,9 @@ Hosts.prototype.getDomainsByCategory = function(category, callback)
     return self.cachedCalls_.push([self.getDomainsByCategory, Object.values(arguments)]);
 
   if(Object.keys(self.cache_).some(category))
-    return callback(err, self.cache_[category].map(function(host){return host._id}));
+    return callback(null, self.cache_[category].map(function(host){return host._id}));
 
-  self.hosts_.find({'category' : [category]}).toArray(function(err, results){
+  self.hosts_.find({'categories' : {$in : [category]}}).toArray(function(err, results){
     if(err)
       return callback(err);
     self.cache_[category] = results;
