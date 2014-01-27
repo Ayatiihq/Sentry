@@ -344,14 +344,14 @@ Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringemen
   ;
   self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
     if(err)
-      return done(err)
+      return done(err);
 
     if(isTorrent){
       result.success = true;
-      result.category = , category = states.infringements.category.TORRENT;
-
+      result.category = states.infringements.category.TORRENT;
       return done(null, result);
     }
+
     self.hosts_.getDomainsByCategory(states.infringements.category.CYBERLOCKER, function(err, domains){
       if(err)
         return done(err)
