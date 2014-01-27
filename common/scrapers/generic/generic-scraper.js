@@ -93,7 +93,7 @@ Generic.prototype.getName = function () {
   return "Generic";
 };
 
-Generic.prototype.search_with_one_url = function (campaign, url) {
+Generic.prototype.searchWithOneUrl = function (campaign, url) {
   var self = this;
   self.campaign = campaign;
   self.checkURLS = [{uri: url}];
@@ -202,7 +202,6 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
-
   if (!infringement ||!infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
     return promise.resolve();

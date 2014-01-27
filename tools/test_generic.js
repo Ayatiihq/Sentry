@@ -62,7 +62,7 @@ function main() {
       });
     });
   });
-  instance.search_with_one_url(campaign, url);
+  instance.searchWithOneUrl(campaign, url);
 }
 main(); 
 
