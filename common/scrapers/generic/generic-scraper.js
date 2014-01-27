@@ -132,9 +132,10 @@ Generic.prototype.start = function (campaign, job, browser) {
   self.emit('started');
 };
 
+// TODO
+// This needs to be refactored, hits the db everytime, should only query once.
 Generic.prototype.pump = function (firstRun) {
   var self = this;
-
   if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0 && !firstRun) {
     logger.info('Finishing up, no more urls to check');
     if (self.touchId_)
@@ -202,6 +203,9 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
+  
+  logger.info('top of checkInfringement');
+
   if (!infringement ||!infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
     return promise.resolve();
