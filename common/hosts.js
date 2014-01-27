@@ -5,6 +5,29 @@
  *
  * (C) 2012 Ayatii Limited
  *
+  { "_id" : "",
+    "categories" : [],
+    "name" : "",
+    "loginDetails" : {},
+    "noticeDetails" : { "batch" : true,
+                        "batchMaxSize" : 0,
+                        "metadata" : { "template" : "dmca",
+                                       "to" : "abuse@getindianstuff.org" },
+                        "testing" : false,
+                        "triggers" : { "minutesSinceLast" : 720 },
+                        "type" : "email" },
+                        "serverInfo" : { "ipAddress" : "67.228.81.180",
+                                         "countryCode" : "US",
+                                         "countryName" : "UNITED STATES",
+                                         "regionName" : "WASHINGTON",
+                                         "cityName" : "SEATTLE",
+                                         "zipCode" : "98101",
+                                         "latitude" : "47.6062",
+                                         "longitude" : "-122.332",
+                                         "timeZone" : "-08:00",
+                                         "created" : 1388521639153 },
+    "uri" : "",
+    "created": 0}
  */
 
 var acquire = require('acquire')
@@ -26,7 +49,7 @@ var Seq = require('seq');
 var Hosts = module.exports = function() {
   this.db_ = null;
   this.hosts_ = null;
-
+  this.cache_ = {};
   this.cachedCalls_ = [];
 
   this.init();
@@ -104,6 +127,49 @@ Hosts.prototype.add = function(host, callback)
 }
 
 /**
+ * Update a host's details.
+ *
+ * @param {object}          id         The id for the host.
+ * @param {object}          updates    An object containing updates for the host.
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Hosts.prototype.update = function(hostId, updates, callback){
+
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+  
+  self.hosts_.update({ _id: hostId }, { $set: updates }, callback);
+}
+
+/**
+ * Add a category to the categories arry
+ *
+ * @param {string}          id         The id for the host.
+ * @param {int}             category   The int from infrgs.category
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+Hosts.prototype.addCategory = function(hostId, category, callback){
+
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.addCategory, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  if(!Object.values(states.infringements.category).some(category))
+    return callback(new Error('Category needs to be within range of enum'));
+
+  self.hosts_.update({ _id: hostId }, { $push: {categories : category }}, callback);
+}
+
+/**
  * Check if we can automatically escalate with this host
  *
  * @param {object}                host           The host which we need to determine if it we can automatically escalate.
@@ -115,3 +181,28 @@ Hosts.prototype.shouldAutomateEscalation = function(host)
 
   return noValidDirect && validHostedBy;
 }
+
+/*
+* Fetch a list of hosts' domains filtered by category
+* @param {enum}   category   A valid states.infringement.category
+* returns an array of the domains of the hosts filtered by category.
+*/
+Hosts.prototype.getDomainsByCategory = function(category, callback)
+{
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.getDomainsByCategory, Object.values(arguments)]);
+
+  if(Object.keys(self.cache_).some(category))
+    return callback(null, self.cache_[category].map(function(host){return host._id}));
+
+  self.hosts_.find({'categories' : {$in : [category]}}).toArray(function(err, results){
+    if(err)
+      return callback(err);
+    self.cache_[category] = results;
+    var domains  = results.map(function(host){return host._id});
+    callback(null, domains);
+  });
+}
+

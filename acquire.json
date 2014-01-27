@@ -7,7 +7,6 @@
   "confidence-aggregator": "common/confidence-aggregator.js",
   "config": "common/config.js",
   "cowmangler": "common/cowmangler/cowmangler.js",
-  "cyberlockers": "common/cyberlockers.js",
   "database": "common/database.js",
   "endpoint-wrangler": "common/endpoint-wrangler.js",
   "hosts": "common/hosts.js",

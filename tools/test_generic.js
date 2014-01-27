@@ -16,23 +16,6 @@ function setupSignals() {
   });
 }
 
-function parseObject(arg) {
-  var ret = arg;
-
-  try {
-    ret = require(arg);
-  } catch (err) {
-    if (arg.endsWith('.json'))
-      console.error(err);
-    try {
-      ret = JSON.parse(arg);
-    } catch (err) { 
-      console.log(err); 
-    }
-  }
-  return ret;
-}
-
 function main() {
   logger.init();
   logger = logger.forFile('test_generic.js');
@@ -45,7 +28,7 @@ function main() {
     process.exit(1);
   }
 
-  var campaign = parseObject(process.argv[2]);
+  var campaign = require(process.argv[2]);
   var url = process.argv[3]
 
   var Generic = require('../common/scrapers/generic/generic-scraper');
@@ -62,7 +45,7 @@ function main() {
       });
     });
   });
-  instance.search_with_one_url(campaign, url);
+  instance.searchWithOneUrl(campaign, url);
 }
 main(); 
 

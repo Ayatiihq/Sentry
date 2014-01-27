@@ -20,7 +20,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , CyberLockers = acquire('cyberlockers')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -32,7 +32,7 @@ var MAX_LINKS = 100;
 
 var Verifier = module.exports = function() {
   this.campaigns_ = null;
-  this.cyberlockers_ = null
+  this.hosts_ = null;
   this.infringements_ = null;
   this.settings_ = null;
   this.jobs_ = null;
@@ -55,8 +55,8 @@ Verifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.cyberlockers_ = new CyberLockers();
   self.infringements_ = new Infringements();
+  self.hosts_ = new Hosts();
   self.settings_ = new Settings('role.verifier');
   self.jobs_ = new Jobs('verifier');
   self.verifications_ = new Verifications();
@@ -362,7 +362,7 @@ Verifier.prototype.loadKnownEngines = function(campaign, done) {
 
   engines.push(self.torrentEngine.bind(self));
   
-  self.cyberlockers_.find({ urlMatcher: { $exists: true }}, function(err, cls){
+  self.hosts_.find({ urlMatcher: { $exists: true }}, function(err, cls){
     if(err)
       return done(err);
     done(null, engines.add(cls));
