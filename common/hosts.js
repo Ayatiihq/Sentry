@@ -194,9 +194,8 @@ Hosts.prototype.getDomainsByCategory = function(category, callback)
   if (!self.hosts_)
     return self.cachedCalls_.push([self.getDomainsByCategory, Object.values(arguments)]);
 
-  if(complete{
-    var result = 
-    return callback(null, self.cache_[categories].map(function(host){return host._id}));
+  if(Object.keys(self.cache_).some(category))
+    return callback(null, self.cache_[category].map(function(host){return host._id}));
 
   self.hosts_.find({'categories' : {$in : [category]}}).toArray(function(err, results){
     if(err)

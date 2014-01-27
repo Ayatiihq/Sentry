@@ -290,52 +290,6 @@ Generic.prototype.checkInfringement = function (infringement) {
   return promise;
 };
 
-  /*self.hosts.getDomainsByCategory(Category.CYBERLOCKER,(function(err, domains){
-
-    if (arrayHas(infringement.uri, domains)) {
-      logger.info('%s is a cyberlocker', infringement.uri);
-      // FIXME: This should be done in another place, is just a hack, see
-      //        https://github.com/afive/sentry/issues/65
-      // It's a cyberlocker URI, so important but we don't scrape it further
-      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
-      promise.resolve();  
-
-    } else if (!utilities.uriHasPath(infringement.uri)) {
-      logger.info('%s has no path, not scraping', infringement.uri);
-      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-      promise.resolve();
-    
-    } else if (arrayHas(infringement.uri, safeDomains)) {
-      logger.info('%s is a safe domain', infringement.uri);
-      // auto reject this result
-      self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-      promise.resolve();
-    
-    } else {
-      var wrangler = new BasicWrangler();
-      
-      var musicRules = wranglerRules.rulesDownloadsMusic;
-      var movieRules = wranglerRules.rulesDownloadsMovie;
-
-      self.hosts.getDomainsByCategory(Category.CYBERLOCKER, function(err, domains){
-        if(err)
-          return logger.warn('Error fetching knownDomains ' + err);
-        
-        musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-        movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-  
-        self.hosts.getDomainsByCategory(Category.TORRENT, function(err, tDomains){
-          if(err)
-            return logger.warn('Error fetching knownTorrentDomains ' + err);          
-
-          musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-          movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-      });
-    }
-  });
-  return promise;*/
-
 
 Generic.prototype.stop = function () {
   var self = this;
