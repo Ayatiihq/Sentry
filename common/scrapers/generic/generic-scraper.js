@@ -19,6 +19,7 @@ var acquire = require('acquire')
   , url = require('url')
   , sugar = require('sugar')
   , states = acquire('states')
+  , when = require('node-promise').when
   , wranglerRules = acquire('wrangler-rules')
 ;
 
@@ -204,11 +205,92 @@ Generic.prototype.checkInfringement = function (infringement) {
 
   if (!infringement ||!infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
-    promise.resolve();
-    return promise;
+    return promise.resolve();
+  }
+  // If its pathless, no point.
+  if (!utilities.uriHasPath(infringement.uri)) {
+    logger.info('%s has no path, not scraping', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+    return promise.resolve();
+  }
+  // If its safe, no point.
+  if (arrayHas(infringement.uri, safeDomains)) {
+    logger.info('%s is a safe domain', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
+    return promise.resolve();
+  }
+  
+  // Otherwise go digging.  
+  function getKnownDomains(category){
+    var innerPromise = new Promise.Promise();
+    self.hosts.getDomainsByCategory(category, function(err, domains){
+      if(err)
+        return innerPromise.reject(err);
+      innerPromise.resolve({'category' : category, 'domains' : domains});
+    });    
+    return innerPromise;
   }
 
-  self.hosts.getDomainsByCategory(Category.CYBERLOCKER,(function(err, domains){
+  var knownCls = getKnownDomains(Category.CYBERLOCKER);
+  var knownTorrs = getKnownDomains(Category.TORRENT);
+
+  allOrNone([knownCls, knownTorrs]).then(function(results){
+    var cls = results.filter(function(result){ return result.category === Category.CYBERLOCKER});
+    var torrentSites = results.filter(function(result){ return result.category === Category.TORRENT});
+    var combined = results.map(function(result){return result.domains});
+
+    if(arrayHas(infringement.uri, cls.domains)){
+      logger.info('%s is a cyberlocker', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
+      return promise.resolve();        
+    }
+    
+    if(arrayHas(infringement.uri, torrentSites.domains)){
+      logger.info('%s is a torrent site', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'torrent');
+      return promise.resolve();        
+    }
+    var wrangler = new BasicWrangler();      
+    var musicRules = wranglerRules.rulesDownloadsMusic;
+    var movieRules = wranglerRules.rulesDownloadsMovie;
+    
+    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    
+    var rules = {'music' : musicRules,
+                 'tv': wranglerRules.rulesLiveTV,
+                 'movie': movieRules};
+
+    wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
+    wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+    wrangler.on('suspended', function onWranglerSuspend() {
+      self.activeScrapes = self.activeScrapes - 1;
+      self.suspendedScrapes = self.suspendedScrapes + 1;
+      self.pump();
+    });
+    wrangler.on('resumed', function onWranglerResume() {
+      self.activeScrapes = self.activeScrapes + 1;
+      self.suspendedScrapes = self.suspendedScrapes - 1;
+      self.pump();
+    });
+    wrangler.beginSearch(infringement.uri);
+  },
+  function(err){
+    promise.reject(err);
+  });
+  return promise;
+};
+
+  /*self.hosts.getDomainsByCategory(Category.CYBERLOCKER,(function(err, domains){
 
     if (arrayHas(infringement.uri, domains)) {
       logger.info('%s is a cyberlocker', infringement.uri);
@@ -239,36 +321,21 @@ Generic.prototype.checkInfringement = function (infringement) {
       self.hosts.getDomainsByCategory(Category.CYBERLOCKER, function(err, domains){
         if(err)
           return logger.warn('Error fetching knownDomains ' + err);
-  
+        
         musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
         movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
   
-        var rules = {
-          'music' : musicRules,
-          'tv': wranglerRules.rulesLiveTV,
-          'movie': movieRules 
-        };
+        self.hosts.getDomainsByCategory(Category.TORRENT, function(err, tDomains){
+          if(err)
+            return logger.warn('Error fetching knownTorrentDomains ' + err);          
 
-        wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
-
-        wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-        wrangler.on('suspended', function onWranglerSuspend() {
-          self.activeScrapes = self.activeScrapes - 1;
-          self.suspendedScrapes = self.suspendedScrapes + 1;
-          self.pump();
-        });
-        wrangler.on('resumed', function onWranglerResume() {
-          self.activeScrapes = self.activeScrapes + 1;
-          self.suspendedScrapes = self.suspendedScrapes - 1;
-          self.pump();
-        });
-        wrangler.beginSearch(infringement.uri);
+          musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
+          movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
       });
     }
   });
+  return promise;*/
 
-  return promise;
-};
 
 Generic.prototype.stop = function () {
   var self = this;
