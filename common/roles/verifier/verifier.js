@@ -26,7 +26,7 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   , Settings = acquire('settings')
   , Verifications = acquire('verifications')
-  ; 
+  ;
 
 var MAX_LINKS = 100;
 
