@@ -331,7 +331,10 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
       this();
     })
     .seq(function() {
-      self.loadKnownEngines(campaign, this);
+      database.connectAndEnsureCollection('hosts', this);
+    })
+    .seq(function(hosts_){
+      self.loadKnownEngines(hosts_, this);
     })
     .seq(function(loadedEngines){
       engines.add(loadedEngines);
@@ -355,17 +358,21 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     ;
 }
 
-Verifier.prototype.loadKnownEngines = function(campaign, done) {
+Verifier.prototype.loadKnownEngines = function(hosts, done) {
   var self = this
     , engines = []
-    ;
+  ;
 
   engines.push(self.torrentEngine.bind(self));
   
-  self.hosts_.find({ urlMatcher: { $exists: true }}, function(err, cls){
+
+  hosts.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
     if(err)
       return done(err);
-    done(null, engines.add(cls));
+    hostsWithMatcher.each(function(hostWithMatcher){
+      engines.push(self.cyberlockerEngine.bind(self, hostWithMatcher));
+    });
+    done(null, engines);
   });
 }
 
@@ -460,7 +467,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     // Grab the unique id for the cyberlocker upload
     .seq(function(verified) {
       verified.forEach(function(infringement) {
-        var id = infringement.uri.match(cyberlocker.uriMatcher);
+        var id = infringement.uri.match(cyberlocker.urlMatcher);
         if (id)
           verifiedIdObj[id] = true;
       });
