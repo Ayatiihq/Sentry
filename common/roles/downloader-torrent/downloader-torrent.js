@@ -15,9 +15,9 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('downloader-torrent.js')
   , path = require('path')
   , os = require('os')
-  , readTorrent = require('read-torrent')
   , rimraf = require('rimraf')
   , states = acquire('states')
+  , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
   , utilities = acquire('utilities')
   , wranglerRules = acquire('wrangler-rules')
@@ -200,7 +200,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
     if (!infringement)
       return callback();
 
-    self.getTorrentDetails(infringement, function(err, details) {
+    torrentInspector.getTorrentDetails(infringement, self.downloadDir_, function(err, details) {
       if (err) {
         logger.warn('Getting torrent details failed: %s', err);
         self.infringements_.setStateBy(infringement, State.UNAVAILABLE, 'downloader-torrent', function(err) {
@@ -224,7 +224,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
         return;
       }
 
-      self.checkIfTorrentIsGoodFit(details, infringement, function(err, good, reason) {
+      torrentInspector.checkIfTorrentIsGoodFit(details, infringement, self.campaign_, function(err, good, reason) {
         if (err) {
           logger.warn('Unable to process %s for good fit: %s', infringement._id, err)
           logger.info('Attempting to get another infringement');
@@ -282,140 +282,6 @@ DownloaderTorrent.prototype.popOne = function(done) {
   self.infringementsCollection_.findAndModify(query, sort, updates, options, done);
 }
 
-DownloaderTorrent.prototype.getTorrentDetails = function(infringement, done) {
-  var self = this
-    , error = null
-    , filename = path.join(self.downloadDir_, infringement._id)
-    , gotFile = false
-    , details = null
-    ;
-
-  Seq(infringement.parents.uris)
-    .seqEach(function(uri) {
-      var that = this;
-
-      if (gotFile) {
-        that();
-        return;
-      }
-
-      if (uri.startsWith('magnet:')) {
-        that();
-        return;
-      }
-
-      utilities.requestStream(uri, function(err, req, res, stream) {
-        if (err) {
-          error = err;
-          that();
-          return;
-        }
-        stream.pipe(fs.createWriteStream(filename));
-        stream.on('end', function() { 
-          gotFile = true;
-          that();
-        });
-        stream.on('error', function(err) {
-          error = err;
-          that();
-        });
-      });
-    })
-    .seq(function() {
-      if (!gotFile) {
-        done(error);
-        return;
-      }
-
-      readTorrent(filename, this);
-    })
-    .seq(function(details) {
-      rimraf(filename, this.ok);
-      done(null, details);
-    })
-    .catch(function(err) {
-      done(err);
-    })
-    ;
-}
-
-DownloaderTorrent.prototype.checkIfTorrentIsGoodFit = function(torrent, infringement, done) {
-  var self = this
-    , campaignName = self.campaign_.name
-    , campaignNameRegExp = new RegExp('(' + campaignName.replace(/\ /gi, '|') + ')', 'i')
-    , campaignReleaseDate = self.campaign_.metadata.releaseDate
-    , type = self.campaign_.type
-    , created = Date.create(torrent.created)
-    , name = torrent.name
-    , totalSize = 0
-    , filenames = []
-    , minSize = 0
-    , maxSize = 4 * 1024 * 1024 //4GB for video file
-    , requiredExentions = []
-    , points = 0
-    ;
-
-  logger.info('Checking if %s is a good fit', torrent.name);
-
-  // Load up the basics
-  torrent.files.forEach(function(file) {
-    filenames.push(file.name);
-    totalSize += file.length;
-  });
-
-  // First check the date and the name. Either not matching is automatic fail
-  if (created.isBefore(campaignReleaseDate)) {
-    done(null, false, util.format('%s created before release data of media (%s < %s)', name, created, campaignReleaseDate));
-    return;
-  }
-
-  if (!name.match(campaignNameRegExp)) {
-    done(null, false, util.format('%s doesn\'t contain the name of the campaign (%s)', name, campaignName));
-    return;
-  }
-
-  // Setup the per-type contraints
-  if (type.startsWith('music')) {
-    minSize = 3 * 1024 * 1024;
-    maxSize = 300 * 1024 * 1024;
-    requiredExentions.add(Extensions[type]) 
-  
-  } else if (type.startsWith('movie')) {
-    minSize = 300 * 1024 * 1024;
-    requiredExentions.add(Extensions[type])
-
-  } else {
-    done(null, false, util.format('Unsupported campaign type for %s: %s', type))
-    return;
-  }
-
-  // Check type constraints
-  if (totalSize < minSize) {
-    done(null, false, util.format('%s size is too small (%d < %d)', name, totalSize, minSize));
-    return;
-  }
-
-  if (totalSize > maxSize) {
-    done(null, false, util.format('%s size is too large (%d > %d)', name, totalSize, maxSize));
-    return;
-  }
-  
-  var oneMatched = false;
-  filenames.forEach(function(filename) {
-    requiredExentions.forEach(function(ext) {
-      if (filename.endsWith(ext))
-        oneMatched = true;
-    });
-  });
-
-  if (!oneMatched) {
-    done(null, false, util.format('%s didn\'t contain any matching file extensions', name));
-    return;
-  }
-
-  // \o/
-  done(null, true);
-}
 
 DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) {
   var self = this;
