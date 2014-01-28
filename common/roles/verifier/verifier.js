@@ -17,7 +17,7 @@ var acquire = require('acquire')
   , states = acquire('states')
   , util = require('util')
   , utilities = acquire('utilities')
-;
+  ;
 
 var Campaigns = acquire('campaigns')
   , Hosts = acquire('hosts')
@@ -26,7 +26,7 @@ var Campaigns = acquire('campaigns')
   , Role = acquire('role')
   , Settings = acquire('settings')
   , Verifications = acquire('verifications')
-;
+  ; 
 
 var MAX_LINKS = 100;
 
