@@ -371,6 +371,9 @@ PageAnalyser.prototype.beginSearch = function (browser) {
     .seqEach(function(workItem){
       self.goWork(workItem, this);
     })
+    .seq(function(){
+      self.emit('finished');
+    })
     .catch(function(err){
       self.emit('error', err);
     })
@@ -384,29 +387,36 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
     logger.info('Wrangler results FILTERED ' + JSON.stringify(filtered));
-    var ofInterest = [];
+    var results = [];
     Seq(filtered)
       .seqEach(function(filteredResult){
         var that = this;
-        self.processLink(filteredResult, workItem, function(err, keeper){
-          ofInterest.push(keeper);
+        self.processLink(filteredResult, function(err, keeper){
+          results.push(keeper);
           that();
         });
       })
       .seq(function(){
         var that = this;
+        var ofInterest = results.filter(function(result){return result.result});
         logger.info('finished processing ' + workItem.uri + ' found these of interest ' 
-                    + JSON.stringify(ofInterest));
-        /*if(ofInterest.isEmpty()){
+            + JSON.stringify(ofInterest));
+        if(ofInterest.isEmpty()){
           self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
             if (err)
               logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
-            
           });          
         }
         else{
-
-        }*/
+          ofInterest.each(function(torrent){
+            self.emit('torrent',
+                      torrent.link,
+                      {score: MAX_SCRAPER_POINTS / 1.5,
+                       source: 'scraper.bittorrent.' + self.engineName,
+                       message: 'Link to actual Torrent file from ' + self.engineName});
+            self.emit('relation', workItem.uri, torrent.link);
+          });
+        }
         done();
       })
       .catch(function(err){
@@ -428,9 +438,10 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
   self.wrangler.beginSearch(workItem.uri);
 }
 
-PageAnalyser.prototype.processLink = function(torrentLink, infringement, done){
-  var self = this;
-  var details = null;
+PageAnalyser.prototype.processLink = function(torrentLink, done){
+  var self = this
+    , result = {link : torrentLink, result: false}
+    ;
 
   Seq()
     .seq(function(){
@@ -438,26 +449,24 @@ PageAnalyser.prototype.processLink = function(torrentLink, infringement, done){
     })
     .seq(function(details_){
       if(details_){
-        details = details_;
-        return torrentInspector.checkIfTorrentIsGoodFit(details, self.campaign, this);
+        return torrentInspector.checkIfTorrentIsGoodFit(details_, self.campaign, this);
       }
-      logger.warn('no details but no error ');
-      done(null, {result:false});
+      logger.warn('no details but no error ?');
+      done(null, result);
     })
-    .seq(function(good, message){
-      if(!details){
-        logger.info("don't know why i'm here");
-        return done(null, {result:false});
-      }      
+    .seq(function(good, reason){
       if(!good){
-        logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
-        return done(null, {result:false, message: message}); 
+        logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
+        result.message = reason;
+        return done(null, result); 
       }
-      done(null, {result: true, 'message': message});
+      result.result = true;
+      done(null, result);
     })
     .catch(function(err){
       logger.warn(err);
-      done(null, {result: false, message : err}); // just ignore for now.
+      result.message = err;
+      done(null, result); // just ignore for now.
     })
     ;
 }
