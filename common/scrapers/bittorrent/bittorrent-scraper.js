@@ -191,9 +191,8 @@ BittorrentPortal.prototype.emitInfringements = function () {
                                {replace:false}, 
                                function(err){
                                   if(err)
-                                    logger.warn("create from url issues : " + err);
-                                  else
-                                    logger.warn("create from url completed successfully");
+                                    return logger.warn("create from url issues : " + err);
+                                  logger.info("create from url completed successfully");
                                });
   });
   self.cleanup();
@@ -339,6 +338,7 @@ var PageAnalyser = function (campaign, types) {
   this.engineName = 'pageAnalyser';
   this.infringements = new Infringements();
   this.wrangler =  new BasicWrangler();
+  this.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
   this.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(campaign.name));
 };
 
@@ -397,26 +397,20 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
         });
       })
       .seq(function(){
-        var that = this;
         var ofInterest = results.filter(function(result){return result.result});
         logger.info('finished processing ' + workItem.uri + ' found these of interest ' 
             + JSON.stringify(ofInterest));
-        if(ofInterest.isEmpty()){
-          self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
-            if (err)
-              logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
-          });          
-        }
-        else{
-          ofInterest.each(function(torrent){
-            self.emit('torrent',
-                      torrent.link,
-                      {score: MAX_SCRAPER_POINTS / 1.5,
-                       source: 'scraper.bittorrent.' + self.engineName,
-                       message: 'Link to actual Torrent file from ' + self.engineName});
-            self.emit('relation', workItem.uri, torrent.link);
-          });
-        }
+
+        if(!ofInterest.isEmpty())
+          return self.push(ofInterest, workItem, this);
+        // otherwise mark as false positive.
+        self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
+          if (err)
+            logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
+          done();
+        }); 
+      })         
+      .seq(function(){
         done();
       })
       .catch(function(err){
@@ -431,11 +425,42 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
   self.wrangler.on('resumed', function onWranglerResume() {
     logger.info('wrangler resumed');
   });
-  
-  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
 
   logger.info('go wrangle ' + workItem.uri);
   self.wrangler.beginSearch(workItem.uri);
+}
+
+PageAnalyser.prototype.push = function(results, infringement, done){
+  var self = this;
+  Seq(results)
+    .seqEach(function(torrent){
+      var that = this;
+      var name = utilities.getPath(torrent.link).replace(/\/|\./g, '');
+      self.storage.createFromURL(self.campaign._id,
+                                 name,
+                                 torrent.link,
+                                 {replace:false}, 
+                                 function(err){
+                                    if(err)
+                                      return done(err);                                    
+                                  self.emit('torrent',
+                                            torrent.link,
+                                            {score: MAX_SCRAPER_POINTS / 1.5,
+                                             source: 'scraper.bittorrent.' + self.engineName,
+                                             message: 'Link to actual Torrent file from ' + self.engineName});
+                                  self.emit('relation', infringement.uri, torrent.link);
+                                  logger.info("uploaded and created child parent and torrent infringement for " + torrent.links);
+                                  that();
+                                 });
+    })
+    .seq(function(){
+      logger.info('Finished pushing');
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 PageAnalyser.prototype.processLink = function(torrentLink, done){

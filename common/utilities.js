@@ -467,7 +467,7 @@ Utilities.getHostname = function(uri) {
     return uri.hostname();
 
   } catch (err) {
-    logger.warn('Unable tp get hostname for %s', uri);
+    logger.warn('Unable to get hostname for %s', uri);
     return '';
   }
 }
@@ -478,7 +478,18 @@ Utilities.getDomain = function(uri) {
     return uri.domain();
 
   } catch (err) {
-    logger.warn('Unable tp get domain for %s', uri);
+    logger.warn('Unable to get domain for %s', uri);
+    return '';
+  }
+}
+
+Utilities.getPath = function(uri) {
+  try {
+    uri = URI(uri);
+    return uri.path();
+
+  } catch (err) {
+    logger.warn('Unable to get path for %s', uri);
     return '';
   }
 }
