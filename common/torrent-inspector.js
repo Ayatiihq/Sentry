@@ -8,9 +8,9 @@ var acquire = require('acquire')
 var Seq = require('seq')
 	;
 
-var TorrentHelper = module.exports;
+var TorrentInspector = module.exports;
 
-TorrentHelper.checkIfTorrentIsGoodFit = function(torrent, infringement, campaign, done) {
+TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   var	campaignName = campaign.name
     , campaignNameRegExp = new RegExp('(' + campaignName.replace(/\ /gi, '|') + ')', 'i')
     , campaignReleaseDate = campaign.metadata.releaseDate
@@ -87,57 +87,38 @@ TorrentHelper.checkIfTorrentIsGoodFit = function(torrent, infringement, campaign
   done(null, true);
 }
 
-TorrentHelper.getTorrentDetails = function(infringement, targetPath, done) {
+TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
   var	error = null
-    , filename = path.join(targetPath, infringement._id)
-    , gotFile = false
+    , filename = path.join(targetPath, utilities.genLinkKey(torrentSource));
     , details = null
     ;
 
-  Seq(infringement.parents.uris)
-    .seqEach(function(uri) {
-      var that = this;
+  Seq()
+    .seq(function(){
+      utilities.requestStream(torrentSource, function(err, req, res, stream) {
+        if (err)
+          return this(err);
 
-      if (gotFile) {
-        that();
-        return;
-      }
-
-      if (uri.startsWith('magnet:')) {
-        that();
-        return;
-      }
-
-      utilities.requestStream(uri, function(err, req, res, stream) {
-        if (err) {
-          error = err;
-          that();
-          return;
-        }
         stream.pipe(fs.createWriteStream(filename));
         stream.on('end', function() { 
-          gotFile = true;
-          that();
+          this(null, true);
         });
         stream.on('error', function(err) {
-          error = err;
-          that();
+          this(err);
         });
       });
     })
-    .seq(function() {
-      if (!gotFile) {
-        done(error);
-        return;
-      }
-
-      readTorrent(filename, this);
+    .seq(function(result){
+      if(result)
+        readTorrent(filename, this);
+      else
+        done(new Error('Unable to get torrent file ' + targetSource));
     })
     .seq(function(details) {
       rimraf(filename, this.ok);
       done(null, details);
     })
-    .catch(function(err) {
+    .catch(function(err){
       done(err);
     })
     ;
