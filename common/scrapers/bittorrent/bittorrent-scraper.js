@@ -9,9 +9,12 @@ var acquire = require('acquire')
   , events = require('events') 
   , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
+  , os = require('os')
+  , path = require('path')
   , sugar = require('sugar')  
   , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
+  , utilities = acquire('utilities') 
   , wranglerRules = acquire('wrangler-rules')
 ;
 
@@ -336,6 +339,7 @@ var PageAnalyser = function (campaign, types) {
   this.engineName = 'pageAnalyser';
   this.infringements = new Infringements();
   this.wrangler =  new BasicWrangler();
+  this.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(campaign.name));
 };
 
 util.inherits(PageAnalyser, BittorrentPortal);
@@ -351,6 +355,9 @@ PageAnalyser.prototype.beginSearch = function (browser) {
   self.emit('started');
   Seq()
     .seq(function(){
+      utilities.tryMakeDir(self.downloadDir_, this);
+    })
+    .seq(function(){
       self.infringements.getTorrentPagesUnverified(self.campaign, this);
     })
     .seq(function(torrentPagesUnverified_){
@@ -363,9 +370,6 @@ PageAnalyser.prototype.beginSearch = function (browser) {
     .set(respectableWorkLoad)
     .seqEach(function(workItem){
       self.goWork(workItem, this);
-    })
-    .seq(function(){
-      self.cleanup();
     })
     .catch(function(err){
       self.emit('error', err);
@@ -380,13 +384,30 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
     logger.info('Wrangler results FILTERED ' + JSON.stringify(filtered));
+    var ofInterest = [];
     Seq(filtered)
       .seqEach(function(filteredResult){
-        self.processLink(filteredResult, workItem, this);
+        var that = this;
+        self.processLink(filteredResult, workItem, function(err, keeper){
+          ofInterest.push(keeper);
+          that();
+        });
       })
       .seq(function(){
-        logger.info('finished processing ' + workItem.uri);
-        done()
+        var that = this;
+        logger.info('finished processing ' + workItem.uri + ' found these of interest ' 
+                    + JSON.stringify(ofInterest));
+        /*if(ofInterest.isEmpty()){
+          self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
+            if (err)
+              logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
+            
+          });          
+        }
+        else{
+
+        }*/
+        done();
       })
       .catch(function(err){
         done(err);
@@ -416,40 +437,30 @@ PageAnalyser.prototype.processLink = function(torrentLink, infringement, done){
       torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
     })
     .seq(function(details_){
-      if(details)
+      if(details_){
         details = details_;
         return torrentInspector.checkIfTorrentIsGoodFit(details, self.campaign, this);
-      else{
-        logger.warn('no details but no error ');
-        done();
       }
+      logger.warn('no details but no error ');
+      done(null, {result:false});
     })
     .seq(function(good, message){
-      if(!details)
-        return done();
-      
+      if(!details){
+        logger.info("don't know why i'm here");
+        return done(null, {result:false});
+      }      
       if(!good){
         logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
-
-        self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
-          if (err)
-            logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
-        });
-        this();
+        return done(null, {result:false, message: message}); 
       }
-      else{
-        ....
-      }
-
-
+      done(null, {result: true, 'message': message});
     })
     .catch(function(err){
       logger.warn(err);
-      done(); // just ignore for now.
+      done(null, {result: false, message : err}); // just ignore for now.
     })
     ;
 }
-
 
 /* Scraper Interface */
 var Bittorrent = module.exports = function () {

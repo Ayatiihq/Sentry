@@ -24,7 +24,6 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , Extensions = acquire('wrangler-rules').typeMediaExtensions
   , Infringements = acquire('infringements')
   , Storage = acquire('storage')
   , Jobs = acquire('jobs')
@@ -138,7 +137,7 @@ DownloaderTorrent.prototype.preRun = function(job, done) {
       var that = this;
 
       logger.info('Creating download directory %s', self.downloadDir_);
-      self.tryMakeDir(self.downloadDir_, this);
+      utilities.tryMakeDir(self.downloadDir_, this);
     })
     .seq(function() {
       done();
@@ -340,18 +339,6 @@ DownloaderTorrent.prototype.clientErrored = function(err) {
   self.runDone_(err);
 }
 
-DownloaderTorrent.prototype.tryMakeDir = function(name, done) {
-  fs.mkdir(name, 0777, function(err) {
-    if (!err) {
-      return done();
-    } else if (err.code == 'EEXIST') {
-      logger.info('Using pre-existing download directory');
-      done();
-    } else {
-      done(err);
-    }
-  });
-}
 
 //
 // Overrides

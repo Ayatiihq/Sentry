@@ -1,11 +1,14 @@
 var acquire = require('acquire')
+  , fs = require('fs')
+  , logger = acquire('logger').forFile('bittorrent-inspector.js')
   , path = require('path')
 	, readTorrent = require('read-torrent')
-	. rimraf = require('rimraf')
+	, rimraf = require('rimraf')
 	, utilities = acquire('utilities')
 	;
 
-var Seq = require('seq')
+var Extensions = acquire('wrangler-rules').typeMediaExtensions
+  , Seq = require('seq')
 	;
 
 var TorrentInspector = module.exports;
@@ -21,7 +24,7 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
     , filenames = []
     , minSize = 0
     , maxSize = 4 * 1024 * 1024 //4GB for video file
-    , requiredExentions = []
+    , requiredExtensions = []
     , points = 0
     ;
 
@@ -48,11 +51,11 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   if (type.startsWith('music')) {
     minSize = 3 * 1024 * 1024;
     maxSize = 300 * 1024 * 1024;
-    requiredExentions.add(Extensions[type]) 
+    requiredExtensions.add(Extensions[type]) 
   
   } else if (type.startsWith('movie')) {
     minSize = 300 * 1024 * 1024;
-    requiredExentions.add(Extensions[type])
+    requiredExtensions.add(Extensions[type])
 
   } else {
     done(null, false, util.format('Unsupported campaign type for %s: %s', type))
@@ -72,7 +75,7 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   
   var oneMatched = false;
   filenames.forEach(function(filename) {
-    requiredExentions.forEach(function(ext) {
+    requiredExtensions.forEach(function(ext) {
       if (filename.endsWith(ext))
         oneMatched = true;
     });
@@ -88,23 +91,23 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
 }
 
 TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
-  var	error = null
-    , filename = path.join(targetPath, utilities.genLinkKey(torrentSource))
+  var filename = path.join(targetPath, utilities.genLinkKey(torrentSource))
     , details = null
     ;
 
   Seq()
     .seq(function(){
+      var that = this;
       utilities.requestStream(torrentSource, function(err, req, res, stream) {
         if (err)
-          return this(err);
+          return that(err);
 
         stream.pipe(fs.createWriteStream(filename));
         stream.on('end', function() { 
-          this(null, true);
+          that(null, true);
         });
         stream.on('error', function(err) {
-          this(err);
+          that(err);
         });
       });
     })
@@ -112,7 +115,7 @@ TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
       if(result)
         readTorrent(filename, this);
       else
-        done(new Error('Unable to get torrent file ' + targetSource));
+        done(new Error('Unable to get torrent file ' + torrentSource));
     })
     .seq(function(details) {
       rimraf(filename, this.ok);
