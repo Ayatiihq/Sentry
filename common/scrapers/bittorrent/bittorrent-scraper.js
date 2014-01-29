@@ -5,21 +5,25 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
-  , Campaigns = acquire('campaigns')  
   , config = acquire('config')
   , events = require('events') 
   , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
-  , Promise = require('node-promise')
-  , Settings = acquire('settings')  
-  , Seq = require('seq')
-  , Storage = acquire('storage')
-  , sugar = require('sugar')
-  , URI = require('URIjs')  
+  , sugar = require('sugar')  
   , util = require('util')
+  , wranglerRules = acquire('wrangler-rules')
 ;
 
-var Scraper = acquire('scraper');
+var BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
+  , Campaigns = acquire('campaigns') 
+  , Infringements = acquire('infringements') 
+  , Promise = require('node-promise')
+  , Scraper = acquire('scraper')
+  , Seq = require('seq')
+  , Settings = acquire('settings')    
+  , Storage = acquire('storage')
+  , URI = require('URIjs')    
+  ;
 
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
@@ -325,6 +329,70 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   return true; 
 };
 
+/* -- TorrentPageAnalyser */
+var PageAnalyser = function (campaign, types) {
+  this.constructor.super_.call(this, campaign, types);
+  this.engineName = 'pageAnalyser';
+  this.infringements = new Infringements();
+  this.wrangler =  new BasicWrangler();
+};
+
+util.inherits(PageAnalyser, BittorrentPortal);
+
+PageAnalyser.prototype.beginSearch = function (browser) {
+  var self = this 
+    , respectableWorkLoad = []
+    ;
+
+  self.resultsCount = 0;
+  browser.quit(); // don't need it.
+  
+  self.emit('started');
+  Seq()
+    .seq(function(){
+      self.infringements.getTorrentPagesUnverified(self.campaign, this);
+    })
+    .seq(function(torrentPagesUnverified_){
+      torrentPagesUnverified_.sort(function(a, b ){return a.created < b.created});
+      //be careful not to trip that seq stack bug 
+      respectableWorkLoad.add(torrentPagesUnverified_.slice(0, 50)); 
+      logger.info('respectableWorkLoad length : ' + respectableWorkLoad.length);
+      this();
+    })
+    .set(respectableWorkLoad)
+    .seqEach(function(workItem){
+      self.goWork(workItem, this);
+    })
+    .seq(function(){
+      logger.info('hereio !');
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;
+};
+
+PageAnalyser.prototype.goWork = function (workItem, done) {
+  var self  = this;
+
+  self.wrangler.on('finished', function(results){
+    logger.info('Wrangler results ' + JSON.stringify(results));
+  })
+  self.wrangler.on('suspended', function onWranglerSuspend() {
+    logger.info('wrangler suspended');
+  });
+  self.wrangler.on('resumed', function onWranglerResume() {
+    logger.info('wrangler resumed');
+  });
+  
+  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
+  logger.info('go wrangle ' + workItem.uri);
+  self.wrangler.beginSearch(workItem.uri);
+  //done();
+}
+
+
+
 /* Scraper Interface */
 var Bittorrent = module.exports = function () {
   this.init();
@@ -347,7 +415,8 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
 
   logger.info('started for %s', campaign.name);
   var scraperMap = {
-    'kat': KatScraper
+    'kat': KatScraper,
+    'pageAnalyser' : PageAnalyser
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);

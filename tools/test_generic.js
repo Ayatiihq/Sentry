@@ -29,6 +29,7 @@ function main() {
   }
 
   var campaign = require(process.argv[2]);
+  logger.info('search for campaign ' + campaign.name);
   var url = process.argv[3]
 
   var Generic = require('../common/scrapers/generic/generic-scraper');

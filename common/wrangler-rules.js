@@ -209,8 +209,7 @@ var searchTypes = module.exports.searchTypes = {
  * depending on the matching algorithm chosen (searchTypes).
  */
 var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionList, searchType, mimeMatch) {
-
-  var ret = function findExtensions(extensions, searchType, $, source, uri, foundItems) {
+  var findExtensions = function(extensions, searchType, mimeMatch, $, source, uri, foundItems) {
     var hostname = URI(uri).pathname('').href()
       , links = {}
       , shortenedLinks = []
@@ -336,11 +335,10 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         all(pingPromises).then(function() { promise.resolve(foundItems); });
       }
     });
-
     return promise;
   }
-
-  return ret.bind(null, extensionList, searchType, mimeMatch); 
+  
+  return findExtensions.bind(null, extensionList, searchType, mimeMatch); 
 }
 
 
@@ -408,6 +406,17 @@ module.exports.rulesDownloadsMovie = [
   , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
+
+var testicles = module.exports.exportTesticles = function(){
+  return 'bollox';
+}
+
+
+module.exports.rulesDownloadsTorrent = [
+   ruleSearchAllLinks(p2pExtensions, searchTypes.END)
+ , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
+];
+
 
 module.exports.typeExtensions = {
     'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)

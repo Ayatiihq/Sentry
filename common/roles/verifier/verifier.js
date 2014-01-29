@@ -338,6 +338,7 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     })
     .seq(function(loadedEngines){
       engines.add(loadedEngines);
+      this();
     })    
     .set(engines)
     .seqEach(function(engine) {

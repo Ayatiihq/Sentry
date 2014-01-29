@@ -1015,4 +1015,25 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 
 }
 
+/**
+ * Get all the campaign torrent infringements that are unverifed and don't have torrent file schemes.
+ *
+ * @param {object}                    campaign                 A Campaign
+ * @param {function(err, torrents)}   callback                 A callback to receive the torrent unverfieds or an error.
+ * @return {undefined}
+ */
+Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback) {
+  var self = this;
 
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.getTorrentPagesUnverified, Object.values(arguments)]);
+
+  var query = {
+    campaign: campaign._id,
+    $and: [
+      { category: states.infringements.category.TORRENT },
+      { scheme : /^(?![torrent|magnet])/}
+    ]
+  };
+  self.infringements_.find(query).toArray(callback); 
+}
