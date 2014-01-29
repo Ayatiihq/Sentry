@@ -16,7 +16,7 @@ var acquire = require('acquire')
   ;
 
 var Category = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers')
+  , Hosts = acquire('hosts')
   , Settings = acquire('settings')
   , Seq = require('seq')
   , State = states.infringements.state
@@ -542,7 +542,7 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
 
   logger.info('topTenLinkCyberlockersClient: Running job');
   
-  var cyberlockers = new Cyberlockers();
+  var hosts = new Hosts();
 
   // Compile the top ten hosts carrying INFRINGEMENTS
   collection.find({ '_id.client': campaign.client })
@@ -557,7 +557,7 @@ HostsCrunchers.topTenLinkCyberlockersClient = function(db, collections, campaign
     var map = {};
     var values = [];
 
-    cyberlockers.knownDomains(function(err, knownDomains){
+    hosts.getDomainsByCategory(Category.CYBERLOCKER, function(err, knownDomains){
       if (err)
         return done('topTenLinkCyberlockersClient: Error compiling top ten infringement hosts: ' + err);
       docs.forEach(function(doc) {

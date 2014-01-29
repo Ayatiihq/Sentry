@@ -27,6 +27,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -36,7 +37,6 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
-  , Cyberlockers = acquire('cyberlockers')
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
@@ -52,9 +52,10 @@ var STORAGE_NAME = 'downloads';
 var Processor = module.exports = function() {
   this.campaigns_ = null;
 
+  this.hosts_ = null;
   this.infringements_ = null;
+
   this.jobs_ = null;
-  this.cyberlockers_ = null; 
 
   this.job_ = null;
   this.campaign_ = null;
@@ -73,10 +74,10 @@ Processor.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.hosts_ = new Hosts();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
-  self.cyberlockers_ = new Cyberlockers();
   self.storage_ = new Storage(STORAGE_NAME);
 }
 
@@ -297,14 +298,14 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , scheme = infringement.scheme
     ;
 
-  self.isCyberlocker(uri, domain, infringement, function(err, result){
+  self.isCyberlockerOrTorrent(uri, domain, infringement, function(err, result){
     if(err)
       return done(err);
 
-    if(result){
-      infringement.category = Categories.CYBERLOCKER;  
-
-    } else if (meta) {
+    if(result.success){
+      infringement.category = result.category;
+    } 
+    else if (meta) {
       infringement.category = Categories.SEARCH_RESULT
     
     } else if (scheme == 'torrent' || scheme == 'magnet') {
@@ -315,7 +316,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     
     } else {
       infringement.category = Categories.WEBSITE;
-    }
+    }    
 
     logger.info('Putting infringement into initial category of %d', infringement.category);
 
@@ -325,12 +326,44 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
 }
 
-Processor.prototype.isCyberlocker = function(uri, hostname, infringement, done) {
-  var self = this;
-  self.cyberlockers_.knownDomains(function(err, domains){
+Processor.prototype.isTorrentSite = function(uri, hostname, infringement, done) {
+  var self = this
+    , category = states.infringements.category.TORRENT
+  ;
+
+  self.hosts_.getDomainsByCategory(category, function(err, domains){
     if(err)
       return done(err)
     done(null, domains.indexOf(hostname) >= 0);
+  });
+}
+
+Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringement, done) {
+  var self = this
+    , result = {success: false, category: ''}
+  ;
+  self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
+    if(err)
+      return done(err);
+
+    if(isTorrent){
+      result.success = true;
+      result.category = states.infringements.category.TORRENT;
+      return done(null, result);
+    }
+
+    self.hosts_.getDomainsByCategory(states.infringements.category.CYBERLOCKER, function(err, domains){
+      if(err)
+        return done(err)
+      var isCl = domains.indexOf(hostname) >= 0;
+      if(isCl){
+        result.success = true;
+        result.category = , category = states.infringements.category.CYBERLOCKER;
+
+        return done(null, result);        
+      } 
+      done(null, result);
+    });   
   });
 }
 
@@ -527,10 +560,9 @@ Processor.prototype.checkBlacklisted = function(infringement, mimetype, done) {
   });
 
   if (blacklisted) {
-    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
-    self.verifications_.submit(infringement, verification, function(err) {
+    self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'processor', function(err){
       if (err)
-        logger.warn('Error verifiying %s to FALSE POSITIVE: %s', infringement.uri, err);
+        logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
       done();
     });
   } else {
@@ -549,10 +581,9 @@ Processor.prototype.checkIfDomain = function(infringement, mimetype, done) {
   isDomain = !utilities.uriHasPath(infringement.uri);
 
   if (isDomain) {
-    var verification = { state: State.FALSE_POSITIVE, who: 'processor', started: Date.now(), finished: Date.now() };
-    self.verifications_.submit(infringement, verification, function(err) {
+    self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'processor', function(err){
       if (err)
-        logger.warn('Error verifiying domain %s to FALSE POSITIVE: %s', infringement.uri, err);
+        logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
       done();
     });
   } else {
@@ -566,12 +597,12 @@ Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
   if (infringement.verified || infringement.state != State.UNAVAILABLE)
     return done();
 
-  var verification = { state: State.UNAVAILABLE, who: 'processor', started: Date.now(), finished: Date.now() };
-  self.verifications_.submit(infringement, verification, function(err) {
+  self.infringements_.setStateBy(infringement, State.UNAVAILABLE, 'processor', function(err){
     if (err)
-      logger.warn('Error verifiying %s to UNAVAILABLE: %s', infringement.uri, err);
+      logger.warn('Error setting %s to UNAVAILABLE: %s', infringement.uri, err);
     done();
   });
+
 }
 
 Processor.prototype.checkIfExtensionLedToWebpage = function(infringement, mimetype, done) {

@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , events = require('events')
   , fs = require('fs')
   , logger = acquire('logger').forFile('roles.js')
+  , path = require('path')
   , util = require('util')
   ;
 
@@ -40,7 +41,7 @@ Roles.prototype.onRolesDirRead = function(err, files) {
   files.forEach(function(file) {
     if (file.endsWith('.js') || file[0] === '.')
       return;
-    self.loadRole(ROLES_DIR + file + '/package.json');
+    self.loadRoleInfo(ROLES_DIR + file + '/package.json');
   });
 
   self.removeRoles();
@@ -49,7 +50,7 @@ Roles.prototype.onRolesDirRead = function(err, files) {
   self.emit('ready');
 }
 
-Roles.prototype.loadRole = function(infopath) {
+Roles.prototype.loadRoleInfo = function(infopath) {
   var self = this;
 
   logger.info('Loading role: ' + infopath);
@@ -71,6 +72,23 @@ Roles.prototype.loadRole = function(infopath) {
   } catch (error) {
     logger.warn('Unable to load role: ' + infopath + ': ' + error);
   }
+}
+
+Roles.prototype.loadRole = function(roleName) {
+  var self = this
+    , target = path.join(ROLES_DIR, roleName)
+    , instance = null
+  ;
+
+  logger.info('Loading role: ' + target);
+
+  try {
+    var role = require(target);
+    instance = new role();
+  } catch (error) {
+    logger.warn('Unable to load role: ' + target + ': ' + error);
+  }
+  return instance;
 }
 
 Roles.prototype.removeRoles = function() {

@@ -4,7 +4,13 @@
  * Wraps the client table.
  *
  * (C) 2012 Ayatii Limited
- *
+ 
+ { "_id" : "Forwind",
+   "avatar" : "",
+   "name" : "Forwind",
+   "state" : 0,
+   "priority" : 0}
+ 
  */
 
 var acquire = require('acquire')
@@ -57,7 +63,7 @@ function defaultCallback(err) {
 // Public Methods
 //
 /**
- * Get a list of clients.
+ * Get a list of all clients.
  *
  * @param {function(err, roles)} callback The callback to consume the clients.
  * @return {undefined}
@@ -71,6 +77,7 @@ Clients.prototype.listClients = function(callback) {
 
   self.clients_.find().toArray(callback);
 }
+
 
 /**
  * Get a client's details.

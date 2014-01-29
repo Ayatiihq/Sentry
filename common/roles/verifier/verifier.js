@@ -20,7 +20,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , CyberLockers = acquire('cyberlockers')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
@@ -32,14 +32,13 @@ var MAX_LINKS = 100;
 
 var Verifier = module.exports = function() {
   this.campaigns_ = null;
-  this.cyberlockers_ = null
+  this.hosts_ = null;
   this.infringements_ = null;
   this.settings_ = null;
   this.jobs_ = null;
   this.verifications_ = null;
 
   this.campaign_ = null;
-
   this.started_ = false;
 
   this.lastTimestamp_ = 0;
@@ -56,8 +55,8 @@ Verifier.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
-  self.cyberlockers_ = new CyberLockers();
   self.infringements_ = new Infringements();
+  self.hosts_ = new Hosts();
   self.settings_ = new Settings('role.verifier');
   self.jobs_ = new Jobs('verifier');
   self.verifications_ = new Verifications();
@@ -169,7 +168,7 @@ Verifier.prototype.processAllVerifications = function(campaign, done, lastId) {
 
   logger.info('Verifying links for %j from timestamp %s', campaign._id, from);
 
-  self.verifications_.getVerifications(campaign, Date.create(from), MAX_LINKS, function(err, endpoints) {
+  self.verifications_.getThoseInNeedOfVerification(campaign, Date.create(from), MAX_LINKS, function(err, endpoints) {
     if (err || endpoints.length == 0 || endpoints.last()._id == lastId)
       return done(err);
 
@@ -332,7 +331,10 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
       this();
     })
     .seq(function() {
-      self.loadKnownEngines(campaign, this);
+      database.connectAndEnsureCollection('hosts', this);
+    })
+    .seq(function(hosts_){
+      self.loadKnownEngines(hosts_, this);
     })
     .seq(function(loadedEngines){
       engines.add(loadedEngines);
@@ -356,17 +358,21 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     ;
 }
 
-Verifier.prototype.loadKnownEngines = function(campaign, done) {
+Verifier.prototype.loadKnownEngines = function(hosts, done) {
   var self = this
     , engines = []
-    ;
+  ;
 
   engines.push(self.torrentEngine.bind(self));
   
-  self.cyberlockers_.find({ urlMatcher: { $exists: true }}, function(err, cls){
+
+  hosts.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
     if(err)
       return done(err);
-    done(null, engines.add(cls));
+    hostsWithMatcher.each(function(hostWithMatcher){
+      engines.push(self.cyberlockerEngine.bind(self, hostWithMatcher));
+    });
+    done(null, engines);
   });
 }
 
@@ -375,7 +381,6 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     , verifiedhashes = []
     , needsVerifying = []
     , iStates = states.infringements.state
-    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
     ;
 
   logger.info('Starting Torrent engine');
@@ -424,8 +429,8 @@ Verifier.prototype.torrentEngine = function(infringements, done) {
     .set(needsVerifying)
     // Go through each one and mark as verified
     .seqEach(function(infringement) {
-      logger.info('Verifying %s', infringement.uri);
-      self.verifications_.submit(infringement, verification, this);
+      logger.info('Setting state on %s', infringement.uri);
+      self.infringements_.setStateBy(infringement, iStates.VERIFIED, 'verifier', this);
     })
     .seq(function() {
       logger.info('Torrent known id verifier finished');
@@ -444,13 +449,11 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     , verifiedIds = []
     , needsVerifying = []
     , iStates = states.infringements.state
-    , verification = { state: iStates.VERIFIED, who:'verifier.known-ids', started: Date.now() }
     ;
 
   logger.info('Starting %s known id verifier', matcher.domain);
 
   Seq()
-    // Find verified torrent:// endpoints so we can get a list of hashes
     .seq(function() {
       var cur = infringements.find({ campaign: self.campaign_._id,
                                      category: states.infringements.category.CYBERLOCKER,
@@ -464,7 +467,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     // Grab the unique id for the cyberlocker upload
     .seq(function(verified) {
       verified.forEach(function(infringement) {
-        var id = infringement.uri.match(cyberlocker.uriMatcher);
+        var id = infringement.uri.match(cyberlocker.urlMatcher);
         if (id)
           verifiedIdObj[id] = true;
       });
@@ -496,8 +499,8 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     .set(needsVerifying)
     // Go through each one and mark as verified
     .seqEach(function(infringement) {
-      logger.info('Verifying %s', infringement.uri);
-      self.verifications_.submit(infringement, verification, this);
+      logger.info('Setting state on %s', infringement.uri);
+      self.infringements_.setStateBy(infringement, iStates.VERIFIED, 'verifier', this);
     })
     .seq(function() {
       logger.info('%s known-id verifier finished', cyberlocker._id);
@@ -516,6 +519,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
 Verifier.prototype.getName = function() {
   return "verifier";
 }
+
 
 Verifier.prototype.start = function() {
   var self = this;

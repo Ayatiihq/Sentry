@@ -11,19 +11,22 @@
  */
 
 var acquire = require('acquire')
-  , Cyberlockers = acquire('cyberlockers')
+  , blacklist = acquire('blacklist')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , util = require('util')
   , utilities = acquire('utilities')
   , url = require('url')
   , sugar = require('sugar')
-  , BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
-  , Infringements = acquire('infringements')
   , states = acquire('states')
-  , Promise = require('node-promise')
-  , blacklist = acquire('blacklist')
+  , when = require('node-promise').when
   , wranglerRules = acquire('wrangler-rules')
+;
+
+var BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
+  , Hosts = acquire('hosts')
+  , Infringements = acquire('infringements')
+  , Promise = require('node-promise')
 ;
 
 var Scraper = acquire('scraper');
@@ -43,8 +46,8 @@ Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
+  self.hosts = new Hosts();
   self.infringements = new Infringements();
-  self.cyberlockers = new Cyberlockers();
 
   self.activeScrapes = 0;
   self.maxActive = 10;
@@ -90,7 +93,7 @@ Generic.prototype.getName = function () {
   return "Generic";
 };
 
-Generic.prototype.search_with_one_url = function (campaign, url) {
+Generic.prototype.searchWithOneUrl = function (campaign, url) {
   var self = this;
   self.campaign = campaign;
   self.checkURLS = [{uri: url}];
@@ -129,9 +132,10 @@ Generic.prototype.start = function (campaign, job, browser) {
   self.emit('started');
 };
 
+// TODO
+// This needs to be refactored, hits the db everytime, should only query once.
 Generic.prototype.pump = function (firstRun) {
   var self = this;
-
   if (self.activeScrapes <= 0 && self.suspendedScrapes <= 0 && !firstRun) {
     logger.info('Finishing up, no more urls to check');
     if (self.touchId_)
@@ -199,74 +203,96 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
   var promise = new Promise.Promise();
+  
+  logger.info('top of checkInfringement');
 
   if (!infringement ||!infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
-    promise.resolve();
-    return promise;
+    return promise.resolve();
+  }
+  // If its pathless, no point.
+  if (!utilities.uriHasPath(infringement.uri)) {
+    logger.info('%s has no path, not scraping', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+    return promise.resolve();
+  }
+  // If its safe, no point.
+  if (arrayHas(infringement.uri, safeDomains)) {
+    logger.info('%s is a safe domain', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
+    return promise.resolve();
+  }
+  
+  // Otherwise go digging.  
+  function getKnownDomains(category){
+    var innerPromise = new Promise.Promise();
+    self.hosts.getDomainsByCategory(category, function(err, domains){
+      if(err)
+        return innerPromise.reject(err);
+      innerPromise.resolve({'category' : category, 'domains' : domains});
+    });    
+    return innerPromise;
   }
 
-  self.cyberlockers.knownDomains(function(err, domains){
+  var knownCls = getKnownDomains(Category.CYBERLOCKER);
+  var knownTorrs = getKnownDomains(Category.TORRENT);
 
-    if (arrayHas(infringement.uri, domains)) {
+  allOrNone([knownCls, knownTorrs]).then(function(results){
+    var cls = results.filter(function(result){ return result.category === Category.CYBERLOCKER});
+    var torrentSites = results.filter(function(result){ return result.category === Category.TORRENT});
+    var combined = results.map(function(result){return result.domains});
+
+    if(arrayHas(infringement.uri, cls.domains)){
       logger.info('%s is a cyberlocker', infringement.uri);
       // FIXME: This should be done in another place, is just a hack, see
       //        https://github.com/afive/sentry/issues/65
       // It's a cyberlocker URI, so important but we don't scrape it further
       self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
       self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
-      promise.resolve();  
-
-    } else if (!utilities.uriHasPath(infringement.uri)) {
-      logger.info('%s has no path, not scraping', infringement.uri);
-      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-      promise.resolve();
-    
-    } else if (arrayHas(infringement.uri, safeDomains)) {
-      logger.info('%s is a safe domain', infringement.uri);
-      // auto reject this result
-      self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-      promise.resolve();
-    
-    } else {
-      var wrangler = new BasicWrangler();
-      
-      var musicRules = wranglerRules.rulesDownloadsMusic;
-      var movieRules = wranglerRules.rulesDownloadsMovie;
-
-      self.cyberlockers.knownDomains(function(err, domains){
-        if(err)
-          return logger.warn('Error fetching knownDomains ' + err);
-  
-        musicRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-        movieRules.push(wranglerRules.ruleSearchAllLinks(domains, wranglerRules.searchTypes.DOMAIN));
-  
-        var rules = {
-          'music' : musicRules,
-          'tv': wranglerRules.rulesLiveTV,
-          'movie': movieRules 
-        };
-
-        wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
-
-        wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-        wrangler.on('suspended', function onWranglerSuspend() {
-          self.activeScrapes = self.activeScrapes - 1;
-          self.suspendedScrapes = self.suspendedScrapes + 1;
-          self.pump();
-        });
-        wrangler.on('resumed', function onWranglerResume() {
-          self.activeScrapes = self.activeScrapes + 1;
-          self.suspendedScrapes = self.suspendedScrapes - 1;
-          self.pump();
-        });
-        wrangler.beginSearch(infringement.uri);
-      });
+      return promise.resolve();        
     }
-  });
+    
+    if(arrayHas(infringement.uri, torrentSites.domains)){
+      logger.info('%s is a torrent site', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'torrent');
+      return promise.resolve();        
+    }
+    var wrangler = new BasicWrangler();      
+    var musicRules = wranglerRules.rulesDownloadsMusic;
+    var movieRules = wranglerRules.rulesDownloadsMovie;
+    
+    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    
+    var rules = {'music' : musicRules,
+                 'tv': wranglerRules.rulesLiveTV,
+                 'movie': movieRules};
 
+    wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
+
+    wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
+    wrangler.on('suspended', function onWranglerSuspend() {
+      self.activeScrapes = self.activeScrapes - 1;
+      self.suspendedScrapes = self.suspendedScrapes + 1;
+      self.pump();
+    });
+    wrangler.on('resumed', function onWranglerResume() {
+      self.activeScrapes = self.activeScrapes + 1;
+      self.suspendedScrapes = self.suspendedScrapes - 1;
+      self.pump();
+    });
+    wrangler.beginSearch(infringement.uri);
+  },
+  function(err){
+    promise.reject(err);
+  });
   return promise;
 };
+
 
 Generic.prototype.stop = function () {
   var self = this;

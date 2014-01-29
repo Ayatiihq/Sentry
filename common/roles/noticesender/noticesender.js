@@ -602,6 +602,15 @@ NoticeSender.prototype.getName = function() {
   return "noticesender";
 }
 
+NoticeSender.prototype.orderJobs = function(campaign, client){
+  var self = this;
+  if(!client.authorization || !client.copyrightContact)){
+    logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
+    return [];
+  } 
+  return NoticeSender.super_.prototype.orderJobs.apply(this, arguments);
+}
+
 NoticeSender.prototype.start = function() {
   var self = this;
 

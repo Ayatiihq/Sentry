@@ -347,3 +347,14 @@ Storage.prototype.doWeHaveThis = function(campaignID, md5, callback) {
     })
     ;
 }
+
+Storage.prototype.deleteFile = function(campaignID, md5, callback) {
+  var self = this
+  , headers = self.defaultHeaders_
+  , objPath = util.format('/%s/%s/%s', self.container_, campaignID, md5)
+  ;
+
+  callback = callback ? callback : defaultCallback;
+
+  self.client_.deleteFile(objPath, callback);
+}

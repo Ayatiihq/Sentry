@@ -2,7 +2,64 @@
  * campaigns.js: the campaigns table
  *
  * Wraps the campaigns table.
- *
+ * 
+ {
+  "_id": "",
+  "avatar": "",
+  "client": "",
+  "created": 0,
+  "description": "",
+  "metadata": {
+    "albumTitle": "",
+    "artist": "",
+    "blacklist": [
+      ""
+    ],
+    "catNo" : ""
+    "duration" : 0,
+    "engineKeywords": [
+      ""
+    ],
+    "label" : "",
+    "language": "",
+    "lowPriorityWordList": [
+      ""
+    ],
+    "mbReleaseId" : "",
+    "releaseDate": "",
+    "searchengineMaxPages": 0,
+    "soundtrack": false,
+    "assets": [ 
+      {
+        "altTitles": [""],
+        "artist": [
+          ""
+        ],
+        "duration": 0, // in seconds
+        "mbTrackId": "",
+        "md5": "", 
+        "noSearch": false,
+        "number": [0-assets.Length],
+        "title": "" 
+      }
+      .
+      .
+      .
+    ],
+    "url": "",
+    "year": ""
+  },
+  "name": "", // // always assume this is the correct title (via musicbrainz according to release)
+  "names": [],
+  "priority": 0,
+  "scrapersEnabled": []
+  "scrapersIgnored": [],
+  "sweep": true,
+  "sweepFrom": 0,
+  "sweepIntervalMinutes": 0,
+  "sweepTo": 0,
+  "type": ""
+}
  * (C) 2012 Ayatii Limited
  *
  */

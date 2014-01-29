@@ -86,6 +86,7 @@ function main() {
   
   browser = new Cowmangler();
   browser.newTab();
+  browser.setAdBlock(true);
 
   browser.on('ready', function(){logger.info('we are cowmangling')});
   browser.on('error', function(){
