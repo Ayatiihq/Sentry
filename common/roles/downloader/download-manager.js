@@ -1,7 +1,7 @@
 /*
  * download-manager.js: the download manager
  *
- * (C) 2012 Ayatii Limited
+ * (C) 2013 Ayatii Limited
  *
  * DownloadManager role looks for infringements that need downloading, sorts them, 
  * and hands them to the appropriate downloader
@@ -24,6 +24,7 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
+  , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Verifications = acquire('verifications')
   , Storage = acquire('storage')
@@ -45,6 +46,7 @@ var PLUGINS = [
 
 var DownloadManager = module.exports = function() {
   this.campaigns_ = null;
+  this.hosts_ = null;
   this.storage_ = null;
   this.infringements_ = null;
   this.verifications_ = null;
@@ -66,6 +68,7 @@ DownloadManager.prototype.init = function() {
   var self = this;
 
   self.campaigns_ = new Campaigns();
+  self.hosts_ = new Hosts();
   self.storage_ = new Storage('downloads');
   self.infringements_ = new Infringements();
   self.verifications_ = new Verifications();
