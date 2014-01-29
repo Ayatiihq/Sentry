@@ -89,7 +89,7 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
 
 TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
   var	error = null
-    , filename = path.join(targetPath, utilities.genLinkKey(torrentSource));
+    , filename = path.join(targetPath, utilities.genLinkKey(torrentSource))
     , details = null
     ;
 

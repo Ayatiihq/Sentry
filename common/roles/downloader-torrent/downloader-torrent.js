@@ -222,15 +222,16 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
             if (err)
               logger.warn('Unable to update state for %s: %s', infringement._id, err);
           });
-          this(null, false);
+          return this();
         }
-        torrentInspector.checkIfTorrentIsGoodFit(torrentDetails, self.campaign_, this);
+        torrentInspector.checkIfTorrentIsGoodFit(torrentDetails.first(), self.campaign_, this);
       })
-      .seq(function(worked, good, reason) {
-        if(!worked)
+      .seq(function(good, reason) {
+
+        if(torrentDetails.isEmpty())
           return this(null, false);
 
-        if (worked && !good && reason) {
+        if (!good) {
           logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
 
           self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'downloader-torrent', function(err){
@@ -239,15 +240,16 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
           });
           this(null, false);
         }
-        this(null, worked && good);
+        this(null, true, reason);
       })
-      .seq(function(success){
+      .seq(function(success, reason){
         if(!success){
           logger.info('Attempting to get another infringement');
           setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
           this();
         }
         else{
+          logger.info('we have success ' + reason);
           callback(null, infringement);
         }
       })

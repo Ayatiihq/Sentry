@@ -365,7 +365,7 @@ PageAnalyser.prototype.beginSearch = function (browser) {
       self.goWork(workItem, this);
     })
     .seq(function(){
-      logger.info('hereio !');
+      self.cleanup();
     })
     .catch(function(err){
       self.emit('error', err);
@@ -377,8 +377,23 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
   var self  = this;
 
   self.wrangler.on('finished', function(results){
-    logger.info('Wrangler results ' + JSON.stringify(results));
-  })
+    var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
+    var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
+    logger.info('Wrangler results FILTERED ' + JSON.stringify(filtered));
+    Seq(filtered)
+      .seqEach(function(filteredResult){
+        self.processLink(filteredResult, workItem, this);
+      })
+      .seq(function(){
+        logger.info('finished processing ' + workItem.uri);
+        done()
+      })
+      .catch(function(err){
+        done(err);
+      })
+      ;
+  });
+
   self.wrangler.on('suspended', function onWranglerSuspend() {
     logger.info('wrangler suspended');
   });
@@ -392,6 +407,48 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
   self.wrangler.beginSearch(workItem.uri);
 }
 
+PageAnalyser.prototype.processLink = function(torrentLink, infringement, done){
+  var self = this;
+  var details = null;
+
+  Seq()
+    .seq(function(){
+      torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
+    })
+    .seq(function(details_){
+      if(details)
+        details = details_;
+        return torrentInspector.checkIfTorrentIsGoodFit(details, self.campaign, this);
+      else{
+        logger.warn('no details but no error ');
+        done();
+      }
+    })
+    .seq(function(good, message){
+      if(!details)
+        return done();
+      
+      if(!good){
+        logger.info('Infringement %s isn\'t a good fit: %s', infringement._id, reason);
+
+        self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
+          if (err)
+            logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
+        });
+        this();
+      }
+      else{
+        ....
+      }
+
+
+    })
+    .catch(function(err){
+      logger.warn(err);
+      done(); // just ignore for now.
+    })
+    ;
+}
 
 
 /* Scraper Interface */
