@@ -10,6 +10,7 @@ var acquire = require('acquire')
   , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
   , sugar = require('sugar')  
+  , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
   , wranglerRules = acquire('wrangler-rules')
 ;
@@ -386,9 +387,9 @@ PageAnalyser.prototype.goWork = function (workItem, done) {
   });
   
   self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
+
   logger.info('go wrangle ' + workItem.uri);
   self.wrangler.beginSearch(workItem.uri);
-  //done();
 }
 
 

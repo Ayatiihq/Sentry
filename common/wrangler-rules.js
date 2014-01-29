@@ -284,7 +284,8 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
             break;
 
           case searchTypes.END:
-            ret = linkEndsWith(link, extensions);
+            // try to remove the query string (to cache torcache queries)
+            ret = linkEndsWith(link.split('?')[0], extensions);
             break;
 
           case searchTypes.DOMAIN:
