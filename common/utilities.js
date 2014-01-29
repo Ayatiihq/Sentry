@@ -722,3 +722,16 @@ Utilities.simplifyForRegex = function(string) {
   
   return ret.parameterize().replace(/(\-|\_)/i, ' ');
 }
+
+Utilities.tryMakeDir = function(name, done) {
+  fs.mkdir(name, 0777, function(err) {
+    if (!err) {
+      return done();
+    } else if (err.code == 'EEXIST') {
+      logger.info('Using pre-existing download directory');
+      done();
+    } else {
+      done(err);
+    }
+  });
+}

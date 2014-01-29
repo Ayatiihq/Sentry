@@ -56,13 +56,13 @@ function main() {
   var action = argv[2];
 
   if (action === 'add') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     var uri = argv[4];
     infringements.add(campaign, uri, 'web', 'test', states.infringements.state.UNVERIFIED, {source: "from test_infringements 'add'", score: 5, message: 'blurb'}, {}, log);
   }
 
   if (action === 'addMeta') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     var uri = argv[4];
     infringements.addMeta(campaign, uri, 'web', 'test-meta', states.infringements.state.UNVERIFIED, {}, log);
   }
@@ -95,12 +95,12 @@ function main() {
   }
 
   if (action === 'getNeedsScraping') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     infringements.getNeedsScraping(campaign, Number(argv[4]), log);
   }
 
   if (action === 'getNeedsScrapingCount') {
-    var campaign = argv[3];
+    var campaign = require(argv[3]);
     infringements.getNeedsScrapingCount(campaign, log);
   }
 

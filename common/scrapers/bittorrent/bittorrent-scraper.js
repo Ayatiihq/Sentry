@@ -5,21 +5,29 @@
  * (C) 2013 Ayatii Limited
  */
 var acquire = require('acquire')
-  , Campaigns = acquire('campaigns')  
   , config = acquire('config')
   , events = require('events') 
   , katparser = acquire('kat-parser')
   , logger = acquire('logger').forFile('bittorrent-scraper.js')
-  , Promise = require('node-promise')
-  , Settings = acquire('settings')  
-  , Seq = require('seq')
-  , Storage = acquire('storage')
-  , sugar = require('sugar')
-  , URI = require('URIjs')  
+  , os = require('os')
+  , path = require('path')
+  , sugar = require('sugar')  
+  , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
+  , utilities = acquire('utilities') 
+  , wranglerRules = acquire('wrangler-rules')
 ;
 
-var Scraper = acquire('scraper');
+var BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
+  , Campaigns = acquire('campaigns') 
+  , Infringements = acquire('infringements') 
+  , Promise = require('node-promise')
+  , Scraper = acquire('scraper')
+  , Seq = require('seq')
+  , Settings = acquire('settings')    
+  , Storage = acquire('storage')
+  , URI = require('URIjs')    
+  ;
 
 var ERROR_NORESULTS = "No search results found after searching";
 var MAX_SCRAPER_POINTS = 25;
@@ -325,6 +333,144 @@ KatScraper.prototype.checkHasNextPage = function (source) {
   return true; 
 };
 
+/* -- TorrentPageAnalyser */
+var PageAnalyser = function (campaign, types) {
+  this.constructor.super_.call(this, campaign, types);
+  this.engineName = 'pageAnalyser';
+  this.infringements = new Infringements();
+  this.wrangler =  new BasicWrangler();
+  this.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(campaign.name));
+};
+
+util.inherits(PageAnalyser, BittorrentPortal);
+
+PageAnalyser.prototype.beginSearch = function (browser) {
+  var self = this 
+    , respectableWorkLoad = []
+    ;
+
+  self.resultsCount = 0;
+  browser.quit(); // don't need it.
+  
+  self.emit('started');
+  Seq()
+    .seq(function(){
+      utilities.tryMakeDir(self.downloadDir_, this);
+    })
+    .seq(function(){
+      self.infringements.getTorrentPagesUnverified(self.campaign, this);
+    })
+    .seq(function(torrentPagesUnverified_){
+      torrentPagesUnverified_.sort(function(a, b ){return a.created < b.created});
+      //be careful not to trip that seq stack bug 
+      respectableWorkLoad.add(torrentPagesUnverified_.slice(0, 50)); 
+      logger.info('respectableWorkLoad length : ' + respectableWorkLoad.length);
+      this();
+    })
+    .set(respectableWorkLoad)
+    .seqEach(function(workItem){
+      self.goWork(workItem, this);
+    })
+    .seq(function(){
+      self.emit('finished');
+    })
+    .catch(function(err){
+      self.emit('error', err);
+    })
+    ;
+};
+
+PageAnalyser.prototype.goWork = function (workItem, done) {
+  var self  = this;
+
+  self.wrangler.on('finished', function(results){
+    var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
+    var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
+    logger.info('Wrangler results FILTERED ' + JSON.stringify(filtered));
+    var results = [];
+    Seq(filtered)
+      .seqEach(function(filteredResult){
+        var that = this;
+        self.processLink(filteredResult, function(err, keeper){
+          results.push(keeper);
+          that();
+        });
+      })
+      .seq(function(){
+        var that = this;
+        var ofInterest = results.filter(function(result){return result.result});
+        logger.info('finished processing ' + workItem.uri + ' found these of interest ' 
+            + JSON.stringify(ofInterest));
+        if(ofInterest.isEmpty()){
+          self.infringements_.setStateBy(infringement, State.FALSE_POSITIVE, 'bittorrent-scraper-page-analyser', function(err){
+            if (err)
+              logger.warn('Error setting %s to FALSE_POSITIVE: %s', infringement.uri, err);
+          });          
+        }
+        else{
+          ofInterest.each(function(torrent){
+            self.emit('torrent',
+                      torrent.link,
+                      {score: MAX_SCRAPER_POINTS / 1.5,
+                       source: 'scraper.bittorrent.' + self.engineName,
+                       message: 'Link to actual Torrent file from ' + self.engineName});
+            self.emit('relation', workItem.uri, torrent.link);
+          });
+        }
+        done();
+      })
+      .catch(function(err){
+        done(err);
+      })
+      ;
+  });
+
+  self.wrangler.on('suspended', function onWranglerSuspend() {
+    logger.info('wrangler suspended');
+  });
+  self.wrangler.on('resumed', function onWranglerResume() {
+    logger.info('wrangler resumed');
+  });
+  
+  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
+
+  logger.info('go wrangle ' + workItem.uri);
+  self.wrangler.beginSearch(workItem.uri);
+}
+
+PageAnalyser.prototype.processLink = function(torrentLink, done){
+  var self = this
+    , result = {link : torrentLink, result: false}
+    ;
+
+  Seq()
+    .seq(function(){
+      torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
+    })
+    .seq(function(details_){
+      if(details_){
+        return torrentInspector.checkIfTorrentIsGoodFit(details_, self.campaign, this);
+      }
+      logger.warn('no details but no error ?');
+      done(null, result);
+    })
+    .seq(function(good, reason){
+      if(!good){
+        logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
+        result.message = reason;
+        return done(null, result); 
+      }
+      result.result = true;
+      done(null, result);
+    })
+    .catch(function(err){
+      logger.warn(err);
+      result.message = err;
+      done(null, result); // just ignore for now.
+    })
+    ;
+}
+
 /* Scraper Interface */
 var Bittorrent = module.exports = function () {
   this.init();
@@ -347,7 +493,8 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
 
   logger.info('started for %s', campaign.name);
   var scraperMap = {
-    'kat': KatScraper
+    'kat': KatScraper,
+    'pageAnalyser' : PageAnalyser
   };
 
   logger.info('Loading search engine: %s', job.metadata.engine);
