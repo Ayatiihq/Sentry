@@ -336,10 +336,9 @@ KatScraper.prototype.checkHasNextPage = function (source) {
 var PageAnalyser = function (campaign, types) {
   this.constructor.super_.call(this, campaign, types);
   this.engineName = 'pageAnalyser';
-  this.infringements = new Infringements();
-  this.wrangler =  new BasicWrangler();
-  this.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
-  this.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(campaign.name));
+  this.downloadDir_ = '';
+  this.infringements = null;
+  this.wrangler = null;
 };
 
 util.inherits(PageAnalyser, BittorrentPortal);
@@ -350,9 +349,15 @@ PageAnalyser.prototype.beginSearch = function (browser) {
     ;
 
   self.resultsCount = 0;
-  browser.quit(); // don't need it.
-  
   self.emit('started');
+  
+  browser.quit(); // don't need it.  
+  
+  self.infringements = new Infringements();
+  self.wrangler =  new BasicWrangler();
+  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
+  self.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(campaign.name));
+
   Seq()
     .seq(function(){
       utilities.tryMakeDir(self.downloadDir_, this);
@@ -449,7 +454,7 @@ PageAnalyser.prototype.push = function(results, infringement, done){
                                              source: 'scraper.bittorrent.' + self.engineName,
                                              message: 'Link to actual Torrent file from ' + self.engineName});
                                   self.emit('relation', infringement.uri, torrent.link);
-                                  logger.info("uploaded and created child parent and torrent infringement for " + torrent.links);
+                                  logger.info("uploaded and created child parent and torrent infringement for " + torrent.link);
                                   that();
                                  });
     })
@@ -541,6 +546,10 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
     self.emit('relation', parent, child);
   });
 
+  self.scraper.on('started', function onStarted(){
+    self.emit('started');
+  })
+  
   self.scraper.beginSearch(browser);
 };
 
