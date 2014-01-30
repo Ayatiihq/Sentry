@@ -5,6 +5,7 @@ var acquire = require('acquire')
 	, readTorrent = require('read-torrent')
 	, rimraf = require('rimraf')
 	, utilities = acquire('utilities')
+  , sugar = require('sugar')
 	;
 
 var Extensions = acquire('wrangler-rules').typeMediaExtensions
@@ -87,11 +88,11 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   }
 
   // \o/
-  done(null, true);
+  done(null, true, torrent.infoHash);
 }
 
 TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
-  var filename = path.join(targetPath, utilities.genLinkKey(torrentSource))
+  var filename = path.join(targetPath, utilities.genLinkKey(torrentSource+Date.now()))
     , details = null
     ;
 
