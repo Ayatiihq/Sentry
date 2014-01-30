@@ -352,18 +352,15 @@ PageAnalyser.prototype.beginSearch = function (browser) {
 
   Seq()
     .seq(function(){
-      logger.info('about to make folder');
       utilities.tryMakeDir(self.downloadDir_, this);
     })
     .seq(function(){
-      logger.info('folder made');
       self.infringements.getTorrentPagesUnverified(self.campaign, this);
     })
     .seq(function(torrentPagesUnverified_){
       torrentPagesUnverified_.sort(function(a, b ){return a.created < b.created});
       //be careful not to trip that seq stack bug 
       respectableWorkLoad.add(torrentPagesUnverified_.slice(0, 50)); 
-      logger.info('respectableWorkLoad length : ' + respectableWorkLoad.length);
       this();
     })
     .set(respectableWorkLoad)
@@ -385,7 +382,7 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   self.wrangler.on('finished', function(results){
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
-    logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
+    //logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
     var results = [];
     Seq(filtered)
       .seqEach(function(filteredResult){
