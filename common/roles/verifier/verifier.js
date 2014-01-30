@@ -201,20 +201,26 @@ Verifier.prototype.dominoEndpoint = function(campaign, endpoint, done) {
   var self = this;
 
   logger.info('%s has %d parents', endpoint._id, endpoint.parents.uris.length);
-
-  Seq(endpoint.parents.uris)
-    .seqEach(function(parent) {
-      self.updateParentState(campaign, endpoint, parent, this);
-    })
-    .seq(function() {
-      if (self.timestampIsVerified_)
-        self.lastTimestamp_ = endpoint.verified;
-      else
-        self.lastTimestamp_ = endpoint.parents.modified;
-      done();
-    })
-    .catch(done)
-    ;
+  // slightly hacky but don't really want to screw with adding more state to infringements right now
+  // processor does similar checks, we just do them again and ignore the infrigement in the same case 
+  // as processor which stops verifier resetting its state
+  var isDomain = !utilities.uriHasPath(endpoint.uri);
+  if (isDomain && endpoint.who === 'processor') { done(); }
+  else { 
+   Seq(endpoint.parents.uris)
+     .seqEach(function(parent) {
+       self.updateParentState(campaign, endpoint, parent, this);
+     })
+     .seq(function() {
+       if (self.timestampIsVerified_)
+         self.lastTimestamp_ = endpoint.verified;
+       else
+         self.lastTimestamp_ = endpoint.parents.modified;
+       done();
+     })
+     .catch(done)
+     ;
+  }
 }
 
 Verifier.prototype.updateParentState = function(campaign, endpoint, parentUri, done) {
