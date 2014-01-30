@@ -321,7 +321,7 @@ Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
 
 /**
  * @param  {string}                  campaignID      The campaign's id.
- * @param  {string}                  filepath        Path to the file to add.
+ * @param  {string}                  fileName        handle for the file (Md5 or whatever).
  * @param  {function(err, result)}   callback        Get's called once we know whether it's there or not
  * @return {undefined}
  */

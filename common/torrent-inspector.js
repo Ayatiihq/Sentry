@@ -87,7 +87,7 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   }
 
   // \o/
-  done(null, true);
+  done(null, true, torrent.infoHash);
 }
 
 TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
