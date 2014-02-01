@@ -1,60 +1,91 @@
+/*
+ * mangling.js: 
+ *
+ * (C) 2014 Ayatii Limited
+ *
+ * If you want to use cow-mangler to download stuff, use this.
+ * So far two strategies are defined
+ * - TARGETTED
+ * - HOOVERING 
+ */
 var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
-  , logger = acquire('logger').forFile('downloader.js')
+  , logger = acquire('logger').forFile('mangling.js')
   , sugar = require('sugar')
   , states = acquire('states')
   , util = require('util')
   , utilities = acquire('utilities')
   ;
 
-var Campaigns = acquire('campaigns')
+var Approach = require('./approach.js')
 	, Cowmangler = acquire('cowmangler')
   , Seq = require('seq')
   , XRegExp = require('xregexp').XRegExp 
   ;
 
 var Mangling = module.exports = function (campaign, targetHost) {
-  this.campaign_ = null;
-  this.host_ = null;
-  this.approach_ = null;
+  this.constructor.super_.call(this, campaign, targetHost);
   this.init();
 };
 
-util.inherits(Mangling, events.EventEmitter);
+util.inherits(Mangling, Approach);
 
-Mangling.prototype.init = function(campaign, targetHost){
+Mangling.prototype.init = function(){
   var self = this;
-
-  self.campaign_ = campaign;
-  self.host_ = targetHost;
-  self.ignoreExts = [];
-  
   self.browser = new Cowmangler();
   self.browser.newTab();
   self.browser.setAdBlock(true);
 
-  self.browser.on('error', function(err){done(err)});
-  
-  if(self.campaign.type.match(/movie/)){
-    self.minSize = 10;
-    self.mimetypes = ["video/"];
-    self.ignoreExts.union(['.mp3', '.ape', '.m4a', '.wav', '.flac', '.aiff']);
+  self.browser.on('error', function(err){
+  	logger.error('Cowmanger error ' + err);
+  });
+}
+
+Mangling.prototype.download = function(infringement, done){
+  var self  = this;
+
+  if(!self.validateExtension(infringement.uri)){
+    logger.info('return, pointless - ' + infringement.uri);
+    return done(null, {verdict: states.downloaders.verdict.RUBBISH});
   }
-  else if(self.campaign.type.match(/music/)){
-    self.minSize = 1;
-    // Leaving video in there to catch music videos ???
-    // we model that ^ scenario more accurately. 
-    self.mimetypes = ["video/", "audio/"];
-  }
-  else{
-    logger.warn('Unable to set the minSize or mimetypes - what sort of bloody campaign is this ??' + self.campaign.type);
-    // set it anyway.
-    self.minSize = 1;
-    self.mimetypes = ["video/", "audio/"];
-  } 
-  // For now We don't care about these at all.
-  self.ignoreExts.union(['.png', '.jpg', '.jpeg', '.gif', '.js', '.swf']);
+
+  Seq()
+    .seq(function(){
+      self.login(this);
+    })   
+    .seq(function(){
+      self.listenGet(infringement.uri, this);
+    })
+    .seq(function(results){ 
+      var shouldIgnore = false;
+      // first check to see that the landing uri (the last redirect)
+      // doesn't match any known pattern which would show the true status of the infringement.   
+      self.host_.loginDetails.unavailable.inUri.each(function(rule){
+        if(results.redirects.last().match(rule)){
+          logger.info('last redirect matches ignore rule, mark UNAVAILABLE !');
+          shouldIgnore = true; 
+        }
+      });
+      
+      if(shouldIgnore)
+        return this(null, {verdict: states.downloaders.verdict.UNAVAILABLE, payLoad: []});
+      
+      if(results.result === true){
+        self.gatherDownloads(infringement, this);
+      }
+      else if(self.host_.loginDetails.strategy === states.downloaders.strategy.TARGETED){
+        self.deployTargeted(infringement, this);
+      }
+    })
+    .seq(function(result){
+      logger.info('Result: ' + JSON.stringify(result) + ' uri: ' + infringement.uri);
+      done(null, result);
+    })    
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 Downloader.prototype.mangle = function(infringements, done){
@@ -125,54 +156,6 @@ Downloader.prototype.goMangle = function(infringement, done){
     })
     ;    
 }
-
-Mangling.prototype.download = function(infringement, done){
-
-  var self  = this;
-
-  if(!self.validURI(infringement.uri)){
-    logger.info('return, pointless - ' + infringement.uri);
-    return done(null, {verdict: states.downloaders.verdict.RUBBISH});
-  }
-
-  Seq()
-    .seq(function(){
-      self.login(this);
-    })   
-    .seq(function(){
-      self.listenGet(infringement.uri, this);
-    })
-    .seq(function(results){ 
-      var shouldIgnore = false;
-      // first check to see that the landing uri (the last redirect)
-      // doesn't match any known pattern which would show the true status of the infringement.   
-      self.host_.loginDetails.unavailable.inUri.each(function(rule){
-        if(results.redirects.last().match(rule)){
-          logger.info('last redirect matches ignore rule, mark UNAVAILABLE !');
-          shouldIgnore = true; 
-        }
-      });
-      
-      if(shouldIgnore)
-        return this(null, {verdict: states.downloaders.verdict.UNAVAILABLE, payLoad: []});
-      
-      if(results.result === true){
-        self.gatherDownloads(infringement, this);
-      }
-      else if(self.host_.loginDetails.strategy === states.downloaders.strategy.TARGETED){
-        self.deployTargeted(infringement, this);
-      }
-    })
-    .seq(function(result){
-      logger.info('Result: ' + JSON.stringify(result) + ' uri: ' + infringement.uri);
-      done(null, result);
-    })    
-    .catch(function(err){
-      done(err);
-    })
-    ;
-}
-
 
 Mangling.prototype.gatherDownloads = function(infringement, done){
   var self = this;
@@ -413,24 +396,6 @@ Mangling.prototype.tryTargets = function(targets, done){
       done(err);
     })
     ;
-}
-
-Mangling.prototype.validURI = function(uri){
-  var self = this;
-  var result = true;
-  // check for useless extensions
-  self.ignoreExts.each(function(useless){
-    if(uri.endsWith(useless))
-      result = false;
-  });
-  
-  self.host_.loginDetails.blacklist.each(function(suspect){
-    if(uri.match(suspect)){
-      logger.warn('This we believe to be a URI that we should ignore : ' + uri);
-      result = false;
-    }
-  });
-  return result;
 }
 
 Mangling.prototype.finish = function(done){
