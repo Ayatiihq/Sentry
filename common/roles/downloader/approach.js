@@ -20,27 +20,25 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Approach = module.exports = function (campaign, targetHost) {
-  this.campaign_ = null;
-  this.host_ = null;
-  this.ignoreExts = null;
-  this.mimetypes = null;
+  this.campaign_ = campaign;
+  this.host_ = targetHost;
+  this.ignoreExts = [];
+  this.mimetypes = [];
   this.init();
 };
 
 util.inherits(Approach, events.EventEmitter);
 
-Approach.prototype.init = (campaign, targetHost){
+Approach.prototype.setupIgnores = function(){
 	var self = this;
-	self.campaign_ = campaign;
-	self.host_ = targetHost;
 
-	if(self.campaign.type.match(/movie/)){
+	if(self.campaign_.type.match(/movie/)){
 	  self.minSize = 10;
 	  self.mimetypes = ["video/"];
 	  self.ignoreExts.union(['.mp3', '.ape', '.wma', '.m4a', '.wav', '.flac', '.aiff']);
 	}
 	else{
-	  // For music.
+	  // For music and anything else
 	  self.minSize = 1;
 	  self.mimetypes = ["video/", "audio/"];
 	} 

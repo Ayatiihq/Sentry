@@ -221,7 +221,7 @@ Hosts.prototype.getDomainsThatSupportLogin = function(category) {
   if(Object.keys(self.cache_.automated).some(category))
     return callback(null, self.cache_.automated[category]);
 
-  self.hosts_.find({$and : [{'categories' : {$in : [category]}}, {'loginDetails.automated' : true}]).toArray(function(err, results){
+  self.hosts_.find({$and : [{'categories' : {$in : [category]}}, {'loginDetails.automated' : true}]}).toArray(function(err, results){
     if(err)
       return callback(err);
     self.cache_.automated[category] = results;

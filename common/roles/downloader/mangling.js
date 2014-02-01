@@ -18,7 +18,7 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var Approach = require('./approach.js')
+var Approach = require('./approach')
 	, Cowmangler = acquire('cowmangler')
   , Seq = require('seq')
   , XRegExp = require('xregexp').XRegExp 
@@ -40,6 +40,8 @@ Mangling.prototype.init = function(){
   self.browser.on('error', function(err){
   	logger.error('Cowmanger error ' + err);
   });
+
+  self.setupIgnores();
 }
 
 Mangling.prototype.download = function(infringement, done){
@@ -88,7 +90,7 @@ Mangling.prototype.download = function(infringement, done){
     ;
 }
 
-Downloader.prototype.mangle = function(infringements, done){
+Mangling.prototype.mangle = function(infringements, done){
   var self = this;
   logger.info('Go mangle, infringement count : ' + infringements.length);
   Seq(infringements)
@@ -105,7 +107,7 @@ Downloader.prototype.mangle = function(infringements, done){
     ;
 }
 
-Downloader.prototype.goMangle = function(infringement, done){
+Mangling.prototype.goMangle = function(infringement, done){
   var self = this;
   Seq()
     .seq(function(){
@@ -200,7 +202,7 @@ Mangling.prototype.deployTargeted = function(infringement, done){
  **/
 Mangling.prototype.login = function(done){
   var self = this;
-  if(self.host_.loginDetails.login.authenticated)
+  if(self.host_.loginDetails.authenticated)
     return done();
 
   self.goLogin(function(err){
