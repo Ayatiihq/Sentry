@@ -24,6 +24,7 @@ var Approach = module.exports = function (campaign, targetHost) {
   this.host_ = targetHost;
   this.ignoreExts = [];
   this.mimetypes = [];
+  this.setupIgnores();
   this.init();
 };
 

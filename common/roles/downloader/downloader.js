@@ -223,7 +223,7 @@ Downloader.prototype.run = function(done) {
 
   Seq()
     .seq(function() {
-      self.makeWorker(self.downloadersMap_[work.domain], this);
+      self.makeDownloadWorker(self.downloadersMap_[work.domain], this);
     })
     .seq(function(downloaderWorker_) {
       downloaderWorker = downloaderWorker_;
@@ -246,6 +246,10 @@ Downloader.prototype.run = function(done) {
     ;
 }
 
+/*
+ * Attempts to call download on the worker and then interpret results as it sees fit
+ * Too verbose but for the short term lets leave the debug flowing. 
+ */
 Downloader.prototype.download = function(downloadWorker, infringement, done){
   var self = this;
   Seq()
@@ -299,52 +303,15 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
     ;    
 }
 
-Downloader.prototype.makeWorker = function(host, done){
+/*
+ * Depending on the approach defined on the host
+ * this will create an Approach based downloadWorker.
+ */
+Downloader.prototype.makeDownloadWorker = function(host, done){
   var self = this;
   if(host.loginDetails.approach === states.downloaders.method.COWMANGLING){
     return done(null, new Mangling(self.campaign_, host));
   }
-}
-
-// TODO - for RESTFUL strategies
-Downloader.prototype.restful = function(infringements, plugin, done){
-  done();
-}
-
-Downloader.prototype.goManual = function(infringement, plugin, done) {
-  var self = this
-    , tmpDir = path.join(os.tmpDir(), 'downloader-' + Date.now() + '-' + infringement._id)
-    , started = Date.now()
-    , newState = states.infringements.state.UNVERIFIED
-    ;
-
-  logger.info('Downloading %s to %s', infringement.uri, tmpDir);
-
-  Seq()
-    .seq(function() {
-      rimraf(tmpDir, this);
-    })
-    .seq(function() {
-      fs.mkdir(tmpDir, this);
-    })
-    .seq(function() {
-      plugin.download(infringement, tmpDir, this);
-    })
-    .seq(function() {
-      self.storage_.addLocalDirectory(infringement.campaign, tmpDir, this);
-    })
-    .seq(function(nUploaded) {
-      // TODO - needs to be integrated into whatever manual process needs it
-      rimraf(tmpDir, this);
-    })    
-    .seq(function() {
-      done();
-    })
-    .catch(function(err){
-      logger.warn('Unable to goManual : %s', err);
-      done(err);
-    })
-    ;
 }
 
 Downloader.prototype.verifyUnavailable = function(infringement, done) {

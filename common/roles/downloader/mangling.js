@@ -38,8 +38,6 @@ Mangling.prototype.init = function(){
   self.browser.on('error', function(err){
   	logger.error('Cowmanger error ' + err);
   });
-
-  self.setupIgnores();
 }
 
 Mangling.prototype.download = function(infringement, done){
