@@ -12,7 +12,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , fs = require('fs')
-  , logger = acquire('logger').forFile('download-manager.js')
+  , logger = acquire('logger').forFile('downloader.js')
   , path = require('path')
   , os = require('os')
   , rimraf = require('rimraf')
@@ -23,15 +23,15 @@ var acquire = require('acquire')
   ;
 
 var Campaigns = acquire('campaigns')
-  , DownloaderFactory = require('./downloader-factory')
   , Hosts = acquire('hosts')
   , Infringements = acquire('infringements')
   , Verifications = acquire('verifications')
-  , Storage = acquire('storage')
+  , Mangling = require('./mangling')
   , Jobs = acquire('jobs')
   , Role = acquire('role')
   , Seq = require('seq')
   , State = states.infringements.state
+  , Storage = acquire('storage')
   ;
 
 var Downloader = module.exports = function() {
@@ -127,11 +127,13 @@ Downloader.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.hosts_.getDomainsThatSupportLogin(category);
+      // For now we only deal in cyberlockers
+      self.hosts_.getDomainsThatSupportLogin(category, this);
     })
     .seq(function(loginHosts) {
       loginHosts.each(function(host){
-        self.downloadersMap_[host._id] = host
+        logger.info('found host for automagic ' + host._id);
+        self.downloadersMap_[host._id] = host;
       });
       self.createInfringementMap(this);
     })
@@ -225,13 +227,11 @@ Downloader.prototype.run = function(done) {
     })
     .seq(function(downloaderWorker_) {
       downloaderWorker = downloaderWorker_;
-      this(null, work.infringements);
+      this();
     })
-    .seq(function(infringements){ //add more approaches or strategies. 
-      if(plugin.attributes.approach === states.downloaders.method.COWMANGLING)
-        self.mangle(infringements, plugin, this);
-      else(plugin.attributes.approach === states.downloaders.method.RESTFUL)
-        self.restful(infringements, plugin, this);
+    .set(work.infringements)
+    .seqEach(function(infringement){
+      self.download(downloaderWorker, infringement, this);
     })
     .catch(function(error) {
       // We don't set a state if the download errored right now
@@ -241,6 +241,58 @@ Downloader.prototype.run = function(done) {
       setTimeout(self.run.bind(self, done), 100);
     })
     ;
+}
+
+Downloader.prototype.download = function(downloadWorker, infringement, done){
+  var self = this;
+  Seq()
+    .seq(function(){
+      downloadWorker.download(infringement, this);
+    })
+    .seq(function(result){
+      if (result.verdict === states.downloaders.verdict.UNAVAILABLE){
+        logger.info('BLACK - we think this is UNAVAILABLE');
+        self.verifyUnavailable(infringement, this);            
+      }
+      else if (result.verdict === states.downloaders.verdict.AVAILABLE){
+        logger.info('fingers cross - is this AVAILABLE ? - we think we it is !');
+        if(result.payLoad.isEmpty()){
+          logger.warn('RED: but the array of downloads is empty. - leave at NEEDS_DOWNLOAD');
+          return this();
+        }
+        logger.info('GREEN: should be on S3 already : ' + JSON.stringify(result.payLoad));
+        var newState = states.infringements.state.UNVERIFIED;
+        logger.info('Setting state %d on %s', newState, infringement.uri);
+        self.infringements_.setState(infringement, newState, this);
+      }
+      else if (result.verdict === states.downloaders.verdict.FAILED_POLICY){
+        logger.info('BROWN - We think this downloaded something but failed the download policy.');
+        if(!result.payLoad.isEmpty()){
+          logger.warn('RED: but the array of downloads is NOT empty. - leave at NEEDS_DOWNLOAD');
+          return this();
+        }
+        var newState = states.infringements.state.FALSE_POSITIVE;
+        self.infringements_.setState(infringement, newState, this);        
+      }
+      else if (result.verdict === states.downloaders.verdict.RUBBISH){
+        var newState = states.infringements.state.FALSE_POSITIVE;
+        logger.info('WHITE - We think this is rubbish');
+        self.infringements_.setState(infringement, newState, this);        
+      }
+      else if (result.verdict === states.downloaders.verdict.STUMPED){
+        logger.warn('YELLOW - i.e. fail colour - yep STUMPED - leave at NEEDS_DOWNLOAD');
+        this();
+      }
+    })
+    .seq(function() {
+      logger.info('done and dusted with ' + infringement.uri);
+      done();
+    })
+    .catch(function(err){
+      logger.warn('Unable to goMangle : %s', err);
+      done(err);
+    })
+    ;    
 }
 
 Downloader.prototype.makeMeADownloader = function(host, done){

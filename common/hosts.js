@@ -212,7 +212,7 @@ Hosts.prototype.getDomainsByCategory = function(category, callback)
   });
 }
 
-Hosts.prototype.getDomainsThatSupportLogin = function(category) {
+Hosts.prototype.getDomainsThatSupportLogin = function(category, callback) {
   var self = this;
 
   if (!self.hosts_)
