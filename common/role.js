@@ -10,6 +10,7 @@
  */
 
 var acquire = require('acquire')
+  , campaigns = acquire('campaigns')
   , events = require('events')
   , logger = acquire('logger').forFile('role.js')
   , sugar = require('sugar')
@@ -81,4 +82,27 @@ Role.prototype.end = function() {
   var self = this;
   logger.error(self.getName() + " has no end method");
   process.exit();
+}
+
+Role.prototype.heartbeat = function (campaigns, campaign) {
+  var self = this;
+  if (campaign === undefined) { logger.error('Heartbeat triggered with no campaign: ', self.getName()); return; }
+
+  // inc to db
+  var today = Date.create('today');
+  campaigns.update({ _id: campaign._id, 'heartBeats': today},
+                   { $inc: { "heartBeats.$": 1 }},
+                   function (err) { if (err) { logger.warn('Error submitting heartbeat: ', self.getName(), err); } });
+}
+
+Role.prototype.startBeat = function (campaigns, campaign) {
+  var self = this;
+  if (self.heartBeatTimer) { logger.warn('Heartbeat start when already beating heart: ', self.getName()); return; }
+  self.heartBeatTimer = self.heatbeat.every(60000, campaigns, campaign);
+}
+
+Role.prototype.endBeat = function () {
+  var self = this;
+  if (!self.heartBeatTimer) { logger.warn('Heartbeat end called when no beating heart present: ', self.getName()); return; }
+  self.heartBeatTimer.cancel();
 }

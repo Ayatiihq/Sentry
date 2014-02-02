@@ -9,6 +9,11 @@
   "client": "",
   "created": 0,
   "description": "",
+  "heartBeats": {
+    Date: 0,
+    Date: 0
+    ...
+  },
   "metadata": {
     "albumTitle": "",
     "artist": "",
