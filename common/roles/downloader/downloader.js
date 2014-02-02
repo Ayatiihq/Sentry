@@ -247,6 +247,7 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
   var self = this;
   Seq()
     .seq(function(){
+      logger.info('go work ' + infringement.uri);
       downloadWorker.download(infringement, this);
     })
     .seq(function(result){
@@ -298,7 +299,7 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
 Downloader.prototype.makeWorker = function(host, done){
   var self = this;
   if(host.loginDetails.approach === states.downloaders.method.COWMANGLING){
-    return new Mangling(self.campaign_, host);
+    return done(null, new Mangling(self.campaign_, host));
   }
 }
 
