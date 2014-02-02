@@ -86,7 +86,11 @@ Role.prototype.end = function() {
 
 Role.prototype.startBeat = function (campaigns, campaign) {
   var self = this;
-  if (self.heartBeatTimer) { logger.warn('Heartbeat start when already beating heart: ', self.getName()); return; }
+  if (self.heartBeatTimer) { 
+    logger.warn('Heartbeat start when already beating heart: ', self.getName()); 
+    try { self.heartBeatTimer.cancel(); } catch (err) { }
+    self.heartBeatTimer = null;
+  }
   
   function beatHeart (campaigns_, campaign_) {
    if (campaign_ === undefined) { logger.error('Heartbeat triggered with no campaign: ', self.getName()); return; }
@@ -102,8 +106,9 @@ Role.prototype.startBeat = function (campaigns, campaign) {
   self.heartBeatTimer = self.heatbeat.every(60000, campaigns, campaign);
 }
 
-Role.prototype.endBeat = function () {
+Role.prototype.stopBeat = function () {
   var self = this;
   if (!self.heartBeatTimer) { logger.warn('Heartbeat end called when no beating heart present: ', self.getName()); return; }
   self.heartBeatTimer.cancel();
+  self.heartBeatTimer = null;
 }
