@@ -96,13 +96,19 @@ Role.prototype.startBeat = function (campaigns, campaign) {
 
     // inc to db
     var todayKey = 'heartBeats.' + today.toString();
+    var heartRateDiff = process.hrtime(self.lastHeartBeat)[0];
+    heartRateDiff = heartRateDiff > 0 ? heartRateDiff : 1; // at least one second else things will slip through
+    self.lastHeartBeat = process.hrtime();
+
     campaigns_.updateDetailed(campaign_._id,
-                              { $inc: { key: 1 }},
+                              { $inc: { key: heartRateDiff }},
                               function (err) { if (err) { logger.warn('Error submitting heartbeat: ', self.getName(), err); } });
 
   }
 
-  self.heartBeatTimer = self.heatbeat.every(60000, campaigns, campaign);
+  self.lastHeartBeat = process.hrtime();
+  self.heartBeatTimer = beatHeart.every(60000, campaigns, campaign);
+  beatHeart();
 }
 
 Role.prototype.stopBeat = function () {
