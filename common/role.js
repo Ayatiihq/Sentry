@@ -10,7 +10,6 @@
  */
 
 var acquire = require('acquire')
-  , campaigns = acquire('campaigns')
   , events = require('events')
   , logger = acquire('logger').forFile('role.js')
   , sugar = require('sugar')
