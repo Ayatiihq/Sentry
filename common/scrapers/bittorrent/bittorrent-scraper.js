@@ -365,14 +365,14 @@ PageAnalyser.prototype.beginSearch = function (browser) {
     })
     .set(respectableWorkLoad)
     .seqEach(function(workItem){
-      self.goWork(workItem, this);
-    })
-    .seq(function(){
-      self.emit('finished');
+      setTimeout(self.goWork.bind(self, workItem, this), 5000);
     })
     .catch(function(err){
       self.emit('error', err);
     })
+    .seq(function(){
+      self.emit('finished');
+    })    
     ;
 };
 
@@ -380,9 +380,16 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   var self  = this;
 
   self.wrangler.on('finished', function(results){
+    if(!results || results.isEmpty()){
+      logger.info('wrangler returned no results')
+      return done();
+    }
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
     //logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
+    if(filtered.isEmpty())
+      return done();
+
     var results = [];
     Seq(filtered)
       .seqEach(function(filteredResult){
