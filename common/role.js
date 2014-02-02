@@ -84,20 +84,21 @@ Role.prototype.end = function() {
   process.exit();
 }
 
-Role.prototype.heartbeat = function (campaigns, campaign) {
-  var self = this;
-  if (campaign === undefined) { logger.error('Heartbeat triggered with no campaign: ', self.getName()); return; }
-
-  // inc to db
-  var today = Date.create('today');
-  campaigns.update({ _id: campaign._id, 'heartBeats': today},
-                   { $inc: { "heartBeats.$": 1 }},
-                   function (err) { if (err) { logger.warn('Error submitting heartbeat: ', self.getName(), err); } });
-}
-
 Role.prototype.startBeat = function (campaigns, campaign) {
   var self = this;
   if (self.heartBeatTimer) { logger.warn('Heartbeat start when already beating heart: ', self.getName()); return; }
+  
+  function beatHeart (campaigns_, campaign_) {
+   if (campaign_ === undefined) { logger.error('Heartbeat triggered with no campaign: ', self.getName()); return; }
+
+    // inc to db
+    var todayKey = 'heartBeats.' + today.toString();
+    campaigns_.updateDetailed(campaign_._id,
+                              { $inc: { key: 1 }},
+                              function (err) { if (err) { logger.warn('Error submitting heartbeat: ', self.getName(), err); } });
+
+  }
+
   self.heartBeatTimer = self.heatbeat.every(60000, campaigns, campaign);
 }
 
