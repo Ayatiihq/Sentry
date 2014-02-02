@@ -52,6 +52,8 @@ Miner.prototype.init = function() {
   self.links_ = new Links();
   self.settings_ = new Settings('role.miner');
   self.jobs_ = new Jobs('miner');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Miner.prototype.processJob = function(err, job) {
@@ -99,6 +101,8 @@ Miner.prototype.mine = function(campaign, job) {
     self.jobs_.touch(job);
   }, 
   config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
+
+  self.startBeat(self.campaigns_, campaign);
 
   Seq()
     .seq('Get last mine timestamp', function() {

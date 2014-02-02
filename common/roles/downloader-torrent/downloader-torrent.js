@@ -64,6 +64,8 @@ DownloaderTorrent.prototype.init = function() {
   self.jobs_ = new Jobs('downloader-torrent');
   self.verifications_ = new Verifications();
   self.storage_ = new Storage('downloads');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 
   database.connectAndEnsureCollection('infringements', function(err, db, collection) {
     if (err)
@@ -131,6 +133,7 @@ DownloaderTorrent.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.startBeat(self.campaigns_, campaign);
       self.downloadDir_ = path.join(os.tmpDir(), 'downloader-torrent-' + utilities.genLinkKey(campaign.name));
       this();
     })

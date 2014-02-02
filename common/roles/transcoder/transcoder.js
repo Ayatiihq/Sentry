@@ -62,6 +62,8 @@ Transcoder.prototype.init = function() {
   self.jobs_ = new Jobs('transcoder');
   self.verifications_ = new Verifications();
   self.storage_ = new Storage('downloads');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Transcoder.prototype.loadVerifiers = function(done) {
@@ -118,6 +120,7 @@ Transcoder.prototype.processJob = function(err, job) {
     .seq(function(campaign) {
       self.campaign_ = campaign;
       self.loadVerifiers(this);
+      self.startBeat(self.campaigns_, campaign);
     })
     .seq(function() {
       self.processVerifications(this);

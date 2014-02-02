@@ -60,6 +60,8 @@ Verifier.prototype.init = function() {
   self.settings_ = new Settings('role.verifier');
   self.jobs_ = new Jobs('verifier');
   self.verifications_ = new Verifications();
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Verifier.prototype.processJob = function(err, job) {
@@ -95,6 +97,7 @@ Verifier.prototype.processJob = function(err, job) {
     }
 
     self.campaign_ = campaign;
+    self.startBeat(self.campaigns_, campaign);
     var consumer = job._id.consumer;
 
     if (consumer.has('known-ids'))

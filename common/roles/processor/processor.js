@@ -79,6 +79,8 @@ Processor.prototype.init = function() {
   self.jobs_ = new Jobs('processor');
   self.verifications_ = new Verifications();
   self.storage_ = new Storage(STORAGE_NAME);
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Processor.prototype.processJob = function(err, job) {
@@ -157,6 +159,7 @@ Processor.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.startBeat(self.campaigns_, campaign);
       self.tmpdir_ = path.join(os.tmpDir(), 'processor-' + campaign._id);
       rimraf(self.tmpdir_, this.ok);
     })

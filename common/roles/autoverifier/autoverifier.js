@@ -55,6 +55,8 @@ AutoVerifier.prototype.init = function() {
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
   self.storage_ = new Storage('downloads');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 
 }
 
@@ -131,6 +133,7 @@ AutoVerifier.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.startBeat(self.campaigns_, campaign);
       self.loadVerifiers(this);
     })
     .seq(function() {

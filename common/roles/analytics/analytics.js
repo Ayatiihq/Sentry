@@ -53,6 +53,8 @@ Analytics.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.jobs_ = new Jobs('analytics');
   self.settings_ = new Settings('role.analytics');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Analytics.prototype.processJob = function(err, job) {
@@ -127,6 +129,7 @@ Analytics.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.startBeat(self.campaigns_, campaign);
       done();
     })
     .catch(function(err) {

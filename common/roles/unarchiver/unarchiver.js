@@ -60,6 +60,8 @@ Unarchiver.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('unarchiver');
   self.storage_ = new Storage('downloads');
+  self.on('error', self.stopBeat.bind(self));
+  self.on('finished', self.stopBeat.bind(self));
 }
 
 Unarchiver.prototype.loadMimetypes = function(done) {
@@ -114,6 +116,7 @@ Unarchiver.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.startBeat(self.campaigns_, campaign);
       self.loadMimetypes(this);
     })
     .seq(function() {
