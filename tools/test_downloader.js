@@ -33,13 +33,11 @@ function main() {
       downloader.preRun(job, this);
     })
     .seq(function() {
+      var that = this;
       downloader.run(this);
     })
     .seq(function() {
-      downloader.on('finished', function(){
-        logger.info('finished');
-        process.exit(1);
-      });      
+      process.exit(0);
     })
     .catch(function(err){
     	logger.warn('err - ' + err);

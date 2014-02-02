@@ -233,6 +233,9 @@ Downloader.prototype.run = function(done) {
     .seqEach(function(infringement){
       self.download(downloaderWorker, infringement, this);
     })
+    .seq(function(){
+      downloaderWorker.finish(this);
+    })
     .catch(function(error) {
       // We don't set a state if the download errored right now
       logger.warn('Unable to download %s:', error);

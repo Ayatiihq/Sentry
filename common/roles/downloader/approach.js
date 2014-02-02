@@ -2,7 +2,7 @@
  * approach.js: 
  *
  * Base class for techniques in downloading.
- * Mangling, FTPing, scping, whatever. 
+ * Mangling, FTP'ng, scp'ng, whatever. 
  * Best to model on the technique, not the target.
  */
 var acquire = require('acquire')
@@ -61,4 +61,8 @@ Approach.prototype.validateExtension = function(uri){
 
 Approach.prototype.download = function(infringement, done){
 	logger.error("Shouldn't get to here - override me please.");
+}
+
+Approach.prototype.name = function(){
+  logger.error("Shouldn't get to here - override me please.");
 }

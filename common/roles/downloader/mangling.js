@@ -330,6 +330,11 @@ Mangling.prototype.tryTargets = function(targets, done){
     ;
 }
 
+Mangling.prototype.name = function(){
+  var self = this;
+  return 'Mangling for ' + self.host_._id;
+}
+
 Mangling.prototype.finish = function(done){
   this.browser.quit(done);
 }
