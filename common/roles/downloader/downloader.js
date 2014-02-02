@@ -223,7 +223,7 @@ Downloader.prototype.run = function(done) {
 
   Seq()
     .seq(function() {
-      self.makeMeADownloader(self.downloadersMap_[work.domain], this);
+      self.makeWorker(self.downloadersMap_[work.domain], this);
     })
     .seq(function(downloaderWorker_) {
       downloaderWorker = downloaderWorker_;
@@ -295,10 +295,10 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
     ;    
 }
 
-Downloader.prototype.makeMeADownloader = function(host, done){
+Downloader.prototype.makeWorker = function(host, done){
   var self = this;
-  if(host_.loginDetails.approach === states.downloaders.method.COWMANGLING){
-    return new Mangling(campaign, host);
+  if(host.loginDetails.approach === states.downloaders.method.COWMANGLING){
+    return new Mangling(self.campaign_, host);
   }
 }
 

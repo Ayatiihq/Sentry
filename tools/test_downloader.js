@@ -9,7 +9,6 @@ var acquire = require('acquire')
   , Promise = require('node-promise')  
   , states = acquire('states')
   , Seq = require('seq')  
-  , Cowmangler = acquire('cowmangler')
   ;
 
 function main() {

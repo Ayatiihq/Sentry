@@ -23,7 +23,8 @@ exports.downloaders = {
   },
   strategy: {
     TARGETED: 0,
-    CUSTOM: 1
+    HOOVERING: 1,
+    CUSTOM: 2
   },
   verdict: {
     UNAVAILABLE: 0,
