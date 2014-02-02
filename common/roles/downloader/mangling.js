@@ -59,7 +59,7 @@ Mangling.prototype.download = function(infringement, done){
       var shouldIgnore = false;
       // first check to see that the landing uri (the last redirect)
       // doesn't match any known pattern which would show the true status of the infringement.   
-      self.host_.loginDetails.unavailable.inUri.each(function(rule){
+      self.host_.downloaderDetails.unavailable.inUri.each(function(rule){
         if(results.redirects.last().match(rule)){
           logger.info('last redirect matches ignore rule, mark UNAVAILABLE !');
           shouldIgnore = true; 
@@ -72,7 +72,7 @@ Mangling.prototype.download = function(infringement, done){
       if(results.result === true){
         self.gatherDownloads(infringement, this);
       }
-      else if(self.host_.loginDetails.strategy === states.downloaders.strategy.TARGETED){
+      else if(self.host_.downloaderDetails.strategy === states.downloaders.strategy.TARGETED){
         self.deployTargeted(infringement, this);
       }
     })
@@ -130,13 +130,13 @@ Mangling.prototype.deployTargeted = function(infringement, done){
  **/
 Mangling.prototype.login = function(done){
   var self = this;
-  if(self.host_.loginDetails.authenticated)
+  if(self.host_.downloaderDetails.login.authenticated)
     return done();
 
   self.goLogin(function(err){
     if(err)
       return done(err);
-    self.host_.loginDetails.login.authenticated = true;
+    self.host_.downloaderDetails.login.authenticated = true;
     done();
   });
 }
@@ -158,22 +158,22 @@ Mangling.prototype.goLogin = function(done){
 
   Seq()
     .seq(function(){
-      self.browser.get(self.host_.loginDetails.login.at, this);
+      self.browser.get(self.host_.downloaderDetails.login.at, this);
     })
     .seq(function(){
       self.browser.wait(5000, this);
     })    
     .seq(function(){
-      self.browser.input(self.host_.loginDetails.login.user, this);
+      self.browser.input(self.host_.downloaderDetails.login.user, this);
     })
     .seq(function(){
-      self.browser.input(self.host_.loginDetails.login.password, this);
+      self.browser.input(self.host_.downloaderDetails.login.password, this);
     })    
     .seq(function(){
-      if(self.host_.loginDetails.login.click)
-        self.browser.click(self.host_.loginDetails.login.click, this);
+      if(self.host_.downloaderDetails.login.click)
+        self.browser.click(self.host_.downloaderDetails.login.click, this);
       else
-        self.browser.submit(self.host_.loginDetails.login.submit, this);
+        self.browser.submit(self.host_.downloaderDetails.login.submit, this);
     })
     .seq(function(){
       logger.info('done loggin in.')
@@ -236,7 +236,7 @@ Mangling.prototype.targets = function(done){
   Seq()
     .seq(function(){
       // First try for unavailable, always use regex rules to determine unavailability
-      self.tryRegex(self.host_.loginDetails.unavailable.inSource, this);
+      self.tryRegex(self.host_.downloaderDetails.unavailable.inSource, this);
     })
     .seq(function(unavailable){
       if(unavailable){
@@ -244,7 +244,7 @@ Mangling.prototype.targets = function(done){
         return done(null, states.downloaders.verdict.UNAVAILABLE); 
       }
       else{
-        self.tryTargets(self.host_.loginDetails.available, this);;
+        self.tryTargets(self.host_.downloaderDetails.available, this);;
       }
     })
     .seq(function(available){

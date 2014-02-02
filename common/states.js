@@ -17,7 +17,7 @@ exports.jobs = {
 };
 
 exports.downloaders = {
-  method: {
+  approach: {
     COWMANGLING: 0,
     RESTFUL : 1
   },

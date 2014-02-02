@@ -309,7 +309,7 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
  */
 Downloader.prototype.makeDownloadWorker = function(host, done){
   var self = this;
-  if(host.loginDetails.approach === states.downloaders.method.COWMANGLING){
+  if(host.downloaderDetails.approach === states.downloaders.method.COWMANGLING){
     return done(null, new Mangling(self.campaign_, host));
   }
 }

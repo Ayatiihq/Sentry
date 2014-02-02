@@ -8,13 +8,19 @@
   { "_id" : "",
     "categories" : [],
     "name" : "",
-    "loginDetails" : { "approach" : 0, (see states.downloaders.method)
-                       "authenticated" : boolean,
-                       "automated" : boolean,
-                       "available" : [  {  "stepOne" : $cssSelector } .... ],
-                       "strategy" : 0, (see states.downloaders.strategy)
-                       "unavailable" : { "inSource" : [$regexs], "inUri" : [$regexs] } 
-                      }
+    "downloaderDetails" =  {automated : false, 
+                            login: {user: {'selector': '',
+                                           'value' : ''},
+                                    password : {'selector' : '',
+                                                'value' : ''},
+                                    click : '',
+                                    at: '',
+                                    authenticated: false},
+                            available: [{stepOne:''}, {stepTwo: ''}], // supports two step file grab
+                            unavailable: {inSource: [], inUri: []},
+                            approach : states.downloaders.approach.COWMANGLING,
+                            strategy : states.downloaders.strategy.TARGETED,
+                            blacklist : []},
     "noticeDetails" : { "batch" : true,
                         "batchMaxSize" : 0,
                         "metadata" : { "template" : "dmca",
@@ -221,7 +227,7 @@ Hosts.prototype.getDomainsThatSupportLogin = function(category, callback) {
   if(Object.keys(self.cache_.automated).some(category))
     return callback(null, self.cache_.automated[category]);
 
-  self.hosts_.find({$and : [{'categories' : {$in : [category]}}, {'loginDetails.automated' : true}]}).toArray(function(err, results){
+  self.hosts_.find({$and : [{'categories' : {$in : [category]}}, {'downloaderDetails.automated' : true}]}).toArray(function(err, results){
     if(err)
       return callback(err);
     self.cache_.automated[category] = results;
