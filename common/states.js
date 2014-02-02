@@ -17,13 +17,14 @@ exports.jobs = {
 };
 
 exports.downloaders = {
-  method: {
+  approach: {
     COWMANGLING: 0,
     RESTFUL : 1
   },
   strategy: {
     TARGETED: 0,
-    CUSTOM: 1
+    HOOVERING: 1,
+    CUSTOM: 2
   },
   verdict: {
     UNAVAILABLE: 0,

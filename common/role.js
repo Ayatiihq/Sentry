@@ -67,7 +67,7 @@ Role.prototype.orderJobs = function(campaign, client, engines) {
     var order = Object.clone(template, true);
     order.consumer = self.getName() + '.' + engine;
     orders.push(order);
-  })
+  });
   return orders;
 }
 

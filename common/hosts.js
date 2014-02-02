@@ -3,16 +3,28 @@
  *
  * Wraps the host actions.
  *
- * (C) 2012 Ayatii Limited
+ * (C) 2014 Ayatii Limited
  *
   { "_id" : "",
     "categories" : [],
     "name" : "",
-    "loginDetails" : {},
+    "downloaderDetails" =  {automated : false, 
+                            login: {user: {'selector': '',
+                                           'value' : ''},
+                                    password : {'selector' : '',
+                                                'value' : ''},
+                                    click : '',
+                                    at: '',
+                                    authenticated: false},
+                            available: [{stepOne:''}, {stepTwo: ''}], // supports two step file grab
+                            unavailable: {inSource: [], inUri: []},
+                            approach : states.downloaders.approach.COWMANGLING,
+                            strategy : states.downloaders.strategy.TARGETED,
+                            blacklist : []},
     "noticeDetails" : { "batch" : true,
                         "batchMaxSize" : 0,
                         "metadata" : { "template" : "dmca",
-                                       "to" : "abuse@getindianstuff.org" },
+                                       "to" : "" },
                         "testing" : false,
                         "triggers" : { "minutesSinceLast" : 720 },
                         "type" : "email" },
@@ -49,7 +61,7 @@ var Seq = require('seq');
 var Hosts = module.exports = function() {
   this.db_ = null;
   this.hosts_ = null;
-  this.cache_ = {};
+  this.cache_ = {automated:{}};
   this.cachedCalls_ = [];
 
   this.init();
@@ -205,4 +217,21 @@ Hosts.prototype.getDomainsByCategory = function(category, callback)
     callback(null, domains);
   });
 }
+
+Hosts.prototype.getDomainsThatSupportLogin = function(category, callback) {
+  var self = this;
+
+  if (!self.hosts_)
+    return self.cachedCalls_.push([self.getDomainsThatSupportLogin, Object.values(arguments)]);
+
+  if(Object.keys(self.cache_.automated).some(category))
+    return callback(null, self.cache_.automated[category]);
+
+  self.hosts_.find({$and : [{'categories' : {$in : [category]}}, {'downloaderDetails.automated' : true}]}).toArray(function(err, results){
+    if(err)
+      return callback(err);
+    self.cache_.automated[category] = results;
+    callback(null, results);
+  });
+};
 
