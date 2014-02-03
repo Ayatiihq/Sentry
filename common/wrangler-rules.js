@@ -318,10 +318,10 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
-          utilities.requestURLStream(function cb(err, req, response, stream) {
+          utilities.requestURLStream(link, {}, function cb(err, req, response, stream) {
             if (err) { p.reject(); return; }
 
-            mimeType = response.headers['content-type'];
+            var mimeType = response.headers['content-type'];
             if (mimeMatch.test(mimeType)) {
               var item = new Endpoint(link);
               item.isEndpoint = true;
@@ -330,7 +330,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
 
             promise.resolve();
             req.abort(); // we don't care about the actual stream for now
-          })
+          });
         });
 
         all(pingPromises).then(function() { promise.resolve(foundItems); });
