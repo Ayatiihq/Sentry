@@ -328,7 +328,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
               foundItems.push(item);
             }
 
-            promise.resolve();
+            p.resolve();
             req.abort(); // we don't care about the actual stream for now
           });
         });
