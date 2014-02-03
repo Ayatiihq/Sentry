@@ -346,8 +346,6 @@ PageAnalyser.prototype.beginSearch = function (browser) {
   browser.quit(); // don't need it.  
   
   self.infringements = new Infringements();
-  self.wrangler =  new BasicWrangler();
-  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
   self.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(self.campaign.name));
 
   Seq()
@@ -378,6 +376,16 @@ PageAnalyser.prototype.beginSearch = function (browser) {
 
 PageAnalyser.prototype.goWork = function (infringement, done) {
   var self  = this;
+
+  if (self.wrangler) { // remove all listeners if a wrangler object was used previously
+    self.wrangler.removeAllListnerers('finished')
+                 .removeAllListnerers('suspended')
+                 .removeALlListnerers('resumed');
+    self.wrangler = null;
+  }
+
+  self.wrangler = new BasicWrangler();
+  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
 
   self.wrangler.on('finished', function(results){
     if(!results || results.isEmpty()){
