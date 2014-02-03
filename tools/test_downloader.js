@@ -9,46 +9,41 @@ var acquire = require('acquire')
   , Promise = require('node-promise')  
   , states = acquire('states')
   , Seq = require('seq')  
-  , Cowmangler = acquire('cowmangler')
   ;
 
 function main() {
   logger.init();
-  logger = logger.forFile('test_download-manager.js');
+  logger = logger.forFile('test_downloader.js');
 
   if (process.argv.length < 2)
   {
-    logger.warn("Usage: node test_download-manager.js <job>");
+    logger.warn("Usage: node test_downloader.js <job>");
     process.exit(1);
   }
 
   var job = require(process.argv[2]);  
-  //logger.info('just loaded : ' + JSON.stringify(job));
+  logger.info('just loaded : ' + JSON.stringify(job));
 
-  var DownloadManager = require('../common/roles/downloader/download-manager.js');
-  var downloadMgr = new DownloadManager();
-
+  var Downloader = require('../common/roles/downloader/downloader.js');
+  var downloader = new Downloader();
 
   Seq()
     .seq(function() {
-      downloadMgr.started_ = Date.now();
-      downloadMgr.preRun(job, this);
+      downloader.started_ = Date.now();
+      downloader.preRun(job, this);
     })
     .seq(function() {
-      downloadMgr.run(this);
+      var that = this;
+      downloader.run(this);
     })
     .seq(function() {
-      downloadMgr.on('finished', function(){
-        logger.info('mgr finished');
-        process.exit(1);
-      });      
+      process.exit(0);
     })
     .catch(function(err){
     	logger.warn('err - ' + err);
       process.exit(1);
     })
     ;
-
 }
 
 main(); 

@@ -103,7 +103,7 @@ Generic.prototype.searchWithOneUrl = function (campaign, url) {
   if (campaign.metadata.blacklist)
     safeDomains.add(campaign.metadata.blacklist);
  
-  self.pump(true);
+  self.checkInfringement({uri: url});
   self.emit('started');
 }
 
@@ -201,12 +201,15 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
 };
 
 Generic.prototype.checkInfringement = function (infringement) {
-  var self = this;
-  var promise = new Promise.Promise();
+  var category = states.infringements.category
+    , promise = new Promise.Promise()
+    , self = this
+  ;
+  
   
   logger.info('top of checkInfringement');
 
-  if (!infringement ||!infringement.uri) {
+  if (!infringement || !infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
     return promise.resolve();
   }
@@ -234,15 +237,16 @@ Generic.prototype.checkInfringement = function (infringement) {
     return innerPromise;
   }
 
-  var knownCls = getKnownDomains(Category.CYBERLOCKER);
-  var knownTorrs = getKnownDomains(Category.TORRENT);
+  var knownCls = getKnownDomains(category.CYBERLOCKER);
+  var knownTorrs = getKnownDomains(category.TORRENT);
 
-  allOrNone([knownCls, knownTorrs]).then(function(results){
-    var cls = results.filter(function(result){ return result.category === Category.CYBERLOCKER});
-    var torrentSites = results.filter(function(result){ return result.category === Category.TORRENT});
+  Promise.allOrNone([knownCls, knownTorrs]).then(function(results){
+    //logger.info('result fixes : ' + JSON.stringify(results));
+    var cls = results.filter(function(result){ return result.category === category.CYBERLOCKER});
+    var torrentSites = results.filter(function(result){ return result.category === category.TORRENT});
     var combined = results.map(function(result){return result.domains});
-
-    if(arrayHas(infringement.uri, cls.domains)){
+    
+    if(arrayHas(infringement.uri, cls.first().domains)){
       logger.info('%s is a cyberlocker', infringement.uri);
       // FIXME: This should be done in another place, is just a hack, see
       //        https://github.com/afive/sentry/issues/65
@@ -252,15 +256,17 @@ Generic.prototype.checkInfringement = function (infringement) {
       return promise.resolve();        
     }
     
-    if(arrayHas(infringement.uri, torrentSites.domains)){
+    if(arrayHas(infringement.uri, torrentSites.first().domains)){
       logger.info('%s is a torrent site', infringement.uri);
       // FIXME: This should be done in another place, is just a hack, see
       //        https://github.com/afive/sentry/issues/65
       // It's a cyberlocker URI, so important but we don't scrape it further
+      // TODO how this change the category on the infringement.
       self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
       self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'torrent');
       return promise.resolve();        
     }
+    
     var wrangler = new BasicWrangler();      
     var musicRules = wranglerRules.rulesDownloadsMusic;
     var movieRules = wranglerRules.rulesDownloadsMovie;
