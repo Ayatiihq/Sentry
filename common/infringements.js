@@ -1032,7 +1032,8 @@ Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback)
     campaign: campaign._id,
     $and: [
       { category: states.infringements.category.TORRENT },
-      { scheme : /^(?![torrent|magnet])/}
+      { scheme : /^(?![torrent|magnet])/},
+      { mimetypes : {$in : ['text/html']}}
     ]
   };
   self.infringements_.find(query).toArray(callback); 
