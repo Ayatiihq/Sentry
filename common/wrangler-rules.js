@@ -318,7 +318,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
-          util.requestURLStream(function cb(err, req, response, stream) {
+          utilities.requestURLStream(function cb(err, req, response, stream) {
             if (err) { p.reject(); return; }
 
             mimeType = response.headers['content-type'];
@@ -408,16 +408,10 @@ module.exports.rulesDownloadsMovie = [
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
 
-var testicles = module.exports.exportTesticles = function(){
-  return 'bollox';
-}
-
-
 module.exports.rulesDownloadsTorrent = [
    ruleSearchAllLinks(p2pExtensions, searchTypes.END)
  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
 ];
-
 
 module.exports.typeExtensions = {
     'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
