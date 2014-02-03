@@ -306,6 +306,17 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
                                       directory,
                                       this);
     })
+    .seq(function(nUploaded, fileDetails) {
+      // i am so smart, i don't know how to get fileDetails, an array, into seqEach nicely, so this will have to do.
+      this(null, fileDetails);
+    })
+    .seqEach(function(fileDetail) {
+      self.infringements_.addDownload(infringement,
+                                      fileDetail.md5,
+                                      fileDetail.mimeType,
+                                      fileDetail.fileSize,
+                                      this);
+    })
     .seq(function() {
       rimraf(directory, this.ok);
     })
