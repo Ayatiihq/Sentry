@@ -358,7 +358,7 @@ Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringemen
       var isCl = domains.indexOf(hostname) >= 0;
       if(isCl){
         result.success = true;
-        result.category = , category = states.infringements.category.CYBERLOCKER;
+        result.category = states.infringements.category.CYBERLOCKER;
 
         return done(null, result);        
       } 
@@ -418,13 +418,16 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       isBinaryFile(outPath, this);
     })
     .seq(function(isBinary) {
-      if(isBinary){
-        //md5s are generated in storage, if the file exists already it will return immediately.
-        self.storage.addLocalFile(infringement.campaign, outPath, this);
-      }
-      else{
-        this();
-      }
+      if(!isBinary)
+        return this();
+      var that = this;
+      //md5s are generated in storage, if the file exists already it will return immediately.
+      self.storage.addLocalFile(infringement.campaign, outPath, function(err){
+        if(err)
+          return that(err);
+        logger.info('go register');
+        self.registerDownload(infringement, outPath, mimetype, that);
+      });
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });
@@ -439,6 +442,33 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
         infringement.errors.push(err);
       }
       done(null, mimetype);
+    })
+    ;
+}
+
+Processor.prototype.registerDownload = function(infringement, filePath, mimetype, done){
+  var self = this
+    , md5  = ''
+  ;
+  logger.info('registering');
+  
+  Seq()
+    .seq(function(){
+      utilities.generateMd5(filepath, this);
+    })
+    .seq(function(md5_){
+      md5 = md5_;
+      fs.stat(filepath, this);
+    })
+    .seq(function(stats){
+      self.infringements.addDownload(infringement, md5, mimetype, stats.size, this)
+    })
+    .seq(function(){
+      logger.info('registered download against infringement');
+      done();
+    })
+    .catch(function(err){
+      done(err);
     })
     ;
 }

@@ -1033,7 +1033,7 @@ Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback)
     $and: [
       { category: states.infringements.category.TORRENT },
       { scheme : /^(?![torrent|magnet])/},
-      { mimetypes : {$nin : ['application/x-bittorrent']}}
+      { children : {$size :0}}
     ]
   };
   self.infringements_.find(query).toArray(callback); 
