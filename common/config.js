@@ -116,9 +116,9 @@ config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_PROXY_C
 config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
 
 // Cowmangler
-config.COWMANGLER_HUB_ADDRESS = getEnv(env.COWMANGLER_HUB_ADDRESS, 'http://127.0.0.1');
+config.COWMANGLER_HUB_ADDRESS = getEnv(env.COWMANGLER_HUB_ADDRESS, 'http://nightswatch.7kingdoms.me');
 
-config.COWMANGLER_HUB_PORT = getEnv(env.COWMANGLER_HUB_PORT, '6666');
+config.COWMANGLER_HUB_PORT = getEnv(env.COWMANGLER_HUB_PORT, '8421');
 
 // Redis
 config.REDIS_HOST = getEnv(env.REDIS_HOST, 'grandmaester.7kingdoms.me');
