@@ -205,9 +205,6 @@ Generic.prototype.checkInfringement = function (infringement) {
     , promise = new Promise.Promise()
     , self = this
   ;
-  
-  
-  logger.info('top of checkInfringement');
 
   if (!infringement || !infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
