@@ -132,7 +132,7 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
           supported = true;
       });
     }
-    return !role.dispatcher && supported;
+    return !role.dispatcher && supported && role.name !== "purger"; // quick hack for now.
   });
   
   logger.info('rolesOfInterest ' +
