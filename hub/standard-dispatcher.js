@@ -125,8 +125,10 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
   var self = this;
   
   var rolesOfInterest = self.roles_.getRoles().filter(function(role){
-    var supported = false;
+    logger.info('role ' + JSON.stringify(role));
+    var supported = !role.types;
     if (role.types) {
+      supported = false;
       Object.keys(role.types, function(type) {
         if (campaign.type.startsWith(type))
           supported = true;
@@ -178,7 +180,6 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
       self.createJobsFromOrders(orders, jobs, this);
     })
     .seq(function(){
-      logger.info('makeWorkForRole "' + role.name + '" finished.');
       done();
     })
     .catch(function(err){
