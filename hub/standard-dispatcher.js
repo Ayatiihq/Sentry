@@ -73,7 +73,7 @@ StandardDispatcher.prototype.findWork = function() {
         self.makeWork(workItem, this);
       })
       .seq(function(){
-        logger.info('finished finding and making jobs.');
+        logger.info('finding and making work.')
         this();
       })
       .catch(function(err){
@@ -104,14 +104,11 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
 
 StandardDispatcher.prototype.makeWork = function(workItem, done){
   var self = this;
-  logger.info('Make work for client : ' + workItem.client._id +
-              ' with ' + workItem.campaigns.length + ' campaigns');
   Seq(workItem.campaigns)
     .seqEach(function(campaign){
       self.makeJobs(campaign, workItem.client, this);
     })
     .seq(function(){
-      logger.info('finished job creation');
       done();
     })
     .catch(function(err){
@@ -125,8 +122,9 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
   var self = this;
   
   var rolesOfInterest = self.roles_.getRoles().filter(function(role){
-    var supported = false;
+    var supported = !role.types;
     if (role.types) {
+      supported = false;
       Object.keys(role.types, function(type) {
         if (campaign.type.startsWith(type))
           supported = true;
@@ -137,7 +135,7 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
   
   logger.info('rolesOfInterest ' +
               JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
-
+  
   Seq(rolesOfInterest)
     .seqEach(function(role){
       self.makeJobsForRole(campaign, client, role, this);
@@ -178,7 +176,6 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
       self.createJobsFromOrders(orders, jobs, this);
     })
     .seq(function(){
-      logger.info('makeWorkForRole "' + role.name + '" finished.');
       done();
     })
     .catch(function(err){
@@ -191,7 +188,6 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
   var self = this;
   Seq(orders)
     .seqEach(function(order){
-      logger.info('Create this job ' + JSON.stringify(order));
       jobs.push(order.owner, order.consumer, order.metadata, this);
     })
     .seq(function(){

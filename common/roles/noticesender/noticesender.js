@@ -131,8 +131,8 @@ NoticeSender.prototype.getInfringements = function(done) {
   var self = this;
 
   // If a client doesn't have the required information, we skip it
-  if (!self.client_.authorization || !self.client_.copyrightContact) {
-    logger.info('Client %s does not have the required information to process notices', self.client_.name);
+  if (!self.campaign_.authorization || !self.campaign_.copyrightContact) {
+    logger.info('Campaign %s does not have the required information to process notices', self.campaign_.name);
     return done();
   }
 
@@ -400,7 +400,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
 NoticeSender.prototype.sendEscalatedNotices = function(done){
   var self = this;
   // If a client doesn't have the required information, we skip it
-  if (!self.client_.authorization || !self.client_.copyrightContact) {
+  if (!self.campaign_.authorization|| !self.campaign_.copyrightContact) {
     logger.info('Client %s does not have the required information to process notices',
                  self.client_.name);
     return done();
@@ -604,7 +604,7 @@ NoticeSender.prototype.getName = function() {
 
 NoticeSender.prototype.orderJobs = function(campaign, client){
   var self = this;
-  if(!client.authorization || !client.copyrightContact)){
+  if(!campaign.authorization || !campaign.copyrightContact){
     logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
     return [];
   } 

@@ -278,8 +278,6 @@ ReverseScraper.prototype.getSourceName = function() {
 ReverseScraper.prototype.start = function(campaign, job, browser) {
   var self = this;
 
-  logger.info('Started for %j', job);
-
   self.campaign_ = campaign;
   self.job_ = job;
   self.browser_ = browser;
