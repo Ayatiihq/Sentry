@@ -112,8 +112,7 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
-  var names = self.campaign.names;
-  var albumTitle = names[Math.floor((Math.random()*names.length)+1)];
+  var albumTitle = self.campaign.names.randomize()[0];
   var query = albumTitle.escapeURL(true);
   return query;
 }
