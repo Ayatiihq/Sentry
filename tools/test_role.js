@@ -25,8 +25,21 @@ function main() {
   setupSignals();
 
   var rolename = process.argv[2];
+  var job = require(process.argv[3]);
+  
   var Role = require('../common/roles/' + rolename);
+
   var instance = new Role();
+
+  instance.on('ready', function(){
+    if(!job)
+      return;
+    instance.startJob(job, function(err){
+      logger.info(err + ' : ' + JSON.stringify(job));
+      process.exit();
+    })    
+  });
+
   instance.on('started', function() {
     logger.info('Started ' + instance.getDisplayName());
   });
@@ -37,7 +50,6 @@ function main() {
   instance.on('error', function(err) {
     logger.info('Error %s: %s', instance.getDisplayName(), err);
   });
-
   instance.start();
 }
 
