@@ -44,6 +44,7 @@ var GenericSearchEngine = function (campaign) {
   self.engineName = 'UNDEFINED';
   self.maxPages = campaign.metadata.searchengineMaxPages ? campaign.metadata.searchengineMaxPages : 15;
   self.pageNumber = 1;
+  self.blacklistCombined = blacklist.safeDomains.union(self.campaign.metadata.blacklist);
   self.oldestResultDate = Date.create(campaign.metadata.releaseDate).rewind({ week: 1 });
 
   self.buildWordMatchess();
@@ -143,7 +144,7 @@ GenericSearchEngine.prototype.filterSearchResults = function(scrapedLinks){
       logger.error('Unable to create URI from scraped link ' + error);
       return false;
     }
-    return !blacklist.safeDomains.some(uriInstance.domain());
+    return !self.blacklistCombined.some(uriInstance.domain());
   }
   return scrapedLinks.filter(filterOnBlackList);
 }
@@ -306,44 +307,61 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     , assets = self.campaign.metadata.assets.map(function(track){return '\"' + getValFromObj('title', track) + '\"'});
     ;
 
-  // First is the basic album searches
-  if (soundtrack) {
-    searchTerms1.push(fmt('+%s song download', albumTitle));
-    searchTerms1.push(fmt('+%s songs download', albumTitle));
-    searchTerms1.push(fmt('+%s mp3 torrent', albumTitle));
-    searchTerms2.push(fmt('+%s mp3', albumTitle));
-  
-  } else if (compilation) {
-    searchTerms1.push(fmt('%s download', albumTitle));
-    searchTerms1.push(fmt('%s torrent', albumTitle));
-    searchTerms1.push(fmt('%s mp3', albumTitle));
-  
-  } else {
-    searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
-    searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
-    searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
-    searchTerms1.push(fmt('+%s %s lossless', artist, albumTitle));
-    searchTerms1.push(fmt('+%s %s flac', artist, albumTitle));
+  // First is the basic album searches but only if we deem the album title to be worthy
+  if(!self.campaign.metadata.noSearch){
+    if (soundtrack) {
+      searchTerms1.push(fmt('+%s song download', albumTitle));
+      searchTerms1.push(fmt('+%s songs download', albumTitle));
+      searchTerms1.push(fmt('+%s mp3 torrent', albumTitle));
+      searchTerms2.push(fmt('+%s mp3', albumTitle));
+    
+    } else if (compilation) {
+      searchTerms1.push(fmt('%s download', albumTitle));
+      searchTerms1.push(fmt('%s torrent', albumTitle));
+      searchTerms1.push(fmt('%s mp3', albumTitle));
+    
+    } else {
+      searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
+      searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
+      searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
+      searchTerms1.push(fmt('+%s %s lossless', artist, albumTitle));
+      searchTerms1.push(fmt('+%s %s flac', artist, albumTitle));
+    }
   }
-
   // Now the assets
   self.campaign.metadata.assets.forEach(function(asset) {
     if(!asset.noSearch){
       var track = '\"' + getValFromObj('title', asset) + '\"';
-      if (soundtrack) {
-        if (track.searchWithAlbum) { // did this ever work ?
-          searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
-          searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
-        } else {
-          searchTerms1.push(fmt('+%s song download', track));
-          searchTerms2.push(fmt('+%s mp3', track));
-        }
-      } else if (compilation) {
-        // do nothing
-      } else {
+
+      if(self.campaign.metadata.noSearch){      
+        // If our album title is thrash => straight for artist and track name
+        searchTerms1.push(fmt('+%s %s download', artist, track));
+        searchTerms2.push(fmt('+%s %s free mp3 download', artist, track));
+        searchTerms2.push(fmt('+%s %s mp3 download', artist, track));        
+        searchTerms1.push(fmt('+%s %s torrent', artist, track));
+        searchTerms1.push(fmt('+%s %s flac', artist, track));
+        searchTerms1.push(fmt('+%s %s lossless', artist, track));
+      }
+      else{ // use all keywords to narrow down
         searchTerms1.push(fmt('+%s %s %s download', artist, albumTitle, track));
-        searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
-        searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
+        searchTerms2.push(fmt('+%s %s %s free mp3 download', artist, albumTitle, track));
+        searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));        
+        searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));        
+        searchTerms1.push(fmt('+%s %s %s flac', artist, albumTitle, track));
+        searchTerms1.push(fmt('+%s %s %s lossless', artist, albumTitle, track));        
+      }
+
+
+      if (soundtrack) {
+        // Just add track and album (disregard artist)
+        searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
+        searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
+        searchTerms2.push(fmt('+%s %s torrent', track, albumTitle));        
+        searchTerms2.push(fmt('+%s %s flac', track, albumTitle));                
+        searchTerms2.push(fmt('+%s %s lossless', track, albumTitle));                        
+      } 
+      else if (compilation) {
+        // do nothing
       }
     }
   });
@@ -522,6 +540,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
     
     if (self.checkResultRelevancy(title, url, date))
       links.push(url);
+    
   });
   return links;
 };
