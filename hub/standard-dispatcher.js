@@ -57,11 +57,15 @@ StandardDispatcher.prototype.findWork = function() {
     Seq(clients)
       .seqEach(function(client){
         var that = this;
+        logger.info('client ' + client.name);
+        
         //if(client.state === 0)
         //  return that();
+
         self.getClientCampaigns(client, function(err, result){
           if(err || !result)
             return that(err);
+          logger.info('client ' + client.name + ' result : ' + JSON.stringify(result));
           workToDo.push(result);
           that();
         });
@@ -88,7 +92,7 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
     if (err)
       return done(err);
     
-    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep && campaign.sweepTo < Date.now()});
+    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep && campaign.sweepTo > Date.now()});
     
     if(activeCampaigns.isEmpty())
       return done();

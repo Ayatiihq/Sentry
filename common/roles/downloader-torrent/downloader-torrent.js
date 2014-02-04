@@ -258,6 +258,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
         setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
       })
       ;
+    });
 }
 
 
@@ -308,8 +309,9 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
     })
     .seq(function(nUploaded, fileDetails_) {
       fileDetails = fileDetails_;
+      this();
     })
-    .set(fileDetails);
+    .set(fileDetails)
     .seqEach(function(fileDetail) {
       self.infringements_.addDownload(infringement,
                                       fileDetail.md5,
