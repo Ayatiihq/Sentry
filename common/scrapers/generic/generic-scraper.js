@@ -200,29 +200,37 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
-Generic.prototype.checkInfringement = function (infringement) {
-  var category = states.infringements.category
-    , promise = new Promise.Promise()
-    , self = this
-  ;
-
+Generic.prototype.isLinkInteresting = function (infringement) {
+  var self = this;
   if (!infringement || !infringement.uri) {
     logger.warn('Infringement isn\'t valid: %j', infringement);
-    return promise.resolve();
+    return false;
   }
   // If its pathless, no point.
   if (!utilities.uriHasPath(infringement.uri)) {
     logger.info('%s has no path, not scraping', infringement.uri);
     self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-    return promise.resolve();
+    return false
   }
   // If its safe, no point.
   if (arrayHas(infringement.uri, safeDomains)) {
     logger.info('%s is a safe domain', infringement.uri);
     self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-    return promise.resolve();
+    return false;
   }
+  return true;
+}
+
+Generic.prototype.checkInfringement = function (infringement) {
+  var category = states.infringements.category
+    , promise = new Promise.Promise()
+    , self = this
+  ;
   
+  if(!self.isLinkInteresting(infringement)){
+    promise.resolve();
+    return promise;
+  }
   // Otherwise go digging.  
   function getKnownDomains(category){
     var innerPromise = new Promise.Promise();
