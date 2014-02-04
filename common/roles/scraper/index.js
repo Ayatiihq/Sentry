@@ -120,8 +120,6 @@ Scraper.prototype.startJob = function(job, done) {
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
 
-  logger.info('Loading scraper %s for job %j', job.scraperName_, job);
-
   var scraperInfo = self.scrapers_.getScraper(job.scraperName_);
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
