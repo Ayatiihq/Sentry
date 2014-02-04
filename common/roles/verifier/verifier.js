@@ -92,7 +92,7 @@ Verifier.prototype.processJob = function(err, job) {
       self.emit('error', err);
       return;
     }
-
+    logger.info('job ' + JSON.stringify(job));
     self.campaign_ = campaign;
     var consumer = job._id.consumer;
 
@@ -364,15 +364,14 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     ;
 }
 
-Verifier.prototype.loadKnownEngines = function(hosts, done) {
+Verifier.prototype.loadKnownEngines = function(hosts_, done) {
   var self = this
     , engines = []
   ;
 
   engines.push(self.torrentEngine.bind(self));
   
-
-  hosts.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
+  hosts_.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
     if(err)
       return done(err);
     hostsWithMatcher.each(function(hostWithMatcher){
