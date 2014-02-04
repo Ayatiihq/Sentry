@@ -5,8 +5,10 @@
  * 
  {
   "_id": "",
+  "authorization": "",
   "avatar": "",
   "client": "",
+  "copyrightContact": ""
   "created": 0,
   "description": "",
   "metadata": {
