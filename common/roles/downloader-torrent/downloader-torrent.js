@@ -299,17 +299,17 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
   logger.info('Infringement %s has finished downloading to %s, registering new files', infringement._id, directory);
 
   clearInterval(infringement.downloadTimer);
-
+  var fileDetails = [];
   Seq()
     .seq(function() {
       self.storage_.addLocalDirectory(infringement.campaign,
                                       directory,
                                       this);
     })
-    .seq(function(nUploaded, fileDetails) {
-      // i am so smart, i don't know how to get fileDetails, an array, into seqEach nicely, so this will have to do.
-      this(null, fileDetails);
+    .seq(function(nUploaded, fileDetails_) {
+      fileDetails = fileDetails_;
     })
+    .set(fileDetails);
     .seqEach(function(fileDetail) {
       self.infringements_.addDownload(infringement,
                                       fileDetail.md5,

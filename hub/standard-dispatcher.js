@@ -57,8 +57,8 @@ StandardDispatcher.prototype.findWork = function() {
     Seq(clients)
       .seqEach(function(client){
         var that = this;
-        if(client.state === 0)
-          return that();
+        //if(client.state === 0)
+        //  return that();
         self.getClientCampaigns(client, function(err, result){
           if(err || !result)
             return that(err);
