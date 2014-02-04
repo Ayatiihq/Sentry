@@ -337,7 +337,7 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     .seq(function() {
       database.connectAndEnsureCollection('hosts', this);
     })
-    .seq(function(hosts_){
+    .seq(function(db, hosts_){
       self.loadKnownEngines(hosts_, this);
     })
     .seq(function(loadedEngines){
