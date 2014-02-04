@@ -422,7 +422,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
         return this();
       var that = this;
       //md5s are generated in storage, if the file exists already it will return immediately.
-      self.storage.addLocalFile(infringement.campaign, outPath, function(err){
+      self.storage_.addLocalFile(infringement.campaign, outPath, function(err){
         if(err)
           return that(err);
         logger.info('go register');
