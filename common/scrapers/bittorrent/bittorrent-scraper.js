@@ -259,7 +259,14 @@ KatScraper.prototype.searchQuery = function(pageNumber){
       self.browser.get(queryString, this);    
     })
     .seq(function(){
-      self.browser.find('table[class="data"]', this);
+      var that = this;
+      self.browser.find('table[class="data"]', function(err){
+        if(err){
+          logger.info("No search results for " + self.searchTerm + ' on ' + self.engineName);
+          return self.cleanup();
+        }
+        that();
+      });
     })
     .seq(function(){
       self.handleResults();
