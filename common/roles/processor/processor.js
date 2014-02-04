@@ -240,7 +240,6 @@ Processor.prototype.run = function(done) {
       self.reducePointsForCommonFalsePositives(infringement, mimetype, this);
     })
     .seq(function() {
-      logger.info('here');
       setTimeout(self.run.bind(self, done), 100);
       this();
     })

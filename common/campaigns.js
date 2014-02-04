@@ -8,7 +8,7 @@
   "authorization": "",
   "avatar": "",
   "client": "",
-  "copyrightContact": ""
+  "copyrightContact": "",
   "created": 0,
   "description": "",
   "metadata": {
