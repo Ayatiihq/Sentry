@@ -133,8 +133,8 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
     return !role.dispatcher && supported && role.name !== "purger"; // quick hack for now.
   });
   
-  logger.info('rolesOfInterest ' +
-              JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
+  //logger.info('rolesOfInterest ' +
+  //            JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
   
   Seq(rolesOfInterest)
     .seqEach(function(role){

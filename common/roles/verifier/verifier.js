@@ -92,7 +92,6 @@ Verifier.prototype.processJob = function(err, job) {
       self.emit('error', err);
       return;
     }
-    logger.info('job ' + JSON.stringify(job));
     self.campaign_ = campaign;
     var consumer = job._id.consumer;
 
