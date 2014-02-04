@@ -11,7 +11,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('standard-dispatcher.js')
-  , states = acquire('states').jobs.state
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -49,7 +49,7 @@ StandardDispatcher.prototype.findWork = function() {
   var self = this
     , workToDo = []
   ;
-  // in time filter on client 'account state' (0 => acive, 1 => suspended)
+
   self.clients_.listClients(function(err, clients) {
     if (err)
      return logger.warn(err);
@@ -57,15 +57,13 @@ StandardDispatcher.prototype.findWork = function() {
     Seq(clients)
       .seqEach(function(client){
         var that = this;
-        logger.info('client ' + client.name);
-        
-        //if(client.state === 0)
-        //  return that();
+        // Need to flesh out the supported client state scenarios
+        if(client.state === states.client.state.INACTIVE)
+          return that();
 
         self.getClientCampaigns(client, function(err, result){
           if(err || !result)
             return that(err);
-          logger.info('client ' + client.name + ' result : ' + JSON.stringify(result));
           workToDo.push(result);
           that();
         });
@@ -206,7 +204,9 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
 }
 
 StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, done){
-  var self = this;
+  var self = this
+    , jobStates = states.jobs.state
+    ;
 
   jobs.listActiveJobs(campaign._id, function(err, array, existingJobs) {
     if (err) {
@@ -241,20 +241,20 @@ StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, d
     }
 
     switch(lastJob.state) {
-      case states.QUEUED:
-      case states.PAUSED:
+      case jobStates.QUEUED:
+      case jobStates.PAUSED:
         return done(null, true);
 
-      case states.STARTED:
+      case jobStates.STARTED:
         if (role.longRunning)
           return done(null, true);
         
         var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
         if (tooLong)
-          jobs.close(lastJob, states.ERRORED, new Error('Timed out'));
+          jobs.close(lastJob, jobStates.ERRORED, new Error('Timed out'));
         return done(null, !tooLong); 
 
-      case states.COMPLETED:
+      case jobStates.COMPLETED:
         var waitBeforeNextRun = role.intervalMinutes ? role.intervalMinutes : campaign.sweepIntervalMinutes;
         var waitedLongEnough = Date.create(lastJob.finished).isBefore(waitBeforeNextRun + ' minutes ago');
         done(null, !waitedLongEnough); 

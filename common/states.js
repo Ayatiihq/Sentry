@@ -86,8 +86,15 @@ exports.client = {
     MEDIUM : 1,  
     HIGH: 2, 
     URGENT: 3 
-  }
+  },
+  state: {
+    INACTIVE : 0,
+    ACTIVE : 1,
+    MONITOR : 2,
+    SUSPENDED : 3
+  }  
 };
+
 
 exports.hub = {
   state: {
