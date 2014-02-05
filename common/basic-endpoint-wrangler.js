@@ -108,7 +108,7 @@ Wrangler.prototype.doBusyCheck = function (lastCheckCount) {
   }
 
   if (self.isSuspended && process.hrtime(self.busyCount)[0] > 30) {
-    logger.error('(%s) suspended for %d seconds...', self.uri, process.hrtime(self.busyCount)[0]);
+    logger.trace('(%s) suspended for %d seconds...', self.uri, process.hrtime(self.busyCount)[0]);
   }
 
   self.busyCheckTimer = self.doBusyCheck.bind(self).delay(5000, self.busyCount);
@@ -208,7 +208,7 @@ Wrangler.prototype.processUri = function (uri, parents) {
       self.processIFrames(uri, newParents, $).then(function () { promise.resolve(); }, function () { promise.resolve(); });
     }, function onRequestError(error, response) {
       var statusCode = (!!response) ? response.statusCode : 0;
-      logger.info('%s - Error(%d): %s', uri, statusCode, error);
+      logger.trace('%s - Error(%d): %s', uri, statusCode, error);
       promise.reject(new Error('(' + uri + ') request failed: ' + error), true);
     });
 

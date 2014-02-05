@@ -172,7 +172,7 @@ MusicVerifier.prototype.verify = function(campaign, infringement, downloads, don
           return verdict.verified}).map(function(positive){
         return positive.assetNumber});
 
-        logger.info('update metadata with  ' + JSON.stringify(verifiedAssetNumbers));
+        logger.info('update metadata with  ' + verifiedAssetNumbers.length + ' track number(s)');
         self.infringements_.setMetadata(infringement, 'matchedAssets', verifiedAssetNumbers, this);
       }
       else{
