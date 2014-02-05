@@ -76,7 +76,6 @@ BittorrentPortal.prototype.handleResults = function () {
           setTimeout(function(){self.nextPage(source);}, randomTime * 1000);
         }
         else {
-          logger.info('managed to scrape ' + self.results.length + ' torrents');
           self.getTorrentsDetails();
           this();
         }
@@ -397,7 +396,6 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
 
   self.wrangler.on('finished', function(results){
     if(!results || results.isEmpty()){
-      logger.info('wrangler returned no results')
       return done();
     }
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
@@ -440,10 +438,8 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   });
 
   self.wrangler.on('suspended', function onWranglerSuspend() {
-    logger.info('wrangler suspended');
   });
   self.wrangler.on('resumed', function onWranglerResume() {
-    logger.info('wrangler resumed');
   });
 
   self.wrangler.beginSearch(infringement.uri);
