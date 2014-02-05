@@ -435,6 +435,26 @@ Infringements.prototype.setState = function(infringement, state, callback){
 }
 
 /**
+ * Verify the given infringement
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          state            The state to be to set on the infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.verify = function(infringement, state, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.infringements_.update({ _id: infringement._id },
+                             { $set: { state: state, verified : Date.now() },
+                               $push: {'metadata.processedBy': processor} },
+                               callback);
+}
+/**
  * Change the state field on the given infringement with the given state and mark the
  * the infringement as processed by who.
  *
