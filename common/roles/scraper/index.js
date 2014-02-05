@@ -108,7 +108,6 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 
 Scraper.prototype.startJob = function(job, done) {
   var self = this;
-  
   self.loadScraperForJob(job, function(err, scraper) {
     if (err)
       return done(err);
@@ -119,7 +118,6 @@ Scraper.prototype.startJob = function(job, done) {
 
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
-
   var scraperInfo = self.scrapers_.getScraper(job.scraperName_);
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));

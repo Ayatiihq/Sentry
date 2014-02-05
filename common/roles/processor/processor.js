@@ -454,11 +454,11 @@ Processor.prototype.registerDownload = function(infringement, filePath, mimetype
   
   Seq()
     .seq(function(){
-      utilities.generateMd5(filepath, this);
+      utilities.generateMd5(filePath, this);
     })
     .seq(function(md5_){
       md5 = md5_;
-      fs.stat(filepath, this);
+      fs.stat(filePath, this);
     })
     .seq(function(stats){
       self.infringements.addDownload(infringement, md5, mimetype, stats.size, this)

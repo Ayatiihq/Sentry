@@ -57,7 +57,6 @@ Ears.prototype.open = function(channel){
   var self = this;
   var promise = new Promise.Promise();
   self.redisClient.on('subscribe', function(channel, count) {
-    logger.info("Ears subscribed to " + channel + ", " + count + " total subscriptions");
     promise.resolve();
   });
   self.redisClient.subscribe(channel);
@@ -71,7 +70,6 @@ Ears.prototype.close = function(channel){
   var self = this;
   var promise = new Promise.Promise();
   self.redisClient.on('unsubscribe', function(channel, count) {
-    logger.info("Ears unsubscribed to " + channel + ", " + count + " total subscriptions");
     promise.resolve();
   });
   self.redisClient.unsubscribe();
