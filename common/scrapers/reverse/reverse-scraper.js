@@ -162,7 +162,7 @@ ReverseScraper.prototype.scrape = function(searchTerm, done) {
   logger.info('Searching Google for %s', searchTerm);
   Seq()
     .seq(function(){
-      self.browser_.get('http://www.google.com');
+      self.browser_.get('http://www.google.com', this);
     })
     .seq(function(){
       self.browser_.input({selector: 'input[name=q]', value: searchTerm}, this);
