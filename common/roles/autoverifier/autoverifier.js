@@ -223,7 +223,7 @@ AutoVerifier.prototype.processVerification = function(infringement, downloads, d
           verification.state == iStates.FALSE_POSITIVE) {
         logger.info('Changing %s to state %s', infringement.uri,
                     verification.state == iStates.VERIFIED ? 'VERIFIED' : 'FALSE_POSITIVE');
-        self.infringements_.verifier(infringement, verification.state, PROCESSOR, done);
+        self.infringements_.verify(infringement, verification.state, PROCESSOR, done);
 
       } else {
         // Just marking as processed so we don't see it again
