@@ -107,7 +107,7 @@ Generic.prototype.searchWithOneUrl = function (campaign, url) {
   self.emit('started');
 }
 
-Generic.prototype.start = function (campaign, job, browser) {
+Generic.prototype.start = function (campaign, job) {
   var self = this;
   self.campaign = campaign;
   self.job = job;

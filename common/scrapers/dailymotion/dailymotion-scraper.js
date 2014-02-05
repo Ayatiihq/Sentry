@@ -61,7 +61,7 @@ DailyMotion.prototype.getName = function () {
   return "youtube";
 };
 
-DailyMotion.prototype.start = function (campaign, job, browser) {
+DailyMotion.prototype.start = function (campaign, job) {
   var self = this;
   var success = false;
 
