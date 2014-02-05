@@ -4,6 +4,7 @@ var acquire = require('acquire')
   , path = require('path')
 	, readTorrent = require('read-torrent')
 	, rimraf = require('rimraf')
+  , util = require('util')
 	, utilities = acquire('utilities')
   , sugar = require('sugar')
 	;
