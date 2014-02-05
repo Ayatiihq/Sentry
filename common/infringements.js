@@ -445,7 +445,7 @@ Infringements.prototype.verify = function(infringement, state, processor, callba
   var self = this;
 
   if (!self.infringements_)
-    return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.verify, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
 
