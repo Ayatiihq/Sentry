@@ -108,7 +108,7 @@ GenericSearchEngine.prototype.handleResults = function () {
       var newresults = self.getLinksFromSource(source);
       
       if (newresults.length < 1) {
-        logger.info("We found results but they were irrelevant due to date, url or title\n".);
+        logger.info("We found results but they were irrelevant due to date, url or title\n");
         self.emit('finished');
         self.cleanup();
         return this();
@@ -381,7 +381,9 @@ GenericSearchEngine.prototype.cleanup = function () {
   var self = this;
   Seq()
     .seq(function(){
-      //self.browser.quit(this);
+      if(!self.browser)
+        return this();
+      self.browser.quit(this);
     })
     .seq(function(){
       self.emit('finished');
@@ -806,17 +808,17 @@ FilestubeScraper.prototype.beginSearch = function (browser) {
   browser.quit(); 
   self.resultsCount = 0;
   self.emit('started');
-  self.buildSearchQuery(function(err, searchTerm) {
-    if (err)
-      return self.emit('error', err);
-    self.searchTerm = searchTerm;
-    var requestURI = "http://api.filestube.com/?key=" + 
+  // TODO this needs to be made to suit other campaign types 
+  // but for now (it's music so)
+  var searchTerm = self.campaign.metadata
+  var requestURI = "http://api.filestube.com/?key=" + 
                       self.apikey + 
-                      '&phrase=' + URI.encode(self.searchTerm);
-    logger.info('about to search filestube with this query ' + requestURI);
-    request(requestURI, {}, self.getLinksFromSource.bind(self));
-  });
+                      '&phrase=' + URI.encode(self.campaign.name.remove('-'));
+  logger.info('about to search filestube with this query ' + requestURI);
+  request(requestURI, {}, self.getLinksFromSource.bind(self));  
 };
+
+
 
 FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   var self = this;
@@ -828,7 +830,13 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
         logger.info('just found link ' + match[0]);
       });
   });
-  self.emitLinks(links);
+  if(links.isEmpty()){
+    logger.info('nothing from filestube, check query string');
+  }
+  else
+    self.emitLinks(links);
+  
+  self.cleanup();
 }
 
 /* Scraper Interface */
