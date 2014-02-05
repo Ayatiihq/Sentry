@@ -530,6 +530,7 @@ Utilities.requestStream = function(url, options, callback) {
 Utilities.requestURLStream = function(url, options, callback) {
   var parsed = null
     , err = null
+    , called = false
     ;
 
   try {
@@ -557,12 +558,15 @@ Utilities.requestURLStream = function(url, options, callback) {
   req.on('response', function(response) {
     var body = ''
       , stream = null
+      , done = called ? function() {} : callback
       ;
+
+    called = true;
 
     if (response.statusCode >= 400) {
       var err = new Error ('Server returned error status code: ' + response.statusCode);
       err.statusCode = response.statusCode;
-      return callback(err, null, response);
+      return done(err, null, response);
     }
 
     switch(response.headers['content-encoding']) {
@@ -580,11 +584,13 @@ Utilities.requestURLStream = function(url, options, callback) {
         stream = response;
     }
 
-    callback(err, req, response, stream);
+    done(err, req, response, stream);
   });
 
   req.on('error', function(err) {
-    callback(err);
+    var done = called ? console.log.bind('Error', url) : callback;
+    called = true;
+    done(err);
   });
 }
 
