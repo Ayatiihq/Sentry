@@ -369,7 +369,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
       return done(err);
 
     run = run ? run : 0; // Convert into number
-    logger.info('run number ' + run);
+
     // Update it for next run
     self.settings.set(key, run + 1);
 
