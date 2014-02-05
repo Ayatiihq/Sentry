@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , os = require('os')
   , path = require('path')
   , sugar = require('sugar')  
+  , states = acquire('states')
   , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
   , utilities = acquire('utilities') 
@@ -385,9 +386,9 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   var self  = this;
 
   if (self.wrangler) { // remove all listeners if a wrangler object was used previously
-    self.wrangler.removeAllListnerers('finished')
-                 .removeAllListnerers('suspended')
-                 .removeALlListnerers('resumed');
+    self.wrangler.removeAllListeners('finished')
+                 .removeAllListeners('suspended')
+                 .removeAllListeners('resumed');
     self.wrangler = null;
   }
 
@@ -424,7 +425,9 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
           return self.broadcast(ofInterest, infringement, this);
         
         // otherwise mark as false positive.
-        self.emit('decision', infringement, State.FALSE_POSITIVE);
+        self.emit('decision',
+                  infringement,
+                  states.infringement.state.FALSE_POSITIVE);
         this();
       })         
       .seq(function(){

@@ -734,6 +734,9 @@ BingScraper.prototype.beginSearch = function (browser) {
       logger.info('searching bing with search query: ' + self.searchTerm);
     })
     .seq(function(){
+      self.browser.wait(3000, this);
+    })
+    .seq(function(){ 
       var that = this;
       self.browser.find('div[id="results"]', function(err){
         if(err){
