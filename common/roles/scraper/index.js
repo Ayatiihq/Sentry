@@ -69,7 +69,7 @@ Scraper.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -257,6 +257,9 @@ Scraper.prototype.onScraperInfringement = function(scraper, campaign, uri, point
     , state = states.infringements.state.UNVERIFIED
     , owner = scraper.getSourceName() ? scraper.getSourceName() : scraper.job._id.consumer
     ;
+
+  if (!uri) return;
+
   self.infringements_.add(campaign, uri, campaign.type, owner, state, points, metadata, function(err) {
     if (err) {
       logger.warn('Unable to add an infringement: %j %s %s %s', campaign._id, uri, points, err);
@@ -270,6 +273,8 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
     , unverifiedState= states.infringements.state.UNVERIFIED
     , owner = scraper.getSourceName() ? scraper.getSourceName() : scraper.job._id.consumer
     ;
+
+  if (!uri) return;
 
   // We create a normal infringement too
   // FIXME: Check blacklists and spiders before adding infringement
@@ -289,6 +294,8 @@ Scraper.prototype.onScraperMetaInfringement = function(scraper, campaign, uri, p
 Scraper.prototype.onScraperRelation = function(scraper, campaign, sourceUri, targetUri) {
   var self = this;
 
+  if (!sourceUri || !targetUri) return;
+
   self.infringements_.addRelation(campaign, sourceUri, targetUri, function(err, id) {
     if (err) {
       logger.warn('Unable to add relation: %j %s %s %s', campaign._id, sourceUri, targetUri, err);
@@ -300,6 +307,8 @@ Scraper.prototype.onScraperMetaRelation = function(scraper, campaign, uri) {
   var self = this
     , source = scraper.job._id.consumer
     ;
+
+  if (!uri) return;
 
   self.infringements_.addMetaRelation(campaign, uri, source, function(err, id) {
     if (err) {

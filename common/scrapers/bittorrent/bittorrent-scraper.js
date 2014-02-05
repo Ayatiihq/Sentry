@@ -484,6 +484,8 @@ PageAnalyser.prototype.broadcast = function(results, infringement, done){
   var self = this;
   Seq(results)
     .seqEach(function(torrent){
+      if (!torrent.link) return this();
+
       self.emit('torrent',
                 torrent.link,
                 {score: MAX_SCRAPER_POINTS / 1.5,
