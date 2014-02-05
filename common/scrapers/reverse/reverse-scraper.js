@@ -189,13 +189,9 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
   var self = this
     , source = ''
     ;
-
-  self.remoteClient_.sleep(2500); // page render
-
   Seq()
     .seq(function() {
-      self.browser_.wait(2500, this);
-      
+      self.browser_.wait(2500, this);      
     })
     .seq(function(){
       self.browser_.getSource(this);

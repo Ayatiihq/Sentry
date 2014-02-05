@@ -370,7 +370,7 @@ Verifier.prototype.loadKnownEngines = function(hosts_, done) {
 
   engines.push(self.torrentEngine.bind(self));
   
-  hosts_.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
+  hosts_.find({ urlMatcher: { $exists: true }}).toArray(function(err, hostsWithMatcher){
     if(err)
       return done(err);
     hostsWithMatcher.each(function(hostWithMatcher){
@@ -455,7 +455,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     , iStates = states.infringements.state
     ;
 
-  logger.info('Starting %s known id verifier', matcher.domain);
+  logger.info('Starting %s known id verifier', cyberlocker._id);
 
   Seq()
     .seq(function() {

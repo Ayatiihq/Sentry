@@ -473,7 +473,7 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
       done(null, result);
     })
     .catch(function(err){
-      logger.warn(err);
+      logger.warn('Torrent error', torrentLink, err);
       result.message = err;
       done(null, result); // just ignore for now.
     })
@@ -484,6 +484,8 @@ PageAnalyser.prototype.broadcast = function(results, infringement, done){
   var self = this;
   Seq(results)
     .seqEach(function(torrent){
+      if (!torrent.link) return this();
+
       self.emit('torrent',
                 torrent.link,
                 {score: MAX_SCRAPER_POINTS / 1.5,

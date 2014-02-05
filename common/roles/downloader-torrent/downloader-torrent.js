@@ -199,7 +199,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
     if (!infringement)
       return callback();
 
-    var targets = infringement.parents.uris.filter(function(){return !uri.startsWith('magnet:')});
+    var targets = infringement.parents.uris.filter(function(uri){return !uri.startsWith('magnet:')});
     var torrentDetails = [];
 
     Seq(targets)
