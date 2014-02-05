@@ -78,7 +78,7 @@ For continuous new release scanning, normal to use this for the
 first week of a campaign until we have a handle on things
 URGENT:
 Reserved for extreme cases where we need to direct attention
-to that client or campaign. 
+to that client or campaign(s). 
 */
 exports.client = {
   priority: {

@@ -114,7 +114,7 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
   var self = this;
   var albumTitle = self.campaign.names.randomize()[0];
-  var query = albumTitle.escapeURL(true);
+  var query = albumTitle.unescapeURL();
   return query;
 }
 
@@ -263,7 +263,7 @@ KatScraper.prototype.searchQuery = function(pageNumber){
       var that = this;
       self.browser.find('table[class="data"]', function(err){
         if(err){
-          logger.info("No search results for " + self.searchTerm + ' on ' + self.engineName);
+          logger.info("No search results for " + self.searchTerm.unescapeURL(true) + ' on ' + self.engineName);
           return self.cleanup();
         }
         that();
@@ -427,7 +427,7 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
         // otherwise mark as false positive.
         self.emit('decision',
                   infringement,
-                  states.infringement.state.FALSE_POSITIVE);
+                  states.infringements.state.FALSE_POSITIVE);
         this();
       })         
       .seq(function(){
