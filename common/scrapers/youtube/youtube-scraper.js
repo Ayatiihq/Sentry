@@ -76,8 +76,6 @@ Youtube.prototype.getName = function () {
 Youtube.prototype.start = function (campaign, job, browser) {
   var self = this;
   var success = false;
-
-  browser.quit(); // not using it right now.  
   
   if (!!(campaign.metadata)) {
     try {
