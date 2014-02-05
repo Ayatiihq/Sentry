@@ -10,8 +10,6 @@ var acquire = require('acquire')
   , logger = acquire('logger')
   ;
 
-var Scrapers = acquire('scrapers');
-
 function setupSignals() {
   process.on('SIGINT', function() {
     process.exit(1);
@@ -33,16 +31,6 @@ function main() {
 
   var instance = new Role();
   
-  var scrapers = new Scrapers();  
-  
-  scrapers.on('ready', function(){
-    if(!job)
-      return;
-    instance.processJob(null, job, function(err){
-      logger.info(err + ' : ' + JSON.stringify(job));
-      process.exit();
-    })    
-  });
 
   instance.on('started', function() {
     logger.info('Started ' + instance.getDisplayName());
@@ -55,8 +43,7 @@ function main() {
     logger.info('Error %s: %s', instance.getDisplayName(), err);
   });
   
-  if(!job)
-    instance.start();
+  instance.start();
 }
 
 main(); 

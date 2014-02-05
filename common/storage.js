@@ -318,7 +318,7 @@ Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
     })
     .seq(function(alreadyExists){
       if(alreadyExists){
-        logger.trace('md5 : ' + md5 + ' already exists for campaign ' + infringement.campaign);
+        logger.trace('md5 : ' + md5 + ' already exists for campaign ' + campaignID);
         callback();
       }
       else{
