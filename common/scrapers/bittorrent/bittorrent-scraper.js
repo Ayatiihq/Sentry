@@ -473,7 +473,7 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
       done(null, result);
     })
     .catch(function(err){
-      logger.warn(err);
+      logger.warn('Torrent error', torrentLink, err);
       result.message = err;
       done(null, result); // just ignore for now.
     })
