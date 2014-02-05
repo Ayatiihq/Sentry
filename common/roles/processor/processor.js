@@ -425,7 +425,6 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       self.storage_.addLocalFile(infringement.campaign, outPath, function(err){
         if(err)
           return that(err);
-        logger.info('go register');
         self.registerDownload(infringement, outPath, mimetype, that);
       });
     })
@@ -450,7 +449,6 @@ Processor.prototype.registerDownload = function(infringement, filePath, mimetype
   var self = this
     , md5  = ''
   ;
-  logger.info('registering');
   
   Seq()
     .seq(function(){
@@ -464,7 +462,7 @@ Processor.prototype.registerDownload = function(infringement, filePath, mimetype
       self.infringements_.addDownload(infringement, md5, mimetype, stats.size, this)
     })
     .seq(function(){
-      logger.info('registered download against infringement');
+      logger.info('registered download ' + md5 + ' against ' + infringement.uri);
       done();
     })
     .catch(function(err){
