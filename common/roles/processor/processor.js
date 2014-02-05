@@ -461,7 +461,7 @@ Processor.prototype.registerDownload = function(infringement, filePath, mimetype
       fs.stat(filePath, this);
     })
     .seq(function(stats){
-      self.infringements.addDownload(infringement, md5, mimetype, stats.size, this)
+      self.infringements_.addDownload(infringement, md5, mimetype, stats.size, this)
     })
     .seq(function(){
       logger.info('registered download against infringement');
