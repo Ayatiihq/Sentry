@@ -25,12 +25,10 @@ function main() {
   setupSignals();
 
   var rolename = process.argv[2];
-  var job = require(process.argv[3]);
 
   var Role = require('../common/roles/' + rolename);
 
   var instance = new Role();
-  
 
   instance.on('started', function() {
     logger.info('Started ' + instance.getDisplayName());
