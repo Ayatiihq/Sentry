@@ -1,5 +1,5 @@
 {
-  "name": "generic",
+  "name": "generic",  
   "main": "./generic-scraper.js",
   "types": {
     "tv": ".*",

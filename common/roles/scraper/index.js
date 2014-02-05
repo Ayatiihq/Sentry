@@ -45,8 +45,8 @@ Scraper.prototype.init = function() {
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('scraper');
   self.scrapers_ = new Scrapers();
-  self.browser = new Cowmangler();
-  self.browser.newTab();
+  self.browser = null;
+
 }
 
 Scraper.prototype.processJob = function(err, job) {
@@ -122,6 +122,12 @@ Scraper.prototype.loadScraperForJob = function(job, callback) {
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
     return;
+  }
+
+  // Only create a mangler instance if we actually need it
+  if(scraperInfo.dependencies && scraperInfo.dependencies.cowmangler > 0){
+    self.browser = new Cowmangler();
+    self.browser.newTab();
   }
 
   var scraper = null;

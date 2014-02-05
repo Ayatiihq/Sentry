@@ -1,5 +1,8 @@
 {
   "name": "searchengine",
+  "dependencies": {
+    "cowmangler": 1
+  },
   "main": "./searchengine-scraper.js",
   "types": {
     "tv": ".*",

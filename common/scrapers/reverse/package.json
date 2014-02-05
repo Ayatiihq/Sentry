@@ -1,5 +1,8 @@
 {
   "name": "reverse",
+  "dependencies": {
+    "cowmangler": 1
+  },  
   "main": "./reverse-scraper.js",
   "types": {
     "music": ".*",

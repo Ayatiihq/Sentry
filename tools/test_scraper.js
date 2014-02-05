@@ -13,6 +13,10 @@ var acquire = require('acquire')
   , sugar = require('sugar')
   ;
 
+var Seq = require('seq')
+  , Scrapers = acquire('scrapers')
+  ;
+
 function setupSignals() {
   process.on('SIGINT', function () {
     process.exit(1);
@@ -46,55 +50,68 @@ function main() {
 
   setupSignals();
 
-  if (process.argv.length < 3)
+  if (process.argv.length < 2)
   {
-    logger.warn("Usage: node test_scraper.js <nameOfScraper> <job>");
+    logger.warn("Usage: node test_scraper.js job");
     process.exit(1);
   }
 
-  var scrapername = process.argv[2];
-  var Scraper = require('../common/scrapers/' + scrapername);
-  var instance = new Scraper();
-
-  logger.info('create ' + scrapername);
-
-  SIGNALS.forEach(function (name) {
-    instance.on(name, function () {
-      console.log('\nreceived signal', name);
-      Object.values(arguments, function (value) {
-        if (Object.isObject(value) || Object.isArray(value))
-          console.log('\t' + JSON.stringify(value));
-        else
-          console.log('\t' + value);
-      });
-
-      if (name == 'finished')
-        process.exit();
-    });
-  });
-
+  var job = require(process.argv[2]);
   var campaigns = new Campaigns();
-  var job = parseObject(process.argv[3]);
+  var scraperName = job._id.consumer.split('.')[0];
+  var browser = null;
+  var scraperInfo = null;
   var campaignID = job._id.owner;
-  var browser = new Cowmangler();
 
-  browser.on('error', function(err){
-    logger.info('error with the cow ' + err);
-    process.exit();
-  }); 
+  var scrapers = new Scrapers();
+  scrapers.on('ready', function(){
+    Seq()
+      .seq(function(){
+        var that  = this;
+        scraperInfo = scrapers.getScraper(scraperName);
+        if (!scraperInfo) {
+          logger.error('unable to load scraper info ' + scraperName);
+          process.exit(1);
+        }
+        // Only create a mangler instance if we actually need it
+        if(scraperInfo.dependencies && scraperInfo.dependencies.cowmangler > 0){
+          browser = new Cowmangler();
+          browser.newTab();
+          browser.on('ready', function(){
+            that();
+          });
+        }
+        else
+          that();
+      })
+      .seq(function(){
+        campaigns.getDetails(campaignID, this);
+      })
+      .seq(function(campaign_){
+        
+        var instance = scrapers.loadScraper(scraperInfo.name);
+        instance.start(campaign_, job, browser);
 
-  browser.on('ready', function(){
-    logger.info('Cow is ready');
-    campaigns.getDetails(campaignID, function(err, campaign) {
-      logger.info("campaign " + campaign.name);
-      if (err)
-        console.error(err);
-      else
-        instance.start(campaign, job, browser);
-    });
+        SIGNALS.forEach(function (name) {
+          instance.on(name, function () {
+            console.log('\nreceived signal', name);
+            Object.values(arguments, function (value) {
+              if (Object.isObject(value) || Object.isArray(value))
+                console.log('\t' + JSON.stringify(value));
+              else
+                console.log('\t' + value);
+            });
+            if (name == 'finished')
+              process.exit(); 
+          });
+        });      
+      })
+      .catch(function(err){
+        logger.warn(err);
+        process.exit(1);
+      })
   });
 
-  browser.newTab();
 }
 
 main(); 
