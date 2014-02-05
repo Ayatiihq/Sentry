@@ -801,24 +801,21 @@ var FilestubeScraper = function (campaign) {
 
 util.inherits(FilestubeScraper, GenericSearchEngine);
 
-
 FilestubeScraper.prototype.beginSearch = function (browser) {
   var self = this;
   // we don't need no browser, we is restful like.
   browser.quit(); 
   self.resultsCount = 0;
   self.emit('started');
-  // TODO this needs to be made to suit other campaign types 
-  // but for now (it's music so)
-  var searchTerm = self.campaign.metadata
+
+  // Search term is simply the campaign name with the '-' removed
+  // Works best (tracks too specific), Maybe try just artist too ?
   var requestURI = "http://api.filestube.com/?key=" + 
                       self.apikey + 
                       '&phrase=' + URI.encode(self.campaign.name.remove('-'));
-  logger.info('about to search filestube with this query ' + requestURI);
+
   request(requestURI, {}, self.getLinksFromSource.bind(self));  
 };
-
-
 
 FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   var self = this;
@@ -835,7 +832,7 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   }
   else
     self.emitLinks(links);
-  
+
   self.cleanup();
 }
 
