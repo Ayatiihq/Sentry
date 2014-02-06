@@ -318,7 +318,9 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
-          utilities.requestURLStream(link, {}, function cb(err, req, response, stream) {
+          utilities.requestURLStream( link,
+                                     {'timeout':30*1000},
+                                     function cb(err, req, response, stream) {
             if (err) { p.reject(); return; }
 
             var mimeType = response.headers['content-type'];
