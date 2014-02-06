@@ -413,6 +413,7 @@ GenericSearchEngine.prototype.emitLinks = function (linkList) {
 
     self.resultsCount++;
   });
+  logger.info(self.engineName + ' just emitted ' + linkList.length + ' links.');
 };
 
 GenericSearchEngine.prototype.beginSearch = function () {
