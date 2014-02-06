@@ -198,7 +198,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.topTenInfringementCountries);
   work.push(HostsCrunchers.topTenInfringementCyberlockers);
   work.push(HostsCrunchers.topTenInfringementTorrentSites);
-  
+
   work.push(HostsCrunchers.linksCount);
   work.push(HostsCrunchers.nTotalCountries);
   work.push(HostsCrunchers.nTotalHosts);
