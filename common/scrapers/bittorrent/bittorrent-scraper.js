@@ -555,7 +555,7 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
   })
   
   self.engine.on('decision', function onDecisionMade(infringement, newState){
-    self.emit('infringementStateChange', infringement, newState);
+    //self.emit('infringementStateChange', infringement, newState);
   });
 
   self.engine.beginSearch(browser);
