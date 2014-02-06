@@ -91,6 +91,7 @@ DownloaderTorrent.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
