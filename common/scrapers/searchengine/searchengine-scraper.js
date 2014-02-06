@@ -832,8 +832,8 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   else{
     logger.info('Found ' + links.length + ' links from Filestube.'); 
   }
-    self.emitLinks(links);
-
+  
+  self.emitLinks(links);
   self.cleanup();
 }
 
