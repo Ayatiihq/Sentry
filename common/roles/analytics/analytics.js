@@ -104,14 +104,15 @@ Analytics.prototype.processJob = function(err, job) {
 }
 
 Analytics.prototype.preRun = function(job, done) {
-  var self = this;
+  var self = this
+    , requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats']
+    ;
 
-  var requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats'];
+  logger.debug('Loading job', job);
 
   Seq(requiredCollections)
     .seqEach(function(collectionName) {
       var that = this;
-
       database.connectAndEnsureCollection(collectionName, function(err, db, collection) {
         if (err)
           return that(err);
@@ -127,6 +128,10 @@ Analytics.prototype.preRun = function(job, done) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+
+      if (!campaign || !campaign._id)
+        return done(util.format('Campaign %s does not exist', job._id.owner));
+
       done();
     })
     .catch(function(err) {
@@ -137,6 +142,8 @@ Analytics.prototype.preRun = function(job, done) {
 
 Analytics.prototype.run = function(done) {
   var self = this;
+
+  logger.debug('Running analytics for %s', self.campaign_);
 
   Seq(self.loadWork())
     .seqEach(function(work) {
@@ -167,29 +174,31 @@ Analytics.prototype.loadWork = function() {
     ;
 
   // Pre-MapReduce
-  work.push(HostsInfo.serverInfo);
-  work.push(HostsInfo.websiteInfo);
+  if (!process.env['ANALYTICS_IGNORE_HOSTS']) {
+    work.push(HostsInfo.serverInfo);
+    work.push(HostsInfo.websiteInfo);
+  }
 
   // Map Reduce
   work.push(HostsMR.preRun);
   
   work.push(HostsMR.hostBasicStats);
   work.push(HostsMR.hostLocationStats);
-  work.push(HostsMR.hostClientBasicStats);
-  work.push(HostsMR.hostClientLocationStats);
 
   work.push(LinkMR.preRun);
   work.push(LinkMR.linkStats);
-  work.push(LinkMR.linkStatsClient);
 
   // Post-MapReduce
+  work.push(HostsCrunchers.preRun);
+
   work.push(HostsCrunchers.topTenLinkHosts);
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenLinkCyberlockers);
   work.push(HostsCrunchers.topTenInfringementHosts);
   work.push(HostsCrunchers.topTenInfringementCountries);
   work.push(HostsCrunchers.topTenInfringementCyberlockers);
-  
+  work.push(HostsCrunchers.topTenInfringementTorrentSites);
+
   work.push(HostsCrunchers.linksCount);
   work.push(HostsCrunchers.nTotalCountries);
   work.push(HostsCrunchers.nTotalHosts);
@@ -211,6 +220,12 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nFiles);
   work.push(HostsCrunchers.nTorrents);
   work.push(HostsCrunchers.nSocial);
+
+/* Stop client calculations for now
+
+  work.push(HostsMR.hostClientBasicStats);
+  work.push(HostsMR.hostClientLocationStats);
+  work.push(LinkMR.linkStatsClient);
 
   work.push(HostsCrunchers.topTenLinkHostsClient);
   work.push(HostsCrunchers.topTenLinkCountriesClient);
@@ -240,6 +255,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nFilesClient);
   work.push(HostsCrunchers.nTorrentsClient);
   work.push(HostsCrunchers.nSocialClient);
+*/
 
   return work;
 }
@@ -267,10 +283,12 @@ Analytics.prototype.end = function() {
 if (process.argv[1] && process.argv[1].endsWith('analytics.js')) {
   var analytics = new Analytics();
   analytics.started_ = Date.now();
+  analytics.on('finished', process.exit);
 
    Seq()
     .seq(function() {
-      analytics.preRun(require(process.cwd() + '/' + process.argv[2]), this);
+      var job = require(process.cwd() + '/' + process.argv[2]);
+      analytics.preRun(job, this);
     })
     .seq(function() {
       analytics.run(this);

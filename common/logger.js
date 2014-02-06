@@ -36,12 +36,13 @@ var levels = {
   ;
 
 winston.addColors(colors);
-var logger = new (winston.Logger)({ levels: levels });
+var logger = new (winston.Logger)({ levels: levels })
+  , inited = false
+  ;
 
 var SENTRY_DEBUG = process.env.SENTRY_DEBUG || 'debug'
   , SENTRY_DEBUG_LEVEL = levels[SENTRY_DEBUG]
   ;
-
 
 var Logger = function(filename) {
   var id = os.hostname()  + '::' + process.pid;
@@ -52,6 +53,9 @@ var Logger = function(filename) {
 
   this.prefix_ = id + ':' + filename + ':';
   this.logger_ = logger;
+
+  if (!inited)
+    exports.init();
 }
 
 Logger.prototype.trace = function () {
@@ -98,10 +102,12 @@ exports.forFile = function(filename) {
 }
 
 exports.init = function() {
+  inited = true;
   logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
 }
 
 exports.initServer = function() {
+  inited = true;
   logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
   logger.add(winston.transports.Papertrail, { level: 'info',  host: 'logs.papertrailapp.com', port: 14963 });
 }
