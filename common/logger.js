@@ -53,35 +53,37 @@ var Logger = function(filename) {
 
   this.prefix_ = id + ':' + filename + ':';
   this.logger_ = logger;
-
-  if (!inited)
-    exports.init();
 }
 
 Logger.prototype.trace = function () {
   if (SENTRY_DEBUG_LEVEL > levels['trace']) return;
+  if (!inited) exports.init();
   var string = format.apply(null, arguments);
   this.logger_.trace(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
 }
 
 Logger.prototype.debug = function () {
   if (SENTRY_DEBUG_LEVEL > levels['debug']) return;
+  if (!inited) exports.init();
   var string = format.apply(null, arguments);
   this.logger_.debug(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
 }
 
 Logger.prototype.info = function() {
   if (SENTRY_DEBUG_LEVEL > levels['info']) return;
+  if (!inited) exports.init();
   var string = format.apply(null, arguments);
   this.logger_.info(this.prefix_ + ':' + string);
 }
 
 Logger.prototype.warn = function() {
+  if (!inited) exports.init();
   var string = format.apply(null, arguments);
   this.logger_.warn(this.prefix_ + lineNumber() + ': ' + string);
 }
 
 Logger.prototype.error = function() {
+  if (!inited) exports.init();
   var args = Array.prototype.slice.call(arguments, 0);
   var string = format.apply(null, arguments);
   var errorString = this.prefix_ + lineNumber() + ': ' +  string;
@@ -102,16 +104,17 @@ exports.forFile = function(filename) {
 }
 
 exports.init = function() {
+  if (inited) return;
   inited = true;
   logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
 }
 
 exports.initServer = function() {
+  if (inited) return;
   inited = true;
   logger.add(winston.transports.Console, { level: SENTRY_DEBUG, colorize: true, timestamp: true });
   logger.add(winston.transports.Papertrail, { level: 'info',  host: 'logs.papertrailapp.com', port: 14963 });
 }
-
 
 function lineNumber() {
   return (new Error).stack.split("\n")[3].match(/:([0-9]+):/)[1];
