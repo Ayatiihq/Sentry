@@ -30,6 +30,7 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
+  , CategoryNames = states.infringements.categoryNames
   , Cyberlockers = []
   , EmailEngine = require('./email-engine')
   , NoticeBuilder = require('./notice-builder')
@@ -203,6 +204,9 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
     , categoryFilter = self.noticeInfo_.categoryFilter || []
     ;
 
+  if (categoryFilter.length)
+    logger.debug('Performing filtering of categories for noticesending. Categories ', categoryFilter.map(function(cat) { return CategoryNames[cat]; }));
+
   infringements.forEach(function(link) {
     var key = 'unknown';
 
@@ -211,7 +215,6 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
 
     // Check if we have to filter out certain types of infringements
     if (categoryFilter.length) {
-      logger.debug('Performing filtering of categories for noticesending. Categories ', categoryFilter);
       if (link.meta) {
         if (!metaLinkBelongsInCategories(link, categoryFilter))
           return;
@@ -259,8 +262,6 @@ NoticeSender.prototype.processBatches = function(batches, done) {
 
   Seq(batches)
     .seqEach(function(batch) {
-      console.log(batch.key);
-      return this();
       logger.info('%s has %d infringements', batch.key, batch.infringements.length);
       self.processBatch(batch, this);
     })
@@ -321,7 +322,7 @@ NoticeSender.prototype.processBatch = function(batch, done) {
 
 NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
   var self = this
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , settingsKey = self.campaign_._id + '.' + host._id
     ;
 
   Seq()
@@ -391,7 +392,7 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
     , details = host.noticeDetails
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , settingsKey = self.campaign_._id + '.' + host._id
     , notice = null
     , message = null
     ;
@@ -705,7 +706,7 @@ if (require.main === module) {
   };
 
   var noticeSender = new NoticeSender();
-  noticeSender.on('error', logger.error);
+  noticeSender.on('error', process.exit);
   noticeSender.on('finished', process.exit)
   noticeSender.processJob(null, job);
 }

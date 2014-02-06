@@ -37,6 +37,9 @@ util.inherits(NoticeBuilder, events.EventEmitter);
 NoticeBuilder.prototype.init = function() {
   var self = this;
 
+  self.client_.authorization = self.campaign_.noticeInfo.authorization;
+  self.client_.copyrightContact = self.campaign_.noticeInfo.copyrightContact;
+
   self.storage_ = new Storage('notices');
 }
 
