@@ -17,6 +17,7 @@
   "links": "common/links.js",
   "logger": "common/logger.js",
   "notices": "common/notices.js",
+  "redis": "common/redis.js",
   "role": "common/role.js",
   "roles": "common/roles.js",
   "scraper": "common/scraper.js",

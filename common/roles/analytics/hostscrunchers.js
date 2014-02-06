@@ -10,7 +10,9 @@
 var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
+  , fmt = require('util').format
   , logger = acquire('logger').forFile('hostscrunchers.js')
+  , redis = acquire('redis').createClient()
   , states = acquire('states')
   , util = require('util')
   ;
@@ -49,8 +51,18 @@ var categoryData = [
 ];
 
 //
-// Build the interesting datasets so clients are faster
+// Utility methods
 //
+function setAndSend(campaign, key, value) {
+  var key = fmt('%s:%s', campaign._id, key)
+    , message = {}
+    ;
+
+  redis.set(key, value.toString());
+
+  message[key] = value;
+  redis.publish('analytics', message);
+}
 
 //
 // Grab the the bits and pieces we need
@@ -90,7 +102,9 @@ HostsCrunchers.nTotalHosts = function(db, collections, campaign, done) {
       return done('nTotalHosts: Error compiling host count: ' + err);
     
     var key = { campaign: campaign._id, statistic: 'nTotalHosts' };
-    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+    count = count || 0;
+    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    setAndSend(campaign, 'nTotalHosts', count);
   });
 }
 
@@ -120,6 +134,7 @@ HostsCrunchers.topTenLinkHosts = function(db, collections, campaign, done) {
     });
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenLinkHosts', values);
   }); 
 }
 
@@ -165,6 +180,7 @@ HostsCrunchers.topTenInfringementHosts = function(db, collections, campaign, don
     values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenInfringementHosts', values);
   });
 }
 
@@ -213,6 +229,7 @@ HostsCrunchers.topTenInfringementCyberlockers = function(db, collections, campai
     values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenInfringementCyberlockers', values);
   });
 }
 
@@ -261,6 +278,7 @@ HostsCrunchers.topTenInfringementTorrentSites = function(db, collections, campai
     values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenInfringementTorrentSites', values);
   });
 }
 
@@ -309,6 +327,7 @@ HostsCrunchers.topTenLinkCyberlockers = function(db, collections, campaign, done
     values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenLinkCyberlockers', values);
   });
 }
 
@@ -337,6 +356,7 @@ HostsCrunchers.topTenLinkCountries = function(db, collections, campaign, done) {
     });
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenLinkCountries', values);
   });
 }
 
@@ -381,6 +401,7 @@ HostsCrunchers.topTenInfringementCountries = function(db, collections, campaign,
     values = values.to(10);
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenInfringementCountries', values);
   });
 }
 
@@ -400,6 +421,7 @@ HostsCrunchers.linksCount = function(db, collections, campaign, done) {
     var key = { campaign: campaign._id, statistic: 'linksCount' };
 
     analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    setAndSend(campaign, 'linksCount', count);
   });
 }
 
@@ -417,7 +439,9 @@ HostsCrunchers.nTotalCountries = function(db, collections, campaign, done) {
       return done('nTotalCountries: Error compiling country count: ' + err);
     
     var key = { campaign: campaign._id, statistic: 'nTotalCountries' };
-    analytics.update({ _id: key }, { _id: key, value: count ? count : 0 }, { upsert: true }, done);
+    count = count || 0;
+    analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+    setAndSend(campaign, 'nTotalCountries', count);
   });
 }
 
@@ -438,6 +462,7 @@ stateData.forEach(function(data) {
 
       var key = { campaign: campaign._id, statistic: name };
       analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+      setAndSend(campaign, name, count);
     });
   }
 });
@@ -459,6 +484,7 @@ categoryData.forEach(function(data) {
 
       var key = { campaign: campaign._id, statistic: name };
       analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+      setAndSend(campaign, name, count);
     });
   }
 });
@@ -467,7 +493,7 @@ categoryData.forEach(function(data) {
 //
 // Client
 //
-
+/*
 HostsCrunchers.nTotalHostsClient = function(db, collections, campaign, done) {
   var collection = collections.hostLocationStats
     , analytics = collections.analytics
@@ -815,3 +841,4 @@ categoryData.forEach(function(data) {
     });
   }
 });
+*/
