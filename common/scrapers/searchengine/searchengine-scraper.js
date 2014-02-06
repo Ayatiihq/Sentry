@@ -824,15 +824,16 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   $('hits').each(function(){
       XRegExp.forEach(this.html(), urlmatch, function (match, i){
         links.push(match[0]);
-        logger.info('just found link ' + match[0]);
       });
   });
   if(links.isEmpty()){
-    logger.info('nothing from filestube, check query string');
+    logger.info('Nothing from Filestube');
   }
-  else
-    self.emitLinks(links);
-
+  else{
+    logger.info('Found ' + links.length + ' links from Filestube.'); 
+  }
+  
+  self.emitLinks(links);
   self.cleanup();
 }
 

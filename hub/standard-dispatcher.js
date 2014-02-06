@@ -73,7 +73,6 @@ StandardDispatcher.prototype.findWork = function() {
         self.makeWork(workItem, this);
       })
       .seq(function(){
-        logger.info('finding and making work.')
         this();
       })
       .catch(function(err){
@@ -141,7 +140,6 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
       self.makeJobsForRole(campaign, client, role, this);
     })
     .seq(function(){
-      logger.info('finished with campaign ' + campaign.name);
       done();
     })
     .catch(function(err){
@@ -162,7 +160,7 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
     })
     .seq(function(inProgress){
       if(inProgress){
-        logger.info('looks like we dont need to create jobs for ' + role.name + ' on campaign ' + campaign.name);
+        //logger.info('looks like we dont need to create jobs for ' + role.name + ' on campaign ' + campaign.name);
         return done();
       }
       roleInstance = self.roles_.loadRole(role.name);
@@ -224,7 +222,6 @@ StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, d
     }
 
     if (!lastJobs){
-      logger.info(' no jobs recently like this, go create ');
       return done(null, false);
     }
     
@@ -232,7 +229,6 @@ StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, d
     var lastJob = lastJobs.sortBy(function(job){ return job.created }).last();
 
     if (!lastJob){
-      logger.info(' no jobs recently like this, go create ');
       return done(null, false);
     }
 

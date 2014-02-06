@@ -1054,7 +1054,8 @@ Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback)
     $and: [
       { category: states.infringements.category.TORRENT },
       { scheme : /^(?![torrent|magnet])/},
-      { "children.count" : 0}
+      { "children.count" : 0},
+      { "uri" : /^.{8}(?!.*\.torrent)/}
     ]
   };
   self.infringements_.find(query).toArray(callback); 
