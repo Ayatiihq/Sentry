@@ -304,18 +304,18 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     if(err)
       return done(err);
 
-    if(result.success){
+    if(result.success && !meta) {
       infringement.category = result.category;
-    } 
-    else if (meta) {
-      infringement.category = Categories.SEARCH_RESULT
+    
+    } else if (meta) {
+      infringement.category = Categories.SEARCH_RESULT    
     
     } else if (scheme == 'torrent' || scheme == 'magnet' || !notTorrentEnding) {
       infringement.category = Categories.TORRENT;
     
     } else if (self.isSocialNetwork(uri, hostname)) {
       infringement.category = Categories.SOCIAL;
-    
+
     } else {
       infringement.category = Categories.WEBSITE;
     }    
@@ -344,6 +344,7 @@ Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringemen
   var self = this
     , result = {success: false, category: ''}
   ;
+
   self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
     if(err)
       return done(err);
