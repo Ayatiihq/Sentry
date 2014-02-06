@@ -296,7 +296,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , meta = infringement.meta
     , uri = infringement.uri
     , scheme = infringement.scheme
-    , torrentEnding = infringement.uri.match(/^.{8}(?!.*\.torrent)/) 
+    , notTorrentEnding = infringement.uri.match(/^.{8}(?!.*\.torrent)/) 
     ;
     // should maybe try to deal with torcache type pattern also - .torrent?torrentHashID...
 
@@ -310,7 +310,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     else if (meta) {
       infringement.category = Categories.SEARCH_RESULT
     
-    } else if (scheme == 'torrent' || scheme == 'magnet' || torrentEnding) {
+    } else if (scheme == 'torrent' || scheme == 'magnet' || !notTorrentEnding) {
       infringement.category = Categories.TORRENT;
     
     } else if (self.isSocialNetwork(uri, hostname)) {

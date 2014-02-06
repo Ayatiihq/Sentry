@@ -207,7 +207,7 @@ Jobs.prototype.push = function(owner, consumer, metadata, callback) {
       owner: owner,
       role: self.role_,
       consumer: consumer,
-      created: Date.create('one week ago')
+      created: Date.now()
     };
     job.popped = 0;
     job.priority = 0;

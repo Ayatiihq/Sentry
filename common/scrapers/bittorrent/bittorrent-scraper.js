@@ -116,7 +116,7 @@ BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
     ;
 
   if(self.campaign.metadata.noAlbumSearch && self.campaign.keywords){
-    albumTitle = self.campaign.keywords.randomize().first();
+    albumTitle = self.campaign.metadata.artist + ' ' + self.campaign.keywords.randomize().first();
   }
 
   return albumTitle.unescapeURL();
