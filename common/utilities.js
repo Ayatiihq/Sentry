@@ -364,6 +364,7 @@ Utilities.request = function(url, options, callback) {
 Utilities.requestURL = function(url, options, callback) {
   var parsed = null
     , err = null
+    , called = false
     ;
 
   try {
@@ -401,7 +402,10 @@ Utilities.requestURL = function(url, options, callback) {
   req.on('response', function (response) {
     var body = (options.returnBuffer) ? [] : ''
     , stream = null
+    , done = called ? function() {} : callback
     ;
+
+    called = true;
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
@@ -439,14 +443,16 @@ Utilities.requestURL = function(url, options, callback) {
         body = Buffer.concat(body);
       }
       clearTimeout(timeoutId);
-      callback(err, response, body);
+      done(err, response, body);
     });
 
   });
 
   req.on('error', function(err) {
     clearTimeout(timeoutId);
-    callback(err);
+    var done = called ? console.log.bind('Error', url) : callback;
+    called = true;
+    done(err);    
   });
 }
 /**
