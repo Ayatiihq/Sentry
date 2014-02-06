@@ -16,10 +16,12 @@ var acquire = require('acquire')
   ;
 
 var Category = states.infringements.category
+  , Cyberlockers = []
   , Hosts = acquire('hosts')
   , Settings = acquire('settings')
   , Seq = require('seq')
   , State = states.infringements.state
+  , TorrentSites = []
   ;
 
 var HostsCrunchers = module.exports;
@@ -49,6 +51,30 @@ var categoryData = [
 //
 // Build the interesting datasets so clients are faster
 //
+
+//
+// Grab the the bits and pieces we need
+//
+HostsCrunchers.preRun = function(db, collections, campaign, done) {
+  var hosts = new Hosts();
+
+  Seq()
+    .seq(function() {
+      hosts.getDomainsByCategory(states.infringements.category.CYBERLOCKER, this);
+    })
+    .seq(function(cyberlockers) {
+      Cyberlockers = cyberlockers;
+      hosts.getDomainsByCategory(states.infringements.category.TORRENT, this);
+    })
+    .seq(function(torrentSites) {
+      TorrentSites = torrentSites;
+      done();
+    })
+    .catch(function(err) {
+      done(err);
+    })
+}
+
 
 HostsCrunchers.nTotalHosts = function(db, collections, campaign, done) {
   var collection = collections.hostLocationStats
@@ -166,6 +192,54 @@ HostsCrunchers.topTenInfringementCyberlockers = function(db, collections, campai
       var value = {};
 
       if (Cyberlockers.indexOf(doc._id.host) < 0)
+        return;
+
+      if (map[doc._id.host])
+        map[doc._id.host].count += doc.value.count;
+      else
+        map[doc._id.host] = doc.value;
+    });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
+
+    analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+  });
+}
+
+HostsCrunchers.topTenInfringementTorrentSites = function(db, collections, campaign, done) {
+  var collection = collections.hostBasicStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('topTenInfringementTorrentSites: Running job');
+
+  // Compile the top ten hosts carrying INFRINGEMENTS
+  collection.find({ '_id.campaign': campaign._id, '_id.state': { $in: [ 1, 3, 4] }})
+            .sort({ 'value.count': -1 })
+            .limit(150)
+            .toArray(function(err, docs) {
+
+    if (err)
+      return done('topTenInfringementTorrentSites: Error compiling top ten infringement torrent sites: ' + err);
+    
+    var key = { campaign: campaign._id, statistic: 'topTenInfringementTorrentSites' };
+    var map = {};
+    var values = [];
+
+    docs.forEach(function(doc) {
+      var value = {};
+
+      if (TorrentSites.indexOf(doc._id.host) < 0)
         return;
 
       if (map[doc._id.host])

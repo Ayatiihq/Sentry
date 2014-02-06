@@ -242,10 +242,10 @@ HostsMR.hostBasicStats = function(db, collections, campaign, done) {
         key.host = this.source;
       
       } else if (this.scheme == 'torrent') {
-        key.host = 'torrent';
+        //key.host = 'torrent';
       
       } else if (this.scheme == 'magnet') {
-        key.host = 'magnet'
+        //key.host = 'magnet'
       
       } else {
         var tokens = this.uri.split('/');
@@ -271,6 +271,9 @@ HostsMR.hostBasicStats = function(db, collections, campaign, done) {
           key.host = tokens[size-2] + '.' + tokens[size-1];
         }
       }
+
+      if (!key.host)
+        return;
 
       emit(key, value);
 
