@@ -111,10 +111,15 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 };
 
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
-  var self = this;
-  var albumTitle = self.campaign.names.randomize()[0];
-  var query = albumTitle.unescapeURL();
-  return query;
+  var self = this
+    , albumTitle = self.campaign.name.remove('-');
+    ;
+
+  if(self.campaign.metadata.noAlbumSearch && self.campaign.keywords){
+    albumTitle = self.campaign.keywords.randomize().first();
+  }
+
+  return albumTitle.unescapeURL();
 }
 
 BittorrentPortal.prototype.buildSearchQueryMovie = function () {

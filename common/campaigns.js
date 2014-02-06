@@ -28,6 +28,7 @@
       ""
     ],
     "mbReleaseId" : "",
+    "noAlbumSearch" : "",
     "releaseDate": "",
     "searchengineMaxPages": 0,
     "soundtrack": false,
@@ -53,6 +54,7 @@
   },
   "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
+  "keywords" : [], // for stubborn items where the title (album or title is no good)
   "priority": 0,
   "scrapersEnabled": []
   "scrapersIgnored": [],
