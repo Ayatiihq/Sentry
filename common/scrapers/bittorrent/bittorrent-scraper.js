@@ -421,9 +421,6 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
       .seq(function(){
         var ofInterest = results.filter(function(result){return result.result}).unique();
 
-        //logger.info('finished processing ' + infringement.uri + ' found these of interest ' 
-        //    + JSON.stringify(ofInterest));
-
         if(!ofInterest.isEmpty())
           return self.broadcast(ofInterest, infringement, this);
         
@@ -460,8 +457,11 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
       torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
     })
     .seq(function(details_){
-      if(details_){
-        return torrentInspector.checkIfTorrentIsGoodFit(details_, self.campaign, this);
+      if(details_.success){
+        torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
+      }
+      else if(details_.message === 'Not binary'){
+        logger.info('found a torrent link which links to page and not a torrent ' + torrentLink);
       }
       done(null, result);
     })

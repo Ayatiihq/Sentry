@@ -1,6 +1,7 @@
 var acquire = require('acquire')
   , fs = require('fs')
   , logger = acquire('logger').forFile('bittorrent-inspector.js')
+  , isBinaryFile = require("isbinaryfile") 
   , path = require('path')
 	, readTorrent = require('read-torrent')
 	, rimraf = require('rimraf')
@@ -94,34 +95,50 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
 
 TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
   var filename = path.join(targetPath, utilities.genLinkKey(torrentSource+Date.now()))
-    , details = null
+    , result =  {success: false, torDetails : null, message : ''};
     ;
-
+    // first check to make sure it actually is a binary file before passing it to readtorrent
   Seq()
     .seq(function(){
       var that = this;
       utilities.requestStream(torrentSource, function(err, req, res, stream) {
-        if (err)
-          return that(err);
+        if (err){
+          result.message = 'Error requesting link ' + err;
+          return done(null, result);
+        }
 
         stream.pipe(fs.createWriteStream(filename));
         stream.on('end', function() { 
           that(null, true);
         });
         stream.on('error', function(err) {
-          that(err);
+          result.message = 'Error requesting link ' + err;
+          done(null, result);
         });
       });
     })
-    .seq(function(result){
-      if(result)
-        readTorrent(filename, this);
-      else
-        done(new Error('Unable to get torrent file ' + torrentSource));
+    .seq(function(downloaded){
+      if(downloaded){
+        logger.info('Download finished for %s', filename);
+        isBinaryFile(filename, this);
+      }
+      else{
+        result.message = 'Error requesting link ' + err;
+        done(null, result);
+      }
+    })
+    .seq(function(isBinary) {
+      if(!isBinary){
+        result.message = 'Not binary';
+        return done(null, result);
+      }      
+      readTorrent(filename, this);
     })
     .seq(function(details) {
       rimraf(filename, this.ok);
-      done(null, details);
+      result.success = true;
+      result.torDetails = details;
+      done(null, result);
     })
     .catch(function(err){
       done(err);
