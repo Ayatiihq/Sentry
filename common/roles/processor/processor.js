@@ -37,9 +37,11 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
+  , Cyberlockers = []
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
+  , TorrentSites = []
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts']
@@ -164,6 +166,14 @@ Processor.prototype.preRun = function(job, done) {
       fs.mkdir(self.tmpdir_, this);
     })
     .seq(function() {
+      self.hosts_.getDomainsByCategory(Categories.CYBERLOCKER, this);
+    })
+    .seq(function(cyberlockers) {
+      Cyberlockers = cyberlockers;
+      self.hosts_.getDomainsByCategory(Categories.TORRENT, this);
+    })
+    .seq(function(torrentSites) {
+      TorrentSites = torrentSites;
       done();  
     })
     .catch(function(err) {
@@ -329,15 +339,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 }
 
 Processor.prototype.isTorrentSite = function(uri, hostname, infringement, done) {
-  var self = this
-    , category = states.infringements.category.TORRENT
-  ;
-
-  self.hosts_.getDomainsByCategory(category, function(err, domains){
-    if(err)
-      return done(err)
-    done(null, domains.indexOf(hostname) >= 0);
-  });
+  done(null, TorrentSites.indexOf(hostname) >= 0);
 }
 
 Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringement, done) {
@@ -345,27 +347,23 @@ Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringemen
     , result = {success: false, category: ''}
   ;
   self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
-    if(err)
+    if (err)
       return done(err);
 
-    if(isTorrent){
+    if (isTorrent){
       result.success = true;
       result.category = states.infringements.category.TORRENT;
       return done(null, result);
     }
 
-    self.hosts_.getDomainsByCategory(states.infringements.category.CYBERLOCKER, function(err, domains){
-      if(err)
-        return done(err)
-      var isCl = domains.indexOf(hostname) >= 0;
-      if(isCl){
-        result.success = true;
-        result.category = states.infringements.category.CYBERLOCKER;
+    var isCl = Cyberlockers.indexOf(hostname) >= 0;
+    if (isCl){
+      result.success = true;
+      result.category = states.infringements.category.CYBERLOCKER;
 
-        return done(null, result);        
-      } 
-      done(null, result);
-    });   
+      return done(null, result);        
+    } 
+    done(null, result);
   });
 }
 
