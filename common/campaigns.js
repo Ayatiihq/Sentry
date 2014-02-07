@@ -54,6 +54,10 @@
   },
   "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
+  "noticeInfo": {
+    "authorization": "http://www.ayatii.com/auth/FOO.pdf",
+    "copyrightContact": "Someone Special\n23 Special St.\nSpecialTown\nUnited Kingdom\nTel: 111 222 333 44\nEmail: special@persons.com"
+  },
   "keywords" : [], // for stubborn items where the title (album or title is no good)
   "priority": 0,
   "scrapersEnabled": []

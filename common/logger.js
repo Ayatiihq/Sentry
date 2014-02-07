@@ -59,14 +59,14 @@ Logger.prototype.trace = function () {
   if (SENTRY_DEBUG_LEVEL > levels['trace']) return;
   if (!inited) exports.init();
   var string = format.apply(null, arguments);
-  this.logger_.trace(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
+  this.logger_.trace(this.prefix_ + lineNumber() + ':' + ': ' + string);
 }
 
 Logger.prototype.debug = function () {
   if (SENTRY_DEBUG_LEVEL > levels['debug']) return;
   if (!inited) exports.init();
   var string = format.apply(null, arguments);
-  this.logger_.debug(this.prefix_ + lineNumber() + ':' + functionName() + ': ' + string);
+  this.logger_.debug(this.prefix_ + lineNumber() + ':' + ': ' + string);
 }
 
 Logger.prototype.info = function() {
