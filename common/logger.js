@@ -96,8 +96,6 @@ Logger.prototype.error = function() {
   	errorString += error.stack;
   }
 
-  console.log(this);
-
   this.logger_.error(errorString);
 }
 
