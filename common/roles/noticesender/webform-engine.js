@@ -177,7 +177,7 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   //check for error and early exit if we find one
   var error = null;
-  Object.values(function (test) {
+  Object.values(combinedInfo, function (test) {
     if (test === undefined || test === '' || test === null) {
       // can't just test for false, maybe 0 is okay
       error = true;
