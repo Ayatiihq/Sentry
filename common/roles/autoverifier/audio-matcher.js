@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , request = require('request')
   , rimraf = require('rimraf')
   , states = acquire('states').infringements.state  
+  , sugar = require('sugar')
   , util = require('util')
   , utilities = acquire('utilities') 
 ;
@@ -49,7 +50,7 @@ AudioMatcher.prototype.init = function() {
 AudioMatcher.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
+  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)+Date.now()); 
   
   self.cleanupEverything().then(function(){
     fs.mkdir(self.tmpDirectory, function(err){
