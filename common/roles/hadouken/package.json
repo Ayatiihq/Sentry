@@ -1,0 +1,12 @@
+{
+  "name": "hadouken",
+  "main": "./hadouken.js",
+  "dependencies": {
+  },
+  "engines": [
+  ],
+  "intervalMinutes": 30,
+  "types": {
+    "music": ".*"
+  }
+}
