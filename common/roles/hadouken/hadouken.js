@@ -27,7 +27,8 @@ var Campaigns = acquire('campaigns')
   , URI = require('URIjs')
   ;
 
-var PROCESSOR = 'hadouken';
+var PROCESSOR   = 'hadouken';
+var MAXTIMEOUT  = 10000;
 
 var Hadouken = module.exports = function() {
   this.campaigns_ = null;
@@ -49,6 +50,7 @@ Hadouken.prototype.init = function() {
   self.campaigns_ = new Campaigns();
   self.infringements_ = new Infringements();
   self.jobs_ = new Jobs('hadouken');
+  self.api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT;  
 }
 
 Hadouken.prototype.processJob = function(err, job) {
@@ -67,7 +69,6 @@ Hadouken.prototype.processJob = function(err, job) {
   self.touchId_ = setInterval(function() {
     self.jobs_.touch(job);
   }, config.STANDARD_JOB_TIMEOUT_MINUTES * 60 * 1000);
-
 
   // Error out nicely, closing the job too
   function onError(err) {
@@ -119,7 +120,7 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
       self.infringements_.find({campaign: self.campaign._id,
                                 scheme: 'torrent',
                                 'children.count': 0,
-                                state: { $in: [1, 3, 4 ]}});
+                                state: { $in: [1, 3, 4]}});
     })
     .seq(function(results){
       results.each(function(result){
@@ -132,7 +133,8 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
             return false;
           }
         });
-        // do we want to add them all
+        // do we want to add them all ? 
+        // for now just picking random ones from the filtered list.
         magnets.push(potentials.randomise().first());
       });
       done(null, magnets);
@@ -145,15 +147,38 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
 
 Hadouken.prototype.goMonitor = function(ourPrey, done){
   var self = this;
+
   Seq(ourPrey.slice(0,10))
     .seq(function(magnetLink){
-      
+      setTimeout(self.monitorOne.bind(self, magnetLink, this), 2000);
+    })
+    .seq(function(){
+      logger.info('finished pushing to hadouken');
+      done();
     })
     .catch(function(err){
       done(err);
     })
     ;
 }
+
+Hadouken.prototype.monitorOne = function(uri, done){
+  var data = {magnet: uri};
+  request.post({'url' : self.api,
+                'timeout': MAXTIMEOUT,
+                'headers' : {'content-type': 'application/json' , 'accept': 'text/plain'},
+                'body': JSON.stringify(data)},
+                function(err, resp, body){
+                  if(err)
+                    return done(err);                  
+                  if(resp.statusCode !== 200){
+                    logger.info('Not a 200 - the dump from hadouken is : ' + JSON.stringify(body));
+                    return done(new Error('action ' + action + ' did not get a 200 response - actual response was : ' + resp.statusCode));
+                  }
+                  done();
+                });
+}
+
 //
 // Overrides
 //
