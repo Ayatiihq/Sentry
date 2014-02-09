@@ -176,7 +176,7 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
 Hadouken.prototype.goMonitor = function(ourPrey, done){
   var self = this;
   
-  logger.info('monitor : \n' + JSON.stringify(ourPrey));
+  //logger.info('monitor : \n' + JSON.stringify(ourPrey));
 
   Seq(ourPrey.slice(0,50))
     .seq(function(magnetLink){
@@ -194,8 +194,8 @@ Hadouken.prototype.goMonitor = function(ourPrey, done){
 
 Hadouken.prototype.monitorOne = function(uri, done){
   var self = this;
-  var data = {magnet: uri, campaign: self.campaign_._id};
-  var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/addmagnet';
+  var data = {'uri': uri, 'campaign': self.campaign_._id};
+  var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/add';
 
   request.post({'url' : api,
                 'timeout': MAXTIMEOUT,
