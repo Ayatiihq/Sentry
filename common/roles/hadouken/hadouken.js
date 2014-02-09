@@ -163,7 +163,7 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
         });
         // do we want to add them all ? 
         // for now just picking random ones from the filtered list.
-        magnets.push(potentials.randomize().first());
+        magnets = magnets.union(potentials);
       });
       done(null, magnets);
     })
@@ -175,8 +175,10 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
 
 Hadouken.prototype.goMonitor = function(ourPrey, done){
   var self = this;
+  
+  logger.info('monitor : \n' + JSON.stringify(ourPrey));
 
-  Seq(ourPrey.slice(0,10))
+  Seq(ourPrey.slice(0,50))
     .seq(function(magnetLink){
       setTimeout(self.monitorOne.bind(self, magnetLink, this), 2000);
     })
