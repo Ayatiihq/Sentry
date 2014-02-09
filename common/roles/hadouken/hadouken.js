@@ -9,12 +9,13 @@
 
 var acquire = require('acquire')
   , config = acquire('config')
+  , database = acquire('database')  
   , events = require('events')
   , fmt = require('util').format
   , logger = acquire('logger').forFile('hadouken.js')
   , request = require('request')
   , states = acquire('states')
-  , sugar = require('states')
+  , sugar = require('sugar')
   , util = require('util')  
   , utilities = acquire('utilities')
   ;
@@ -31,12 +32,10 @@ var PROCESSOR   = 'hadouken';
 var MAXTIMEOUT  = 10000;
 
 var Hadouken = module.exports = function() {
+  this.campaign_ = null;
   this.campaigns_ = null;
   this.infringements_ = null;
   this.jobs_ = null;
-
-  this.campaign_ = null;
-
   this.started_ = 0;
   this.touchId_ = 0;
 
@@ -47,10 +46,20 @@ util.inherits(Hadouken, Role);
 
 Hadouken.prototype.init = function() {
   var self = this;
-  self.campaigns_ = new Campaigns();
-  self.infringements_ = new Infringements();
-  self.jobs_ = new Jobs('hadouken');
-  self.api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT;  
+  self.cachedCalls_ = [];
+
+  database.connectAndEnsureCollection("infringements", function(err, db, coll) {
+    if (err)
+      return logger.error('Unable to connect to database %s', err);
+    self.db_ = db;
+    self.infringements_ = coll;
+    self.campaigns_ = new Campaigns();
+    self.jobs_ = new Jobs('hadouken');
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.cachedCalls_ = [];
+  });
 }
 
 Hadouken.prototype.processJob = function(err, job) {
@@ -81,20 +90,10 @@ Hadouken.prototype.processJob = function(err, job) {
 
   self.jobs_.start(job);
 
-  // Now we process jobs
   Seq()
-    .seq(function() {
+    .seq(function(){
       self.job_ = job;
-      self.campaigns_.getDetails(job._id.owner, this);
-    })
-    .seq(function(campaign) {
-      self.campaign_ = campaign;
-    })
-    .seq(function() {
-      self.findTorrentsToMonitor(this);
-    })
-    .seq(function(ourPrey) {
-      self.goMonitor(ourPrey);
+      self.hadoukening(this);        
     })
     .seq(function(){
       self.jobs_.complete(job);
@@ -110,6 +109,35 @@ Hadouken.prototype.processJob = function(err, job) {
     ;
 }
 
+Hadouken.prototype.hadoukening = function(done){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.hadoukening, Object.values(arguments)]);
+  
+  Seq()
+    .seq(function() {
+      self.campaigns_.getDetails(self.job_._id.owner, this);
+    })
+    .seq(function(campaign) {
+      self.campaign_ = campaign;
+      this();
+    })
+    .seq(function() {
+      self.findTorrentsToMonitor(this);
+    })
+    .seq(function(ourPrey){
+      self.goMonitor(ourPrey, this);
+    })
+    .seq(function(){
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
 Hadouken.prototype.findTorrentsToMonitor = function(done){
   var self = this
     , magnets = []
@@ -117,25 +145,25 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
 
   Seq()
     .seq(function(){
-      self.infringements_.find({campaign: self.campaign._id,
+      self.infringements_.find({campaign: self.campaign_._id,
                                 scheme: 'torrent',
                                 'children.count': 0,
-                                state: { $in: [1, 3, 4]}});
+                                state: { $in: [1, 3, 4]}}).toArray(this);
     })
     .seq(function(results){
       results.each(function(result){
         var potentials = result.parents.uris.filter(function(uri){
           try{
             var uriO = URI(uri);
-            return uriO.protocol() === 'magnet'
+            return uriO.protocol() === 'magnet';
           }
-          catch{
+          catch(err){
             return false;
           }
         });
         // do we want to add them all ? 
         // for now just picking random ones from the filtered list.
-        magnets.push(potentials.randomise().first());
+        magnets.push(potentials.randomize().first());
       });
       done(null, magnets);
     })
@@ -163,8 +191,11 @@ Hadouken.prototype.goMonitor = function(ourPrey, done){
 }
 
 Hadouken.prototype.monitorOne = function(uri, done){
-  var data = {magnet: uri};
-  request.post({'url' : self.api,
+  var self = this;
+  var data = {magnet: uri, campaign: self.campaign_._id};
+  var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/addmagnet';
+
+  request.post({'url' : api,
                 'timeout': MAXTIMEOUT,
                 'headers' : {'content-type': 'application/json' , 'accept': 'text/plain'},
                 'body': JSON.stringify(data)},
@@ -172,8 +203,7 @@ Hadouken.prototype.monitorOne = function(uri, done){
                   if(err)
                     return done(err);                  
                   if(resp.statusCode !== 200){
-                    logger.info('Not a 200 - the dump from hadouken is : ' + JSON.stringify(body));
-                    return done(new Error('action ' + action + ' did not get a 200 response - actual response was : ' + resp.statusCode));
+                    return done(new Error('Did not get a 200 from hadouken, instead ' + resp.statusCode));
                   }
                   done();
                 });
@@ -199,4 +229,20 @@ Hadouken.prototype.end = function() {
   var self = this;
 
   self.started_ = false;
+}
+
+// Testing
+if (require.main == module) {
+  var campaign = require(process.argv[2])
+      hadouken = new Hadouken()
+    ;
+
+  hadouken.job_ = {};
+  hadouken.job_._id = {owner : campaign._id};
+
+  hadouken.hadoukening(function(err){
+    if(err)
+      return logger.info('err ' + err);
+    logger.info('finished without errors');
+  });
 }
