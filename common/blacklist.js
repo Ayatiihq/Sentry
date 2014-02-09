@@ -99,6 +99,7 @@ Blacklist.safeDomains = [
   , 'rottentomatoes.com'
   , 'roughtrade.com'
   , 'tradebit.com'
+  , 'tradebit.de'
   , 'virginmega.fr'
   , 'washingtonpost.com'
   , 'we7.com'
