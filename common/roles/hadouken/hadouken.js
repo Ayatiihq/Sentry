@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , events = require('events')
   , fmt = require('util').format
   , logger = acquire('logger').forFile('hadouken.js')
+  , request = require('request')
   , states = acquire('states')
   , sugar = require('states')
   , util = require('util')  
@@ -142,7 +143,17 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
     ;
 }
 
-
+Hadouken.prototype.goMonitor = function(ourPrey, done){
+  var self = this;
+  Seq(ourPrey.slice(0,10))
+    .seq(function(magnetLink){
+      
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
 //
 // Overrides
 //

@@ -120,6 +120,11 @@ config.COWMANGLER_HUB_ADDRESS = getEnv(env.COWMANGLER_HUB_ADDRESS, 'http://night
 
 config.COWMANGLER_HUB_PORT = getEnv(env.COWMANGLER_HUB_PORT, '8421');
 
+// Hadouken
+config.HADOUKEN_ADDRESS = getEnv(env.HADOUKEN_ADDRESS, 'http://');
+
+config.HADOUKEN_PORT = getEnv(env.HADOUKEN_PORT, '8421');
+
 // Redis
 config.REDIS_HOST = getEnv(env.REDIS_HOST, 'grandmaester.7kingdoms.me');
 
