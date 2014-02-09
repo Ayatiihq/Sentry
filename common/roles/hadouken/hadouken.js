@@ -13,6 +13,7 @@ var acquire = require('acquire')
   , fmt = require('util').format
   , logger = acquire('logger').forFile('hadouken.js')
   , states = acquire('states')
+  , sugar = require('states')
   , util = require('util')  
   , utilities = acquire('utilities')
   ;
@@ -22,6 +23,7 @@ var Campaigns = acquire('campaigns')
   , Infringements = acquire('infringements')
   , Role = acquire('role')
   , Seq = require('seq')
+  , URI = require('URIjs')
   ;
 
 var PROCESSOR = 'hadouken';
@@ -107,8 +109,9 @@ Hadouken.prototype.processJob = function(err, job) {
 }
 
 Hadouken.prototype.findTorrentsToMonitor = function(done){
-  var self = this;
-  var magnets = [];
+  var self = this
+    , magnets = []
+    ; 
 
   Seq()
     .seq(function(){
@@ -119,14 +122,27 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
     })
     .seq(function(results){
       results.each(function(result){
-        var potentials = result.parents.uris.filter(function())
-        magnets.push(result.parents)
+        var potentials = result.parents.uris.filter(function(uri){
+          try{
+            var uriO = URI(uri);
+            return uriO.protocol() === 'magnet'
+          }
+          catch{
+            return false;
+          }
+        });
+        // do we want to add them all
+        magnets.push(potentials.randomise().first());
       });
+      done(null, magnets);
     })
     .catch(function(err){
       done(err);
     })
+    ;
 }
+
+
 //
 // Overrides
 //
