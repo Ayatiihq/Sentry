@@ -14,6 +14,7 @@ var acquire = require('acquire')
   , blacklist = acquire('blacklist')
   , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
+  , URI = require('URIjs')
   , util = require('util')
   , utilities = acquire('utilities')
   , url = require('url')
@@ -175,20 +176,30 @@ Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) 
   var self = this;
   var promise = new Promise.Promise();
 
-  // First figure out what the state update is for this infringement   
-  var newState = states.infringements.state.UNVERIFIED;
-  self.emit('infringementStateChange', infringement, newState);
+  // check to see if enough conditions are met, so we can start the second round of endpoint wrangler checks
+  if (self.campaign.type === 'music.album' && items.length < 1) {
+    // no found items, music.album, ret-2-go!
+    // what we do now is go through all the links on the page and run endpoint wrangler on them with a specific ruleset
+    // this ruleset will figure out if the link is suspicious enough to warrent another full run of endpoint-wrangler on that page
+    
+    self.doSecondAssaultOnInfringement(infringement).then(promise.resolve());
+  }
+  else {
+    // First figure out what the state update is for this infringement   
+    var newState = states.infringements.state.UNVERIFIED;
+    self.emit('infringementStateChange', infringement, newState);
 
-  items.each(function onFoundItem(foundItem) {
-    var parents = foundItem.parents;
-    var metadata = foundItem.items;
-    metadata.isBackup = isBackup;
-    self.emitInfringementUpdates(infringement, parents, metadata);
-  });
+    items.each(function onFoundItem(foundItem) {
+      var parents = foundItem.parents;
+      var metadata = foundItem.items;
+      metadata.isBackup = isBackup;
+      self.emitInfringementUpdates(infringement, parents, metadata);
+    });
 
-  self.activeInfringements.remove(infringement);
+    self.activeInfringements.remove(infringement);
 
-  promise.resolve(items);
+    promise.resolve();
+  }
   return promise;
 };
 
@@ -213,23 +224,15 @@ Generic.prototype.isLinkInteresting = function (infringement) {
   return true;
 }
 
-Generic.prototype.wrapWrangler = function (infringement, ruleOverrides) {
+Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   var self = this;
   var promise = new Promise.Promise();
 
   var wrangler = new BasicWrangler();
   var ruleSet = ruleOverrides;
   if (ruleSet === undefined) {
-    var musicRules = wranglerRules.rulesDownloadsMusic;
-    var movieRules = wranglerRules.rulesDownloadsMovie;
-    
-    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
-    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
-    
-    rules = {'music' : musicRules,
-              'tv': wranglerRules.rulesLiveTV,
-              'movie': movieRules};
-    ruleSet = rules[self.campaign.type.split('.')[0]];
+    promise.reject(new Error('No rule overrides supplied, wrangler can not run'));
+    return promise;
   }
 
   wrangler.addRule(ruleSet);
@@ -257,15 +260,156 @@ Generic.prototype.wrapWrangler = function (infringement, ruleOverrides) {
   wrangler.on('error', function onWranglerError(err) { 
     promise.reject(err);
   });
-  wrangler.beginSearch(infringement.uri);
+  wrangler.beginSearch(uri);
 
   return promise;
 }
 
-Generic.prototype.checkInfringement = function (infringement) {
+Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
+  var self = this;
+
+  // first find all links on the page
+  return self.wrapWrangler(infringement.uri, [wranglerRules.findAllLinks])
+             .then(function (foundItems) { 
+        var accumPromises = [];
+        var links = [];
+        // for each link, run the wrangler on it with the checkForInfo ruleset
+        // which will figure out if the page is interesting or not
+
+        // normalize hrefs found into an array of strings
+        foundItems.each(function (foundItem) {
+          var composedURI = null;
+          try {
+            composedURI = URI(infringement.uri).absoluteTo(foundItem.data);
+          } catch (error) {
+            composedURI = null; // probably 'javascript;'
+          }
+
+          if (composedURI !== null) {
+            links.push(composedURI);
+          }
+        });
+
+        links = links.unique(); // make our list unique
+        //remove any links that look like infringement.uri
+        links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === infringement.uri.split('#')[0].split('?')[0]); });
+
+        // go through each link left over and run checkForInfo rule on it
+        
+
+        links.each(function (link) {
+          var infoRule = wranglerRules.checkForInfo(link,
+                                                    self.campaign.metadata.artist, 
+                                                    self.campaign.metadata.albumTitle,
+                                                    self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
+                                                    self.campaign.metadata.year);
+          accumPromises.push(self.wrapWrangler(link, [infoRule]));
+        });
+
+        return Promise.all(accumPromises).then(function (results) {
+          var concatedItems = [];
+          results.each(function (foundItems) {
+            // check results for an endpoint that looks like checkForInfoHash
+            var test = foundItems.first({ 'data': wranglerRules.checkForInfoHash});
+            if (test) {
+              var pageURI = test.sourceURI;
+              foundItems = foundItems.remove({'data': wranglerRules.checkForInfoHash});
+              concatedItems.push(foundItems);
+            }
+          });
+
+          // foundItems is now a normal looking foundItems array, we can start emitting infringements
+          foundItems = concatedItems.flatten();
+          // First figure out what the state update is for this infringement   
+          var newState = states.infringements.state.UNVERIFIED;
+          self.emit('infringementStateChange', infringement, newState);
+
+          foundItems.each(function onFoundItem(foundItem) {
+            var parents = foundItem.parents;
+            parents.unshift(infringement.uri);
+            var metadata = foundItem.items;
+            metadata.isBackup = isBackup;
+            self.emitInfringementUpdates(infringement, parents, metadata);
+          });
+
+          self.activeInfringements.remove(infringement);
+        });
+      });
+}
+
+Generic.prototype.buildGenericWranglerSet = function (uri, overrideRules) {
+  var promise = new Promise.Promise();
+
+  infringement
+
+  function getKnownDomains(category){
+    var innerPromise = new Promise.Promise();
+    self.hosts.getDomainsByCategory(category, function(err, domains){
+      if(err)
+        return innerPromise.reject(err);
+      innerPromise.resolve({'category' : category, 'domains' : domains});
+    });    
+    return innerPromise;
+  }
+
+  var knownCls = getKnownDomains(category.CYBERLOCKER);
+  var knownTorrs = getKnownDomains(category.TORRENT);
+
+  Promise.allOrNone([knownCls, knownTorrs]).then(function(results){
+    //logger.info('result fixes : ' + JSON.stringify(results));
+    var cls = results.filter(function(result){ return result.category === category.CYBERLOCKER});
+    var torrentSites = results.filter(function(result){ return result.category === category.TORRENT});
+    var combined = results.map(function(result){return result.domains});
+    
+    if(arrayHas(infringement.uri, cls.first().domains)){
+      logger.info('%s is a cyberlocker', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'cyberlocker');
+      return promise.resolve();        
+    }
+    
+    if(arrayHas(infringement.uri, torrentSites.first().domains)){
+      logger.info('%s is a torrent site', infringement.uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      // TODO how this change the category on the infringement.
+      self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', MAX_SCRAPER_POINTS, 'torrent');
+      return promise.resolve();        
+    }
+    
+    var musicRules = wranglerRules.rulesDownloadsMusic;
+    var movieRules = wranglerRules.rulesDownloadsMovie;
+    
+    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    
+    var rules = {'music' : musicRules,
+                 'tv': wranglerRules.rulesLiveTV,
+                 'movie': movieRules};
+    var ruleSet = rules[self.campaign.type.split('.')[0]];
+
+    var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
+    wranglerPromise.then(self.onWranglerFinished.bind(self, wrangler, infringement, false, ruleSet))
+                   .then(function () { promise.resolve(); });
+  },
+  function(err){
+    promise.reject(err);
+  });
+
+
+  return promise;
+};
+
+Generic.prototype.checkInfringement = function (infringement, overrideURI, additionalRules) {
   var category = states.infringements.category
     , promise = new Promise.Promise()
     , self = this
+    , uri = (overrideURI) ? overrideURI : infringement.uri;
   ;
   
   if(!self.isLinkInteresting(infringement)){
@@ -313,9 +457,20 @@ Generic.prototype.checkInfringement = function (infringement) {
       return promise.resolve();        
     }
     
-    var wranglerPromise = self.wrapWrangler(infringement);
-    wranglerPromise.then(self.onWranglerFinished.bind(self, wrangler, infringement, false))
-                   .then(function (foundItems) { promise.resolve(foundItems); });
+    var musicRules = wranglerRules.rulesDownloadsMusic;
+    var movieRules = wranglerRules.rulesDownloadsMovie;
+    
+    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    
+    var rules = {'music' : musicRules,
+                 'tv': wranglerRules.rulesLiveTV,
+                 'movie': movieRules};
+    var ruleSet = rules[self.campaign.type.split('.')[0]];
+
+    var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
+    wranglerPromise.then(self.onWranglerFinished.bind(self, wrangler, infringement, false, ruleSet))
+                   .then(function () { promise.resolve(); });
   },
   function(err){
     promise.reject(err);

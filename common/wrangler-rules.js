@@ -75,11 +75,23 @@ Endpoint.prototype.toString = function () {
 };
 
 
+// such hack. 
+// returns all the links on the page as an endpoint
+module.exports.findAllLinks = function ($, source, uri, foundItems) {
+  $('a').each(function () {
+    var item = new Endpoint(this.href);
+    foundItems.push(newitem);
+  });
+
+  return foundItems;
+}
+
 /* so this is going to be a bit mental, we want to go through the given html 
  * and figure out if its likely that the site has infringing content specific 
  * to the campaign we are running.
  */
-module.exports.checkForInfo = function (artist, title, tracks, year) {
+module.exports.checkForInfoHash = 'InfoCheckedAndAccepted';
+module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) {
   var infoChecker = function(albumInfos, $, source, uri, foundItems) {
     var mainText = $('body').text();
     function buildRE(str) { return XRegExp(XRegExp.escape(str), 'igs'); }
@@ -112,7 +124,8 @@ module.exports.checkForInfo = function (artist, title, tracks, year) {
 
     if (foundArtist && (tracksFound || foundAlbum || suspiciousLinks)) {
       // at the very least we need the artist to exist on the page, then we check for tracks/album/suspicious links
-      var newitem = new Endpoint('FAKEEMBED, DO NOT TRUST'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
+      var newitem = new Endpoint('InfoCheckedAndAccepted'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
+      newitem.sourceURI = sourceURI;
       newitem.isEndpoint = false;
       foundItems.push(newitem);
     }
