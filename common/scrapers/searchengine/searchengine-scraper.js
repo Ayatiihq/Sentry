@@ -44,8 +44,8 @@ var GenericSearchEngine = function (campaign) {
   self.engineName = 'UNDEFINED';
   self.maxPages = campaign.metadata.searchengineMaxPages ? campaign.metadata.searchengineMaxPages : 15;
   self.pageNumber = 1;
+  self.blacklistCombined = blacklist.safeDomains.union(self.campaign.metadata.blacklist);
   self.oldestResultDate = Date.create(campaign.metadata.releaseDate).rewind({ week: 1 });
-
   self.buildWordMatchess();
 };
 util.inherits(GenericSearchEngine, events.EventEmitter);
@@ -66,14 +66,23 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
 
   // Load up the simple ones first
   self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(campaign.name, { anyWord: false }), 'i'));
-  campaign.names.forEach(function(name) {
-    self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(name, { anyWord: false }), 'i'));
-  });
+  if(campaign.keywords){
+    campaign.keywords.forEach(function(name) {
+      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(name, { anyWord: false }), 'i'));
+    });
+  }
+  // until we migrate to keyword.
+  if(campaign.names){
+    campaign.names.forEach(function(name) {
+      self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(name, { anyWord: false }), 'i'));
+    });
+  }
 
   if (campaign.type == 'movie') {
     // Nothing special yet for movies
 
   } else if (campaign.type == 'music.album') {
+    self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(campaign.metadata.artist, { anyWord: false }), 'i'));    
     campaign.metadata.assets.forEach(function(track) {
       self.includeMatchMatches.push(new RegExp(utilities.buildLineRegexString(track.title, { anyWord: false }), 'i'));
     });
@@ -99,7 +108,7 @@ GenericSearchEngine.prototype.handleResults = function () {
       var newresults = self.getLinksFromSource(source);
       
       if (newresults.length < 1) {
-        logger.info("We found results but they were irrelevant due to date, url or title");
+        logger.info("We found results but they were irrelevant due to date, url or title\n");
         self.emit('finished');
         self.cleanup();
         return this();
@@ -107,13 +116,11 @@ GenericSearchEngine.prototype.handleResults = function () {
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults.isEmpty()){ 
-        logger.info('Any results we found were filtered out due to blacklists');
-        self.emit('finished');
-        self.cleanup();
-        return this();        
+        logger.info('Any results we found were filtered out due to blacklists'); 
       }
-
-      self.emitLinks(filteredResults);
+      else{
+        self.emitLinks(filteredResults);
+      }
 
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
@@ -122,7 +129,7 @@ GenericSearchEngine.prototype.handleResults = function () {
         }, randomTime * 1000);
       }
       else {
-        logger.info('finished scraping succesfully');
+        logger.info('No next page, finished scraping succesfully');
         self.cleanup();
       }        
     })
@@ -143,7 +150,7 @@ GenericSearchEngine.prototype.filterSearchResults = function(scrapedLinks){
       logger.error('Unable to create URI from scraped link ' + error);
       return false;
     }
-    return !blacklist.safeDomains.some(uriInstance.domain());
+    return !self.blacklistCombined.some(uriInstance.domain());
   }
   return scrapedLinks.filter(filterOnBlackList);
 }
@@ -306,7 +313,12 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
     , assets = self.campaign.metadata.assets.map(function(track){return '\"' + getValFromObj('title', track) + '\"'});
     ;
 
-  // First is the basic album searches
+  if(self.campaign.keywords &&
+    !self.campaign.keywords.isEmpty() &&
+     self.campaign.metadata.noAlbumSearch){
+    albumTitle =  '\"' + self.campaign.keywords.randomize().first() + '\"';
+  }
+
   if (soundtrack) {
     searchTerms1.push(fmt('+%s song download', albumTitle));
     searchTerms1.push(fmt('+%s songs download', albumTitle));
@@ -321,30 +333,30 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   } else {
     searchTerms1.push(fmt('+%s %s download', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s torrent', artist, albumTitle));
+    searchTerms1.push(fmt('+%s %s mp3', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s mp3 download', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s lossless', artist, albumTitle));
     searchTerms1.push(fmt('+%s %s flac', artist, albumTitle));
   }
+  
+  var searchableTracks = self.campaign.metadata.assets.filter(function(asset){return !asset.noSearch});
 
   // Now the assets
-  self.campaign.metadata.assets.forEach(function(asset) {
-    if(!asset.noSearch){
-      var track = '\"' + getValFromObj('title', asset) + '\"';
-      if (soundtrack) {
-        if (track.searchWithAlbum) { // did this ever work ?
-          searchTerms1.push(fmt('+%s %s song download', track, albumTitle));
-          searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
-        } else {
-          searchTerms1.push(fmt('+%s song download', track));
-          searchTerms2.push(fmt('+%s mp3', track));
-        }
-      } else if (compilation) {
-        // do nothing
-      } else {
-        searchTerms1.push(fmt('+%s %s %s download', artist, albumTitle, track));
-        searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));
-        searchTerms1.push(fmt('+%s %s %s torrent', artist, albumTitle, track));
-      }
+  searchableTracks.each(function(asset){
+    var track = '\"' + getValFromObj('title', asset) + '\"';
+    if (soundtrack) {
+      // Just add track and album (disregard artist)
+      searchTerms2.push(fmt('+%s %s song download', track, albumTitle));
+      searchTerms2.push(fmt('+%s %s mp3', track, albumTitle));
+      searchTerms2.push(fmt('+%s %s flac', track, albumTitle));                
+      searchTerms2.push(fmt('+%s %s lossless', track, albumTitle));                        
+    }
+    else{
+      searchTerms2.push(fmt('+%s %s %s download', artist, albumTitle, track));
+      searchTerms2.push(fmt('+%s %s %s free mp3 download', artist, albumTitle, track));
+      searchTerms2.push(fmt('+%s %s %s mp3 download', artist, albumTitle, track));        
+      searchTerms2.push(fmt('+%s %s %s flac', artist, albumTitle, track));
+      searchTerms2.push(fmt('+%s %s %s lossless', artist, albumTitle, track));        
     }
   });
 
@@ -365,11 +377,12 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
   });
 };
 
-
 GenericSearchEngine.prototype.cleanup = function () {
   var self = this;
   Seq()
     .seq(function(){
+      if(!self.browser)
+        return this();
       self.browser.quit(this);
     })
     .seq(function(){
@@ -400,6 +413,7 @@ GenericSearchEngine.prototype.emitLinks = function (linkList) {
 
     self.resultsCount++;
   });
+  logger.info(self.engineName + ' just emitted ' + linkList.length + ' links.');
 };
 
 GenericSearchEngine.prototype.beginSearch = function () {
@@ -444,7 +458,6 @@ GenericSearchEngine.prototype.checkResultRelevancy = function(title, url, date) 
   if (self.includeMatchMatches.some(function(includedMatch) { return includedMatch.test(matchString); })) {
     return true;
   }
-
   return false;
 }
 
@@ -478,7 +491,6 @@ GoogleScraper.prototype.beginSearch = function (browser) {
       self.browser.get('http://www.google.com', this); // start at google.com      
     })
     .seq(function(){
-      logger.info('Search google with ' + self.searchTerm);
       self.browser.input({selector: 'input[name=q]', value: self.searchTerm}, this); //   
     })
     .seq(function(){
@@ -519,9 +531,9 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
       , dateString = $(this).find('span.f').text().parameterize().replace('min', 'minute')
       , date = dateString.length > 8 ? Date.create(dateString) : null
       ;
-    
     if (self.checkResultRelevancy(title, url, date))
       links.push(url);
+    
   });
   return links;
 };
@@ -544,18 +556,15 @@ GoogleScraper.prototype.nextPage = function () {
       self.browser.getCurrentUrl(this);
     })
     .seq(function(currentUrl){
-      logger.info('currently on ' + currentUrl);
       this();
     })
     .seq(function(){
       self.browser.find('ol[id="rso"]', function(err){
         if(err){
-          logger.info('Oh ran out of pages to scrape while trying to scrape : ' + self.pageNumber);
-          // This is not an error, no results means our search terms are off.
+          // This is not an error, no results means our search terms are more than likely off.
           self.cleanup();
         }
         else{
-          logger.info('Go scrape page ' + self.pageNumber);      
           self.handleResults();
         }
       });
@@ -608,13 +617,12 @@ YahooScraper.prototype.beginSearch = function (browser) {
     })
     .seq(function(){
       self.browser.submit('input[title="Search"]', this);
-      logger.info('searching Yahoo with search query: ' + self.searchTerm);
     })
     .seq(function(){
       var that = this;
       self.browser.find('div#web', function(err){
         if(err){
-          self.emit('error', ERROR_NORESULTS);
+          logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
           self.cleanup();
         }
         else{
@@ -639,9 +647,9 @@ YahooScraper.prototype.getLinksFromSource = function (source) {
   $('div#web').find('ol').children('li').each(function () {
     var url = $(this).find('a').attr('href');
     var title = $(this).find('a').text().replace(/cached/i, '');
-
     if (self.checkResultRelevancy(title, url))
       links.push(url);
+    
   });
 
   return links;
@@ -712,9 +720,11 @@ BingScraper.prototype.beginSearch = function (browser) {
     })
     .seq(function(){
       self.browser.submit('input#sb_form_go', this);
-      logger.info('searching bing with search query: ' + self.searchTerm);
     })
     .seq(function(){
+      self.browser.wait(3000, this);
+    })
+    .seq(function(){ 
       var that = this;
       self.browser.find('div[id="results"]', function(err){
         if(err){
@@ -740,8 +750,6 @@ BingScraper.prototype.getLinksFromSource = function (source) {
     , links = []
     , $ = cheerio.load(source)
     ;
-
-  logger.info('get links from source !');
 
   $('ul.sb_results').children('li.sa_wr').each(function () {
     var url = $(this).find('a').attr('href');
@@ -794,23 +802,20 @@ var FilestubeScraper = function (campaign) {
 
 util.inherits(FilestubeScraper, GenericSearchEngine);
 
-
 FilestubeScraper.prototype.beginSearch = function (browser) {
   var self = this;
   // we don't need no browser, we is restful like.
   browser.quit(); 
   self.resultsCount = 0;
   self.emit('started');
-  self.buildSearchQuery(function(err, searchTerm) {
-    if (err)
-      return self.emit('error', err);
-    self.searchTerm = searchTerm;
-    var requestURI = "http://api.filestube.com/?key=" + 
+
+  // Search term is simply the campaign name with the '-' removed
+  // Works best (tracks too specific), Maybe try just artist too ?
+  var requestURI = "http://api.filestube.com/?key=" + 
                       self.apikey + 
-                      '&phrase=' + URI.encode(self.searchTerm);
-    logger.info('about to search filestube with this query ' + requestURI);
-    request(requestURI, {}, self.getLinksFromSource.bind(self));
-  });
+                      '&phrase=' + URI.encode(self.campaign.name.remove('-'));
+
+  request(requestURI, {}, self.getLinksFromSource.bind(self));  
 };
 
 FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
@@ -820,10 +825,17 @@ FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
   $('hits').each(function(){
       XRegExp.forEach(this.html(), urlmatch, function (match, i){
         links.push(match[0]);
-        logger.info('just found link ' + match[0]);
       });
   });
+  if(links.isEmpty()){
+    logger.info('Nothing from Filestube');
+  }
+  else{
+    logger.info('Found ' + links.length + ' links from Filestube.'); 
+  }
+  
   self.emitLinks(links);
+  self.cleanup();
 }
 
 /* Scraper Interface */

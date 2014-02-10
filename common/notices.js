@@ -121,7 +121,7 @@ Notices.prototype.getReadyForNotice = function(campaign, callback)
       $exists: false
     },
     scheme: {
-      $nin: ['torrent']
+      $nin: ['torrent', 'magnet']
     }
   };
 

@@ -37,9 +37,11 @@ var Campaigns = acquire('campaigns')
   ;
 
 var Categories = states.infringements.category
+  , Cyberlockers = []
   , Extensions = acquire('wrangler-rules').typeExtensions
   , SocialNetworks = ['facebook.com', 'twitter.com', 'plus.google.com', 'myspace.com', 'orkut.com', 'badoo.com', 'bebo.com']
   , State = states.infringements.state
+  , TorrentSites = []
   ;
 
 var requiredCollections = ['campaigns', 'infringements', 'hosts']
@@ -99,7 +101,7 @@ Processor.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s %s', err);
-    logger.warn(err.stack);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -164,6 +166,14 @@ Processor.prototype.preRun = function(job, done) {
       fs.mkdir(self.tmpdir_, this);
     })
     .seq(function() {
+      self.hosts_.getDomainsByCategory(Categories.CYBERLOCKER, this);
+    })
+    .seq(function(cyberlockers) {
+      Cyberlockers = cyberlockers;
+      self.hosts_.getDomainsByCategory(Categories.TORRENT, this);
+    })
+    .seq(function(torrentSites) {
+      TorrentSites = torrentSites;
       done();  
     })
     .catch(function(err) {
@@ -296,24 +306,26 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , meta = infringement.meta
     , uri = infringement.uri
     , scheme = infringement.scheme
+    , notTorrentEnding = infringement.uri.match(/^.{8}(?!.*\.torrent)/) 
     ;
+    // should maybe try to deal with torcache type pattern also - .torrent?torrentHashID...
 
   self.isCyberlockerOrTorrent(uri, domain, infringement, function(err, result){
     if(err)
       return done(err);
 
-    if(result.success){
+    if(result.success && !meta) {
       infringement.category = result.category;
-    } 
-    else if (meta) {
-      infringement.category = Categories.SEARCH_RESULT
     
-    } else if (scheme == 'torrent' || scheme == 'magnet') {
+    } else if (meta) {
+      infringement.category = Categories.SEARCH_RESULT    
+    
+    } else if (scheme == 'torrent' || scheme == 'magnet' || !notTorrentEnding) {
       infringement.category = Categories.TORRENT;
     
     } else if (self.isSocialNetwork(uri, hostname)) {
       infringement.category = Categories.SOCIAL;
-    
+
     } else {
       infringement.category = Categories.WEBSITE;
     }    
@@ -327,43 +339,32 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 }
 
 Processor.prototype.isTorrentSite = function(uri, hostname, infringement, done) {
-  var self = this
-    , category = states.infringements.category.TORRENT
-  ;
-
-  self.hosts_.getDomainsByCategory(category, function(err, domains){
-    if(err)
-      return done(err)
-    done(null, domains.indexOf(hostname) >= 0);
-  });
+  done(null, TorrentSites.indexOf(hostname) >= 0);
 }
 
 Processor.prototype.isCyberlockerOrTorrent = function(uri, hostname, infringement, done) {
   var self = this
     , result = {success: false, category: ''}
   ;
+
   self.isTorrentSite(uri, hostname, infringement, function(err, isTorrent){
-    if(err)
+    if (err)
       return done(err);
 
-    if(isTorrent){
+    if (isTorrent){
       result.success = true;
       result.category = states.infringements.category.TORRENT;
       return done(null, result);
     }
 
-    self.hosts_.getDomainsByCategory(states.infringements.category.CYBERLOCKER, function(err, domains){
-      if(err)
-        return done(err)
-      var isCl = domains.indexOf(hostname) >= 0;
-      if(isCl){
-        result.success = true;
-        result.category = , category = states.infringements.category.CYBERLOCKER;
+    var isCl = Cyberlockers.indexOf(hostname) >= 0;
+    if (isCl){
+      result.success = true;
+      result.category = states.infringements.category.CYBERLOCKER;
 
-        return done(null, result);        
-      } 
-      done(null, result);
-    });   
+      return done(null, result);        
+    } 
+    done(null, result);
   });
 }
 
@@ -418,13 +419,15 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       isBinaryFile(outPath, this);
     })
     .seq(function(isBinary) {
-      if(isBinary){
-        //md5s are generated in storage, if the file exists already it will return immediately.
-        self.storage.addLocalFile(infringement.campaign, outPath, this);
-      }
-      else{
-        this();
-      }
+      if(!isBinary)
+        return this();
+      var that = this;
+      //md5s are generated in storage, if the file exists already it will return immediately.
+      self.storage_.addLocalFile(infringement.campaign, outPath, function(err){
+        if(err)
+          return that(err);
+        self.registerDownload(infringement, outPath, mimetype, that);
+      });
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });
@@ -439,6 +442,32 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
         infringement.errors.push(err);
       }
       done(null, mimetype);
+    })
+    ;
+}
+
+Processor.prototype.registerDownload = function(infringement, filePath, mimetype, done){
+  var self = this
+    , md5  = ''
+  ;
+  
+  Seq()
+    .seq(function(){
+      utilities.generateMd5(filePath, this);
+    })
+    .seq(function(md5_){
+      md5 = md5_;
+      fs.stat(filePath, this);
+    })
+    .seq(function(stats){
+      self.infringements_.addDownload(infringement, md5, mimetype, stats.size, this)
+    })
+    .seq(function(){
+      logger.info('registered download ' + md5 + ' against ' + infringement.uri);
+      done();
+    })
+    .catch(function(err){
+      done(err);
     })
     ;
 }

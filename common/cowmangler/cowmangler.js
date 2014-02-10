@@ -337,8 +337,8 @@ Cowmangler.prototype.quit = function(done){
   
   self.ass_.deafen().then(function(){
     self.ass_.do('destroy', {}).then(function(result){
-      logger.info('browser destroyed');
-      cb()
+      self.tabConnected = false;
+      cb();
     },
     function(err){
       cb(err);

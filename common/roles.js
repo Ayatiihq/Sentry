@@ -53,8 +53,6 @@ Roles.prototype.onRolesDirRead = function(err, files) {
 Roles.prototype.loadRoleInfo = function(infopath) {
   var self = this;
 
-  logger.info('Loading role: ' + infopath);
-
   try {
     var info = require(infopath);
 
@@ -79,8 +77,6 @@ Roles.prototype.loadRole = function(roleName) {
     , target = path.join(ROLES_DIR, roleName)
     , instance = null
   ;
-
-  logger.info('Loading role: ' + target);
 
   try {
     var role = require(target);

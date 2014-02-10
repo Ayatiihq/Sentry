@@ -96,7 +96,6 @@ AudioMatcher.prototype.fetchCampaignAudio = function(done) {
           promise.reject(err);
         });
         stream.on('end', function() {
-          //logger.info('successfully downloaded ' + original);
           promise.resolve();
         });
       });
@@ -227,13 +226,11 @@ AudioMatcher.prototype.cleanupEverything = function() {
     if(!present)
       return promise.resolve();
 
-    logger.info('cleanupEverything');  
     rimraf(self.tmpDirectory, function(err){
       if(err){
         logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
         return promise.reject(err);
       }
-      logger.info('deleted campaign folder');
       promise.resolve();
     });
   });
@@ -284,7 +281,6 @@ AudioMatcher.prototype.positionDownload = function(download, done){
       moveToTracks(this);
     })
     .seq(function(){
-      logger.info('download in place, ready for comparison');
       done();
     })
     .catch(function(err){
@@ -295,7 +291,6 @@ AudioMatcher.prototype.positionDownload = function(download, done){
 
 AudioMatcher.prototype.newCampaignChangeOver = function(campaign, done){
   var self = this;
-  logger.info('New campaign - ' + campaign.name);
 
   // Only on a new campaign do we overwrite 
   // (We want to still know about folderpaths)
@@ -339,7 +334,7 @@ AudioMatcher.prototype.process = function(campaign, download, done){
       self.positionDownload(download, this);
     })
     .seq(function(){
-      logger.info('measure ' + download.md5 +' against ' + campaign.name);
+      //logger.info('measure ' + download.md5 +' against ' + campaign.name);
       self.match(download, this);
     })
     .seq(function(results){
@@ -348,7 +343,7 @@ AudioMatcher.prototype.process = function(campaign, download, done){
       done(null, results);
     })
     .catch(function(err){
-      logger.info('problem audio matching ' + err);
+      logger.info('problem matching audio' + err);
       done(err);
     })
     ;

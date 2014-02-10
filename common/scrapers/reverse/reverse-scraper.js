@@ -162,7 +162,7 @@ ReverseScraper.prototype.scrape = function(searchTerm, done) {
   logger.info('Searching Google for %s', searchTerm);
   Seq()
     .seq(function(){
-      self.browser_.get('http://www.google.com');
+      self.browser_.get('http://www.google.com', this);
     })
     .seq(function(){
       self.browser_.input({selector: 'input[name=q]', value: searchTerm}, this);
@@ -189,13 +189,9 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
   var self = this
     , source = ''
     ;
-
-  self.remoteClient_.sleep(2500); // page render
-
   Seq()
     .seq(function() {
-      self.browser_.wait(2500, this);
-      
+      self.browser_.wait(2500, this);      
     })
     .seq(function(){
       self.browser_.getSource(this);
@@ -277,8 +273,6 @@ ReverseScraper.prototype.getSourceName = function() {
 
 ReverseScraper.prototype.start = function(campaign, job, browser) {
   var self = this;
-
-  logger.info('Started for %j', job);
 
   self.campaign_ = campaign;
   self.job_ = job;

@@ -73,11 +73,9 @@ Youtube.prototype.getName = function () {
   return "youtube";
 };
 
-Youtube.prototype.start = function (campaign, job, browser) {
+Youtube.prototype.start = function (campaign, job) {
   var self = this;
   var success = false;
-
-  browser.quit(); // not using it right now.  
   
   if (!!(campaign.metadata)) {
     try {

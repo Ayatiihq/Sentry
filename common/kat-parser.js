@@ -39,7 +39,7 @@ KatParser.resultsPage = function(source, campaign){
       $(this).find('a').each(function(){
         if(testAttr.call(this, $, 'title', /Torrent magnet link/))
           magnet = $(this).attr('href');
-        if(testAttr.call(this, $, 'title', /Download torrent file/))
+        if(testAttr.call(this, $, 'title', /Download torrent file (file)*/))
           fileLink = $(this).attr('href');
         if(testAttr.call(this, $, 'class', /^torType (undefined|movie|film|music|zip)Type$/)){
           try{
@@ -89,7 +89,6 @@ KatParser.resultsPage = function(source, campaign){
         torrent.date = roughDate;
         torrent.directLink = fileLink; // direct link to torrent via querying torcache
         links.push(torrent);
-        //logger.info('just created : ' + JSON.stringify(torrent));
       }
       else{
         if(relevant){

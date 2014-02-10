@@ -136,6 +136,6 @@ Worker.prototype.onRoleFinished = function() {
 Worker.prototype.onRoleError = function() {
   var self = this;
 
-  logger.info('Role "' + self.currentRoleName_ + '" has an error, exiting');
+  logger.error('Role "' + self.currentRoleName_ + '" has an error, exiting');
   cluster.worker.destroy();
 }

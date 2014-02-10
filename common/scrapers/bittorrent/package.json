@@ -1,5 +1,8 @@
 {
   "name": "bittorrent",
+  "dependencies": {
+    "cowmangler": 1
+  },  
   "main": "./bittorrent-scraper.js",
   "types": {
     "tv": ".*",

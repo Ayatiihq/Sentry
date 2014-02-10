@@ -368,19 +368,21 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
-          util.requestURLStream(function cb(err, req, response, stream) {
+          utilities.requestURLStream( link,
+                                     {'timeout':30*1000},
+                                     function cb(err, req, response, stream) {
             if (err) { p.reject(); return; }
 
-            mimeType = response.headers['content-type'];
+            var mimeType = response.headers['content-type'];
             if (mimeMatch.test(mimeType)) {
               var item = new Endpoint(link);
               item.isEndpoint = true;
               foundItems.push(item);
             }
 
-            promise.resolve();
+            p.resolve();
             req.abort(); // we don't care about the actual stream for now
-          })
+          });
         });
 
         all(pingPromises).then(function() { promise.resolve(foundItems); });
@@ -458,16 +460,10 @@ module.exports.rulesDownloadsMovie = [
   , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
 ];
 
-var testicles = module.exports.exportTesticles = function(){
-  return 'bollox';
-}
-
-
 module.exports.rulesDownloadsTorrent = [
    ruleSearchAllLinks(p2pExtensions, searchTypes.END)
  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
 ];
-
 
 module.exports.typeExtensions = {
     'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)

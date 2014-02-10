@@ -175,6 +175,20 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   var combinedInfo = Object.merge(resource.constants, info);
 
+  //check for error and early exit if we find one
+  var error = null;
+  Object.values(combinedInfo, function (test) {
+    if (test === undefined || test === '' || test === null) {
+      // can't just test for false, maybe 0 is okay
+      error = true;
+    }
+  });
+
+  if (error) { 
+    deferred.reject(new Error('Not submitting notice, input is malformed: ' + self.infringements + ' : ' + self.campaign));
+    return deferred.promise;
+  }
+
   // essentially a list of functions that return promises;
   var commandFunctions = [];
   var addCommand = function () {
@@ -242,9 +256,9 @@ WebFormEngine.selectForm = function (host) {
 
 WebFormEngine.prototype.post = function (host, message, notice, done) {
   var self = this;
-  var campaign = host.campaign;
-  var client = host.client;
-  var infringements = host.infringements;
+  var campaign = self.campaign = host.campaign;
+  var client = self.client = host.client;
+  var infringements = self.infringements = host.infringements;
 
   var matchForm = WebFormEngine.selectForm(host);
   if (matchForm === null) {

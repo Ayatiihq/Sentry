@@ -74,7 +74,7 @@ Ass.prototype.do = function(action, data){
                   // We might need to be forgiving at the cowmangler level depending on the context
                   // cowmanger will only ever return a 200 or a 500.
                   if(resp.statusCode !== 200){
-                    logger.info('Not a 200 - the dump from ass is : ' + JSON.stringify(body));
+                    //logger.info('Not a 200 - the dump from ass is : ' + JSON.stringify(body));
                     return promise.reject(new Error('action ' + action + ' did not get a 200 response - actual response was : ' + resp.statusCode));
                   }
                   promise.resolve(self.sift(body));
@@ -127,7 +127,7 @@ Add a safety check for relevancy of signals (for given infringement)
 Ass.prototype.addSource = function(uri){
   var self = this;
   if(!self.ears.sources[uri]){
-    logger.info('adding source to ears for uri : ' + uri);
+    //logger.info('adding source to ears for uri : ' + uri);
     self.ears.sources.push(uri);
   }
 }

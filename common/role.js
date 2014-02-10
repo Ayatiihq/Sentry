@@ -60,8 +60,6 @@ Role.prototype.orderJobs = function(campaign, client, engines) {
     return [template];
 
   var orders = [];
-  
-  logger.info('create multiple jobs for an engine based role ' + JSON.stringify(engines));
 
   engines.each(function(engine){
     var order = Object.clone(template, true);

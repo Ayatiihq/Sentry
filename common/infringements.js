@@ -346,7 +346,8 @@ Infringements.prototype.addPoints = function(infringement, source, score, messag
  *
  * @param {object}            infringement    The infringement the points belong to.
  * @param {string}            fileMd5         The MD5 of the download
- * @param {string}            fileMimetype    MD5 of the file
+ * @param {string}            fileMimetype    Mimetype of the file
+ * @param {number}            fileSize        size of the file, no idea what units, assuming bytes
 **/
 Infringements.prototype.addDownload = function(infringement, fileMd5, fileMimetype, fileSize, callback)
 {
@@ -433,6 +434,26 @@ Infringements.prototype.setState = function(infringement, state, callback){
   self.infringements_.update({ _id: infringement._id }, { $set: { state: state } }, callback);
 }
 
+/**
+ * Verify the given infringement
+ *
+ * @param {object}           infringement     The infringement which we want to work on
+ * @param {integer}          state            The state to be to set on the infringement.
+ * @param {function(err)}    callback         A callback to handle errors. 
+**/
+Infringements.prototype.verify = function(infringement, state, processor, callback){
+  var self = this;
+
+  if (!self.infringements_)
+    return self.cachedCalls_.push([self.verify, Object.values(arguments)]);
+
+  callback = callback ? callback : defaultCallback;
+
+  self.infringements_.update({ _id: infringement._id },
+                             { $set: { state: state, verified : Date.now() },
+                               $push: {'metadata.processedBy': processor} },
+                               callback);
+}
 /**
  * Change the state field on the given infringement with the given state and mark the
  * the infringement as processed by who.
@@ -1032,7 +1053,9 @@ Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback)
     campaign: campaign._id,
     $and: [
       { category: states.infringements.category.TORRENT },
-      { scheme : /^(?![torrent|magnet])/}
+      { scheme : /^(?![torrent|magnet])/},
+      { "children.count" : 0},
+      { "uri" : /^.{8}(?!.*\.torrent)/}
     ]
   };
   self.infringements_.find(query).toArray(callback); 

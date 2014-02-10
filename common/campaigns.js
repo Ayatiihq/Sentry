@@ -5,8 +5,10 @@
  * 
  {
   "_id": "",
+  "authorization": "",
   "avatar": "",
   "client": "",
+  "copyrightContact": "",
   "created": 0,
   "description": "",
   "metadata": {
@@ -26,6 +28,7 @@
       ""
     ],
     "mbReleaseId" : "",
+    "noAlbumSearch" : "",
     "releaseDate": "",
     "searchengineMaxPages": 0,
     "soundtrack": false,
@@ -51,6 +54,11 @@
   },
   "name": "", // // always assume this is the correct title (via musicbrainz according to release)
   "names": [],
+  "noticeInfo": {
+    "authorization": "http://www.ayatii.com/auth/FOO.pdf",
+    "copyrightContact": "Someone Special\n23 Special St.\nSpecialTown\nUnited Kingdom\nTel: 111 222 333 44\nEmail: special@persons.com"
+  },
+  "keywords" : [], // for stubborn items where the title (album or title is no good)
   "priority": 0,
   "scrapersEnabled": []
   "scrapersIgnored": [],
@@ -224,9 +232,9 @@ Campaigns.prototype.add = function(campaign, callback) {
   if (!self.campaigns_)
     return self.cachedCalls_.push([self.add, Object.values(arguments)]);
 
-  campaign._id = utilities.genLinkKey(campaign.client,
-                                      campaign.name,
-                                      Date.now());
+  campaign._id = campaign._id || utilities.genLinkKey(campaign.client,
+                                                      campaign.name,
+                                                      Date.now());
   campaign.name = campaign.name;
   campaign.type = campaign.type;
   campaign.description = ifUndefined(campaign.description, '');

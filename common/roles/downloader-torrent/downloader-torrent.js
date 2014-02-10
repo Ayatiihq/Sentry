@@ -91,6 +91,7 @@ DownloaderTorrent.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -199,7 +200,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
     if (!infringement)
       return callback();
 
-    var targets = infringement.parents.uris.filter(function(){return !uri.startsWith('magnet:')});
+    var targets = infringement.parents.uris.filter(function(uri){return !uri.startsWith('magnet:')});
     var torrentDetails = [];
 
     Seq(targets)
@@ -258,6 +259,7 @@ DownloaderTorrent.prototype.popInfringement = function(callback) {
         setTimeout(self.popInfringement.bind(self, callback), 1000 * 2);
       })
       ;
+    });
 }
 
 
@@ -299,11 +301,23 @@ DownloaderTorrent.prototype.torrentFinished = function(infringement, directory) 
   logger.info('Infringement %s has finished downloading to %s, registering new files', infringement._id, directory);
 
   clearInterval(infringement.downloadTimer);
-
+  var fileDetails = [];
   Seq()
     .seq(function() {
       self.storage_.addLocalDirectory(infringement.campaign,
                                       directory,
+                                      this);
+    })
+    .seq(function(nUploaded, fileDetails_) {
+      fileDetails = fileDetails_;
+      this();
+    })
+    .set(fileDetails)
+    .seqEach(function(fileDetail) {
+      self.infringements_.addDownload(infringement,
+                                      fileDetail.md5,
+                                      fileDetail.mimeType,
+                                      fileDetail.fileSize,
                                       this);
     })
     .seq(function() {

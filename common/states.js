@@ -78,7 +78,7 @@ For continuous new release scanning, normal to use this for the
 first week of a campaign until we have a handle on things
 URGENT:
 Reserved for extreme cases where we need to direct attention
-to that client or campaign. 
+to that client or campaign(s). 
 */
 exports.client = {
   priority: {
@@ -86,8 +86,15 @@ exports.client = {
     MEDIUM : 1,  
     HIGH: 2, 
     URGENT: 3 
-  }
+  },
+  state: {
+    INACTIVE : 0,
+    ACTIVE : 1,
+    MONITOR : 2,
+    SUSPENDED : 3
+  }  
 };
+
 
 exports.hub = {
   state: {

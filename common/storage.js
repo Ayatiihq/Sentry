@@ -244,6 +244,7 @@ Storage.prototype.getURL = function(campaignID, MD5) {
  */
  Storage.prototype.addLocalDirectory = function(campaignID, dir, callback) {
   var self = this;
+  var torrentFileDetails = [];
 
   utilities.readAllFiles(dir, function(err, files) {
     var nUploaded = 0;
@@ -254,19 +255,23 @@ Storage.prototype.getURL = function(campaignID, MD5) {
     Seq(files)
       .seqEach(function(file) {
         var that = this;
-        self.addLocalFile(campaignID, file, function(err) {
+        self.addLocalFile(campaignID, file, function(err, payload) {
           if (err && files.length == 1) {
             return that(err);
           } else if (err) {
             logger.warn('Unable to upload %s but continuing: %s', file, err);
           } else {
+            if (payload != null) {
+              torrentFileDetails.push(payload);
+            }
+
             nUploaded++;
           }
           that();
         });
       })
       .seq(function() {
-        callback(null, nUploaded);
+        callback(null, nUploaded, torrentFileDetails);
       })
       .catch(function(err) {
         callback(err);
@@ -288,12 +293,23 @@ Storage.prototype.getURL = function(campaignID, MD5) {
 Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
   var self = this
     , md5 = null
+    , mimeType = null
+    , fileSize = null
+    , callbackPayload = null
     ;
 
   callback = callback ? callback : defaultCallback;
 
   Seq()
     .seq(function() {
+      fs.stat(filepath, this);
+    })
+    .seq(function(stat) {
+      fileSize = stat.size;
+      utilities.getFileMimeType(filepath, this);
+    })
+    .seq(function(mimetype_) {
+      mimeType = mimetype_;
       utilities.generateMd5(filepath, this);
     })
     .seq(function(md5_){
@@ -302,16 +318,17 @@ Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
     })
     .seq(function(alreadyExists){
       if(alreadyExists){
-        logger.trace('md5 : ' + md5 + ' already exists for campaign ' + infringement.campaign);
+        logger.trace('md5 : ' + md5 + ' already exists for campaign ' + campaignID);
         callback();
       }
       else{
         logger.info('Uploading %s to blob storage as MD5 - %s', filepath, campaignID + '/' + md5);
+        callbackPayload = {'md5': md5, 'fileSize':fileSize, 'mimeType':mimeType };
         self.createFromFile(campaignID, md5, filepath, {}, this);
       }
     })
     .seq(function() {
-      callback();
+      callback(null, callbackPayload);
     })
     .catch(function(err) {
       callback(err);

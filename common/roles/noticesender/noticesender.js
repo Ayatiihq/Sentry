@@ -29,9 +29,13 @@ var Campaigns = acquire('campaigns')
   , Handlebars = require('handlebars')
   ;
 
-var EmailEngine = require('./email-engine')
-  , WebFormEngine = require('./webform-engine')
+var Categories = states.infringements.category
+  , CategoryNames = states.infringements.categoryNames
+  , Cyberlockers = []
+  , EmailEngine = require('./email-engine')
   , NoticeBuilder = require('./notice-builder')
+  , TorrentSites = []
+  , WebFormEngine = require('./webform-engine')
   ;
 
 var NoticeSender = module.exports = function() {
@@ -88,7 +92,7 @@ NoticeSender.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -103,10 +107,19 @@ NoticeSender.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
+      self.noticeInfo_ = campaign.noticeInfo || {};
       self.clients_.get(campaign.client, this);
     })
     .seq(function(client) {
       self.client_ = client;
+      self.hosts_.getDomainsByCategory(Categories.CYBERLOCKER, this);
+    })
+    .seq(function(cyberlockers) {
+      Cyberlockers = cyberlockers;
+      self.hosts_.getDomainsByCategory(Categories.TORRENT, this);
+    })
+    .seq(function(torrentSites) {
+      TorrentSites = torrentSites;
       self.getInfringements(this);
     })
     .seq(function() {
@@ -131,8 +144,8 @@ NoticeSender.prototype.getInfringements = function(done) {
   var self = this;
 
   // If a client doesn't have the required information, we skip it
-  if (!self.client_.authorization || !self.client_.copyrightContact) {
-    logger.info('Client %s does not have the required information to process notices', self.client_.name);
+  if (!self.noticeInfo_.authorization || !self.noticeInfo_.copyrightContact) {
+    logger.info('Campaign %s does not have the required information to process notices', self.campaign_.name);
     return done();
   }
 
@@ -160,16 +173,55 @@ NoticeSender.prototype.getInfringements = function(done) {
     ;
 }
 
+//
+// This function decides of a search engine result belongs in a category or not (for filtering)
+//
+function metaLinkBelongsInCategories(link, categories) {
+  
+  if (categories.indexOf(Categories.CYBERLOCKER) > -1) {
+    var matched = Cyberlockers.some(function(cyberlocker) {
+      return link.uri.has(cyberlocker);
+    });
+    if (matched)
+      return true;
+  }
+
+  if (categories.indexOf(Categories.TORRENT) > -1) {
+    var matched = TorrentSites.some(function(torrentSite) {
+      return link.uri.has(torrentSite);
+    });
+    if (matched)
+      return true;
+  }
+
+  // We don't support other types of filtering yet
+  return false;
+}
+
 NoticeSender.prototype.batchInfringements = function(infringements, done) {
   var self = this
     , map = {}
+    , categoryFilter = self.noticeInfo_.categoryFilter || []
     ;
+
+  if (categoryFilter.length)
+    logger.debug('Performing filtering of categories for noticesending. Categories ', categoryFilter.map(function(cat) { return CategoryNames[cat]; }));
 
   infringements.forEach(function(link) {
     var key = 'unknown';
 
     if (link.scheme == 'torrent' || link.scheme == 'magnet')
       return;
+
+    // Check if we have to filter out certain types of infringements
+    if (categoryFilter.length) {
+      if (link.meta) {
+        if (!metaLinkBelongsInCategories(link, categoryFilter))
+          return;
+      }
+      else if (categoryFilter.indexOf(link.category) == -1)
+        return;
+    }
 
     if (link.meta) {
       key = link.source;
@@ -180,6 +232,11 @@ NoticeSender.prototype.batchInfringements = function(infringements, done) {
         if (uri.domain().length < 1)
           uri = URI(link.uri.unescapeURL());
         key = uri.domain().toLowerCase();
+        
+        if (key.length == 0) {
+          logger.warn('Unable to find domain of', link.uri);
+          return;
+        }
 
       } catch (err) { 
         logger.warn('Error processing %s', link.uri, err);
@@ -265,7 +322,7 @@ NoticeSender.prototype.processBatch = function(batch, done) {
 
 NoticeSender.prototype.checkAndSend = function(host, infringements, done) {
   var self = this
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , settingsKey = self.campaign_._id + '.' + host._id
     ;
 
   Seq()
@@ -335,7 +392,7 @@ NoticeSender.prototype.hostTriggered = function(host, infringements) {
 NoticeSender.prototype.sendNotice = function(host, infringements, done) {
   var self =  this
     , details = host.noticeDetails
-    , settingsKey = self.campaigns_.hash(self.campaign_) + '.' + host._id
+    , settingsKey = self.campaign_._id + '.' + host._id
     , notice = null
     , message = null
     ;
@@ -400,7 +457,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
 NoticeSender.prototype.sendEscalatedNotices = function(done){
   var self = this;
   // If a client doesn't have the required information, we skip it
-  if (!self.client_.authorization || !self.client_.copyrightContact) {
+  if (!self.noticeInfo_.authorization|| !self.noticeInfo_.copyrightContact) {
     logger.info('Client %s does not have the required information to process notices',
                  self.client_.name);
     return done();
@@ -603,8 +660,11 @@ NoticeSender.prototype.getName = function() {
 }
 
 NoticeSender.prototype.orderJobs = function(campaign, client){
-  var self = this;
-  if(!client.authorization || !client.copyrightContact)){
+  var self = this
+    , noticeInfo = campaign.noticeInfo || {}
+    ;
+
+  if(!noticeInfo.authorization || !noticeInfo.copyrightContact){
     logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
     return [];
   } 
@@ -629,12 +689,9 @@ if (require.main === module) {
 
   var job = {
     "_id": {
-      "owner": {
-        "client": "Viacom 18",
-        "campaign": "Boss 2013"
-      },
+      "owner": "cb63ca74af80ded78dd482594b0e8ed3d95b03d0",
       "role": "noticesender",
-      "consumer": "camp/job-notice-boss.json",
+      "consumer": "noticesender",
       "created": 1384771491629
     },
     "finished": 0,
@@ -649,6 +706,7 @@ if (require.main === module) {
   };
 
   var noticeSender = new NoticeSender();
-  noticeSender.on('error', logger.error);
+  noticeSender.on('error', process.exit);
+  noticeSender.on('finished', process.exit)
   noticeSender.processJob(null, job);
 }

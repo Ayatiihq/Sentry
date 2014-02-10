@@ -364,6 +364,7 @@ Utilities.request = function(url, options, callback) {
 Utilities.requestURL = function(url, options, callback) {
   var parsed = null
     , err = null
+    , called = false
     ;
 
   try {
@@ -401,7 +402,10 @@ Utilities.requestURL = function(url, options, callback) {
   req.on('response', function (response) {
     var body = (options.returnBuffer) ? [] : ''
     , stream = null
+    , done = called ? function() {} : callback
     ;
+
+    called = true;
 
     switch(response.headers['content-encoding']) {
       case 'gzip':
@@ -439,14 +443,16 @@ Utilities.requestURL = function(url, options, callback) {
         body = Buffer.concat(body);
       }
       clearTimeout(timeoutId);
-      callback(err, response, body);
+      done(err, response, body);
     });
 
   });
 
   req.on('error', function(err) {
     clearTimeout(timeoutId);
-    callback(err);
+    var done = called ? console.log.bind('Error', url) : callback;
+    called = true;
+    done(err);    
   });
 }
 /**
@@ -530,6 +536,7 @@ Utilities.requestStream = function(url, options, callback) {
 Utilities.requestURLStream = function(url, options, callback) {
   var parsed = null
     , err = null
+    , called = false
     ;
 
   try {
@@ -557,12 +564,15 @@ Utilities.requestURLStream = function(url, options, callback) {
   req.on('response', function(response) {
     var body = ''
       , stream = null
+      , done = called ? function() {} : callback
       ;
+
+    called = true;
 
     if (response.statusCode >= 400) {
       var err = new Error ('Server returned error status code: ' + response.statusCode);
       err.statusCode = response.statusCode;
-      return callback(err, null, response);
+      return done(err, null, response);
     }
 
     switch(response.headers['content-encoding']) {
@@ -580,11 +590,13 @@ Utilities.requestURLStream = function(url, options, callback) {
         stream = response;
     }
 
-    callback(err, req, response, stream);
+    done(err, req, response, stream);
   });
 
   req.on('error', function(err) {
-    callback(err);
+    var done = called ? console.log.bind('Error', url) : callback;
+    called = true;
+    done(err);
   });
 }
 

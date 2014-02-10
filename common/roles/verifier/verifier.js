@@ -76,8 +76,8 @@ Verifier.prototype.processJob = function(err, job) {
   }
 
   function onError(err) {
-    logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack);
+    logger.error('Unable to process job: %s', err);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -93,7 +93,6 @@ Verifier.prototype.processJob = function(err, job) {
       self.emit('error', err);
       return;
     }
-
     self.campaign_ = campaign;
     var consumer = job._id.consumer;
 
@@ -339,7 +338,7 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     .seq(function() {
       database.connectAndEnsureCollection('hosts', this);
     })
-    .seq(function(hosts_){
+    .seq(function(db, hosts_){
       self.loadKnownEngines(hosts_, this);
     })
     .seq(function(loadedEngines){
@@ -365,15 +364,14 @@ Verifier.prototype.verifyKnownIDs = function(campaign, job) {
     ;
 }
 
-Verifier.prototype.loadKnownEngines = function(hosts, done) {
+Verifier.prototype.loadKnownEngines = function(hosts_, done) {
   var self = this
     , engines = []
   ;
 
   engines.push(self.torrentEngine.bind(self));
   
-
-  hosts.find({ urlMatcher: { $exists: true }}, function(err, hostsWithMatcher){
+  hosts_.find({ urlMatcher: { $exists: true }}).toArray(function(err, hostsWithMatcher){
     if(err)
       return done(err);
     hostsWithMatcher.each(function(hostWithMatcher){
@@ -458,7 +456,7 @@ Verifier.prototype.cyberlockerEngine = function(cyberlocker, infringements, done
     , iStates = states.infringements.state
     ;
 
-  logger.info('Starting %s known id verifier', matcher.domain);
+  logger.info('Starting %s known id verifier', cyberlocker._id);
 
   Seq()
     .seq(function() {

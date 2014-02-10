@@ -107,12 +107,10 @@ Generic.prototype.searchWithOneUrl = function (campaign, url) {
   self.emit('started');
 }
 
-Generic.prototype.start = function (campaign, job, browser) {
+Generic.prototype.start = function (campaign, job) {
   var self = this;
   self.campaign = campaign;
   self.job = job;
-
-  browser.quit(); // not using it right now.
   
   self.activeInfringements = [];
   self.activeScrapes = 0;
@@ -200,32 +198,37 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   promise.resolve(items);
 };
 
+Generic.prototype.isLinkInteresting = function (infringement) {
+  var self = this;
+  if (!infringement || !infringement.uri) {
+    logger.warn('Infringement isn\'t valid: %j', infringement);
+    return false;
+  }
+  // If its pathless, no point.
+  if (!utilities.uriHasPath(infringement.uri)) {
+    logger.info('%s has no path, not scraping', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+    return false
+  }
+  // If its safe, no point.
+  if (arrayHas(infringement.uri, safeDomains)) {
+    logger.info('%s is a safe domain', infringement.uri);
+    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
+    return false;
+  }
+  return true;
+}
+
 Generic.prototype.checkInfringement = function (infringement) {
   var category = states.infringements.category
     , promise = new Promise.Promise()
     , self = this
   ;
   
-  
-  logger.info('top of checkInfringement');
-
-  if (!infringement || !infringement.uri) {
-    logger.warn('Infringement isn\'t valid: %j', infringement);
-    return promise.resolve();
+  if(!self.isLinkInteresting(infringement)){
+    promise.resolve();
+    return promise;
   }
-  // If its pathless, no point.
-  if (!utilities.uriHasPath(infringement.uri)) {
-    logger.info('%s has no path, not scraping', infringement.uri);
-    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-    return promise.resolve();
-  }
-  // If its safe, no point.
-  if (arrayHas(infringement.uri, safeDomains)) {
-    logger.info('%s is a safe domain', infringement.uri);
-    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
-    return promise.resolve();
-  }
-  
   // Otherwise go digging.  
   function getKnownDomains(category){
     var innerPromise = new Promise.Promise();

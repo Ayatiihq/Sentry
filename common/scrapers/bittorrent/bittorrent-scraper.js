@@ -12,6 +12,7 @@ var acquire = require('acquire')
   , os = require('os')
   , path = require('path')
   , sugar = require('sugar')  
+  , states = acquire('states')
   , torrentInspector = acquire('torrent-inspector')
   , util = require('util')
   , utilities = acquire('utilities') 
@@ -75,7 +76,6 @@ BittorrentPortal.prototype.handleResults = function () {
           setTimeout(function(){self.nextPage(source);}, randomTime * 1000);
         }
         else {
-          logger.info('managed to scrape ' + self.results.length + ' torrents');
           self.getTorrentsDetails();
           this();
         }
@@ -111,10 +111,15 @@ BittorrentPortal.prototype.buildSearchQueryTV = function () {
 };
 
 BittorrentPortal.prototype.buildSearchQueryAlbum = function () {
-  var self = this;
-  var albumTitle = self.campaign.metadata.albumTitle;
-  var query = albumTitle.escapeURL(true);
-  return query;
+  var self = this
+    , albumTitle = self.campaign.name.remove('-');
+    ;
+
+  if(self.campaign.metadata.noAlbumSearch && self.campaign.keywords){
+    albumTitle = self.campaign.metadata.artist + ' ' + self.campaign.keywords.randomize().first();
+  }
+
+  return albumTitle.unescapeURL();
 }
 
 BittorrentPortal.prototype.buildSearchQueryMovie = function () {
@@ -259,7 +264,14 @@ KatScraper.prototype.searchQuery = function(pageNumber){
       self.browser.get(queryString, this);    
     })
     .seq(function(){
-      self.browser.find('table[class="data"]', this);
+      var that = this;
+      self.browser.find('table[class="data"]', function(err){
+        if(err){
+          logger.info("No search results for " + self.searchTerm.unescapeURL(true) + ' on ' + self.engineName);
+          return self.cleanup();
+        }
+        that();
+      });
     })
     .seq(function(){
       self.handleResults();
@@ -346,8 +358,6 @@ PageAnalyser.prototype.beginSearch = function (browser) {
   browser.quit(); // don't need it.  
   
   self.infringements = new Infringements();
-  self.wrangler =  new BasicWrangler();
-  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
   self.downloadDir_ = path.join(os.tmpDir(), 'bittorrent-page-analyser-' + utilities.genLinkKey(self.campaign.name));
 
   Seq()
@@ -379,9 +389,18 @@ PageAnalyser.prototype.beginSearch = function (browser) {
 PageAnalyser.prototype.goWork = function (infringement, done) {
   var self  = this;
 
+  if (self.wrangler) { // remove all listeners if a wrangler object was used previously
+    self.wrangler.removeAllListeners('finished')
+                 .removeAllListeners('suspended')
+                 .removeAllListeners('resumed');
+    self.wrangler = null;
+  }
+
+  self.wrangler = new BasicWrangler();
+  self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
+
   self.wrangler.on('finished', function(results){
     if(!results || results.isEmpty()){
-      logger.info('wrangler returned no results')
       return done();
     }
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
@@ -402,14 +421,13 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
       .seq(function(){
         var ofInterest = results.filter(function(result){return result.result}).unique();
 
-        //logger.info('finished processing ' + infringement.uri + ' found these of interest ' 
-        //    + JSON.stringify(ofInterest));
-
         if(!ofInterest.isEmpty())
           return self.broadcast(ofInterest, infringement, this);
         
         // otherwise mark as false positive.
-        self.emit('decision', infringement, State.FALSE_POSITIVE);
+        self.emit('decision',
+                  infringement,
+                  states.infringements.state.FALSE_POSITIVE);
         this();
       })         
       .seq(function(){
@@ -422,10 +440,8 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   });
 
   self.wrangler.on('suspended', function onWranglerSuspend() {
-    logger.info('wrangler suspended');
   });
   self.wrangler.on('resumed', function onWranglerResume() {
-    logger.info('wrangler resumed');
   });
 
   self.wrangler.beginSearch(infringement.uri);
@@ -441,8 +457,11 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
       torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
     })
     .seq(function(details_){
-      if(details_){
-        return torrentInspector.checkIfTorrentIsGoodFit(details_, self.campaign, this);
+      if(details_.success){
+        torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
+      }
+      else if(details_.message === 'Not binary'){
+        logger.info('found a torrent link which links to page and not a torrent ' + torrentLink);
       }
       done(null, result);
     })
@@ -455,7 +474,7 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
       done(null, result);
     })
     .catch(function(err){
-      logger.warn(err);
+      logger.warn('Torrent error', torrentLink, err);
       result.message = err;
       done(null, result); // just ignore for now.
     })
@@ -466,6 +485,8 @@ PageAnalyser.prototype.broadcast = function(results, infringement, done){
   var self = this;
   Seq(results)
     .seqEach(function(torrent){
+      if (!torrent.link) return this();
+
       self.emit('torrent',
                 torrent.link,
                 {score: MAX_SCRAPER_POINTS / 1.5,
@@ -534,7 +555,7 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
   })
   
   self.engine.on('decision', function onDecisionMade(infringement, newState){
-    self.emit('infringementStateChange', infringement, newState);
+    //self.emit('infringementStateChange', infringement, newState);
   });
 
   self.engine.beginSearch(browser);

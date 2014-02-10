@@ -84,7 +84,7 @@ Downloader.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack);
+    logger.warn(err.stack, console.trace());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -122,7 +122,6 @@ Downloader.prototype.preRun = function(job, done) {
   Seq()
     .seq(function(){
       self.job_ = job;
-      logger.info('get campaign details of ' + job._id.owner);
       self.campaigns_.getDetails(job._id.owner, this);
     })
     .seq(function(campaign) {
@@ -132,17 +131,10 @@ Downloader.prototype.preRun = function(job, done) {
     })
     .seq(function(loginHosts) {
       loginHosts.each(function(host){
-        logger.info('found host for automagic ' + host._id);
+        //logger.info('found host for automagic ' + host._id);
         self.downloadersMap_[host._id] = host;
       });
       self.createInfringementMap(this);
-    })
-    .seq(function(workList){
-      logger.info('work length = ' + workList.length);
-      workList.each(function(work){
-        logger.info('domain : ' + work.domain + ' count : ' + work.infringements.length);
-      });
-      this(null, workList);
     })
     .seq(function(workList) {
       self.workList_ = workList.randomize();
@@ -269,9 +261,7 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
           return this();
         }
         logger.info('GREEN: should be on S3 already : ' + JSON.stringify(result.payLoad));
-        var newState = states.infringements.state.UNVERIFIED;
-        logger.info('Setting state %d on %s', newState, infringement.uri);
-        self.infringements_.setState(infringement, newState, this);
+        self.registerDownloadsAndSetState(infringement, result.payLoad);
       }
       else if (result.verdict === states.downloaders.verdict.FAILED_POLICY){
         logger.info('BROWN - We think this downloaded something but failed the download policy.');
@@ -303,13 +293,33 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
     ;    
 }
 
+Downloader.prototype.registerDownloadsAndSetState = function(infringement, downloads, done){
+  var self = this;
+  Seq(downloads)
+    .seqEach(function(download){
+      self.infringements_.addDownload(infringement,
+                                      download.md5,
+                                      download.mimetype,
+                                      download.size,
+                                      this);
+    })
+    .seq(function(){
+      var newState = states.infringements.state.UNVERIFIED;
+      self.infringements_.setState(infringement, newState, this);     
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
 /*
  * Depending on the approach defined on the host
  * this will create an Approach based downloadWorker.
  */
 Downloader.prototype.makeDownloadWorker = function(host, done){
   var self = this;
-  if(host.downloaderDetails.approach === states.downloaders.method.COWMANGLING){
+  if(host.downloaderDetails.approach === states.downloaders.approach.COWMANGLING){
     return done(null, new Mangling(self.campaign_, host));
   }
 }

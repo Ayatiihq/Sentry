@@ -11,7 +11,7 @@ var acquire = require('acquire')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('standard-dispatcher.js')
-  , states = acquire('states').jobs.state
+  , states = acquire('states')
   , util = require('util')
   ;
 
@@ -49,7 +49,7 @@ StandardDispatcher.prototype.findWork = function() {
   var self = this
     , workToDo = []
   ;
-  // in time filter on client 'account state' (0 => acive, 1 => suspended)
+
   self.clients_.listClients(function(err, clients) {
     if (err)
      return logger.warn(err);
@@ -57,8 +57,10 @@ StandardDispatcher.prototype.findWork = function() {
     Seq(clients)
       .seqEach(function(client){
         var that = this;
-        if(client.state === 0)
+        // Need to flesh out the supported client state scenarios
+        if(client.state === states.client.state.INACTIVE)
           return that();
+
         self.getClientCampaigns(client, function(err, result){
           if(err || !result)
             return that(err);
@@ -71,7 +73,6 @@ StandardDispatcher.prototype.findWork = function() {
         self.makeWork(workItem, this);
       })
       .seq(function(){
-        logger.info('finished finding and making jobs.');
         this();
       })
       .catch(function(err){
@@ -88,7 +89,7 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
     if (err)
       return done(err);
     
-    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep && campaign.sweepTo < Date.now()});
+    var activeCampaigns = campaigns.filter(function(campaign){return campaign.sweep && campaign.sweepTo > Date.now()});
     
     if(activeCampaigns.isEmpty())
       return done();
@@ -102,14 +103,11 @@ StandardDispatcher.prototype.getClientCampaigns = function(client, done) {
 
 StandardDispatcher.prototype.makeWork = function(workItem, done){
   var self = this;
-  logger.info('Make work for client : ' + workItem.client._id +
-              ' with ' + workItem.campaigns.length + ' campaigns');
   Seq(workItem.campaigns)
     .seqEach(function(campaign){
       self.makeJobs(campaign, workItem.client, this);
     })
     .seq(function(){
-      logger.info('finished job creation');
       done();
     })
     .catch(function(err){
@@ -123,25 +121,25 @@ StandardDispatcher.prototype.makeJobs = function(campaign, client, done) {
   var self = this;
   
   var rolesOfInterest = self.roles_.getRoles().filter(function(role){
-    var supported = false;
+    var supported = !role.types;
     if (role.types) {
+      supported = false;
       Object.keys(role.types, function(type) {
         if (campaign.type.startsWith(type))
           supported = true;
       });
     }
-    return !role.dispatcher && supported;
+    return !role.dispatcher && supported && role.name !== "purger"; // quick hack for now.
   });
   
-  logger.info('rolesOfInterest ' +
-              JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
-
+  //logger.info('rolesOfInterest ' +
+  //            JSON.stringify(rolesOfInterest.map(function(role){return role.name})));
+  
   Seq(rolesOfInterest)
     .seqEach(function(role){
       self.makeJobsForRole(campaign, client, role, this);
     })
     .seq(function(){
-      logger.info('finished with campaign ' + campaign.name);
       done();
     })
     .catch(function(err){
@@ -162,7 +160,7 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
     })
     .seq(function(inProgress){
       if(inProgress){
-        logger.info('looks like we dont need to create jobs for ' + role.name + ' on campaign ' + campaign.name);
+        //logger.info('looks like we dont need to create jobs for ' + role.name + ' on campaign ' + campaign.name);
         return done();
       }
       roleInstance = self.roles_.loadRole(role.name);
@@ -176,7 +174,6 @@ StandardDispatcher.prototype.makeJobsForRole = function(campaign, client, role, 
       self.createJobsFromOrders(orders, jobs, this);
     })
     .seq(function(){
-      logger.info('makeWorkForRole "' + role.name + '" finished.');
       done();
     })
     .catch(function(err){
@@ -189,7 +186,6 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
   var self = this;
   Seq(orders)
     .seqEach(function(order){
-      logger.info('Create this job ' + JSON.stringify(order));
       jobs.push(order.owner, order.consumer, order.metadata, this);
     })
     .seq(function(){
@@ -202,7 +198,9 @@ StandardDispatcher.prototype.createJobsFromOrders = function(orders, jobs, done)
 }
 
 StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, done){
-  var self = this;
+  var self = this
+    , jobStates = states.jobs.state
+    ;
 
   jobs.listActiveJobs(campaign._id, function(err, array, existingJobs) {
     if (err) {
@@ -224,7 +222,6 @@ StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, d
     }
 
     if (!lastJobs){
-      logger.info(' no jobs recently like this, go create ');
       return done(null, false);
     }
     
@@ -232,25 +229,24 @@ StandardDispatcher.prototype.doesRoleHaveJobs = function(role, campaign, jobs, d
     var lastJob = lastJobs.sortBy(function(job){ return job.created }).last();
 
     if (!lastJob){
-      logger.info(' no jobs recently like this, go create ');
       return done(null, false);
     }
 
     switch(lastJob.state) {
-      case states.QUEUED:
-      case states.PAUSED:
+      case jobStates.QUEUED:
+      case jobStates.PAUSED:
         return done(null, true);
 
-      case states.STARTED:
+      case jobStates.STARTED:
         if (role.longRunning)
           return done(null, true);
         
         var tooLong = Date.create(lastJob.popped).isBefore((config.STANDARD_JOB_TIMEOUT_MINUTES + 2 ) + ' minutes ago');
         if (tooLong)
-          jobs.close(lastJob, states.ERRORED, new Error('Timed out'));
+          jobs.close(lastJob, jobStates.ERRORED, new Error('Timed out'));
         return done(null, !tooLong); 
 
-      case states.COMPLETED:
+      case jobStates.COMPLETED:
         var waitBeforeNextRun = role.intervalMinutes ? role.intervalMinutes : campaign.sweepIntervalMinutes;
         var waitedLongEnough = Date.create(lastJob.finished).isBefore(waitBeforeNextRun + ' minutes ago');
         done(null, !waitedLongEnough); 
