@@ -171,10 +171,9 @@ Generic.prototype.pump = function (firstRun) {
   }
 };
 
-Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise, isBackup, items) {
+Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) {
   var self = this;
   var promise = new Promise.Promise();
-  wrangler.removeAllListeners();
 
   // First figure out what the state update is for this infringement   
   var newState = states.infringements.state.UNVERIFIED;
@@ -186,13 +185,6 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
     metadata.isBackup = isBackup;
     self.emitInfringementUpdates(infringement, parents, metadata);
   });
-
-  if (!wrangler.isSuspended) {
-    self.activeScrapes = self.activeScrapes - 1;
-  }
-  else {
-    self.suspendedScrapes = self.suspendedScrapes - 1;
-  }
 
   self.activeInfringements.remove(infringement);
 
