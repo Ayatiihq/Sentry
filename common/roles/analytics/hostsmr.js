@@ -223,7 +223,7 @@ HostsMR.hostBasicStats = function(db, collections, campaign, done) {
     var map = function() {
       var key = {
         campaign: this.campaign,
-        host: 'unknown'
+        host: this.uri.split('/')[2]
       };
 
       var value = {
