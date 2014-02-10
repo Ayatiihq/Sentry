@@ -195,6 +195,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.topTenLinkCountries);
   work.push(HostsCrunchers.topTenLinkCyberlockers);
   work.push(HostsCrunchers.topTenInfringementHosts);
+  work.push(HostsCrunchers.topTenInfringementWebsites);
   work.push(HostsCrunchers.topTenInfringementCountries);
   work.push(HostsCrunchers.topTenInfringementCyberlockers);
   work.push(HostsCrunchers.topTenInfringementTorrentSites);
@@ -213,6 +214,9 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nDeferred);
   work.push(HostsCrunchers.nUnavailable);
   work.push(HostsCrunchers.nNeedsDownload);
+  work.push(HostsCrunchers.nInfringements);
+  work.push(HostsCrunchers.nNoticed);
+  work.push(HostsCrunchers.nProcessed);
 
   work.push(HostsCrunchers.nWebsites);
   work.push(HostsCrunchers.nSearchResults);

@@ -39,6 +39,9 @@ var stateData = [
   , { name: 'nDeferred', state: State.DEFERRED }
   , { name: 'nUnavailable', state: State.UNAVAILABLE }
   , { name: 'nNeedsDownload', state: State.NEEDS_DOWNLOAD }
+  , { name: 'nInfringements', state: { $in: [ State.VERIFIED, State.SENT_NOTICE, State.TAKEN_DOWN ] } }
+  , { name: 'nNoticed', state: { $in: [ State.SENT_NOTICE, State.TAKEN_DOWN ] } }
+  , { name: 'nProcessed', state: { $nin: [ State.NEEDS_PROCESSING ] } }
 ];
 
 var categoryData = [
@@ -58,7 +61,12 @@ function setAndSend(campaign, key, value) {
     , message = {}
     ;
 
-  redis.set(key, value.toString());
+  try {
+    value = JSON.stringify(value);
+  } catch(err) {
+    logger.warn('Unable to publish %s (%s) to Redis: %s', key, value, error);
+  }
+  redis.set(key, value);
 
   message[key] = value;
   redis.publish('analytics', message);
@@ -181,6 +189,61 @@ HostsCrunchers.topTenInfringementHosts = function(db, collections, campaign, don
 
     analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
     setAndSend(campaign, 'topTenInfringementHosts', values);
+  });
+}
+
+HostsCrunchers.topTenInfringementWebsites = function(db, collections, campaign, done) {
+  var collection = collections.hostBasicStats
+    , analytics = collections.analytics
+    ;
+
+  logger.info('topTenInfringementWebsites: Running job');
+
+  // Compile the top ten hosts carrying INFRINGEMENTS
+  collection.find({ '_id.campaign': campaign._id, '_id.state': { $in: [ 1, 3, 4] }})
+            .sort({ 'value.count': -1 })
+            .limit(150)
+            .toArray(function(err, docs) {
+
+    if (err)
+      return done('topTenInfringementWebsites: Error compiling top ten infringement websites: ' + err);
+    
+    var key = { campaign: campaign._id, statistic: 'topTenInfringementWebsites' };
+    var map = {};
+    var values = [];
+
+    docs.forEach(function(doc) {
+      var value = {};
+
+      if (doc._id.host.startsWith('searchengine'))
+        return;
+
+      if (Cyberlockers.indexOf(doc._id.host) >= 0)
+        return;
+
+      if (TorrentSites.indexOf(doc._id.host) >= 0)
+        return;
+
+      if (map[doc._id.host])
+        map[doc._id.host].count += doc.value.count;
+      else
+        map[doc._id.host] = doc.value;
+    });
+
+    Object.keys(map, function(key) {
+      var obj = {};
+      obj[key] = map[key];
+      values.push(obj);
+    });
+
+    values.sortBy(function(n) {
+      return n.count * -1;
+    });
+
+    values = values.to(10);
+
+    analytics.update({ _id: key }, { _id: key, value: values }, { upsert: true }, done);
+    setAndSend(campaign, 'topTenInfringementWebsites', values);
   });
 }
 
@@ -484,6 +547,12 @@ categoryData.forEach(function(data) {
 
       var key = { campaign: campaign._id, statistic: name };
       analytics.update({ _id: key }, { _id: key, value: count }, { upsert: true }, done);
+      
+      key.statistic = 'categoryCount';
+      var newDoc = {};
+      newDoc['value.' + name] = count;
+      analytics.update({ _id: key }, { $set: newDoc }, { upsert: true }, function(err) { if (err) logger.warn(err); });
+      
       setAndSend(campaign, name, count);
     });
   }
