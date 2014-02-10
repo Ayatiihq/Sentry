@@ -173,6 +173,7 @@ Generic.prototype.pump = function (firstRun) {
 
 Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise, isBackup, items) {
   var self = this;
+  var promise = new Promise.Promise();
   wrangler.removeAllListeners();
 
   // First figure out what the state update is for this infringement   
@@ -196,6 +197,7 @@ Generic.prototype.onWranglerFinished = function (wrangler, infringement, promise
   self.activeInfringements.remove(infringement);
 
   promise.resolve(items);
+  return promise;
 };
 
 Generic.prototype.isLinkInteresting = function (infringement) {
@@ -217,6 +219,55 @@ Generic.prototype.isLinkInteresting = function (infringement) {
     return false;
   }
   return true;
+}
+
+Generic.prototype.wrapWrangler = function (infringement, ruleOverrides) {
+  var self = this;
+  var promise = new Promise.Promise();
+
+  var wrangler = new BasicWrangler();
+  var ruleSet = ruleOverrides;
+  if (ruleSet === undefined) {
+    var musicRules = wranglerRules.rulesDownloadsMusic;
+    var movieRules = wranglerRules.rulesDownloadsMovie;
+    
+    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
+    
+    rules = {'music' : musicRules,
+              'tv': wranglerRules.rulesLiveTV,
+              'movie': movieRules};
+    ruleSet = rules[self.campaign.type.split('.')[0]];
+  }
+
+  wrangler.addRule(ruleSet);
+
+  wrangler.on('finished', function onWranglerFinished(foundItems) {
+    wrangler.removeAllListeners();
+    if (!wrangler.isSuspended) {
+      self.activeScrapes = self.activeScrapes - 1;
+    }
+    else {
+      self.suspendedScrapes = self.suspendedScrapes - 1;
+    }
+    promise.resolve(foundItems);
+  });
+  wrangler.on('suspended', function onWranglerSuspend() {
+    self.activeScrapes = self.activeScrapes - 1;
+    self.suspendedScrapes = self.suspendedScrapes + 1;
+    self.pump();
+  });
+  wrangler.on('resumed', function onWranglerResume() {
+    self.activeScrapes = self.activeScrapes + 1;
+    self.suspendedScrapes = self.suspendedScrapes - 1;
+    self.pump();
+  });
+  wrangler.on('error', function onWranglerError(err) { 
+    promise.reject(err);
+  });
+  wrangler.beginSearch(infringement.uri);
+
+  return promise;
 }
 
 Generic.prototype.checkInfringement = function (infringement) {
@@ -270,31 +321,9 @@ Generic.prototype.checkInfringement = function (infringement) {
       return promise.resolve();        
     }
     
-    var wrangler = new BasicWrangler();      
-    var musicRules = wranglerRules.rulesDownloadsMusic;
-    var movieRules = wranglerRules.rulesDownloadsMovie;
-    
-    musicRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
-    movieRules.push(wranglerRules.ruleSearchAllLinks(combined, wranglerRules.searchTypes.DOMAIN));
-    
-    var rules = {'music' : musicRules,
-                 'tv': wranglerRules.rulesLiveTV,
-                 'movie': movieRules};
-
-    wrangler.addRule(rules[self.campaign.type.split('.')[0]]);
-
-    wrangler.on('finished', self.onWranglerFinished.bind(self, wrangler, infringement, promise, false));
-    wrangler.on('suspended', function onWranglerSuspend() {
-      self.activeScrapes = self.activeScrapes - 1;
-      self.suspendedScrapes = self.suspendedScrapes + 1;
-      self.pump();
-    });
-    wrangler.on('resumed', function onWranglerResume() {
-      self.activeScrapes = self.activeScrapes + 1;
-      self.suspendedScrapes = self.suspendedScrapes - 1;
-      self.pump();
-    });
-    wrangler.beginSearch(infringement.uri);
+    var wranglerPromise = self.wrapWrangler(infringement);
+    wranglerPromise.then(self.onWranglerFinished.bind(self, wrangler, infringement, false))
+                   .then(function (foundItems) { promise.resolve(foundItems); });
   },
   function(err){
     promise.reject(err);
