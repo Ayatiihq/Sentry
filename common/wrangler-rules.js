@@ -74,6 +74,55 @@ Endpoint.prototype.toString = function () {
   return this.data.toString();
 };
 
+
+/* so this is going to be a bit mental, we want to go through the given html 
+ * and figure out if its likely that the site has infringing content specific 
+ * to the campaign we are running.
+ */
+module.exports.checkForInfo = function (artist, title, tracks, year) {
+  var infoChecker = function(albumInfos, $, source, uri, foundItems) {
+    var mainText = $('body').text();
+    function buildRE(str) { return XRegExp(XRegExp.escape(str), 'igs'); }
+    var titleRegExp = buildRE(albumInfos.title);
+    var artistRegExp = buildRE(albumInfos.artist);
+    var yearRegExp = buildRE(albumInfos.year);
+
+    // look in the main text of the page for matches
+    var tracksFound = tracks.count(function (track) { return XRegExp.test(mainText, buildRE(track)); });
+    var foundAlbum = XRegExp.test(mainText, titleRegExp);
+    var foundArtist = XRegExp.test(mainText, artistRegExp);
+    var foundYear = XRegExp.test(mainText, yearRegExp);
+
+    // look in the anchor hrefs for matches
+    var hrefs = [];
+    $('a').each(function() { hrefs.push(this.href); });
+    var suspiciousLinks = hrefs.count(function (href) {
+      if (!artistRegExp.test(href)) {
+        // artist is not in the link title, not trustworthy enough for a link. 
+        return 0;
+      }
+      if (tracks.count(function (track) { return buildRE(track).test(href); }) || titleRegExp.test(href)) {
+        return 1;
+      }
+
+      return 0;
+    });
+
+    // at this point we have all the information we need to make a judgement
+
+    if (foundArtist && (tracksFound || foundAlbum || suspiciousLinks)) {
+      // at the very least we need the artist to exist on the page, then we check for tracks/album/suspicious links
+      var newitem = new Endpoint('FAKEEMBED, DO NOT TRUST'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
+      newitem.isEndpoint = false;
+      foundItems.push(newitem);
+    }
+    
+    return foundItems;
+  }
+
+  return infoChecker.bind(null, {'artist': artist, 'title':title, 'tracks': tracks, 'year': year});
+}
+
 module.exports.ruleEmbed = function DomEmbed($, source, uri, foundItems) {
   $('embed').each(function onEmd() {
     var check = false;
@@ -89,6 +138,7 @@ module.exports.ruleEmbed = function DomEmbed($, source, uri, foundItems) {
       foundItems.push(newitem);
     }
   });
+
   return foundItems;
 };
 
