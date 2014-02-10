@@ -402,7 +402,7 @@ Verifications.prototype.popType = function(campaign, types, processor, callback)
   }
 
   var options = { new: true };
-
+  
   self.infringements_.findAndModify(query, sort, updates, options, callback);
 }
 

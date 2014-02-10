@@ -71,6 +71,7 @@ Blacklist.safeDomains = [
   , 'metacritic.com'  
   , 'mixmag.net'
   , 'musicbrainz.org'
+  , 'musicstack.com'
   , 'music.nokia.com'
   , 'music.ovi.com'
   , 'music.sonyentertainmentnetwork.com'
