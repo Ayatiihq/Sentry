@@ -286,71 +286,63 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
 
   // first find all links on the page
   return self.wrapWrangler(infringement.uri, [wranglerRules.findAllLinks])
-             .then(function (foundItems) { 
-        var accumPromises = [];
-        var links = [];
-        // for each link, run the wrangler on it with the checkForInfo ruleset
-        // which will figure out if the page is interesting or not
+  .then(function (foundItems) { 
+    // for each link, run the wrangler on it with the checkForInfo ruleset
+    // which will figure out if the page is interesting or not
 
-        // normalize hrefs found into an array of strings
-        foundItems.each(function (foundItem) {
-          var composedURI = null;
-          try {
-            composedURI = URI(infringement.uri).absoluteTo(foundItem.data);
-          } catch (error) {
-            composedURI = null; // probably 'javascript;'
-          }
+    // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
+    // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
+    var links = foundItems.map(function (foundItem) {
+      try { // always have to try/catch URI because exceptions are dumb, lets crash the program because a url looked a bit strange!
+        return URI(infringement.uri).absoluteTo(foundItem.data);
+      } catch (error) {
+        return null; // probably 'javascript;'
+      }
+    });
 
-          if (composedURI !== null) {
-            links.push(composedURI);
-          }
+    links = links.compact();
+    links = links.unique(); 
+
+    //remove any links that look like infringement.uri
+    // it looks like vomit because we want to remove anything past ? or # in the uri
+    links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === infringement.uri.split('#')[0].split('?')[0]); });
+
+    // go through the links we got from scraping all the hrefs on the page and run the checkForInfo rule on it
+    // this will return with an Endpoint with wranglerRules.checkForInfoHash set as its data if checkForInfo
+    // thinks the link is suspicious
+    var accumPromises = links.map(function (link) {
+      var infoRule = wranglerRules.checkForInfo(link,
+                                                self.campaign.metadata.artist, 
+                                                self.campaign.metadata.albumTitle,
+                                                self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
+                                                self.campaign.metadata.year);
+      return self.wrapWrangler(link, [infoRule]);
+    });
+
+    return Promise.all(accumPromises).then(function (results) {
+      // find all the links that have the required checkForInfoHash as an endpoint
+      var suspiciousURIS = results.flatten().filter({'data': wranglerRules.checkForInfoHash}).map('sourceURI');
+
+      // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
+      var ruleSet = generateRulesForCampaign();
+      
+      // accumulate new promises for all the uris
+      var wranglerPromises = suspiciousURIS.map(function(uri) {
+        return self.wrapWrangler(uri, ruleSet).then(function (foundItems) {
+          // new found items, emit infringement updates 
+          self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+          var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
+          parents.unshift(infringement.uri);
+          var metadata = foundItem.items;
+          metadata.isBackup = isBackup;
+          self.emitInfringementUpdates(infringement, parents, metadata);
         });
+      })
 
-        links = links.unique(); // make our list unique
-        //remove any links that look like infringement.uri
-        links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === infringement.uri.split('#')[0].split('?')[0]); });
-
-        // go through each link left over and run checkForInfo rule on it
-        
-
-        links.each(function (link) {
-          var infoRule = wranglerRules.checkForInfo(link,
-                                                    self.campaign.metadata.artist, 
-                                                    self.campaign.metadata.albumTitle,
-                                                    self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
-                                                    self.campaign.metadata.year);
-          accumPromises.push(self.wrapWrangler(link, [infoRule]));
-        });
-
-        return Promise.all(accumPromises).then(function (results) {
-          var concatedItems = [];
-          results.each(function (foundItems) {
-            // check results for an endpoint that looks like checkForInfoHash
-            var test = foundItems.first({ 'data': wranglerRules.checkForInfoHash});
-            if (test) {
-              var pageURI = test.sourceURI;
-              foundItems = foundItems.remove({'data': wranglerRules.checkForInfoHash});
-              concatedItems.push(foundItems);
-            }
-          });
-
-          // foundItems is now a normal looking foundItems array, we can start emitting infringements
-          foundItems = concatedItems.flatten();
-          // First figure out what the state update is for this infringement   
-          var newState = states.infringements.state.UNVERIFIED;
-          self.emit('infringementStateChange', infringement, newState);
-
-          foundItems.each(function onFoundItem(foundItem) {
-            var parents = foundItem.parents;
-            parents.unshift(infringement.uri);
-            var metadata = foundItem.items;
-            metadata.isBackup = isBackup;
-            self.emitInfringementUpdates(infringement, parents, metadata);
-          });
-
-          self.activeInfringements.remove(infringement);
-        });
-      });
+      // we are fiiiinally done with this infringement
+      return Promise.all(wranglerPromises).then(function() { self.activeInfringements.remove(infringement); })
+    });
+  });
 }
 
 /* figures out if we should continue processing this uri */
