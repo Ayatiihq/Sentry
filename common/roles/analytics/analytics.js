@@ -27,6 +27,7 @@ var HostsCrunchers = require('./hostscrunchers')
   , HostsInfo = require('./hostsinfo')
   , HostsMR = require('./hostsmr')
   , LinkMR = require('./linkmr')
+  , Torrents = require('./torrents')
   ;
 
 var Analytics = module.exports = function() {
@@ -105,7 +106,7 @@ Analytics.prototype.processJob = function(err, job) {
 
 Analytics.prototype.preRun = function(job, done) {
   var self = this
-    , requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats']
+    , requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats', 'torrentStats', 'hadouken']
     ;
 
   logger.debug('Loading job', job);
@@ -143,7 +144,7 @@ Analytics.prototype.preRun = function(job, done) {
 Analytics.prototype.run = function(done) {
   var self = this;
 
-  logger.debug('Running analytics for %s', self.campaign_);
+  logger.debug('Running analytics for %s', self.campaign_._id);
 
   Seq(self.loadWork())
     .seqEach(function(work) {
@@ -172,6 +173,9 @@ Analytics.prototype.loadWork = function() {
   var self = this
     , work = []
     ;
+
+  work.push(Torrents.torrentsStats);
+  return work;
 
   // Pre-MapReduce
   if (!process.env['ANALYTICS_IGNORE_HOSTS']) {
@@ -224,6 +228,8 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nFiles);
   work.push(HostsCrunchers.nTorrents);
   work.push(HostsCrunchers.nSocial);
+
+  work.push(Torrents.torrentsStats);
 
 /* Stop client calculations for now
 
