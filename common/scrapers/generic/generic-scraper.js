@@ -311,6 +311,9 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
     // it looks like vomit because we want to remove anything past ? or # in the uri
     links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === infringement.uri.split('#')[0].split('?')[0]); });
 
+    // for each link we need to make sure its not something we should be ignoring for whatever reason
+    links.remove(function (uri) { return (!!self.checkURI(uri)); })
+
     // go through the links we got from scraping all the hrefs on the page and run the checkForInfo rule on it
     // this will return with an Endpoint with wranglerRules.checkForInfoHash set as its data if checkForInfo
     // thinks the link is suspicious
