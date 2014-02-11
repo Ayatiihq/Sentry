@@ -193,7 +193,6 @@ Generic.prototype.pump = function (firstRun) {
 
 Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) {
   var self = this;
-  var promise = new Promise.Promise();
 
   // check to see if enough conditions are met, so we can start the second round of endpoint wrangler checks
   if (self.campaign.type === 'music.album' && items.length < 1) {
@@ -201,7 +200,7 @@ Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) 
     // what we do now is go through all the links on the page and run endpoint wrangler on them with a specific ruleset
     // this ruleset will figure out if the link is suspicious enough to warrent another full run of endpoint-wrangler on that page
     
-    self.doSecondAssaultOnInfringement(infringement).then(promise.resolve());
+    return self.doSecondAssaultOnInfringement(infringement);
   }
   else {
     // First figure out what the state update is for this infringement   
@@ -216,10 +215,9 @@ Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) 
     });
 
     self.activeInfringements.remove(infringement);
-
-    promise.resolve();
   }
-  return promise;
+
+  return new Promise.Promise().resolve();
 };
 
 Generic.prototype.isLinkInteresting = function (uri) {
@@ -229,13 +227,11 @@ Generic.prototype.isLinkInteresting = function (uri) {
   if (!utilities.uriHasPath(uri)) {
     logger.info('%s has no path, not scraping', uri);
     return states.infringements.state.UNVERIFIED;
-    self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
   }
   // If its safe, no point.
   if (arrayHas(uri, safeDomains)) {
     logger.info('%s is a safe domain', uri);
     return states.infringements.state.FALSE_POSITIVE;
-    self.emit('infringementStateChange', infringement, states.infringements.state.FALSE_POSITIVE);
   }
   return null;
 }
@@ -281,6 +277,14 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   return promise;
 }
 
+/* The idea with this is that when we go through a page the first time, to generics eyes it may not find anything interesting
+ * but often the interesting thing is just a click away. this is often the case when generic lands on search engine pages 
+ * such as a torrent search engine. if it just clicked those links the torrent search engine is pointing at, it would find so much gold.
+ *
+ * but then the problem of which links are the ones that we are interested in comes to mind. doSecondAssaultOnInfringement attempts to solve that
+ * it will go through all the links listed on the infringement.uri page and re-run endpoint-wrangler on the ones that it qualifies as being suspicious
+ * which should generate a whole host of new infringements for us
+ */ 
 Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   var self = this;
 
@@ -331,11 +335,13 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
         return self.wrapWrangler(uri, ruleSet).then(function (foundItems) {
           // new found items, emit infringement updates 
           self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-          var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
-          parents.unshift(infringement.uri);
-          var metadata = foundItem.items;
-          metadata.isBackup = isBackup;
-          self.emitInfringementUpdates(infringement, parents, metadata);
+          foundItems.each(function onFoundItem(foundItem) {
+            var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
+            parents.unshift(infringement.uri);
+            var metadata = foundItem.items;
+            metadata.isBackup = false;
+            self.emitInfringementUpdates(infringement, parents, metadata);
+          });
         });
       })
 
@@ -354,25 +360,25 @@ Generic.prototype.checkURI = function (uri) {
   var linkInterestingResult = self.isLinkInteresting(uri)
   if(linkInterestingResult !== null) {
     resolveData['stateChange'] = linkInterestingResult;
-    return resolveData;
   }
-
-  if(arrayHas(uri, self.cyberlockers.first().domains)) {
-    logger.info('%s is a cyberlocker', uri);
-    // FIXME: This should be done in another place, is just a hack, see
-    //        https://github.com/afive/sentry/issues/65
-    // It's a cyberlocker URI, so important but we don't scrape it further
-    resolveData.stateChange = states.infringements.state.UNVERIFIED;
-    resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
-  } 
-  if (arrayHas(uri, self.torrentSites.first().domains)) {
-    logger.info('%s is a torrent site', uri);
-    // FIXME: This should be done in another place, is just a hack, see
-    //        https://github.com/afive/sentry/issues/65
-    // It's a cyberlocker URI, so important but we don't scrape it further
-    // TODO how this change the category on the infringement.
-    resolveData.stateChange = states.infringements.state.UNVERIFIED;
-    resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'torrent'];
+  else {
+    if(arrayHas(uri, self.cyberlockers.first().domains)) {
+      logger.info('%s is a cyberlocker', uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      resolveData.stateChange = states.infringements.state.UNVERIFIED;
+      resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
+    } 
+    if (arrayHas(uri, self.torrentSites.first().domains)) {
+      logger.info('%s is a torrent site', uri);
+      // FIXME: This should be done in another place, is just a hack, see
+      //        https://github.com/afive/sentry/issues/65
+      // It's a cyberlocker URI, so important but we don't scrape it further
+      // TODO how this change the category on the infringement.
+      resolveData.stateChange = states.infringements.state.UNVERIFIED;
+      resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'torrent'];
+    }
   }
 
   return resolveData;
@@ -395,7 +401,6 @@ Generic.prototype.generateRulesForCampaign = function () {
 
 Generic.prototype.checkInfringement = function (infringement, overrideURI, additionalRules) {
   var category = states.infringements.category
-    , promise = new Promise.Promise()
     , self = this
     , uri = (overrideURI) ? overrideURI : infringement.uri;
   ;
