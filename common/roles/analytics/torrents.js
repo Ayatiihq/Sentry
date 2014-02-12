@@ -153,3 +153,29 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
     });
   });
 }
+
+Torrents.ipInfo = function(db, collections, campaign, done) {
+  var self = this
+    , ips = collections['ips']
+    , query = {
+        campaigns: campaign._id,
+        $or: [
+          {
+            ipInfo: { $exists: false }
+          },
+          {
+            'ipInfo.created': { $lt: Date.create('1 month ago').getTime() }
+          }
+        ]
+      }
+    ;
+
+  logger.info('ipInfo: Running job');
+
+  var cur = ips.find(query);
+  cur.each(function(err, ip) {
+    console.log(ip._id);
+  });
+
+  done();
+}

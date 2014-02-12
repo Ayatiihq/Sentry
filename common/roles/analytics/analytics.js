@@ -174,6 +174,9 @@ Analytics.prototype.loadWork = function() {
     , work = []
     ;
 
+  work.push(Torrents.ipInfo);
+  return work;
+
   // Pre-MapReduce
   if (!process.env['ANALYTICS_IGNORE_HOSTS']) {
     work.push(HostsInfo.serverInfo);
@@ -227,6 +230,7 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nSocial);
 
   work.push(Torrents.torrentsStats);
+  work.push(Torrents.ipInfo);
 
 /* Stop client calculations for now
 
