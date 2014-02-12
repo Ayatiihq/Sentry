@@ -48,6 +48,7 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
   var self = this
     , hadouken = collections['hadouken']
     , torrentStats = collections['torrentStats']
+    , ips = collections['ips']
     ;
 
   logger.info('torrentsStats: Running job');
@@ -73,8 +74,9 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
           var value = trackerStats[key];
 
           if (!value)
-            value = { downloadCount: 0, peerCount: 0, seederCount: 0, leecherCount: 0, lastChecked: 0 };
+            value = { tracker: '', downloadCount: 0, peerCount: 0, seederCount: 0, leecherCount: 0, lastChecked: 0 };
 
+          value.tracker = key;
           value.downloadCount = Math.max(value.downloadCount, tracker.downloadCount);
           value.peerCount = tracker.peerCount > 0 ? tracker.peerCount : 0;
           value.seederCount = tracker.seederCount > 0 ? tracker.seederCount : 0;
@@ -114,6 +116,11 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
         progressStats[progress] = pCount + 1;
       });
 
+      // Fix the values for the database
+      // We want simple arrays whenever possible
+      peerStats = Object.values(peerStats);
+      trackerStats = Object.values(trackerStats);
+
       // Upload this shiznit
       var works = [
         { 'torrentPeerStats': peerStats },
@@ -131,6 +138,10 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
 
           torrentStats.update({ _id: key }, { _id: key, value: value }, { upsert: true }, this);
           setAndSend(campaign, stat, value);
+        })
+        .set(peerStats)
+        .seqEach(function(peer) {
+          ips.update({ _id: peer.address }, { $addToSet: { campaigns: campaign._id } }, { upsert: true }, this);
         })
         .seq(function() {
           done();
