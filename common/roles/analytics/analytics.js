@@ -106,7 +106,7 @@ Analytics.prototype.processJob = function(err, job) {
 
 Analytics.prototype.preRun = function(job, done) {
   var self = this
-    , requiredCollections = ['campaigns', 'analytics', 'infringements', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats', 'torrentStats', 'hadouken']
+    , requiredCollections = ['campaigns', 'analytics', 'infringements', 'ips', 'hosts', 'hostBasicStats', 'hostLocationStats', 'linkStats', 'torrentStats', 'hadouken']
     ;
 
   logger.debug('Loading job', job);
