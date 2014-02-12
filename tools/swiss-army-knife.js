@@ -106,7 +106,7 @@ function writeReport(notices, name){
 
   storage = new Storage('reports');
 
-  storage.getToText('notices.pending.template', {},
+  storage.getToText(null, 'notices.pending.template', {},
                     function(err, data){
                       if(err){
                         logger.warn('problem fetching template file');
@@ -270,7 +270,7 @@ function fetchMostLikelyNotices(hostEmail, howManyDaysFromToday){
  *
  */
 function getInfringementsOfaCertainDomainForaCampaign(campaign, uri){
-  var c = parseObject(campaign)._id;
+  var c = campaign._id;
   var h = new RegExp('(' + utilities.getHostname(uri).replace(/\./, '\.') + ')', 'i');
 
   logger.info('campaign ' + JSON.stringify(c) + '\nhost query : ' + h.toString() + '\nhostname : ' + utilities.getHostname(uri));
@@ -333,7 +333,7 @@ function main() {
       process.exit();
     }
     var notices_ = new Notices();
-    var campaign = parseObject(process.argv[3]);
+    var campaign = require(process.argv[3]);
     reportName = (parseInt(process.argv[4])).daysAgo().format('{Weekday}-{d}-{Month}') + 
                   '-' + (parseInt(process.argv[5])).daysAgo().format('{Weekday}-{d}-{Month}') +
                   '-' + campaign.name.dasherize().toLowerCase() + '.html'; 

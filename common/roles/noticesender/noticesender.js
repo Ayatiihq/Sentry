@@ -667,7 +667,7 @@ NoticeSender.prototype.orderJobs = function(campaign, client){
   if(!noticeInfo.authorization || !noticeInfo.copyrightContact){
     logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
     return [];
-  } 
+  }
   return NoticeSender.super_.prototype.orderJobs.apply(this, arguments);
 }
 

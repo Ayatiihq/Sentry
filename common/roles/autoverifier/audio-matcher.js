@@ -17,6 +17,7 @@ var acquire = require('acquire')
   , request = require('request')
   , rimraf = require('rimraf')
   , states = acquire('states').infringements.state  
+  , sugar = require('sugar')
   , util = require('util')
   , utilities = acquire('utilities') 
 ;
@@ -49,14 +50,16 @@ AudioMatcher.prototype.init = function() {
 AudioMatcher.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
-  
+  var location = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
+
   self.cleanupEverything().then(function(){
-    fs.mkdir(self.tmpDirectory, function(err){
+
+    fs.mkdir(location, function(err){
       if(err){
         logger.error('Error creating parenting folder : ' + err);
         return promise.reject(err);
       }
+      self.tmpDirectory = location;
       promise.resolve();
     });
    },
@@ -218,23 +221,29 @@ AudioMatcher.prototype.cleanupEverything = function() {
   var self = this
     , promise = new Promise.Promise()
   ;
+  
+  // handle the edge case where there is nothing to do at all
+  // and the musicverifier shuts us down from the outside.
+  if(!self.campaign){
+    promise.resolve();
+    return;
+  }
 
-  if(!self.tmpDirectory) // first run.
-    return promise.resolve;
+  var location = self.tmpDirectory ||
+                 path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name));
 
-  fs.exists(self.tmpDirectory, function(present){
+  fs.exists(location, function(present){
     if(!present)
       return promise.resolve();
 
-    rimraf(self.tmpDirectory, function(err){
+    rimraf(location, function(err){
       if(err){
-        logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+        logger.warn('Unable to rmdir ' + location + ' error : ' + err);
         return promise.reject(err);
       }
       promise.resolve();
     });
   });
-
   return promise;
 }
 
