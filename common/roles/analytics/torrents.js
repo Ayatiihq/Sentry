@@ -16,6 +16,7 @@ var acquire = require('acquire')
   , redis = acquire('redis').createClient()
   , states = acquire('states')
   , util = require('util')
+  , utilities = acquire('utilities')
   ;
 
 var Settings = acquire('settings')
@@ -172,10 +173,48 @@ Torrents.ipInfo = function(db, collections, campaign, done) {
 
   logger.info('ipInfo: Running job');
 
-  var cur = ips.find(query);
-  cur.each(function(err, ip) {
-    console.log(ip._id);
-  });
+  ips.find(query).toArray(function(err, docs) {
+    if (err)
+      return logger.warn('Unable to get list of ips to tackle for %s: %s', campaign._id, err); 
 
-  done();
+    Seq(docs)
+      .seqEach(function(ip) {
+        var that = this
+          , query = 'http://api.ipaddresslabs.com/iplocation/v1.7/locateip?key=SAK28R284C8F452PA27Z&ip=%s&format=json&compact=Y'
+          ;
+
+        url = fmt(query, ip._id);
+        utilities.request(url, {}, function(err, res, body) {
+          if (err) {
+            logger.warn('Unable to get info for %s: %s', ip._id, err);
+            return that();
+          }
+
+          try {
+            body = JSON.parse(body);
+          } catch (err) {
+            logger.warn('Unable to parse info response of %s: %s (%s)', ip._id, err, body);
+            return that();
+          }
+
+          var info = body['geolocation_data'];
+          if (!info) {
+            logger.warn('Unable to get info for %s: %s', ip._id, body);
+            return that();
+          }
+
+          info.created = Date.now();
+
+          ips.update({ _id: ip._id }, { $set: { ipInfo: info } }, that);
+        });
+      })
+      .seq(function() {
+        done();
+      })
+      .catch(function(err) {
+        console.log('Unable to get info of ips for %s: %s', campaign._id, err);
+        done(err);
+      })
+      ;
+  });
 }
