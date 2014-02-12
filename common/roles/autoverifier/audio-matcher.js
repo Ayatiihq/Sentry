@@ -50,7 +50,7 @@ AudioMatcher.prototype.init = function() {
 AudioMatcher.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)+Date.now()); 
+  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name); 
   
   self.cleanupEverything().then(function(){
     fs.mkdir(self.tmpDirectory, function(err){
@@ -220,22 +220,21 @@ AudioMatcher.prototype.cleanupEverything = function() {
     , promise = new Promise.Promise()
   ;
 
-  if(!self.tmpDirectory) // first run.
-    return promise.resolve;
+  var location = self.tmpDirectory ||
+                 path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name);
 
-  fs.exists(self.tmpDirectory, function(present){
+  fs.exists(location, function(present){
     if(!present)
       return promise.resolve();
 
-    rimraf(self.tmpDirectory, function(err){
+    rimraf(location, function(err){
       if(err){
-        logger.warn('Unable to rmdir ' + self.tmpDirectory + ' error : ' + err);
+        logger.warn('Unable to rmdir ' + location + ' error : ' + err);
         return promise.reject(err);
       }
       promise.resolve();
     });
   });
-
   return promise;
 }
 
