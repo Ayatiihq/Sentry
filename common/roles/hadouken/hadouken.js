@@ -148,7 +148,8 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
       self.infringements_.find({campaign: self.campaign_._id,
                                 scheme: 'torrent',
                                 'children.count': 0,
-                                state: { $in: [1, 3, 4]}}).toArray(this);
+                                state: { $in: [1, 3, 4]},
+                                verified : {$gt : Date.create('a day ago').getTime()}}).toArray(this);
     })
     .seq(function(results){
       results.each(function(result){
@@ -165,7 +166,7 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
         // for now just picking random ones from the filtered list.
         magnets = magnets.union(potentials);
       });
-      done(null, magnets);
+      done(null, magnets.unique());
     })
     .catch(function(err){
       done(err);
@@ -179,7 +180,7 @@ Hadouken.prototype.goMonitor = function(ourPrey, done){
   //logger.info('monitor : \n' + JSON.stringify(ourPrey));
 
   Seq(ourPrey.slice(0,50))
-    .seq(function(magnetLink){
+    .seqEach(function(magnetLink){
       setTimeout(self.monitorOne.bind(self, magnetLink, this), 2000);
     })
     .seq(function(){
@@ -197,6 +198,8 @@ Hadouken.prototype.monitorOne = function(uri, done){
   var data = {'uri': uri, 'campaign': self.campaign_._id};
   var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/add';
 
+  logger.info('about to push ' + JSON.stringify(data) + ' uri : ' + uri);
+  
   request.post({'url' : api,
                 'timeout': MAXTIMEOUT,
                 'headers' : {'content-type': 'application/json' , 'accept': 'text/plain'},
