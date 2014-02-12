@@ -885,7 +885,10 @@ SearchEngine.prototype.start = function (campaign, job, browser) {
   });
 
   self.scraper.on('found-link', function onFoundLink(link, points) {
-    self.emit('metaInfringement', link, points);
+    if(self.scraper.engineName === 'filestube')
+      self.emit('infringement', link, points);
+    else
+      self.emit('metaInfringement', link, points);
   });
 
   self.scraper.beginSearch(browser);
