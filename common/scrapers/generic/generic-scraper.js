@@ -191,7 +191,7 @@ Generic.prototype.pump = function (firstRun) {
   }
 };
 
-Generic.prototype.onWranglerFinished = function (infringement, isBackup, items) {
+Generic.prototype.onInfringementFinished = function (infringement, isBackup, items) {
   var self = this;
 
   // check to see if enough conditions are met, so we can start the second round of endpoint wrangler checks
@@ -377,7 +377,7 @@ Generic.prototype.checkURI = function (uri) {
   // check to see if there are any problems with the URI, isLinkInteresting() can return a state change
   var linkInterestingResult = self.isLinkInteresting(uri)
   if(linkInterestingResult !== null) {
-    resolveData['stateChange'] = linkInterestingResult;
+    resolveData.stateChange = linkInterestingResult;
   }
   else {
     if(arrayHas(uri, self.cyberlockers.first().domains)) {
@@ -418,16 +418,14 @@ Generic.prototype.generateRulesForCampaign = function () {
 }
 
 Generic.prototype.checkInfringement = function (infringement) {
-  var category = states.infringements.category
-    , self = this
-    , uri = (overrideURI) ? overrideURI : infringement.uri;
-  ;
+  var self = this;
   
-  var checkURIResult = self.checkURI(infringement.uri); // returns {stateChange:str, pointsChange:str}
+  var checkURIResult = self.checkURI(infringement.uri); // returns {stateChange:str, pointsChange:[number, str]}
   if (checkURIResult.stateChange !== null && checkURIResult.pointsChange !== null) {
+    // no problems with checkURIResult so we can start endpointWrangler on this uri
     var ruleSet = self.generateRulesForCampaign();
     var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
-    return wranglerPromise.then(self.onWranglerFinished.bind(self, infringement, false));
+    return wranglerPromise.then(self.onInfringementFinished.bind(self, infringement, false));
   }
   else {
     if (checkURIResult.stateChange) { 
@@ -436,7 +434,7 @@ Generic.prototype.checkInfringement = function (infringement) {
     if (checkURIResult.pointsChange) { 
       self.emit('infringementPointsUpdate', infringement, 'scraper.generic', checkURIResult.pointsChange[0], checkURIResult.pointsChange[1]);
     }
-    
+
     return new Promise.Promise().reject();
   }
 };
