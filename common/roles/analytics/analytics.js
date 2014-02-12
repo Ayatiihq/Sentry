@@ -227,6 +227,8 @@ Analytics.prototype.loadWork = function() {
   work.push(HostsCrunchers.nSocial);
 
   work.push(Torrents.torrentsStats);
+  work.push(Torrents.ipInfo);
+  work.push(Torrents.ipStats);
 
 /* Stop client calculations for now
 
