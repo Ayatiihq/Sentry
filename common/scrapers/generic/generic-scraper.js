@@ -347,21 +347,24 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
     var ruleSet = generateRulesForCampaign();
       
     // accumulate new promises for all the uris
-    var wranglerPromises = suspiciousURIS.map(function(uri) {
-      return self.wrapWrangler(uri, ruleSet).then(function (foundItems) {
-        // new found items, emit infringement updates 
-        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-        foundItems.each(function onFoundItem(foundItem) {
-          var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
-          parents.unshift(infringement.uri);
-          var metadata = foundItem.items;
-          metadata.isBackup = false;
-          self.emitInfringementUpdates(infringement, parents, metadata);
-        });
-      });
-    })
+    var accumPromises = suspiciousURIS.map(function (uri) { return self.wrapWrangler(uri, ruleset); });
 
-    // we are fiiiinally done with this infringement
+    return Promise.all(accumPromises).then(function (results) {
+      var foundItems = results.flatten();
+      // foundItems now has all the found items over alll the suspicious uris
+      if (foundItems.length > 0) { 
+        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED); 
+        foundItems.each(function onFoundItem(foundItem) {
+          // we are another level deep, so unshift the infringement.uri onto the parents array
+          foundItem.parents.unshift(infringement.uri);
+          foundItem.items.isBackup = false;
+          self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
+        });
+      }
+
+      self.activeInfringements.remove(infringement);
+    });
+
     return Promise.all(wranglerPromises).then(function() { self.activeInfringements.remove(infringement); })
   });
 }
