@@ -50,14 +50,16 @@ AudioMatcher.prototype.init = function() {
 AudioMatcher.prototype.createParentFolder = function(){
   var self = this;
   var promise = new Promise.Promise();
-  self.tmpDirectory = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name); 
-  
+  var location = path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name)); 
+
   self.cleanupEverything().then(function(){
-    fs.mkdir(self.tmpDirectory, function(err){
+
+    fs.mkdir(location, function(err){
       if(err){
         logger.error('Error creating parenting folder : ' + err);
         return promise.reject(err);
       }
+      self.tmpDirectory = location;
       promise.resolve();
     });
    },
@@ -219,9 +221,16 @@ AudioMatcher.prototype.cleanupEverything = function() {
   var self = this
     , promise = new Promise.Promise()
   ;
+  
+  // handle the edge case where there is nothing to do at all
+  // and the musicverifier shuts us down from the outside.
+  if(!self.campaign){
+    promise.resolve();
+    return;
+  }
 
   var location = self.tmpDirectory ||
-                 path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name);
+                 path.join(os.tmpDir(), utilities.genLinkKey(self.campaign.name));
 
   fs.exists(location, function(present){
     if(!present)
