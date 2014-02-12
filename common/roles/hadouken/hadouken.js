@@ -198,7 +198,7 @@ Hadouken.prototype.monitorOne = function(uri, done){
   var data = {'uri': uri, 'campaign': self.campaign_._id};
   var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/add';
 
-  logger.info('about to push ' + JSON.stringify(data) + ' uri : ' + uri);
+  //logger.info('about to push ' + JSON.stringify(data) + ' uri : ' + uri);
   
   request.post({'url' : api,
                 'timeout': MAXTIMEOUT,
