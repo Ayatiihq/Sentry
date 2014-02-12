@@ -12,15 +12,11 @@
 
 var acquire = require('acquire')
   , blacklist = acquire('blacklist')
-  , events = require('events')
   , logger = acquire('logger').forFile('generic-scraper.js')
   , URI = require('URIjs')
   , util = require('util')
   , utilities = acquire('utilities')
-  , url = require('url')
-  , sugar = require('sugar')
   , states = acquire('states')
-  , when = require('node-promise').when
   , wranglerRules = acquire('wrangler-rules')
 ;
 
@@ -30,6 +26,8 @@ var BasicWrangler = acquire('basic-endpoint-wrangler').Wrangler
   , Infringements = acquire('infringements')
   , Promise = require('node-promise')
 ;
+
+require('sugar');
 
 var Scraper = acquire('scraper');
 
@@ -74,7 +72,7 @@ Generic.prototype.emitInfringementUpdates = function (infringement, parents, ext
       self.emit('relation', parents[i - 1], parents[i]);
     }
   }  
-  var metadata = extradata.filter(function findEndpoints(v) { return !(v.isEndpoint); });
+
   // if we have an endpoint uri in the extra data, we should make a link for that and relate it up
   var endpoints = extradata.filter(function findEndpoints(v) { return !!(v.isEndpoint); });
 
@@ -98,16 +96,16 @@ Generic.prototype.getName = function () {
 Generic.prototype.searchWithOneUrl = function (campaign, url) {
   var self = this;
   self.campaign = campaign;
-  self.checkURLS = [{uri: url}];
+  self.checkURLS = [{ uri: url }];
   self.activeScrapes = 0;
   self.suspendedScrapes = 0;
 
   if (campaign.metadata.blacklist)
     safeDomains.add(campaign.metadata.blacklist);
- 
-  self.checkInfringement({uri: url});
+
+  self.checkInfringement({ uri: url });
   self.emit('started');
-}
+};
 
 Generic.prototype.start = function (campaign, job) {
   var self = this;
@@ -126,27 +124,27 @@ Generic.prototype.start = function (campaign, job) {
     var innerPromise = new Promise.Promise();
     self.hosts.getDomainsByCategory(category, function(err, domains){
       if (err) { innerPromise.reject(err); }
-      else { innerPromise.resolve({'category' : category, 'domains' : domains}) };
+      else { innerPromise.resolve({ 'category': category, 'domains': domains }); }
     });    
     return innerPromise;
   }
 
-  Promise.allOrNone([getKnownDomains(categories.CYBERLOCKER),  getKnownDomains(categories.TORRENT)])
+  Promise.allOrNone([getKnownDomains(categories.CYBERLOCKER), getKnownDomains(categories.TORRENT)])
   .then(function (results) {
-    self.cyberlockers = results.filter({'category': categories.CYBERLOCKER});
-    self.torrentSites = results.filter({'category': categories.TORRENT});
+    self.cyberlockers = results.filter({ 'category': categories.CYBERLOCKER });
+    self.torrentSites = results.filter({ 'category': categories.TORRENT });
     self.combinedDomains = results.map('domains');
   }).then(function () {
-    self.touchId_ = setInterval(function() {
-      self.activeInfringements.forEach(function(infringement) {
+    self.touchId_ = setInterval(function () {
+      self.activeInfringements.forEach(function (infringement) {
         self.infringements.touch(infringement);
       });
     }, 10 * 60 * 1000);
-   
+
     self.pump(true);
-  
+
     self.emit('started');
-  })
+  });
 
 };
 
@@ -164,7 +162,7 @@ Generic.prototype.pump = function (firstRun) {
   }
 
   var check = self.activeScrapes < self.maxActive;              // we don't have more than maxActive currently running scrapes
-  check &= self.numInfringementsChecked <= MAX_INFRINGEMENTS;   // we have checked less than MAX_INFRINGEMENTS infringements
+  check = (check && (self.numInfringementsChecked <= MAX_INFRINGEMENTS));   // we have checked less than MAX_INFRINGEMENTS infringements
 
   if (check) {
     self.infringements.getOneNeedsScraping(self.campaign, function(err, infringement) {
@@ -221,8 +219,6 @@ Generic.prototype.onInfringementFinished = function (infringement, isBackup, ite
 };
 
 Generic.prototype.isLinkInteresting = function (uri) {
-  var self = this;
-
   // If its pathless, no point.
   if (!utilities.uriHasPath(uri)) {
     logger.info('%s has no path, not scraping', uri);
@@ -234,7 +230,7 @@ Generic.prototype.isLinkInteresting = function (uri) {
     return states.infringements.state.FALSE_POSITIVE;
   }
   return null;
-}
+};
 
 Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   var self = this;
@@ -269,40 +265,40 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
     self.suspendedScrapes = self.suspendedScrapes - 1;
     self.pump();
   });
-  wrangler.on('error', function onWranglerError(err) { 
+  wrangler.on('error', function onWranglerError(err) {
     promise.reject(err);
   });
   wrangler.beginSearch(uri);
 
   return promise;
-}
+};
 
 /* for a given uri, pings all the links we find on that page and returns ones we think are suspicious 
  */
 Generic.prototype.findSuspiciousLinks = function (uri) {
   var self = this;
-  
-  return self.wrapWrangler(infringement.uri, [wranglerRules.findAllLinks])
+
+  return self.wrapWrangler(uri, [wranglerRules.findAllLinks])
   .then(function (foundItems) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
     var links = foundItems.map(function (foundItem) {
       try { // always have to try/catch URI because exceptions are dumb, lets crash the program because a url looked a bit strange!
-        return URI(infringement.uri).absoluteTo(foundItem.data);
+        return URI(uri).absoluteTo(foundItem.data);
       } catch (error) {
         return null; // probably 'javascript;'
       }
     });
 
     links = links.compact();
-    links = links.unique(); 
+    links = links.unique();
 
     //remove any links that look like infringement.uri
     // it looks like vomit because we want to remove anything past ? or # in the uri
-    links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === infringement.uri.split('#')[0].split('?')[0]); });
+    links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
 
     // for each link we need to make sure its not something we should be ignoring for whatever reason
-    links.remove(function (uri) { return (!!self.checkURI(uri)); })
+    links.remove(function (uri) { return (!!self.checkURI(uri)); });
 
     // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
     // which links are suspicious looking
@@ -312,7 +308,7 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
     // thinks the link is suspicious
     var accumPromises = links.map(function (link) {
       var infoRule = wranglerRules.checkForInfo(link,
-                                                self.campaign.metadata.artist, 
+                                                self.campaign.metadata.artist,
                                                 self.campaign.metadata.albumTitle,
                                                 self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
                                                 self.campaign.metadata.year);
@@ -320,14 +316,14 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
     });
 
     // accumPromises will return with an array of foundItems results
-    return Promise.all(accumPromises).then(function (results) { 
+    return Promise.all(accumPromises).then(function (results) {
       // find all the links that have the required checkForInfoHash as an endpoint
-      var suspiciousURIS = results.flatten().filter({'data': wranglerRules.checkForInfoHash}).map('sourceURI');
+      var suspiciousURIS = results.flatten().filter({ 'data': wranglerRules.checkForInfoHash }).map('sourceURI');
       suspiciousURIS.unique();
       return suspiciousURIS;
     });
   });
-}
+};
 
 /* The idea with this is that when we go through a page the first time, to generics eyes it may not find anything interesting
  * but often the interesting thing is just a click away. this is often the case when generic lands on search engine pages 
@@ -344,16 +340,16 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   return self.findSuspiciousLinks(infringement.uri)
   .then(function (suspiciousURIS) {
     // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
-    var ruleSet = generateRulesForCampaign();
-      
+    var ruleSet = self.generateRulesForCampaign();
+
     // accumulate new promises for all the uris
-    var accumPromises = suspiciousURIS.map(function (uri) { return self.wrapWrangler(uri, ruleset); });
+    var accumPromises = suspiciousURIS.map(function (uri) { return self.wrapWrangler(uri, ruleSet); });
 
     return Promise.all(accumPromises).then(function (results) {
       var foundItems = results.flatten();
       // foundItems now has all the found items over alll the suspicious uris
-      if (foundItems.length > 0) { 
-        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED); 
+      if (foundItems.length > 0) {
+        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
         foundItems.each(function onFoundItem(foundItem) {
           // we are another level deep, so unshift the infringement.uri onto the parents array
           foundItem.parents.unshift(infringement.uri);
@@ -364,30 +360,28 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
 
       self.activeInfringements.remove(infringement);
     });
-
-    return Promise.all(wranglerPromises).then(function() { self.activeInfringements.remove(infringement); })
   });
-}
+};
 
 /* figures out if we should continue processing this uri */
 Generic.prototype.checkURI = function (uri) {
   var self = this;
-  var resolveData = {'stateChange': null, 'pointsChange': null};
+  var resolveData = { 'stateChange': null, 'pointsChange': null };
 
   // check to see if there are any problems with the URI, isLinkInteresting() can return a state change
-  var linkInterestingResult = self.isLinkInteresting(uri)
-  if(linkInterestingResult !== null) {
+  var linkInterestingResult = self.isLinkInteresting(uri);
+  if (linkInterestingResult !== null) {
     resolveData.stateChange = linkInterestingResult;
   }
   else {
-    if(arrayHas(uri, self.cyberlockers.first().domains)) {
+    if (arrayHas(uri, self.cyberlockers.first().domains)) {
       logger.info('%s is a cyberlocker', uri);
       // FIXME: This should be done in another place, is just a hack, see
       //        https://github.com/afive/sentry/issues/65
       // It's a cyberlocker URI, so important but we don't scrape it further
       resolveData.stateChange = states.infringements.state.UNVERIFIED;
       resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
-    } 
+    }
     if (arrayHas(uri, self.torrentSites.first().domains)) {
       logger.info('%s is a torrent site', uri);
       // FIXME: This should be done in another place, is just a hack, see
@@ -400,22 +394,25 @@ Generic.prototype.checkURI = function (uri) {
   }
 
   return resolveData;
-}
+};
 
 Generic.prototype.generateRulesForCampaign = function () {
+  var self = this;
   var musicRules = wranglerRules.rulesDownloadsMusic;
   var movieRules = wranglerRules.rulesDownloadsMovie;
-    
+
   musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
   movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
-    
-  var rules = {'music' : musicRules,
-                'tv': wranglerRules.rulesLiveTV,
-                'movie': movieRules};
+
+  var rules = {
+    'music': musicRules,
+    'tv': wranglerRules.rulesLiveTV,
+    'movie': movieRules
+  };
   var ruleSet = rules[self.campaign.type.split('.')[0]];
 
   return ruleSet;
-}
+};
 
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
@@ -439,18 +436,16 @@ Generic.prototype.checkInfringement = function (infringement) {
   }
 };
 
-
 Generic.prototype.stop = function () {
   var self = this;
   self.emit('finished');
 };
 
 Generic.prototype.isAlive = function (cb) {
-  var self = this;
   cb();
 };
 
 // Utils
 function arrayHas(test, arr) {
   return arr.some(RegExp(test.escapeRegExp()));
-};
+}

@@ -11,14 +11,11 @@ require('sugar');
 var acquire = require('acquire')
   , all = require('node-promise').all
   , shorteners = acquire('shorteners')
-  , events = require('events')
   , logger = acquire('logger').forFile('wrangler-rules.js')
   , Promise = require('node-promise').Promise
   , request = require('request')
   , URI = require('URIjs')
-  , util = require('util')
   , utilities = acquire('utilities')
-  , when = require('node-promise').when
   , XRegExp = require('xregexp').XRegExp
 ;
 
@@ -34,7 +31,7 @@ module.exports.shouldIgnoreUri = function (uri) {
    , XRegExp('adjuggler')
    , XRegExp('yllix') // yllix.com - ads
    , XRegExp('(cineblizz|newzexpress|goindialive|webaddalive|awadhtimes|listenfilmyradio)') // generic add landing pages
-   , XRegExp('\.(js|css)')
+   , XRegExp('\\.(js|css)')
   ];
 
   return ignoreUris.some(function ignoreTest(testregex) {
@@ -64,7 +61,6 @@ module.exports.magnetMatch = XRegExp( //ignore jslint
   ')'
   ,'gix');
 
-
 var Endpoint = function (data) {
   this.data = data;
   this.isEndpoint = false;
@@ -74,17 +70,16 @@ Endpoint.prototype.toString = function () {
   return this.data.toString();
 };
 
-
 // such hack. 
 // returns all the links on the page as an endpoint
 module.exports.findAllLinks = function ($, source, uri, foundItems) {
   $('a').each(function () {
     var item = new Endpoint(this.href);
-    foundItems.push(newitem);
+    foundItems.push(item);
   });
 
   return foundItems;
-}
+};
 
 /* so this is going to be a bit mental, we want to go through the given html 
  * and figure out if its likely that the site has infringing content specific 
@@ -92,7 +87,7 @@ module.exports.findAllLinks = function ($, source, uri, foundItems) {
  */
 module.exports.checkForInfoHash = 'InfoCheckedAndAccepted';
 module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) {
-  var infoChecker = function(albumInfos, $, source, uri, foundItems) {
+  var infoChecker = function (albumInfos, $, source, uri, foundItems) {
     var mainText = $('body').text();
     function buildRE(str) { return XRegExp(XRegExp.escape(str), 'igs'); }
     var titleRegExp = buildRE(albumInfos.title);
@@ -103,11 +98,10 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
     var tracksFound = tracks.count(function (track) { return XRegExp.test(mainText, buildRE(track)); });
     var foundAlbum = XRegExp.test(mainText, titleRegExp);
     var foundArtist = XRegExp.test(mainText, artistRegExp);
-    var foundYear = XRegExp.test(mainText, yearRegExp);
 
     // look in the anchor hrefs for matches
     var hrefs = [];
-    $('a').each(function() { hrefs.push(this.href); });
+    $('a').each(function () { hrefs.push(this.href); });
     var suspiciousLinks = hrefs.count(function (href) {
       if (!artistRegExp.test(href)) {
         // artist is not in the link title, not trustworthy enough for a link. 
@@ -129,12 +123,12 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
       newitem.isEndpoint = false;
       foundItems.push(newitem);
     }
-    
-    return foundItems;
-  }
 
-  return infoChecker.bind(null, {'artist': artist, 'title':title, 'tracks': tracks, 'year': year});
-}
+    return foundItems;
+  };
+
+  return infoChecker.bind(null, { 'artist': artist, 'title': title, 'tracks': tracks, 'year': year });
+};
 
 module.exports.ruleEmbed = function DomEmbed($, source, uri, foundItems) {
   $('embed').each(function onEmd() {
@@ -167,7 +161,7 @@ module.exports.ruleSwfObject = function SwfObject($, source, uri, foundItems) {
     }
   });
   return foundItems;
-}
+};
 
 module.exports.ruleObject = function DomObject($, source, uri, foundItems) {
   $('object').each(function onObj() {
@@ -271,20 +265,20 @@ var searchTypes = module.exports.searchTypes = {
  * Constructs a list of all possible links before searching for matches from the extensionList
  * depending on the matching algorithm chosen (searchTypes).
  */
-var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionList, searchType, mimeMatch) {
-  var findExtensions = function(extensions, searchType, mimeMatch, $, source, uri, foundItems) {
+var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extensionList, searchType, mimeMatch) {
+  var findExtensions = function (extensions, searchType, mimeMatch, $, source, uri, foundItems) {
     var hostname = URI(uri).pathname('').href()
       , links = {}
       , shortenedLinks = []
       , promise = new Promise()
-      ;
+    ;
 
     // Let's start with getting all links in the page source
     XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
       var url = match.fulluri.toString();
       try {
-        url = url.unescapeURL()
-      } catch (err) {}
+        url = url.unescapeURL();
+      } catch (err) { }
 
       links[url] = true;
     });
@@ -295,13 +289,13 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
     });
 
     // Let's then grab all the a links, relative or otherwise
-    $('a').each(function() {
+    $('a').each(function () {
       var href = $(this).attr('href');
 
       if (href) {
-        if (href[0] == '/') {
+        if (href[0] === '/') {
           links[hostname + href] = true;
-        
+
         } else {
           if (!href.startsWith('magnet:')) // Ignore magnet links from cheerio as it chokes on them
             links[href] = true;
@@ -310,27 +304,27 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
     });
 
     // Now let's see if there are any shorteners and, if so, resolve them
-    Object.keys(links, function(link) {
+    Object.keys(links, function (link) {
       // FIXME: We can add a cache here to speed up shortener lookups
       try {
         var linkuri = URI(link)
           , domain = linkuri.domain()
-          ;
+        ;
         if (shorteners.knownDomains.some(domain)) {
           shortenedLinks.push(link);
         }
-      
+
       } catch (err) {
         logger.warn('Unable to parse %s as URI', link);
       }
     });
 
-    var promiseArray = shortenedLinks.map(function(link) {
-      return utilities.followRedirects([ link ], new Promise());
+    var promiseArray = shortenedLinks.map(function (link) {
+      return utilities.followRedirects([link], new Promise());
     });
 
-    all(promiseArray).then(function(lifted30Xs) {
-      lifted30Xs.each(function(single30x) {
+    all(promiseArray).then(function (lifted30Xs) {
+      lifted30Xs.each(function (single30x) {
         links[single30x.last()] = true;
       });
 
@@ -363,7 +357,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
       }
 
       // Finally, it's time to search for the useful extentions
-      Object.keys(links, function(link) {
+      Object.keys(links, function (link) {
         if (linkMatchesExtension(link)) {
           var item = new Endpoint(link);
           item.isEndpoint = true;
@@ -381,32 +375,31 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function(extensionL
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
-          utilities.requestURLStream( link,
-                                     {'timeout':30*1000},
+          utilities.requestURLStream(link,
+                                     { 'timeout': 30 * 1000 },
                                      function cb(err, req, response, stream) {
-            if (err) { p.reject(); return; }
+                                       if (err) { p.reject(); return; }
 
-            var mimeType = response.headers['content-type'];
-            if (mimeMatch.test(mimeType)) {
-              var item = new Endpoint(link);
-              item.isEndpoint = true;
-              foundItems.push(item);
-            }
+                                       var mimeType = response.headers['content-type'];
+                                       if (mimeMatch.test(mimeType)) {
+                                         var item = new Endpoint(link);
+                                         item.isEndpoint = true;
+                                         foundItems.push(item);
+                                       }
 
-            p.resolve();
-            req.abort(); // we don't care about the actual stream for now
-          });
+                                       p.resolve();
+                                       req.abort(); // we don't care about the actual stream for now
+                                     });
         });
 
-        all(pingPromises).then(function() { promise.resolve(foundItems); });
+        all(pingPromises).then(function () { promise.resolve(foundItems); });
       }
     });
     return promise;
-  }
-  
-  return findExtensions.bind(null, extensionList, searchType, mimeMatch); 
-}
+  };
 
+  return findExtensions.bind(null, extensionList, searchType, mimeMatch);
+};
 
 function linkBeginsWith(link, prefixes) {
   for (var i = 0; i < prefixes.length; i++) {
@@ -479,11 +472,11 @@ module.exports.rulesDownloadsTorrent = [
 ];
 
 module.exports.typeExtensions = {
-    'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
+  'music.album': [].include(audioExtensions).include(p2pExtensions).include(archiveExtensions)
   , 'movie': [].include(videoExtensions).include(p2pExtensions).include(archiveExtensions)
-}
+};
 
 module.exports.typeMediaExtensions = {
-    'music.album': [].include(audioExtensions).include(archiveExtensions)
+  'music.album': [].include(audioExtensions).include(archiveExtensions)
   , 'movie': [].include(videoExtensions).include(archiveExtensions)
-}
+};
