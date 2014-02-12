@@ -169,6 +169,9 @@ Torrents.ipInfo = function(db, collections, campaign, done) {
           }
         ]
       }
+    , project = {
+        _id: 1
+      }
     ;
 
   logger.info('ipInfo: Running job');
@@ -213,6 +216,84 @@ Torrents.ipInfo = function(db, collections, campaign, done) {
       })
       .catch(function(err) {
         console.log('Unable to get info of ips for %s: %s', campaign._id, err);
+        done(err);
+      })
+      ;
+  });
+}
+
+Torrents.ipStats = function(db, collections, campaign, done) {
+  var self = this
+    , ips = collections['ips']
+    , torrentStats = collections['torrentStats']
+    ;
+
+  logger.info('ipStats: Running job');
+
+  ips.find({ campaigns: campaign._id, ipInfo: { $exists: true } }, { ipInfo: 1 }).toArray(function(err, docs) {
+    if (err)
+      return logger.warn('Unable to get list of ips to stat for %s: %s', campaign._id, err); 
+
+    var ipCountries = {}
+      , ipCities = {}
+      , ipISPs = {}
+      ;
+
+    docs.forEach(function(ip) {
+      var address = ip._id
+        , country = ip.ipInfo.country_code_iso3166alpha2
+        , city = ip.ipInfo.city
+        , isp = ip.ipInfo.organization
+        , value = {}
+        ;
+
+      value = ipCountries[country] || { country: '', count: 0 };
+      value.country = country;
+      value.count += 1;
+      ipCountries[country] = value;
+
+      value = ipCities[country + city] || { country: '', city: '', count: 0 };
+      value.country = country;
+      value.city = city;
+      value.count += 1;
+      ipCities[country + city] = value;
+
+      value = ipISPs[isp + country] || { country: '', isp: '', count: 0 };
+      value.country = country;
+      value.isp = isp;
+      value.count += 1;
+      ipISPs[isp + country] = value;
+    });
+
+    function sort(a, b) {
+      return b.count - a.count;
+    }
+
+    ipCountries = Object.values(ipCountries).sort(sort);
+    ipCities = Object.values(ipCities).sort(sort);
+    ipISPs = Object.values(ipISPs).sort(sort);
+
+    // Upload this shiznit
+    var works = [
+      { 'torrentPeerCountries': ipCountries },
+      { 'torrentPeerCities': ipCities },
+      { 'torrentPeerISPs': ipISPs }
+    ];
+
+    Seq(works)
+      .seqEach(function(work) {
+        var stat = Object.keys(work)[0]
+          , value = work[stat]
+          , key = { campaign: campaign._id, statistic: stat }
+          ;
+
+        torrentStats.update({ _id: key }, { _id: key, value: value }, { upsert: true }, this);
+        setAndSend(campaign, stat, value);
+      })
+      .seq(function() {
+        done();
+      })
+      .catch(function(err) {
         done(err);
       })
       ;
