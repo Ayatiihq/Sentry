@@ -277,23 +277,13 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   return promise;
 }
 
-/* The idea with this is that when we go through a page the first time, to generics eyes it may not find anything interesting
- * but often the interesting thing is just a click away. this is often the case when generic lands on search engine pages 
- * such as a torrent search engine. if it just clicked those links the torrent search engine is pointing at, it would find so much gold.
- *
- * but then the problem of which links are the ones that we are interested in comes to mind. doSecondAssaultOnInfringement attempts to solve that
- * it will go through all the links listed on the infringement.uri page and re-run endpoint-wrangler on the ones that it qualifies as being suspicious
- * which should generate a whole host of new infringements for us
- */ 
-Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
+/* for a given uri, pings all the links we find on that page and returns ones we think are suspicious 
+ */
+Generic.prototype.findSuspiciousLinks = function (uri) {
   var self = this;
-
-  // first find all links on the page
+  
   return self.wrapWrangler(infringement.uri, [wranglerRules.findAllLinks])
-  .then(function (foundItems) { 
-    // for each link, run the wrangler on it with the checkForInfo ruleset
-    // which will figure out if the page is interesting or not
-
+  .then(function (foundItems) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
     var links = foundItems.map(function (foundItem) {
@@ -314,6 +304,9 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
     // for each link we need to make sure its not something we should be ignoring for whatever reason
     links.remove(function (uri) { return (!!self.checkURI(uri)); })
 
+    // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
+    // which links are suspicious looking
+
     // go through the links we got from scraping all the hrefs on the page and run the checkForInfo rule on it
     // this will return with an Endpoint with wranglerRules.checkForInfoHash set as its data if checkForInfo
     // thinks the link is suspicious
@@ -326,31 +319,50 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
       return self.wrapWrangler(link, [infoRule]);
     });
 
-    return Promise.all(accumPromises).then(function (results) {
+    // accumPromises will return with an array of foundItems results
+    return Promise.all(accumPromises).then(function (results) { 
       // find all the links that have the required checkForInfoHash as an endpoint
       var suspiciousURIS = results.flatten().filter({'data': wranglerRules.checkForInfoHash}).map('sourceURI');
-
-      // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
-      var ruleSet = generateRulesForCampaign();
-      
-      // accumulate new promises for all the uris
-      var wranglerPromises = suspiciousURIS.map(function(uri) {
-        return self.wrapWrangler(uri, ruleSet).then(function (foundItems) {
-          // new found items, emit infringement updates 
-          self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
-          foundItems.each(function onFoundItem(foundItem) {
-            var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
-            parents.unshift(infringement.uri);
-            var metadata = foundItem.items;
-            metadata.isBackup = false;
-            self.emitInfringementUpdates(infringement, parents, metadata);
-          });
-        });
-      })
-
-      // we are fiiiinally done with this infringement
-      return Promise.all(wranglerPromises).then(function() { self.activeInfringements.remove(infringement); })
+      suspiciousURIS.unique();
+      return suspiciousURIS;
     });
+  });
+}
+
+/* The idea with this is that when we go through a page the first time, to generics eyes it may not find anything interesting
+ * but often the interesting thing is just a click away. this is often the case when generic lands on search engine pages 
+ * such as a torrent search engine. if it just clicked those links the torrent search engine is pointing at, it would find so much gold.
+ *
+ * but then the problem of which links are the ones that we are interested in comes to mind. doSecondAssaultOnInfringement attempts to solve that
+ * it will go through all the links listed on the infringement.uri page and re-run endpoint-wrangler on the ones that it qualifies as being suspicious
+ * which should generate a whole host of new infringements for us
+ */ 
+Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
+  var self = this;
+
+  // find all the suspicious looking pages linked from infringement.uri
+  return self.findSuspiciousLinks(infringement.uri)
+  .then(function (suspiciousURIS) {
+    // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
+    var ruleSet = generateRulesForCampaign();
+      
+    // accumulate new promises for all the uris
+    var wranglerPromises = suspiciousURIS.map(function(uri) {
+      return self.wrapWrangler(uri, ruleSet).then(function (foundItems) {
+        // new found items, emit infringement updates 
+        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+        foundItems.each(function onFoundItem(foundItem) {
+          var parents = foundItem.parents;  // we are another level deep, so unshift the infringement.uri onto the parents array
+          parents.unshift(infringement.uri);
+          var metadata = foundItem.items;
+          metadata.isBackup = false;
+          self.emitInfringementUpdates(infringement, parents, metadata);
+        });
+      });
+    })
+
+    // we are fiiiinally done with this infringement
+    return Promise.all(wranglerPromises).then(function() { self.activeInfringements.remove(infringement); })
   });
 }
 
@@ -402,13 +414,13 @@ Generic.prototype.generateRulesForCampaign = function () {
   return ruleSet;
 }
 
-Generic.prototype.checkInfringement = function (infringement, overrideURI, additionalRules) {
+Generic.prototype.checkInfringement = function (infringement) {
   var category = states.infringements.category
     , self = this
     , uri = (overrideURI) ? overrideURI : infringement.uri;
   ;
   
-  var checkURIResult = self.checkURI(infringement.uri);
+  var checkURIResult = self.checkURI(infringement.uri); // returns {stateChange:str, pointsChange:str}
   if (checkURIResult.stateChange !== null && checkURIResult.pointsChange !== null) {
     var ruleSet = self.generateRulesForCampaign();
     var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
