@@ -186,7 +186,7 @@ Storage.prototype.createFromURL = function(campaignID, name, url, options, callb
 /*
  * Get a file from storage as text
  *
- * @param  {string}                campaignID           The campaign's id. 
+ * @param  {string}                campaignID           The campaign's id (if the file is not in a campaign folder pass in null). 
  * @param  {string}                name                 The content's name.
  * @param  {object}                options              The options object.
  * @param  {function(err,text)}    callback             A callback to receive an error, if one occurs.
@@ -197,6 +197,10 @@ Storage.prototype.getToText = function(campaignID, name, options, callback) {
     , objPath = util.format('/%s/%s/%s', self.container_, campaignID, name)
     ;
   
+  // Handle the scenario where we want to fetch something not campaign specific
+  if(!campaignID)
+    objPath = util.format('/%s/%s', self.container_, name)
+
   callback = callback ? callback : defaultCallback;
 
   self.client_.getFile(objPath, function(err, res) {
