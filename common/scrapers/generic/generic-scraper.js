@@ -439,5 +439,5 @@ Generic.prototype.isAlive = function (cb) {
 
 // Utils
 function arrayHas(test, arr) {
-  return !!arr.count(function (v) { return test.has(v); });
+  return arr.some(RegExp(test.escapeRegExp()));
 };
