@@ -50,6 +50,8 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
     , torrentStats = collections['torrentStats']
     ;
 
+  logger.info('torrentsStats: Running job');
+
   hadouken.find({ '_id.campaign': campaign._id }).toArray(function(err, torrents) {
     if (err)
       return done(err);
