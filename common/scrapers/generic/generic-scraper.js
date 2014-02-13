@@ -46,8 +46,8 @@ Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
-  self.hosts = new Hosts();
-  self.infringements = new Infringements();
+  //self.hosts = new Hosts();
+  //self.infringements = new Infringements();
 
   self.activeScrapes = 0;
   self.maxActive = 10;
@@ -255,15 +255,16 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
     }
     promise.resolve(foundItems);
   });
+
   wrangler.on('suspended', function onWranglerSuspend() {
     self.activeScrapes = self.activeScrapes - 1;
     self.suspendedScrapes = self.suspendedScrapes + 1;
-    self.pump();
+    //self.pump();
   });
   wrangler.on('resumed', function onWranglerResume() {
     self.activeScrapes = self.activeScrapes + 1;
     self.suspendedScrapes = self.suspendedScrapes - 1;
-    self.pump();
+    //self.pump();
   });
   wrangler.on('error', function onWranglerError(err) {
     promise.reject(err);
@@ -282,23 +283,28 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
   .then(function (foundItems) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
-    var links = foundItems.map(function (foundItem) {
+    var links = foundItems[0].items.map(function (foundItem) {
+      console.log(uri + ' -> ' + foundItem.data);
       try { // always have to try/catch URI because exceptions are dumb, lets crash the program because a url looked a bit strange!
-        return URI(uri).absoluteTo(foundItem.data);
+        console.log(URI(foundItem.data).absoluteTo(uri).toString());
+        return URI(foundItem.data).absoluteTo(uri).toString(); // FIXME!! this is returning the wrong result for /tos/
       } catch (error) {
         return null; // probably 'javascript;'
       }
     });
-
-    links = links.compact();
+    //console.log('found links: ', links)
+    links = links.compact(); //console.log('found links: '.links)
     links = links.unique();
-
+    //console.log('found links: '.links)
     //remove any links that look like infringement.uri
     // it looks like vomit because we want to remove anything past ? or # in the uri
-    links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
 
+    links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
+    //console.log('found links: '.links)
     // for each link we need to make sure its not something we should be ignoring for whatever reason
     links.remove(function (uri) { return (!!self.checkURI(uri)); });
+
+    //console.log('found links: '. links)
 
     // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
     // which links are suspicious looking
@@ -339,6 +345,7 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   // find all the suspicious looking pages linked from infringement.uri
   return self.findSuspiciousLinks(infringement.uri)
   .then(function (suspiciousURIS) {
+    console.log(suspiciousURIS);
     // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
     var ruleSet = self.generateRulesForCampaign();
 
@@ -349,16 +356,17 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
       var foundItems = results.flatten();
       // foundItems now has all the found items over alll the suspicious uris
       if (foundItems.length > 0) {
-        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+        //self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
         foundItems.each(function onFoundItem(foundItem) {
           // we are another level deep, so unshift the infringement.uri onto the parents array
           foundItem.parents.unshift(infringement.uri);
           foundItem.items.isBackup = false;
-          self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
+          console.log('got item: ', foundItem);
+          //self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
         });
       }
 
-      self.activeInfringements.remove(infringement);
+      //self.activeInfringements.remove(infringement);
     });
   });
 };
@@ -374,22 +382,26 @@ Generic.prototype.checkURI = function (uri) {
     resolveData.stateChange = linkInterestingResult;
   }
   else {
-    if (arrayHas(uri, self.cyberlockers.first().domains)) {
-      logger.info('%s is a cyberlocker', uri);
-      // FIXME: This should be done in another place, is just a hack, see
-      //        https://github.com/afive/sentry/issues/65
-      // It's a cyberlocker URI, so important but we don't scrape it further
-      resolveData.stateChange = states.infringements.state.UNVERIFIED;
-      resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
+    if (self.cyberlockers) {
+      if (arrayHas(uri, self.cyberlockers.first().domains)) {
+        logger.info('%s is a cyberlocker', uri);
+        // FIXME: This should be done in another place, is just a hack, see
+        //        https://github.com/afive/sentry/issues/65
+        // It's a cyberlocker URI, so important but we don't scrape it further
+        resolveData.stateChange = states.infringements.state.UNVERIFIED;
+        resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
+      }
     }
-    if (arrayHas(uri, self.torrentSites.first().domains)) {
-      logger.info('%s is a torrent site', uri);
-      // FIXME: This should be done in another place, is just a hack, see
-      //        https://github.com/afive/sentry/issues/65
-      // It's a cyberlocker URI, so important but we don't scrape it further
-      // TODO how this change the category on the infringement.
-      resolveData.stateChange = states.infringements.state.UNVERIFIED;
-      resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'torrent'];
+    if (self.torrentSites) {
+      if (arrayHas(uri, self.torrentSites.first().domains)) {
+        logger.info('%s is a torrent site', uri);
+        // FIXME: This should be done in another place, is just a hack, see
+        //        https://github.com/afive/sentry/issues/65
+        // It's a cyberlocker URI, so important but we don't scrape it further
+        // TODO how this change the category on the infringement.
+        resolveData.stateChange = states.infringements.state.UNVERIFIED;
+        resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'torrent'];
+      }
     }
   }
 
@@ -401,8 +413,8 @@ Generic.prototype.generateRulesForCampaign = function () {
   var musicRules = wranglerRules.rulesDownloadsMusic;
   var movieRules = wranglerRules.rulesDownloadsMovie;
 
-  musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
-  movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+ // musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+ // movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
 
   var rules = {
     'music': musicRules,
@@ -448,4 +460,45 @@ Generic.prototype.isAlive = function (cb) {
 // Utils
 function arrayHas(test, arr) {
   return arr.some(RegExp(test.escapeRegExp()));
+}
+
+// for testing
+if (require.main === module) {
+  var metadata = {
+    'artist': "Girls Generation",
+    'albumTitle': "The Boys",
+    'year': '2011',
+    'assets':[
+      {'title': 'The Boys'},
+      {'title': 'Say Yes'},
+      {'title': 'Trick'}
+    ]
+  };
+
+  var campaign = {
+    'metadata': metadata,
+    'type': 'music.album',
+  };
+
+  
+
+  var generic = new Generic();
+  generic.campaign = campaign;
+
+  var ruleSet = generic.generateRulesForCampaign();
+  //var url = 'http://mp3skull.com/mp3/the_boys_girls_generation.html'
+  //var url = 'http://isohunt.to/torrents/?ihq=Girls+Generation+The+Boys';
+  var url = 'http://www.musicaddict.com/mp3/the-boys-girls-generation.html';
+
+  var infringement = { 'uri': url };
+
+  generic.wrapWrangler(url, ruleSet)
+  .then(function (foundItems) {
+    foundItems.each(console.dir);
+
+    return generic.doSecondAssaultOnInfringement(infringement);
+  })
+  .then(function (things) {
+    console.log('done?');
+  });
 }

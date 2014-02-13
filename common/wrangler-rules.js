@@ -74,7 +74,7 @@ Endpoint.prototype.toString = function () {
 // returns all the links on the page as an endpoint
 module.exports.findAllLinks = function ($, source, uri, foundItems) {
   $('a').each(function () {
-    var item = new Endpoint(this.href);
+    var item = new Endpoint(this['0'].attribs.href);
     foundItems.push(item);
   });
 
@@ -117,11 +117,19 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
     // at this point we have all the information we need to make a judgement
 
     if (foundArtist && (tracksFound || foundAlbum || suspiciousLinks)) {
+      console.log('accepted uri: ' + sourceURI);
       // at the very least we need the artist to exist on the page, then we check for tracks/album/suspicious links
       var newitem = new Endpoint('InfoCheckedAndAccepted'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
       newitem.sourceURI = sourceURI;
       newitem.isEndpoint = false;
       foundItems.push(newitem);
+    }
+    else {
+      console.log('rejected uri: ' + sourceURI);
+      if (!foundArtist) { console.log('no artist'); }
+      if (!tracksFound) { console.log('no tracks found'); }
+      if (!foundAlbum) { console.log('no album found'); }
+      if (!suspiciousLinks) { console.log('no suspicious links'); }
     }
 
     return foundItems;
@@ -398,6 +406,8 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     return promise;
   };
 
+  if (!extensionList) { logger.error(new Error('Find extensions called with no extensionList')); }
+
   return findExtensions.bind(null, extensionList, searchType, mimeMatch);
 };
 
@@ -431,7 +441,7 @@ function linkIsFrom(link, domains) {
     return domains.some(domain);
 
   } catch (err) {
-    logger.warn('Unable to parse %s for checking domains: %s', link, err);
+    logger.error('Unable to parse %s for checking domains: %s', link, err);
   }
   return false;
 }
