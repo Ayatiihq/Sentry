@@ -142,14 +142,15 @@ Analytics.prototype.preRun = function(job, done) {
 }
 
 Analytics.prototype.run = function(done) {
-  var self = this;
+  var self = this
+    , works = self.loadWork()
+    ;
 
-  logger.debug('Running analytics for %s', self.campaign_._id);
+  logger.debug('Running analytics for %s, %d jobs to do', self.campaign_._id, works.length);
 
-  Seq(self.loadWork())
+  Seq(works)
     .seqEach(function(work) {
       var that = this;
-
       work(self.db_,
            self.collections_,
            self.campaign_, 
