@@ -62,7 +62,8 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
     var shareStats = { downloadCount: 0, peerCount: 0, seederCount: 0, leecherCount: 0, lastChecked: 0 };
     var peerStats = {};
     var progressStats = {};
-
+    var peerDownloadCounts = 0;
+    
     torrents.forEach(function(torrent) {
       torrent.state.forEach(function(state) {
         var timestamp = Object.keys(state)[0]
@@ -115,7 +116,17 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
       var progress = peer.progress.ceil(1);
       var pCount = progressStats[progress] || 0;
       progressStats[progress] = pCount + 1;
+
+      if (progress == 1)
+        peerDownloadCounts += 1;
     });
+
+    // Make sure we have the most relevant stats
+    // This is because we can be finding more info off DHT
+    // than what trackers are reporting. At least when the torrents
+    // are young, we'll get DHT stats that are higher
+    shareStats.downloadCount = Math.max(shareStats.downloadCount, peerDownloadCounts)
+
 
     // Fix the values for the database
     // We want simple arrays whenever possible

@@ -175,6 +175,9 @@ Analytics.prototype.loadWork = function() {
     , work = []
     ;
 
+  work.push(Torrents.torrentsStats);
+  return work;
+
   // Pre-MapReduce
   if (!process.env['ANALYTICS_IGNORE_HOSTS']) {
     work.push(HostsInfo.serverInfo);
