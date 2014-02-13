@@ -251,7 +251,7 @@ Torrents.ipStats = function(db, collections, campaign, done) {
 
     docs.forEach(function(ip) {
       var address = ip._id
-        , country = ip.ipInfo.country_code_iso3166alpha2
+        , country = ip.ipInfo.country_code_iso3166alpha3
         , city = ip.ipInfo.city
         , isp = ip.ipInfo.organization
         , value = {}
@@ -265,6 +265,8 @@ Torrents.ipStats = function(db, collections, campaign, done) {
       value = ipCities[country + city] || { country: '', city: '', count: 0 };
       value.country = country;
       value.city = city;
+      value.latitude = ip.ipInfo.latitude;
+      value.longitude = ip.ipInfo.longitude;
       value.count += 1;
       ipCities[country + city] = value;
 
