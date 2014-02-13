@@ -138,7 +138,8 @@ Torrents.torrentsStats = function(db, collections, campaign, done) {
       { 'torrentPeerStats': peerStats },
       { 'torrentTrackerStats': trackerStats },
       { 'torrentProgressStats': progressStats },
-      { 'torrentShareStats': shareStats }
+      { 'torrentShareStats': shareStats },
+      { 'torrentCount': torrents.length }
     ];
 
     Seq(works)
@@ -289,7 +290,8 @@ Torrents.ipStats = function(db, collections, campaign, done) {
     var works = [
       { 'torrentPeerCountries': ipCountries },
       { 'torrentPeerCities': ipCities },
-      { 'torrentPeerISPs': ipISPs }
+      { 'torrentPeerISPs': ipISPs },
+      { 'torrentISPCount': ipISPs.length }
     ];
 
     Seq(works)
