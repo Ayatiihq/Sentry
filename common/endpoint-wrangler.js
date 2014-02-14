@@ -104,7 +104,7 @@ Wrangler.prototype.setupIFrameHandler = function () {
 Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   var self = this;
   self.processing++;
-  var baseURI = uri;
+  var baseURI = null;
   if ($('base').length > 0) { // balls, we have a base tag
     baseURI = $('base').attr('href');
   }

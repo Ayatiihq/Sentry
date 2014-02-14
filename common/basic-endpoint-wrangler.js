@@ -129,9 +129,15 @@ Wrangler.prototype.processIFrames = function (uri, parents, $) {
   }
 
   // build an array of promises from the iframes array
+  var baseURI = null;
+  if ($('base').length > 0) { // balls, we have a base tag
+    baseURI = $('base').attr('href');
+  }
+
   var newIFrames = self.findIFrames($).map(function foundIFrame(iframeSrc) {
+    var absoluteURI = (baseURI) ? baseURI : uri;
     try {
-      composedURI = URI(iframeSrc).absoluteTo(uri).toString();
+      composedURI = URI(iframeSrc).absoluteTo(absoluteURI).toString();
     } catch (error) {
       return null; // probably 'javascript;'
     }
