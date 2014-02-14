@@ -140,7 +140,7 @@ Hadouken.prototype.hadoukening = function(done){
 
 Hadouken.prototype.findTorrentsToMonitor = function(done){
   var self = this
-    , magnets = []
+    , magnetsAndTorrents = []
     ; 
 
   Seq()
@@ -148,25 +148,19 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
       self.infringements_.find({campaign: self.campaign_._id,
                                 scheme: 'torrent',
                                 'children.count': 0,
-                                state: { $in: [1, 3, 4]},
-                                verified : {$gt : Date.create('a day ago').getTime()}}).toArray(this);
+                                state: { $in: [1, 3, 4]}}).toArray(this);//verified : {$gt : Date.create('a day ago').getTime()
     })
     .seq(function(results){
       results.each(function(result){
-        var potentials = result.parents.uris.filter(function(uri){
-          try{
-            var uriO = URI(uri);
-            return uriO.protocol() === 'magnet';
-          }
-          catch(err){
-            return false;
-          }
+        var potentials = result.parents.uris.filter(function(uri){return uri.startsWith('magnet')});
+        magnetsAndTorrents = magnetsAndTorrents.union(potentials);
+        result.downloads.each(function(download){
+          if(download.mimetype === 'application/x-bittorrent')
+            magnetsAndTorrents.push(download.md5);
         });
-        // do we want to add them all ? 
-        // for now just picking random ones from the filtered list.
-        magnets = magnets.union(potentials);
       });
-      done(null, magnets.unique());
+
+      done(null, magnetsAndTorrents.unique());
     })
     .catch(function(err){
       done(err);
@@ -177,14 +171,14 @@ Hadouken.prototype.findTorrentsToMonitor = function(done){
 Hadouken.prototype.goMonitor = function(ourPrey, done){
   var self = this;
   
-  //logger.info('monitor : \n' + JSON.stringify(ourPrey));
+  logger.trace('monitor : \n' + JSON.stringify(ourPrey));
 
   Seq(ourPrey.slice(0,50))
     .seqEach(function(magnetLink){
       setTimeout(self.monitorOne.bind(self, magnetLink, this), 2000);
     })
     .seq(function(){
-      logger.info('finished pushing to hadouken');
+      logger.trace('finished pushing to hadouken');
       done();
     })
     .catch(function(err){
@@ -198,7 +192,7 @@ Hadouken.prototype.monitorOne = function(uri, done){
   var data = {'uri': uri, 'campaign': self.campaign_._id};
   var api = config.HADOUKEN_ADDRESS + ':' + config.HADOUKEN_PORT + '/add';
 
-  //logger.info('about to push ' + JSON.stringify(data) + ' uri : ' + uri);
+  logger.trace('about to push ' + JSON.stringify(data) + ' uri : ' + uri);
   
   request.post({'url' : api,
                 'timeout': MAXTIMEOUT,
@@ -247,7 +241,7 @@ if (require.main == module) {
 
   hadouken.hadoukening(function(err){
     if(err)
-      return logger.info('err ' + err);
+      return logger.warn('err ' + err);
     logger.info('finished without errors');
   });
 }

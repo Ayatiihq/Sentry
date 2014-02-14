@@ -1037,7 +1037,7 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 }
 
 /**
- * Get all the campaign torrent infringements that are unverifed and don't have torrent file schemes.
+ * Get all the campaign torrent infringements that are unverifed and all indicators point to it being a webpage.
  *
  * @param {object}                    campaign                 A Campaign
  * @param {function(err, torrents)}   callback                 A callback to receive the torrent unverfieds or an error.
@@ -1052,10 +1052,10 @@ Infringements.prototype.getTorrentPagesUnverified = function(campaign, callback)
   var query = {
     campaign: campaign._id,
     $and: [
-      { category: states.infringements.category.TORRENT },
-      { scheme : /^(?![torrent|magnet])/},
+      { "category": states.infringements.category.TORRENT },
+      { "scheme" : /^(?![torrent|magnet])/},
       { "children.count" : 0},
-      { "uri" : /^.{8}(?!.*\.torrent)/}
+      { "downloads.mimetype" : {$nin : ['application/x-bittorrent']}}
     ]
   };
   self.infringements_.find(query).toArray(callback); 

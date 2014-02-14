@@ -307,9 +307,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , meta = infringement.meta
     , uri = infringement.uri
     , scheme = infringement.scheme
-    , notTorrentEnding = infringement.uri.match(/^.{8}(?!.*\.torrent)/) 
     ;
-    // should maybe try to deal with torcache type pattern also - .torrent?torrentHashID...
 
   self.isCyberlockerOrTorrent(uri, domain, infringement, function(err, result){
     if(err)
@@ -321,7 +319,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     } else if (meta) {
       infringement.category = Categories.SEARCH_RESULT    
     
-    } else if (scheme == 'torrent' || scheme == 'magnet' || !notTorrentEnding) {
+    } else if (scheme == 'torrent' || scheme == 'magnet') {
       infringement.category = Categories.TORRENT;
     
     } else if (self.isSocialNetwork(uri, hostname)) {
@@ -384,11 +382,14 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     , outName = utilities.genLinkKey(infringement._id, Date.now())
     , outPath = path.join(self.tmpdir_, outName)
     , mimetype = 'text/html'
+    , scheme = infringement.scheme
     ;
 
   // We let something else deal with these for now
-  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER, Categories.TORRENT].some(infringement.category))
+  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER].some(infringement.category) || 
+    scheme == 'torrent' || scheme == 'magnet'){
     return done(null, mimetype);
+  }
 
   logger.info('Downloading %s to %s', infringement.uri, outPath);
   var outStream = fs.createWriteStream(outPath);
