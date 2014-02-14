@@ -395,6 +395,8 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
         });
       }
 
+      return foundItems;
+
       //self.activeInfringements.remove(infringement);
     });
   });
@@ -518,16 +520,20 @@ if (require.main === module) {
   //var url = 'http://mp3skull.com/mp3/the_boys_girls_generation.html'
   //var url = 'http://isohunt.to/torrents/?ihq=Girls+Generation+The+Boys';
   var url = 'http://www.musicaddict.com/mp3/the-boys-girls-generation.html';
+  //var url = 'http://www.musicaddict.com/download/789372-girlsgeneration--the-boys-mp3.html';
 
   var infringement = { 'uri': url };
 
   generic.wrapWrangler(url, ruleSet)
   .then(function (foundItems) {
     //foundItems.each(console.dir);
-
+    //return foundItems;
     return generic.doSecondAssaultOnInfringement(infringement);
   })
   .then(function (things) {
     console.log('done: ', things);
+    if (things) {
+      things.each(function(thing) { thing.items.each(console.log) });
+    }
   });
 }

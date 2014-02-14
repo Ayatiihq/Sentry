@@ -301,7 +301,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
         url = url.unescapeURL();
       } catch (err) { }
 
-      href = utilities.joinURIS(uri, url, baseURI);
+      var href = utilities.joinURIS(uri, url, baseURI);
       if (href) { links[href] = true; }
     });
 
@@ -312,8 +312,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
 
     // Let's then grab all the a links, relative or otherwise
     $('a').each(function () {
-      var href = $(this).attr('href');
-      href = utilities.joinURIS(uri, href, baseURI);
+      var href = utilities.joinURIS(uri, $(this).attr('href'), baseURI);
 
       if (href) {
         if (!href.startsWith('magnet:')) {// Ignore magnet links from cheerio as it chokes on them
@@ -328,12 +327,11 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     var accumPromises = $('script').map(function () {
       if ($(this).attr('src')) {
         var ref = utilities.joinURIS(uri, $(this).attr('src'), baseURI);
-
         if (ref) {
           var promise = new Promise();
 
           utilities.requestURL(ref, {}, function (err, response, body) {
-            if (err) { promise.reject(err); }
+            if (err) { console.log('ref: ', err); promise.reject(err); }
             else {
               var jslinks = [];
 
@@ -343,21 +341,23 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
                   url = url.unescapeURL();
                 } catch (err) { }
 
-                href = utilities.joinURIS(uri, url, baseURI);
+                var href = utilities.joinURIS(uri, url, baseURI);
                 if (href) { jslinks.push(href); }
               });
 
               promise.resolve(jslinks);
             }
           });
+          return promise;
         }
       }
     });
 
-    return Promise.all(accumPromiuses)
+    return all(accumPromises)
       .then(function (results) {
-        results.flatten().each(function (link) { links[link] = true; });
-      })
+        console.log(results);
+        results.flatten().compact().each(function (link) { links[link] = true; });
+      }, function () { } )
       .then(function () {
         // Now let's see if there are any shorteners and, if so, resolve them
         Object.keys(links, function (link) {
