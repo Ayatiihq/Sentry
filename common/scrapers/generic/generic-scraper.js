@@ -31,6 +31,40 @@ require('sugar');
 
 var Scraper = acquire('scraper');
 
+/* small class just to handle batching promises up, meh i want generators */
+var PromiseBatcher = function (batchSize) {
+  this.batchSize = batchSize;
+  this.fns = [];
+};
+PromiseBatcher.prototype.addFn = function (fn) { this.fns.push(fn); };
+PromiseBatcher.prototype.startBatches = function () {
+  var self = this;
+  var batches = {};
+  self.fns.each(function (fn, index) {
+    var batchNum = Math.floor(index / self.batchSize);
+    var batch = (batches[batchNum]) ? batches[batchNum] : [];
+
+    batch.push(fn);
+    batches[batchNum] = batch;
+  });
+
+  // now we need to iterate on batches until they are all processed
+  var nextBatchNum = 0;
+  var totalResults = [];
+  function nextBatch() {
+    if (Object.has(batches, nextBatchNum)) {
+      return Promise.all(batches[nextBatchNum].map(function (fn) { return fn(); })).then(function (results) {
+          totalResults = totalResults.union(results);
+          nextBatchNum++;
+          return nextBatch();
+        });
+    }
+    else { return totalResults; }
+  }
+
+  return nextBatch();
+};
+
 var Generic = module.exports = function () {
   this.init();
 };
@@ -287,8 +321,6 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
       return utilities.joinURIS(uri, foundItem.data, foundItems.first().baseURI);
     });
 
-    console.log(links);
-
     links = links.compact(); 
     links = links.unique();
     
@@ -296,30 +328,33 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
     // it looks like vomit because we want to remove anything past ? or # in the uri
 
     links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
-    
     // for each link we need to make sure its not something we should be ignoring for whatever reason
-    links.remove(function (uri) { return (!!self.checkURI(uri)); });
 
+    links.remove(function (uri) { return !!(self.checkURI(uri).stateChange); });
     // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
     // which links are suspicious looking
 
     // go through the links we got from scraping all the hrefs on the page and run the checkForInfo rule on it
     // this will return with an Endpoint with wranglerRules.checkForInfoHash set as its data if checkForInfo
     // thinks the link is suspicious
-    var accumPromises = links.map(function (link) {
+
+    // use promise batcher to batch up these requests because web servers are snobby
+    var batcher = new PromiseBatcher(10);
+    links.each(function (link) {
       var infoRule = wranglerRules.checkForInfo(link,
-                                                self.campaign.metadata.artist,
-                                                self.campaign.metadata.albumTitle,
-                                                self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
-                                                self.campaign.metadata.year);
-      return self.wrapWrangler(link, [infoRule]);
+                                            self.campaign.metadata.artist,
+                                            self.campaign.metadata.albumTitle,
+                                            self.campaign.metadata.assets.map(function (asset) { return asset.title; }),
+                                            self.campaign.metadata.year);
+      batcher.addFn(self.wrapWrangler.bind(self, link, [infoRule]));
     });
 
-    // accumPromises will return with an array of foundItems results
-    return Promise.all(accumPromises).then(function (results) {
+    return batcher.startBatches().then(function (results) {
       // find all the links that have the required checkForInfoHash as an endpoint
-      var suspiciousURIS = results.flatten().filter({ 'data': wranglerRules.checkForInfoHash }).map('sourceURI');
+      var suspiciousURIS = results.flatten().compact();
+      suspiciousURIS = suspiciousURIS.map(function (endpoints) { return endpoints.items.find({ 'data': wranglerRules.checkForInfoHash }); }).map('sourceURI');
       suspiciousURIS.unique();
+      suspiciousURIS.compact();
       return suspiciousURIS;
     });
   });
@@ -339,14 +374,15 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   // find all the suspicious looking pages linked from infringement.uri
   return self.findSuspiciousLinks(infringement.uri)
   .then(function (suspiciousURIS) {
-    console.log(suspiciousURIS);
+    console.log('got suspiciousURS: ', suspiciousURIS);
     // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
     var ruleSet = self.generateRulesForCampaign();
 
-    // accumulate new promises for all the uris
-    var accumPromises = suspiciousURIS.map(function (uri) { return self.wrapWrangler(uri, ruleSet); });
+    // use Promise batcher to manage our promises in batches
+    var batcher = new PromiseBatcher(10);
+    suspiciousURIS.each(function (uri) { batcher.addFn(self.wrapWrangler.bind(self, uri, ruleSet)); });
 
-    return Promise.all(accumPromises).then(function (results) {
+    return batcher.startBatches().then(function (results) {
       var foundItems = results.flatten();
       // foundItems now has all the found items over alll the suspicious uris
       if (foundItems.length > 0) {
@@ -355,7 +391,6 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
           // we are another level deep, so unshift the infringement.uri onto the parents array
           foundItem.parents.unshift(infringement.uri);
           foundItem.items.isBackup = false;
-          console.log('got item: ', foundItem);
           //self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
         });
       }
@@ -398,7 +433,7 @@ Generic.prototype.checkURI = function (uri) {
       }
     }
   }
-
+  
   return resolveData;
 };
 
@@ -488,11 +523,11 @@ if (require.main === module) {
 
   generic.wrapWrangler(url, ruleSet)
   .then(function (foundItems) {
-    foundItems.each(console.dir);
+    //foundItems.each(console.dir);
 
     return generic.doSecondAssaultOnInfringement(infringement);
   })
   .then(function (things) {
-    console.log('done?');
+    console.log('done: ', things);
   });
 }

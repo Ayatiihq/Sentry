@@ -130,7 +130,6 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
 
 Wrangler.prototype.constructItemsObject = function (items, uri, parenturls, baseURI) {
   var self = this;
-  console.log(arguments);
   if (items.length) {
     self.foundItems.push({
       'baseURI': baseURI,

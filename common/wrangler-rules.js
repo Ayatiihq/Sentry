@@ -81,6 +81,13 @@ module.exports.findAllLinks = function ($, source, uri, foundItems) {
   return foundItems;
 };
 
+var generateWordHash = function (input) {
+  var input = input.replace("!,./\\?;:'[]{}|\"", '');
+  // could also account for common misspellings, maybe a TODO about that
+  // an example would be replacing ie and ei with a hashcode
+  return input;
+}
+
 /* so this is going to be a bit mental, we want to go through the given html 
  * and figure out if its likely that the site has infringing content specific 
  * to the campaign we are running.
@@ -88,8 +95,10 @@ module.exports.findAllLinks = function ($, source, uri, foundItems) {
 module.exports.checkForInfoHash = 'InfoCheckedAndAccepted';
 module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) {
   var infoChecker = function (albumInfos, $, source, uri, foundItems) {
-    var mainText = $('body').text();
-    function buildRE(str) { return XRegExp(XRegExp.escape(str), 'igs'); }
+    var mainText = generateWordHash($('body').text());
+    function buildRE(str) {
+      return XRegExp(generateWordHash(str), 'igs');
+    }
     var titleRegExp = buildRE(albumInfos.title);
     var artistRegExp = buildRE(albumInfos.artist);
     var yearRegExp = buildRE(albumInfos.year);
@@ -117,6 +126,7 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
     // at this point we have all the information we need to make a judgement
 
     if (foundArtist && (tracksFound || foundAlbum || suspiciousLinks)) {
+      //console.log(artistRegExp.exec(mainText));
       console.log('accepted uri: ' + sourceURI);
       // at the very least we need the artist to exist on the page, then we check for tracks/album/suspicious links
       var newitem = new Endpoint('InfoCheckedAndAccepted'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
@@ -124,13 +134,13 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
       newitem.isEndpoint = false;
       foundItems.push(newitem);
     }
-    else {
+    /*else {
       console.log('rejected uri: ' + sourceURI);
       if (!foundArtist) { console.log('no artist'); }
       if (!tracksFound) { console.log('no tracks found'); }
       if (!foundAlbum) { console.log('no album found'); }
       if (!suspiciousLinks) { console.log('no suspicious links'); }
-    }
+    }*/
 
     return foundItems;
   };
@@ -367,6 +377,8 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
       // Finally, it's time to search for the useful extentions
       Object.keys(links, function (link) {
         if (linkMatchesExtension(link)) {
+          // ignore facebook mp3
+          if (link === 'http://www.facebook.com/free.mp3') { return; }
           var item = new Endpoint(link);
           item.isEndpoint = true;
           foundItems.push(item);
