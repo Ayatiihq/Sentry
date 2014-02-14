@@ -284,12 +284,7 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
     var links = foundItems[0].items.map(function (foundItem) {
-      var absoluteURI = (foundItems.baseURI) ? foundItems.baseURI : uri;
-      try { // always have to try/catch URI because exceptions are dumb, lets crash the program because a url looked a bit strange!
-        return URI(foundItem.data).absoluteTo(absoluteURI).toString(); 
-      } catch (error) {
-        return null; // probably 'javascript;'
-      }
+      return utilities.joinURI(uri, foundItem.data, foundItems.baseURI);
     });
     //console.log('found links: ', links)
     links = links.compact(); //console.log('found links: '.links)

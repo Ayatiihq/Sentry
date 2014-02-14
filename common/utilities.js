@@ -35,6 +35,16 @@ var REQ_TIMEOUT = 0.5 * 1000 * 60;
 
 var Utilities = module.exports;
 
+Utilities.joinURIS = function (sourceURI, targetURI, baseURI) {
+  var absoluteURI = (baseURI) ? baseURI : sourceURI;
+  try {
+    composedURI = URI(iframeSrc).absoluteTo(absoluteURI).toString();
+  } catch (error) {
+    return null; // probably 'javascript;'
+  }
+  return composedURI;
+}
+
 Utilities.normalizeURI = function(uri) {
   var self = this
     , original = uri

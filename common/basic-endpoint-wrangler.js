@@ -135,12 +135,8 @@ Wrangler.prototype.processIFrames = function (uri, parents, $) {
   }
 
   var newIFrames = self.findIFrames($).map(function foundIFrame(iframeSrc) {
-    var absoluteURI = (baseURI) ? baseURI : uri;
-    try {
-      composedURI = URI(iframeSrc).absoluteTo(absoluteURI).toString();
-    } catch (error) {
-      return null; // probably 'javascript;'
-    }
+    var composedURI = utilities.joinURIS(uri, iframeSrc, baseURI);
+    if (!composedURI) { return null; }
 
     if (shouldIgnoreUri(composedURI)) { return null; }
     if (self.foundURIs.some(composedURI)) { return null; }
