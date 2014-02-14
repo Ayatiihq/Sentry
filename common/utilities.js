@@ -38,7 +38,7 @@ var Utilities = module.exports;
 Utilities.joinURIS = function (sourceURI, targetURI, baseURI) {
   var absoluteURI = (baseURI) ? baseURI : sourceURI;
   try {
-    composedURI = URI(iframeSrc).absoluteTo(absoluteURI).toString();
+    composedURI = URI(targetURI).absoluteTo(absoluteURI).toString();
   } catch (error) {
     return null; // probably 'javascript;'
   }

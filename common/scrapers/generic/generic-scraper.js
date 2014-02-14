@@ -283,22 +283,22 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
   .then(function (foundItems) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
-    var links = foundItems[0].items.map(function (foundItem) {
-      return utilities.joinURI(uri, foundItem.data, foundItems.baseURI);
+    var links = foundItems.first().items.map(function (foundItem) {
+      return utilities.joinURIS(uri, foundItem.data, foundItems.first().baseURI);
     });
-    //console.log('found links: ', links)
-    links = links.compact(); //console.log('found links: '.links)
+
+    console.log(links);
+
+    links = links.compact(); 
     links = links.unique();
-    //console.log('found links: '.links)
+    
     //remove any links that look like infringement.uri
     // it looks like vomit because we want to remove anything past ? or # in the uri
 
     links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
-    //console.log('found links: '.links)
+    
     // for each link we need to make sure its not something we should be ignoring for whatever reason
     links.remove(function (uri) { return (!!self.checkURI(uri)); });
-
-    //console.log('found links: '. links)
 
     // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
     // which links are suspicious looking
