@@ -288,8 +288,11 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     var hostname = URI(uri).pathname('').href()
       , links = {}
       , shortenedLinks = []
-      , promise = new Promise()
     ;
+    var baseURI = null;
+    if ($('base').length > 0) { // balls, we have a base tag
+      baseURI = $('base').attr('href');
+    }
 
     // Let's start with getting all links in the page source
     XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
@@ -298,7 +301,8 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
         url = url.unescapeURL();
       } catch (err) { }
 
-      links[url] = true;
+      href = utilities.joinURIS(uri, url, baseURI);
+      if (href) { links[href] = true; }
     });
 
     // Search fo' magnets
@@ -309,113 +313,151 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     // Let's then grab all the a links, relative or otherwise
     $('a').each(function () {
       var href = $(this).attr('href');
+      href = utilities.joinURIS(uri, href, baseURI);
 
       if (href) {
-        if (href[0] === '/') {
-          links[hostname + href] = true;
-
-        } else {
-          if (!href.startsWith('magnet:')) // Ignore magnet links from cheerio as it chokes on them
-            links[href] = true;
+        if (!href.startsWith('magnet:')) {// Ignore magnet links from cheerio as it chokes on them
+          links[href] = true;
         }
       }
     });
 
-    // Now let's see if there are any shorteners and, if so, resolve them
-    Object.keys(links, function (link) {
-      // FIXME: We can add a cache here to speed up shortener lookups
-      try {
-        var linkuri = URI(link)
-          , domain = linkuri.domain()
-        ;
-        if (shorteners.knownDomains.some(domain)) {
-          shortenedLinks.push(link);
-        }
+    // why not follow javascript links and see if there is anything in there that is interesting
+    // yes, mp3 websites are this stupid
 
-      } catch (err) {
-        logger.warn('Unable to parse %s as URI', link);
+    var accumPromises = $('script').map(function () {
+      if ($(this).attr('src')) {
+        var ref = utilities.joinURIS(uri, $(this).attr('src'), baseURI);
+
+        if (ref) {
+          var promise = new Promise();
+
+          utilities.requestURL(ref, {}, function (err, response, body) {
+            if (err) { promise.reject(err); }
+            else {
+              var jslinks = [];
+
+              XRegExp.forEach(body, module.exports.urlMatch, function (match, i) {
+                var url = match.fulluri.toString();
+                try {
+                  url = url.unescapeURL();
+                } catch (err) { }
+
+                href = utilities.joinURIS(uri, url, baseURI);
+                if (href) { jslinks.push(href); }
+              });
+
+              promise.resolve(jslinks);
+            }
+          });
+        }
       }
     });
 
-    var promiseArray = shortenedLinks.map(function (link) {
-      return utilities.followRedirects([link], new Promise());
-    });
+    return Promise.all(accumPromiuses)
+      .then(function (results) {
+        results.flatten().each(function (link) { links[link] = true; });
+      })
+      .then(function () {
+        // Now let's see if there are any shorteners and, if so, resolve them
+        Object.keys(links, function (link) {
+          // FIXME: We can add a cache here to speed up shortener lookups
+          try {
+            var linkuri = URI(link)
+              , domain = linkuri.domain()
+            ;
+            if (shorteners.knownDomains.some(domain)) {
+              shortenedLinks.push(link);
+            }
 
-    all(promiseArray).then(function (lifted30Xs) {
-      lifted30Xs.each(function (single30x) {
-        links[single30x.last()] = true;
-      });
+          } catch (err) {
+            logger.warn('Unable to parse %s as URI', link);
+          }
+        });
 
-      function linkMatchesExtension(link) {
-        var ret = false;
+        var promiseArray = shortenedLinks.map(function (link) {
+          return utilities.followRedirects([link], new Promise());
+        });
 
-        switch (searchType) {
-          case searchTypes.START:
-            ret = linkBeginsWith(link, extensions);
-            break;
+        return all(promiseArray).then(function (lifted30Xs) {
+          lifted30Xs.each(function (single30x) {
+            links[single30x.last()] = true;
+          });
+        });
+      })
+      .then(function() {
+        function linkMatchesExtension(link) {
+          var ret = false;
 
-          case searchTypes.MIDDLE:
-            ret = linkHas(link, extensions);
-            break;
+          switch (searchType) {
+            case searchTypes.START:
+              ret = linkBeginsWith(link, extensions);
+              break;
 
-          case searchTypes.END:
-            // try to remove the query string (to catch torcache queries)
-            ret = linkEndsWith(link.split('?')[0], extensions);
-            break;
+            case searchTypes.MIDDLE:
+              ret = linkHas(link, extensions);
+              break;
 
-          case searchTypes.DOMAIN:
-            ret = linkIsFrom(link, extensions);
-            break;
+            case searchTypes.END:
+              // try to remove the query string (to catch torcache queries)
+              ret = linkEndsWith(link.split('?')[0], extensions);
+              break;
 
-          default:
-            logger.warn('Search type %d is not supported', searchType);
+            case searchTypes.DOMAIN:
+              ret = linkIsFrom(link, extensions);
+              break;
+
+            default:
+              logger.warn('Search type %d is not supported', searchType);
+          }
+
+          return ret;
         }
 
-        return ret;
-      }
-
-      // Finally, it's time to search for the useful extentions
-      Object.keys(links, function (link) {
-        if (linkMatchesExtension(link)) {
-          // ignore facebook mp3
-          if (link === 'http://www.facebook.com/free.mp3') { return; }
-          var item = new Endpoint(link);
-          item.isEndpoint = true;
-          foundItems.push(item);
+        // Finally, it's time to search for the useful extentions
+        Object.keys(links, function (link) {
+          if (linkMatchesExtension(link)) {
+            // ignore facebook mp3
+            if (link === 'http://www.facebook.com/free.mp3') { return; }
+            var item = new Endpoint(link);
+            item.isEndpoint = true;
+            foundItems.push(item);
+          }
+        });
+      })
+      .then(function() {
+        if (mimeMatch === undefined) { // early exit as the way this was coded is a little awkward, called many times and we only want do this once
+          return;
         }
-      });
 
-      // actually not finally, we want to go through each of the links now and ping them to check the mimetypes
-      // slow as all hell but will find things that are binary that don't have extensions
-      var pingPromises = [];
-      if (mimeMatch === undefined) { // early exit as the way this was coded is a little awkward, called many times and we only want do this once
-        promise.resolve(foundItems);
-      }
-      else {
+        // actually not finally, we want to go through each of the links now and ping them to check the mimetypes
+        // slow as all hell but will find things that are binary that don't have extensions
+        var pingPromises = [];
         Object.keys(links, function (link) {
           var p = new Promise();
           pingPromises.push(p);
           utilities.requestURLStream(link,
-                                     { 'timeout': 30 * 1000 },
-                                     function cb(err, req, response, stream) {
-                                       if (err) { p.reject(); return; }
+                                      { 'timeout': 30 * 1000 },
+                                      function cb(err, req, response, stream) {
+                                        if (err) { p.reject(); return; }
 
-                                       var mimeType = response.headers['content-type'];
-                                       if (mimeMatch.test(mimeType)) {
-                                         var item = new Endpoint(link);
-                                         item.isEndpoint = true;
-                                         foundItems.push(item);
-                                       }
+                                        var mimeType = response.headers['content-type'];
+                                        if (mimeMatch.test(mimeType)) {
+                                          var item = new Endpoint(link);
+                                          item.isEndpoint = true;
+                                          foundItems.push(item);
+                                        }
 
-                                       p.resolve();
-                                       req.abort(); // we don't care about the actual stream for now
-                                     });
+                                        p.resolve();
+                                        req.abort(); // we don't care about the actual stream for now
+                                      });
         });
 
-        all(pingPromises).then(function () { promise.resolve(foundItems); });
-      }
-    });
-    return promise;
+        return all(pingPromises);
+      })
+      .then(function() { 
+        return foundItems;
+      });
   };
 
   if (!extensionList) { logger.error(new Error('Find extensions called with no extensionList')); }
