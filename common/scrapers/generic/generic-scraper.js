@@ -13,7 +13,6 @@
 var acquire = require('acquire')
   , blacklist = acquire('blacklist')
   , logger = acquire('logger').forFile('generic-scraper.js')
-  , URI = require('URIjs')
   , util = require('util')
   , utilities = acquire('utilities')
   , states = acquire('states')
@@ -80,8 +79,8 @@ Generic.prototype.init = function () {
   var self = this;
   self.backupInfringements = [];
   self.wrangler = null;
-  //self.hosts = new Hosts();
-  //self.infringements = new Infringements();
+  self.hosts = new Hosts();
+  self.infringements = new Infringements();
 
   self.activeScrapes = 0;
   self.maxActive = 10;
@@ -293,12 +292,12 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   wrangler.on('suspended', function onWranglerSuspend() {
     self.activeScrapes = self.activeScrapes - 1;
     self.suspendedScrapes = self.suspendedScrapes + 1;
-    //self.pump();
+    self.pump();
   });
   wrangler.on('resumed', function onWranglerResume() {
     self.activeScrapes = self.activeScrapes + 1;
     self.suspendedScrapes = self.suspendedScrapes - 1;
-    //self.pump();
+    self.pump();
   });
   wrangler.on('error', function onWranglerError(err) {
     promise.reject(err);
@@ -385,18 +384,17 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
       var foundItems = results.flatten();
       // foundItems now has all the found items over alll the suspicious uris
       if (foundItems.length > 0) {
-        //self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
+        self.emit('infringementStateChange', infringement, states.infringements.state.UNVERIFIED);
         foundItems.each(function onFoundItem(foundItem) {
           // we are another level deep, so unshift the infringement.uri onto the parents array
           foundItem.parents.unshift(infringement.uri);
           foundItem.items.isBackup = false;
-          //self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
+          self.emitInfringementUpdates(infringement, foundItem.parents, foundItem.items);
         });
       }
 
+      self.activeInfringements.remove(infringement);
       return foundItems;
-
-      //self.activeInfringements.remove(infringement);
     });
   });
 };
@@ -443,8 +441,8 @@ Generic.prototype.generateRulesForCampaign = function () {
   var musicRules = wranglerRules.rulesDownloadsMusic;
   var movieRules = wranglerRules.rulesDownloadsMovie;
 
- // musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
- // movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+  musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+  movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
 
   var rules = {
     'music': musicRules,
@@ -498,7 +496,7 @@ if (require.main === module) {
     'artist': "Girls Generation",
     'albumTitle': "The Boys",
     'year': '2011',
-    'assets':[
+    'assets': [
       {'title': 'The Boys'},
       {'title': 'Say Yes'},
       {'title': 'Trick'}
@@ -532,7 +530,7 @@ if (require.main === module) {
   .then(function (things) {
     console.log('done: ', things);
     if (things) {
-      things.each(function(thing) { thing.items.each(console.log) });
+      things.each(function (thing) { thing.items.each(console.log); });
     }
   });
 }

@@ -82,11 +82,11 @@ module.exports.findAllLinks = function ($, source, uri, foundItems) {
 };
 
 var generateWordHash = function (input) {
-  var input = input.replace("!,./\\?;:'[]{}|\"", '');
+  input = input.replace("!,./\\?;:'[]{}|\"", '');
   // could also account for common misspellings, maybe a TODO about that
   // an example would be replacing ie and ei with a hashcode
   return input;
-}
+};
 
 /* so this is going to be a bit mental, we want to go through the given html 
  * and figure out if its likely that the site has infringing content specific 
