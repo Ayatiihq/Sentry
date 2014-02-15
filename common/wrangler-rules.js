@@ -126,21 +126,12 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
     // at this point we have all the information we need to make a judgement
 
     if (foundArtist && (tracksFound || foundAlbum || suspiciousLinks)) {
-      //console.log(artistRegExp.exec(mainText));
-      console.log('accepted uri: ' + sourceURI);
       // at the very least we need the artist to exist on the page, then we check for tracks/album/suspicious links
       var newitem = new Endpoint('InfoCheckedAndAccepted'); // not a real endpoint, we just use this to take advantage of endpoint wrangler
       newitem.sourceURI = sourceURI;
       newitem.isEndpoint = false;
       foundItems.push(newitem);
     }
-    /*else {
-      console.log('rejected uri: ' + sourceURI);
-      if (!foundArtist) { console.log('no artist'); }
-      if (!tracksFound) { console.log('no tracks found'); }
-      if (!foundAlbum) { console.log('no album found'); }
-      if (!suspiciousLinks) { console.log('no suspicious links'); }
-    }*/
 
     return foundItems;
   };
@@ -331,7 +322,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
           var promise = new Promise();
 
           utilities.requestURL(ref, {}, function (err, response, body) {
-            if (err) { console.log('ref: ', err); promise.reject(err); }
+            if (err) { promise.reject(err); }
             else {
               var jslinks = [];
 
@@ -355,7 +346,6 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
 
     return all(accumPromises)
       .then(function (results) {
-        console.log(results);
         results.flatten().compact().each(function (link) { links[link] = true; });
       }, function () { } )
       .then(function () {

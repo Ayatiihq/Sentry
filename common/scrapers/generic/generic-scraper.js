@@ -374,7 +374,6 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   // find all the suspicious looking pages linked from infringement.uri
   return self.findSuspiciousLinks(infringement.uri)
   .then(function (suspiciousURIS) {
-    console.log('got suspiciousURS: ', suspiciousURIS);
     // we now have a whole bunch of new URIS to scrape hopefully, so generate a new ruleset 
     var ruleSet = self.generateRulesForCampaign();
 
