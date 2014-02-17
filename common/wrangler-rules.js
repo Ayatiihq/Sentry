@@ -101,7 +101,6 @@ module.exports.checkForInfo = function (sourceURI, artist, title, tracks, year) 
     }
     var titleRegExp = buildRE(albumInfos.title);
     var artistRegExp = buildRE(albumInfos.artist);
-    var yearRegExp = buildRE(albumInfos.year);
 
     // look in the main text of the page for matches
     var tracksFound = tracks.count(function (track) { return XRegExp.test(mainText, buildRE(track)); });
@@ -143,10 +142,10 @@ module.exports.ruleEmbed = function DomEmbed($, source, uri, foundItems) {
   $('embed').each(function onEmd() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
-    check |= sanitized.has('stream');
-    check |= sanitized.has('streem');
-    check |= sanitized.has('jwplayer');
-    check |= sanitized.has('Live');
+    check =  check || sanitized.has('stream');
+    check = check || sanitized.has('streem');
+    check = check || sanitized.has('jwplayer');
+    check = check || sanitized.has('Live');
 
     if (check) {
       var newitem = new Endpoint(this.toString());
@@ -162,7 +161,7 @@ module.exports.ruleSwfObject = function SwfObject($, source, uri, foundItems) {
   $('script').each(function onScript() {
     var check = false;
     var sanitized = $(this).html().toLowerCase();
-    check |= sanitized.has('new swfobject') && sanitized.has('player');
+    check = check || sanitized.has('new swfobject') && sanitized.has('player');
     if (check) {
       var newitem = new Endpoint(this.toString());
       newitem.isEndpoint = false; // not an endpoint, just html
@@ -176,10 +175,10 @@ module.exports.ruleObject = function DomObject($, source, uri, foundItems) {
   $('object').each(function onObj() {
     var check = false;
     var sanitized = $(this).toString().toLowerCase();
-    check |= sanitized.has('stream');
-    check |= sanitized.has('streem');
-    check |= sanitized.has('jwplayer');
-    check |= sanitized.has('Live');
+    check = check || sanitized.has('stream');
+    check = check || sanitized.has('streem');
+    check = check || sanitized.has('jwplayer');
+    check = check || sanitized.has('Live');
 
     if (check) {
       var newitem = new Endpoint(this.toString());
@@ -198,11 +197,11 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   var extensions = ['.flv', '.mp4', '.m4v', '.mov', '.asf', '.rm', '.wmv', '.rmvb',
                     '.f4v', '.mkv'];
 
-  XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
+  XRegExp.forEach(source, module.exports.urlMatch, function (match) {
     // we can extract lots of information from our regexp
     var check = false;
-    check |= protocols.some(match.protocol.toLowerCase());
-    if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
+    check = check || protocols.some(match.protocol.toLowerCase());
+    if (!!match.extension) { check = check || extensions.some(match.extension.toLowerCase()); }
     if (check) {
       var newitem = new Endpoint(match.fulluri.toString());
       newitem.isEndpoint = true;
@@ -220,10 +219,10 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
 
     request(uri, function (error, response, body) {
       if (!error && response.statusCode === 200) {
-        XRegExp.forEach(body, module.exports.urlMatch, function (match, i) {
+        XRegExp.forEach(body, module.exports.urlMatch, function (match) {
           var check = false;
-          check |= protocols.some(match.protocol.toLowerCase());
-          if (!!match.extension) { check |= extensions.some(match.extension.toLowerCase()); }
+          check = check || protocols.some(match.protocol.toLowerCase());
+          if (!!match.extension) { check = check || extensions.some(match.extension.toLowerCase()); }
           if (check) {
             var newitem = new Endpoint(match.fulluri.toString());
             newitem.isEndpoint = true;
@@ -238,7 +237,7 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
 
   var xmlscrapes = [];
   $('param').each(function onFlashVars() {
-    XRegExp.forEach($(this).toString(), module.exports.urlMatch, function (match, i) {
+    XRegExp.forEach($(this).toString(), module.exports.urlMatch, function (match) {
       if (match.fulluri.toLowerCase().has('xml')) {
         xmlscrapes.push(xmlRule(match.fulluri));
       }
@@ -276,8 +275,7 @@ var searchTypes = module.exports.searchTypes = {
  */
 var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extensionList, searchType, mimeMatch) {
   var findExtensions = function (extensions, searchType, mimeMatch, $, source, uri, foundItems) {
-    var hostname = URI(uri).pathname('').href()
-      , links = {}
+    var links = {}
       , shortenedLinks = []
     ;
     var baseURI = null;
@@ -286,7 +284,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     }
 
     // Let's start with getting all links in the page source
-    XRegExp.forEach(source, module.exports.urlMatch, function (match, i) {
+    XRegExp.forEach(source, module.exports.urlMatch, function (match) {
       var url = match.fulluri.toString();
       try {
         url = url.unescapeURL();
@@ -297,7 +295,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
     });
 
     // Search fo' magnets
-    XRegExp.forEach(source, module.exports.magnetMatch, function (match, i) {
+    XRegExp.forEach(source, module.exports.magnetMatch, function (match) {
       links[match.fulluri.toString()] = true;
     });
 
@@ -326,7 +324,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
             else {
               var jslinks = [];
 
-              XRegExp.forEach(body, module.exports.urlMatch, function (match, i) {
+              XRegExp.forEach(body, module.exports.urlMatch, function (match) {
                 var url = match.fulluri.toString();
                 try {
                   url = url.unescapeURL();
@@ -428,7 +426,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
           pingPromises.push(p);
           utilities.requestURLStream(link,
                                       { 'timeout': 30 * 1000 },
-                                      function cb(err, req, response, stream) {
+                                      function cb(err, req, response) {
                                         if (err) { p.reject(); return; }
 
                                         var mimeType = response.headers['content-type'];
