@@ -194,7 +194,8 @@ Generic.prototype.pump = function (firstRun) {
     return;
   }
 
-  var check = self.activeScrapes < self.maxActive;              // we don't have more than maxActive currently running scrapes
+  var check = false;
+  check = process.memoryUsage().heapUsed() < (96 * 1024 * 1024); // check we are using less than 96MB of heap
   check = (check && (self.numInfringementsChecked <= MAX_INFRINGEMENTS));   // we have checked less than MAX_INFRINGEMENTS infringements
 
   if (check) {
@@ -441,8 +442,8 @@ Generic.prototype.generateRulesForCampaign = function () {
   var musicRules = wranglerRules.rulesDownloadsMusic;
   var movieRules = wranglerRules.rulesDownloadsMovie;
 
-  musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
-  movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+  //musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+  //movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
 
   var rules = {
     'music': musicRules,
@@ -502,6 +503,8 @@ if (require.main === module) {
       {'title': 'Trick'}
     ]
   };
+
+  setInterval(function () { console.log(util.inspect(process.memoryUsage())); }, 1000)
 
   var campaign = {
     'metadata': metadata,
