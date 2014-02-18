@@ -33,6 +33,7 @@ var Scraper = module.exports = function() {
 
   this.runningScrapers_ = [];
 
+  Role.call(this);
   this.init();
 }
 
@@ -47,8 +48,6 @@ Scraper.prototype.init = function() {
   self.scrapers_ = new Scrapers();
   self.browser = new Cowmangler();
   self.browser.newTab();
-  self.on('error', self.stopBeat.bind(self));
-  self.on('finished', self.stopBeat.bind(self));
 }
 
 Scraper.prototype.processJob = function(err, job) {
@@ -82,7 +81,6 @@ Scraper.prototype.processJob = function(err, job) {
     })
     .seq('Job is valid', function(campaign) {
       job.campaign = campaign;
-      self.startBeat(self.campaigns_, campaign);
       self.checkJobValidity(job, this);
     })
     .seq('Start job', function() {

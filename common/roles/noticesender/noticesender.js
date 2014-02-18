@@ -53,6 +53,7 @@ var NoticeSender = module.exports = function() {
   this.campaign_ = null;
   this.storage_ = null;
 
+  Role.call(this);
   this.init();
 }
 
@@ -68,8 +69,6 @@ NoticeSender.prototype.init = function() {
   self.storage_ = new Storage('notices'); 
   self.notices_ = new Notices();
   self.settings_ = new Settings('role.noticesender');
-  self.on('error', self.stopBeat.bind(self));
-  self.on('finished', self.stopBeat.bind(self));
 }
 
 NoticeSender.prototype.processJob = function(err, job) {
@@ -105,7 +104,6 @@ NoticeSender.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-      self.startBeat(self.campaigns_, campaign);
       self.clients_.get(campaign.client, this);
     })
     .seq(function(client) {
