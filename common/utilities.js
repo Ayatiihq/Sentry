@@ -47,6 +47,10 @@ Utilities.normalizeURI = function(uri) {
     if (uri.domain().length < 1)
       uri = URI(Utilities.unescapeURL(original));
 
+    // don't bother normalizing magnets
+    if (uri.protocol() === 'magnet')
+      return uri;
+
     // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
     uri.normalize();
 

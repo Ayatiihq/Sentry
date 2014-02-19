@@ -307,9 +307,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     , meta = infringement.meta
     , uri = infringement.uri
     , scheme = infringement.scheme
-    , notTorrentEnding = infringement.uri.match(/^.{8}(?!.*\.torrent)/) 
     ;
-    // should maybe try to deal with torcache type pattern also - .torrent?torrentHashID...
 
   self.isCyberlockerOrTorrent(uri, domain, infringement, function(err, result){
     if(err)
@@ -321,7 +319,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
     } else if (meta) {
       infringement.category = Categories.SEARCH_RESULT    
     
-    } else if (scheme == 'torrent' || scheme == 'magnet' || !notTorrentEnding) {
+    } else if (scheme == 'torrent' || scheme == 'magnet') {
       infringement.category = Categories.TORRENT;
     
     } else if (self.isSocialNetwork(uri, hostname)) {
@@ -384,13 +382,16 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     , outName = utilities.genLinkKey(infringement._id, Date.now())
     , outPath = path.join(self.tmpdir_, outName)
     , mimetype = 'text/html'
+    , scheme = infringement.scheme
     ;
 
   // We let something else deal with these for now
-  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER, Categories.TORRENT].some(infringement.category))
+  if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER].some(infringement.category) || 
+    scheme == 'torrent' || scheme == 'magnet'){
     return done(null, mimetype);
+  }
 
-  logger.info('Downloading %s to %s', infringement.uri, outPath);
+  logger.trace('Downloading %s to %s', infringement.uri, outPath);
   var outStream = fs.createWriteStream(outPath);
 
   Seq()
@@ -412,7 +413,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       stream.on('error', this);
     })
     .seq(function(){
-      logger.info('Download finished for %s', outPath);
+      logger.trace('Download finished for %s', outPath);
       utilities.getFileMimeType(outPath, this);
     })
     .seq(function(mimetype_) {
@@ -420,15 +421,12 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       isBinaryFile(outPath, this);
     })
     .seq(function(isBinary) {
-      if(!isBinary)
-        return this();
-      var that = this;
-      //md5s are generated in storage, if the file exists already it will return immediately.
-      self.storage_.addLocalFile(infringement.campaign, outPath, function(err){
-        if(err)
-          return that(err);
-        self.registerDownload(infringement, outPath, mimetype, that);
-      });
+      if(!isBinary) 
+        this();
+      else if(mimetype === 'application/x-bittorent')
+        self.addTorrentRelation(infringement, outPath, mimetype, this);
+      else
+        self.registerDownload(infringement, outPath, mimetype, this);
     })
     .seq(function() {
       rimraf(outPath, function(err) { if (err) logger.warn(err); });
@@ -447,24 +445,28 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     ;
 }
 
-Processor.prototype.registerDownload = function(infringement, filePath, mimetype, done){
+Processor.prototype.registerDownload = function(infringement, outPath, mimetype, done){
   var self = this
     , md5  = ''
   ;
   
   Seq()
     .seq(function(){
-      utilities.generateMd5(filePath, this);
+      //md5s are generated in storage.js, if the file exists already it will return immediately.
+      self.storage_.addLocalFile(infringement.campaign, outPath, this);
+    })
+    .seq(function(){
+      utilities.generateMd5(outPath, this);
     })
     .seq(function(md5_){
       md5 = md5_;
-      fs.stat(filePath, this);
+      fs.stat(outPath, this);
     })
     .seq(function(stats){
       self.infringements_.addDownload(infringement, md5, mimetype, stats.size, this)
     })
     .seq(function(){
-      logger.info('registered download ' + md5 + ' against ' + infringement.uri);
+      logger.trace('registered download ' + md5 + ' against ' + infringement.uri);
       done();
     })
     .catch(function(err){
@@ -662,17 +664,13 @@ Processor.prototype.checkIfExtensionLedToWebpage = function(infringement, mimety
 }
 
 //
-// Some types of file are special and therefore we want to add any useful relations
-// i.e. torrent files all point to torrent://$INFO_HASH
+// Some types of text files are special and therefore we want to add any useful relations
+// i.e. add magnet uris as children to incoming infringements
 //
 Processor.prototype.addInfringementRelations = function(infringement, mimetype, done) {
   var self = this;
 
-  // Check for new torrent files
-  if (mimetype.has('torrent') && infringement.scheme != 'torrent' && infringement.scheme != 'magnet') {
-    self.addTorrentRelation(infringement, done);
-
-  } else if (infringement.scheme == 'magnet') {
+  if (infringement.scheme == 'magnet') {
     self.addMagnetRelation(infringement, done);
 
   } else {
@@ -680,27 +678,18 @@ Processor.prototype.addInfringementRelations = function(infringement, mimetype, 
   }
 }
 
-Processor.prototype.addTorrentRelation = function(infringement, done) {
+Processor.prototype.addTorrentRelation = function(infringement, outPath, mimetype, done) {
   var self = this
-    , tmpFile = path.join(os.tmpDir(), infringement._id + '.download.torrent')
     , torrentURI = null
     ;
 
   Seq()
     .seq(function() {
-      utilities.requestStream(infringement.uri, this);
-    })
-    .seq(function(req, res, stream) {
-      stream.pipe(fs.createWriteStream(tmpFile));
-      stream.on('end', this);
-      stream.on('error', this);
-    })
-    .seq(function() {
-      readTorrent(tmpFile, this);
+      readTorrent(outPath, this);
     })
     .seq(function(torrent) {
       torrentURI = 'torrent://' + torrent.infoHash;
-      logger.info('Creating %s',torrentURI);
+      logger.trace('Creating %s',torrentURI);
       
       self.infringements_.add(infringement.campaign,
                               torrentURI,
@@ -714,6 +703,14 @@ Processor.prototype.addTorrentRelation = function(infringement, done) {
     .seq(function() {
       logger.info('Creating relation between %s and %s', infringement.uri, torrentURI);
       self.infringements_.addRelation(infringement.campaign, infringement.uri, torrentURI, this);
+    })
+    .seq(function(){
+      self.collections_['infringements'].findOne({uri : torrentURI, campaign : infringement.campaign}, this);
+    })
+    .seq(function(targetInfringement){
+      if(!targetInfringement)
+        return done(new Error('Unable to find supposedly just added torrent endpoint infringement record'))
+      self.registerDownload(targetInfringement, outPath, mimetype, this);
     })
     .catch(function(err) {
       logger.warn('Unable to process torrent for new relation: %s', err);
