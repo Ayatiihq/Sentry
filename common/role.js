@@ -86,7 +86,7 @@ Role.prototype.end = function() {
   process.exit();
 }
 
-Role.prototype.startBeat = function (campaigns, campaign) {
+Role.prototype.startBeat = function () {
   var self = this;
 
   if (self.heartBeatTimer) { 
