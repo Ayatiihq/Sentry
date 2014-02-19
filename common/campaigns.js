@@ -11,6 +11,11 @@
   "copyrightContact": "",
   "created": 0,
   "description": "",
+  "heartBeats": {
+    Date: 0,
+    Date: 0
+    ...
+  },
   "metadata": {
     "albumTitle": "",
     "artist": "",
@@ -268,6 +273,26 @@ Campaigns.prototype.update = function(id, updates, callback) {
     return self.cachedCalls_.push([self.update, Object.values(arguments)]);
 
   self.campaigns_.update({ _id: id }, { $set: updates }, callback);
+}
+
+/**
+ * Same as .update but allows custom updates data
+ *
+ * @param {object}          id         The id selecting the client.
+ * @param {object}          updates    An object containing updates for the campaign.
+ * @param {function(err)}   callback   A callback to receive an error, if one occurs.
+ * @return {undefined}
+ */
+
+Campaigns.prototype.updateDetailed = function (id, updates, callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+
+  if (!self.campaigns_)
+    return self.cachedCalls_.push([self.updateDetailed, Object.values(arguments)]);
+
+  self.campaigns_.update({ _id: id }, updates , callback);
+
 }
 
 /**

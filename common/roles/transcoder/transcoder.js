@@ -49,6 +49,7 @@ var Transcoder = module.exports = function() {
   this.started_ = 0;
   this.touchId_ = 0;
 
+  Role.call(this);
   this.init();
 }
 

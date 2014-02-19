@@ -50,6 +50,7 @@ var DownloaderTorrent = module.exports = function() {
   this.runDone_ = null;
   this.torrentClient_ = null;
 
+  Role.call(this);
   this.init();
 }
 

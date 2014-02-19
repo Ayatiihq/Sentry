@@ -46,6 +46,7 @@ var Verifier = module.exports = function() {
 
   this.timestampIsVerified_ = true;
 
+  Role.call(this);
   this.init();
 }
 

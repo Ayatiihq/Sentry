@@ -39,6 +39,7 @@ var Miner = module.exports = function() {
   this.touchId_ = 0;
   this.lastTimestamp_ = 0;
 
+  Role.call(this);
   this.init();
 }
 

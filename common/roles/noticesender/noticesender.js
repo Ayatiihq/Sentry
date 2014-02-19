@@ -57,6 +57,7 @@ var NoticeSender = module.exports = function() {
   this.campaign_ = null;
   this.storage_ = null;
 
+  Role.call(this);
   this.init();
 }
 

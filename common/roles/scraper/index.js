@@ -33,6 +33,7 @@ var Scraper = module.exports = function() {
 
   this.runningScrapers_ = [];
 
+  Role.call(this);
   this.init();
 }
 

@@ -43,6 +43,7 @@ var Analytics = module.exports = function() {
   this.started_ = false;
   this.touchId_ = 0;
 
+  Role.call(this);
   this.init();
 }
 

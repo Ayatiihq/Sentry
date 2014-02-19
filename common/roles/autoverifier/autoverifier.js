@@ -42,6 +42,7 @@ var AutoVerifier = module.exports = function() {
   this.started_ = 0;
   this.touchId_ = 0;
 
+  Role.call(this);
   this.init();
 }
 
@@ -55,7 +56,6 @@ AutoVerifier.prototype.init = function() {
   self.jobs_ = new Jobs('autoverifier');
   self.verifications_ = new Verifications();
   self.storage_ = new Storage('downloads');
-
 }
 
 AutoVerifier.prototype.loadVerifiers = function(done) {

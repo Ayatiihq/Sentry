@@ -34,7 +34,10 @@ var Role = module.exports = function() {
 
 util.inherits(Role, events.EventEmitter);
 
-Role.prototype.init = function() {
+Role.prototype.init = function () {
+  self.on('started', this.startBeat.bind(this));
+  self.on('stopped', this.stopBeat.bind(this));
+  self.on('error', this.stopBeat.bind(this));
 }
 
 Role.prototype.getName = function() {
@@ -79,4 +82,47 @@ Role.prototype.end = function() {
   var self = this;
   logger.error(self.getName() + " has no end method");
   process.exit();
+}
+
+Role.prototype.startBeat = function () {
+  var self = this;
+
+  if (self.heartBeatTimer) { 
+    logger.warn('Heartbeat start when already beating heart: ', self.getName()); 
+    try { self.heartBeatTimer.cancel(); } catch (err) { }
+    self.heartBeatTimer = null;
+  }
+  
+  function beatHeart () {
+    if (!(self.campaigns_) || !(self.campaign_)) { return; } // early exit if we aren't complete
+
+    // inc to db
+    var today = new Date.create('today').toString();
+    var roleKey = 'heartBeatsByRole.' + today + '-' + self.getName();
+    var todayKey = 'heartBeats.' + today;
+
+    var heartRateDiff = process.hrtime(self.lastHeartBeat)[0];
+    heartRateDiff = heartRateDiff > 0 ? heartRateDiff : 1; // at least one second else things will slip through
+    self.lastHeartBeat = process.hrtime();
+    
+    var update = { $inc: {} };
+    update.$inc[todayKey] = heartRateDiff;
+    update.$inc[roleKey] = heartRateDiff;
+
+    self.campaigns_.updateDetailed(self.campaign_._id,
+                              update,
+                              function (err) { if (err) { logger.warn('Error submitting heartbeat: ', self.getName(), err); } });
+
+  }
+
+  self.lastHeartBeat = process.hrtime();
+  self.heartBeatTimer = beatHeart.every(60000);
+  beatHeart();
+}
+
+Role.prototype.stopBeat = function () {
+  var self = this;
+  if (!self.heartBeatTimer) { logger.warn('Heartbeat end called when no beating heart present: ', self.getName()); return; }
+  self.heartBeatTimer.cancel();
+  self.heartBeatTimer = null;
 }
