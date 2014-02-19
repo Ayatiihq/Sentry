@@ -16,7 +16,7 @@ var acquire = require('acquire')
   , utilities = acquire('utilities')
   ;
 
-var SendGrid = require('sendgrid').SendGrid
+var SendGrid = require('sendgrid')
   , Seq = require('seq')
   ;
 
@@ -52,13 +52,13 @@ EmailEngine.prototype.post = function(host, message, notice, done) {
     replyto: 'neilpatel@ayatii.com',
     date: new Date()
   },
-  function(success, msg) {
-    if (!success && msg.startsWith('Invalid JSON response')) {
+  function(err, msg) {
+    if (err){
       logger.warn('Didn\'t get a valid response from the SendGrid servers, but normally email still get\'s through');
-      done(null, notice);
+      done(err, msg, notice, details.metadata.to);
     }
     else
-      done(success ? null :msg, notice, details.metadata.to);
+      done();
   });
 }
 
