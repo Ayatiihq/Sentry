@@ -94,7 +94,7 @@ NoticeSender.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack, console.trace());
+    logger.warn(err.stack, console.info());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -124,8 +124,16 @@ NoticeSender.prototype.processJob = function(err, job) {
       TorrentSites = torrentSites;
       self.getInfringements(this);
     })
-    .seq(function() {
-      self.sendEscalatedNotices(this);
+    .seq(function(){
+      self.notices_.getNeedsEscalatingForCampaign(self.campaign_, this);
+    })
+    .seq(function(escalateUs){
+      var that = this;
+      database.connectAndEnsureCollection('infringements', function(err, db, table){
+        if(err)
+          return that(err);
+        self.sendEscalatedNotices(escalateUs, table, that);  
+      });      
     })
     .seq(function() {
       logger.info('Finished sending notices');
@@ -428,7 +436,7 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     .seq(function(){
       //  first check to see if we can escalate this mother
       if(self.hosts_.shouldAutomateEscalation(host)){
-        logger.trace('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
+        logger.info('Automatically escalating notice ' + notice._id + ' from host ' + host.name + ' to ' + host.hostedBy);
         self.notices_.setState(notice, states.notices.state.NEEDS_ESCALATING, done);
         return;
       }        
@@ -457,10 +465,8 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     ;
 }
 
-NoticeSender.prototype.sendEscalatedNotices = function(infringementsTable, done){
+NoticeSender.prototype.sendEscalatedNotices = function(escalateThese, infringementsTable, done){
   var self = this
-    , escalateUs = []
-    , infringementsTable
     ;
 
   if (self.campaign_.monitoring) {
@@ -468,23 +474,9 @@ NoticeSender.prototype.sendEscalatedNotices = function(infringementsTable, done)
     return done();
   }
 
-  Seq()
-    .seq(function(){
-      self.notices_.getNeedsEscalatingForCampaign(self.campaign_, this);
-    })
-    .seq(function(results){
-      escalateUs = results;
-    })
-    .seq(function(){
-      database.connectAndEnsureCollection('infringements', this);      
-    })
-    .seq(function(db, table){
-      infringementsTable = table;
-      console.log('here');
-    })
-    .set(escalateUs)
+  Seq(escalateThese)
     .seqEach(function(notice){
-      console.log('here ? ');
+      console.log('escalate this ' + JSON.stringify(notice));
       self.escalateNotice(notice, infringementsTable, this);
     })
     .seq(function(){
@@ -522,7 +514,6 @@ NoticeSender.prototype.escalateNotice = function(notice, infringementsTable, don
     })
     .seq(function(noticeWithHost){
       // Flesh out the hostedby host.
-      logger.trace('escalate notice - have host');
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
         logger.info('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
@@ -548,13 +539,14 @@ NoticeSender.prototype.escalateNotice = function(notice, infringementsTable, don
     })
     .seq(function(noticeWithHostedBy){
       var that = this;
-      // finally grab the full infringements
-      infringementsTable.find({_id : {$in : noticeWithHostedBy.infringements}}, function(err, fullInfrigs){
+      // finally grab the full infringements and populate
+      infringementsTable.find({_id : {$in : noticeWithHostedBy.infringements}}).toArray(function(err, fullInfrigs){
         if(err){
           logger.warn("hmm this shouldn't happen, unable to explode infringements for escalation");
           return done(err);
         }
-        noticeWithHostedBy.infringements = fullInfrigs;
+        //logger.info('populated infringements ' + JSON.stringify(fullInfrigs));
+        noticeWithHostedBy.host.hostedBy.infringements = fullInfrigs;
         that(null, noticeWithHostedBy)
       });
     })
@@ -567,17 +559,16 @@ NoticeSender.prototype.escalateNotice = function(notice, infringementsTable, don
           logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + notice._id);
           return done();
         }
-        self.prepareEscalationText(complete, originalMsg, that);
+        self.prepareEscalationText(completeNotice, originalMsg, that);
       });
     })
     .seq(function(escalationText, prepdNotice){
-      logger.trace('escalate notice - have host.hostedBy');
       self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
     })
-    .seq(function(engine, message, notice) {
-      engine.post(notice.host.hostedBy, message, notice, this);
+    .seq(function(engine, escalationMessage, prepdNotice) {
+      engine.post(prepdNotice.host.hostedBy, escalationMessage, prepdNotice, this);
     })
-    .seq(function(notice, target) {
+    .seq(function(escalatedNotice, target) {
       self.notices_.addEscalated(notice, target);
       self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })
@@ -653,7 +644,7 @@ NoticeSender.prototype.processNotice = function(host, notice, done) {
     if (err) {
       logger.warn('Unable to add notice %j: %s', notice, err);
     } else {
-      logger.trace('Successfully added notice %s', notice._id);
+      logger.info('Successfully added notice %s', notice._id);
     }
     done();
   });
