@@ -424,7 +424,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       if(!isBinary) 
         this();
       else if(mimetype === 'application/x-bittorent')
-        self.addTorrentRelation(infringement, outPath, mimetype this);
+        self.addTorrentRelation(infringement, outPath, mimetype, this);
       else
         self.registerDownload(infringement, outPath, mimetype, this);
     })
@@ -443,12 +443,6 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       done(null, mimetype);
     })
     ;
-}
-
-Processor.prototype.createTorrentEndpoint = function(parentInfringement, fileLocation, done){
-  var self = this
-    , ;
-
 }
 
 Processor.prototype.registerDownload = function(infringement, outPath, mimetype, done){
@@ -711,7 +705,7 @@ Processor.prototype.addTorrentRelation = function(infringement, outPath, mimetyp
       self.infringements_.addRelation(infringement.campaign, infringement.uri, torrentURI, this);
     })
     .seq(function(){
-      self.collections_['infringements'].findOne({uri : torrentURI, 'parents.uris' {$in : [infringement.uri]}}, this);
+      self.collections_['infringements'].findOne({uri : torrentURI, campaign : infringement.campaign}, this);
     })
     .seq(function(targetInfringement){
       if(!targetInfringement)
