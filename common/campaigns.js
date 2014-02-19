@@ -281,7 +281,7 @@ Campaigns.prototype.updateDetailed = function (id, updates, callback) {
   callback = callback ? callback : defaultCallback;
 
   if (!self.campaigns_)
-    return self.cachedCalls_.push([self.update, Object.values(arguments)]);
+    return self.cachedCalls_.push([self.updateDetailed, Object.values(arguments)]);
 
   self.campaigns_.update({ _id: id }, updates , callback);
 
