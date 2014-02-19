@@ -54,8 +54,8 @@ EmailEngine.prototype.post = function(host, message, notice, done) {
   },
   function(err, msg) {
     if (err){
-      logger.warn('Didn\'t get a valid response from the SendGrid servers, but normally email still get\'s through');
-      done(err, msg, notice, details.metadata.to);
+      logger.warn('Didn\'t get a valid response from the SendGrid servers ' + err + '\nto : ' + details.metadata.to);
+      done(err);
     }
     else
       done();
