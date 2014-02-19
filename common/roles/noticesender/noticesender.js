@@ -545,7 +545,6 @@ NoticeSender.prototype.escalateNotice = function(notice, infringementsTable, don
           logger.warn("hmm this shouldn't happen, unable to explode infringements for escalation");
           return done(err);
         }
-        //logger.info('populated infringements ' + JSON.stringify(fullInfrigs));
         noticeWithHostedBy.host.hostedBy.infringements = fullInfrigs;
         that(null, noticeWithHostedBy)
       });

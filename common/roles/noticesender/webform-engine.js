@@ -177,8 +177,6 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   //check for error and early exit if we find one
   var error = null;
-  
-  logger.info(JSON.stringify(combinedInfo));
 
   Object.keys(combinedInfo).each(function(key) {
     var test = combinedInfo[key];
