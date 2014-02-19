@@ -1037,7 +1037,7 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 }
 
 /**
- * Get all the campaign torrent infringements that are unverifed and all indicators point to it being a webpage.
+ * Get all the campaign torrent infringements that are unverified and all indicators point to it being a webpage.
  *
  * @param {object}                    campaign                 A Campaign
  * @param {function(err, torrents)}   callback                 A callback to receive the torrent unverfieds or an error.
