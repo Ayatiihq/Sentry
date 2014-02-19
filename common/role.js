@@ -118,7 +118,7 @@ Role.prototype.startBeat = function (campaigns, campaign) {
   }
 
   self.lastHeartBeat = process.hrtime();
-  self.heartBeatTimer = beatHeart.every(60000, campaigns, campaign);
+  self.heartBeatTimer = beatHeart.every(60000);
   beatHeart();
 }
 
