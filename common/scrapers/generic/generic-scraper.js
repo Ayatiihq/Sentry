@@ -195,7 +195,7 @@ Generic.prototype.pump = function (firstRun) {
   }
 
   var check = false;
-  check = process.memoryUsage().heapUsed() < (96 * 1024 * 1024); // check we are using less than 96MB of heap
+  check = process.memoryUsage().heapUsed < (96 * 1024 * 1024); // check we are using less than 96MB of heap
   check = (check && (self.numInfringementsChecked <= MAX_INFRINGEMENTS));   // we have checked less than MAX_INFRINGEMENTS infringements
 
   if (check) {
