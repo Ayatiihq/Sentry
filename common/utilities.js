@@ -62,8 +62,10 @@ CacheManager.prototype.get = function (key) {
 CacheManager.prototype.set = function (key, value) {
   var self = this;
   self.store[key] = { 'value': value, 'timestamp': new Date().getTime() };
-  var oldestKey = Object.keys(self.store).sortBy(function (key) { self.store[key].timestamp }).first();
-  delete self.store[oldestKey];
+  if (self.store.length > self.limit) {
+    var oldestKey = Object.keys(self.store).sortBy(function (key) { self.store[key].timestamp }).first();
+    delete self.store[oldestKey];
+  }
 }
 
 var Utilities = module.exports;
@@ -423,6 +425,7 @@ Utilities.requestURL = function(url, options, callback) {
 
   if (Utilities.requestURLCache.get(url)) {
     callback.apply(null, Utilities.requestURLCache.get(url));
+    return;
   }
 
   var requestOptions = {
