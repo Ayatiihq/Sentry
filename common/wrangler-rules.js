@@ -48,7 +48,7 @@ module.exports.urlMatch = XRegExp( //ignore jslint
   '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
   '|' +
   '(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))                               (?#or ip           )' +
-  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)| ]*(?<extension>\\.[-a-z0-9]+)?)*               (?#full path       )' +
+  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)| ]*(?<extension>\\.[-a-z0-9]+)?)*              (?#full path       )' +
   '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )' +
   ')',
   'gix'); // global, ignore case, free spacing 
@@ -262,19 +262,12 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   }
 };
 
-var searchTypes = module.exports.searchTypes = {
-  START: 0,
-  MIDDLE: 1,
-  END: 2,
-  DOMAIN: 3
-};
-
 /**
  * Constructs a list of all possible links before searching for matches from the extensionList
  * depending on the matching algorithm chosen (searchTypes).
  */
-var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extensionList, searchType, mimeMatch) {
-  var findExtensions = function (extensions, searchType, mimeMatch, $, source, uri, foundItems) {
+var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, mimeMatch) {
+  var findExtensions = function (uriTest, mimeMatch, $, source, uri, foundItems) {
     var links = {}
       , shortenedLinks = []
     ;
@@ -374,37 +367,9 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (extension
         });
       })
       .then(function() {
-        function linkMatchesExtension(link) {
-          var ret = false;
-
-          switch (searchType) {
-            case searchTypes.START:
-              ret = linkBeginsWith(link, extensions);
-              break;
-
-            case searchTypes.MIDDLE:
-              ret = linkHas(link, extensions);
-              break;
-
-            case searchTypes.END:
-              // try to remove the query string (to catch torcache queries)
-              ret = linkEndsWith(link.split('?')[0], extensions);
-              break;
-
-            case searchTypes.DOMAIN:
-              ret = linkIsFrom(link, extensions);
-              break;
-
-            default:
-              logger.warn('Search type %d is not supported', searchType);
-          }
-
-          return ret;
-        }
-
         // Finally, it's time to search for the useful extentions
         Object.keys(links, function (link) {
-          if (linkMatchesExtension(link)) {
+          if (uriTest(link)) {
             // ignore facebook mp3
             if (link === 'http://www.facebook.com/free.mp3') { return; }
             var item = new Endpoint(link);
@@ -494,33 +459,37 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
                              , module.exports.ruleRegexStreamUri
                              , module.exports.ruleSwfObject];
 
-var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg'];
+function buildExtensionRE(extensions) {
+  var test = '(' + audioExtensions.toString().replace(/,/g, '|').replace(/\./g, '\\.') + ')';
+}
+
+function buildURITest(extensions, protocols) {
+  return function (uri) {
+    var match = module.exports.urlMatch.exec(uri)
+    return (extensions.some(match.extension) || protocols.some(match.protocol);
+  }
+};
+
+var audioExtensions = buildExtensionRE(['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg']);
 
 var videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', '.mpg', '.mpe', '.ogg', '.wmv'];
 
 var p2pExtensions = ['.torrent'];
 
-var magnetPrefixs = ['magnet:'];
+var magnetPrefixs = ['magnet'];
 
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
 module.exports.rulesDownloadsMusic = [
-    ruleSearchAllLinks(audioExtensions, searchTypes.END, /(audio)\//gi)
-  , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
-  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
-  , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
+  ruleSearchAllLinks(buildURITest(audioExtensions.concat(p2pExtensions, archiveExtensions), magnetPrefixs), /(audio)\//gi)
 ];
 
 module.exports.rulesDownloadsMovie = [
-    ruleSearchAllLinks(videoExtensions, searchTypes.END, /(video)\//gi)
-  , ruleSearchAllLinks(p2pExtensions, searchTypes.END)
-  , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
-  , ruleSearchAllLinks(archiveExtensions, searchTypes.END)
+  ruleSearchAllLinks(buildURITest(videoExtensions.concat(p2pExtensions, archiveExtensions), magnetPrefixs), /(video)\//gi)
 ];
 
 module.exports.rulesDownloadsTorrent = [
-   ruleSearchAllLinks(p2pExtensions, searchTypes.END)
- , ruleSearchAllLinks(magnetPrefixs, searchTypes.START)
+  ruleSearchAllLinks(buildURITest(p2pExtensions, magnetPrefixs), /(video)\//gi)
 ];
 
 module.exports.typeExtensions = {
