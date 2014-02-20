@@ -38,6 +38,10 @@ var PromiseBatcher = function (batchSize) {
 PromiseBatcher.prototype.addFn = function (fn) { this.fns.push(fn); };
 PromiseBatcher.prototype.startBatches = function () {
   var self = this;
+
+  // TODO - stop batching in chunks like this, when one promise returns fire off the next one
+  // so we always have x promises running, but don't request flood.
+
   var batches = {};
   self.fns.each(function (fn, index) {
     var batchNum = Math.floor(index / self.batchSize);
@@ -269,6 +273,7 @@ Generic.prototype.isLinkInteresting = function (uri) {
 Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   var self = this;
   var promise = new Promise.Promise();
+  var hrtime = process.hrtime();
 
   var wrangler = new BasicWrangler();
   var ruleSet = ruleOverrides;
@@ -280,6 +285,9 @@ Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   wrangler.addRule(ruleSet);
 
   wrangler.on('finished', function onWranglerFinished(foundItems) {
+    var newtime = process.hrtime(hrtime);
+    var sec = newtime[0] + (newtime[1] / 1000000000);
+    logger.info(sec.round(2) + 's: completed (' + uri + ')');
     wrangler.removeAllListeners();
     if (!wrangler.isSuspended) {
       self.activeScrapes = self.activeScrapes - 1;
@@ -437,13 +445,10 @@ Generic.prototype.checkURI = function (uri) {
   return resolveData;
 };
 
-Generic.prototype.generateRulesForCampaign = function () {
+Generic.prototype.generateRulesForCampaign = function (additionalDomains) {
   var self = this;
-  var musicRules = wranglerRules.rulesDownloadsMusic;
-  var movieRules = wranglerRules.rulesDownloadsMovie;
-
-  //musicRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
-  //movieRules.push(wranglerRules.ruleSearchAllLinks(self.combinedDomains, wranglerRules.searchTypes.DOMAIN));
+  var musicRules = wranglerRules.rulesDownloadsMusic(additionalDomains);
+  var movieRules = wranglerRules.rulesDownloadsMovie(additionalDomains);
 
   var rules = {
     'music': musicRules,
@@ -461,7 +466,7 @@ Generic.prototype.checkInfringement = function (infringement) {
   var checkURIResult = self.checkURI(infringement.uri); // returns {stateChange:str, pointsChange:[number, str]}
   if (checkURIResult.stateChange !== null && checkURIResult.pointsChange !== null) {
     // no problems with checkURIResult so we can start endpointWrangler on this uri
-    var ruleSet = self.generateRulesForCampaign();
+    var ruleSet = self.generateRulesForCampaign(self.combinedDomains);
     var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
     return wranglerPromise.then(self.onInfringementFinished.bind(self, infringement, false));
   }
@@ -493,6 +498,8 @@ function arrayHas(test, arr) {
 
 // for testing
 if (require.main === module) {
+  // NOTE, if you are using this for testing remember to disable self.pump() calls in generic
+  // else it goes off looking for new infringements because we didn't code in a functional way, so its all intertwined
   var metadata = {
     'artist': "Girls Generation",
     'albumTitle': "The Boys",
@@ -504,14 +511,10 @@ if (require.main === module) {
     ]
   };
 
-  setInterval(function () { console.log(util.inspect(process.memoryUsage())); }, 1000)
-
   var campaign = {
     'metadata': metadata,
     'type': 'music.album',
   };
-
-  
 
   var generic = new Generic();
   generic.campaign = campaign;
@@ -520,20 +523,17 @@ if (require.main === module) {
   //var url = 'http://mp3skull.com/mp3/the_boys_girls_generation.html'
   //var url = 'http://isohunt.to/torrents/?ihq=Girls+Generation+The+Boys';
   var url = 'http://www.musicaddict.com/mp3/the-boys-girls-generation.html';
-  //var url = 'http://www.musicaddict.com/download/789372-girlsgeneration--the-boys-mp3.html';
+  //var url = 'http://www.musicaddict.com/download/1064286-girls-generation--the-boys-mp3.html';
 
   var infringement = { 'uri': url };
 
   generic.wrapWrangler(url, ruleSet)
   .then(function (foundItems) {
-    //foundItems.each(console.dir);
-    //return foundItems;
-    return generic.doSecondAssaultOnInfringement(infringement);
+    return generic.doSecondAssaultOnInfringement(infringement).then(function (results) { if (foundItems) { results.push(foundItems) }; return results });
   })
   .then(function (things) {
-    console.log('done: ', things);
     if (things) {
-      things.each(function (thing) { thing.items.each(console.log); });
+      things.each(function (thing) { if (thing.items) { thing.items.each(console.log); } });
     }
   });
 }

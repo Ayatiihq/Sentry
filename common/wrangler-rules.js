@@ -363,12 +363,14 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
         });
 
         var promiseArray = shortenedLinks.map(function (link) {
-          return utilities.followRedirects([link], new Promise());
+          return utilities.followRedirects([link], new Promise()); // FIXME - *never* throw promises about like this. 
         });
 
         return all(promiseArray).then(function (lifted30Xs) {
           lifted30Xs.each(function (single30x) {
-            links[single30x.last()] = true;
+            if (XRegExp.test(single30x.last()), module.exports.urlMatch) {  // followRedirects gets a lot of crap accumulated.
+              links[single30x.last()] = true;
+            }
           });
         });
       })
@@ -460,32 +462,40 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
                              , module.exports.ruleRegexStreamUri
                              , module.exports.ruleSwfObject];
 
-function buildURITest(extensions) {
+function buildURITest(extensions, domains) {
+  domains = (domains) ? domains : [];
+  extensions = (extensions) ? extensions : [];
   return function (uri) {
     var match = XRegExp.exec(uri, module.exports.urlMatch);
-    return extensions.some(match.extension);
+    if (!match) { console.log(uri); }
+    var heh = (extensions.some(match.extension) || domains.some(match.domain));
+    return (extensions.some(match.extension) || domains.some(match.domain));
   };
 };
 
-var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg'];
+var audioExtensions = module.exports.audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg'];
 
-var videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', '.mpg', '.mpe', '.ogg', '.wmv'];
+var videoExtensions = module.exports.videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', '.mpg', '.mpe', '.ogg', '.wmv'];
 
-var p2pExtensions = ['.torrent'];
+var p2pExtensions = module.exports.p2pExtensions = ['.torrent'];
 
-var magnetPrefixs = ['magnet'];
+var magnetPrefixs = module.exports.magnetPrefixs = ['magnet'];
 
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
-module.exports.rulesDownloadsMusic = [
-  ruleSearchAllLinks(buildURITest(audioExtensions.concat(p2pExtensions, archiveExtensions)), /(audio)\//gi),
-  ruleFindMagnetLinks
-];
+module.exports.rulesDownloadsMusic = function (additionalDomains) {
+  return [
+    ruleSearchAllLinks(buildURITest(audioExtensions.concat(p2pExtensions, archiveExtensions), additionalDomains), /(audio)\//gi),
+    ruleFindMagnetLinks
+  ];
+}
 
-module.exports.rulesDownloadsMovie = [
-  ruleSearchAllLinks(buildURITest(videoExtensions.concat(p2pExtensions, archiveExtensions)), /(video)\//gi),
-  ruleFindMagnetLinks
-];
+module.exports.rulesDownloadsMovie = function (additionalDomains) {
+  return [
+    ruleSearchAllLinks(buildURITest(videoExtensions.concat(p2pExtensions, archiveExtensions), additionalDomains), /(video)\//gi),
+    ruleFindMagnetLinks
+  ];
+}
 
 module.exports.rulesDownloadsTorrent = [
   ruleSearchAllLinks(buildURITest(p2pExtensions), /(video)\//gi),
