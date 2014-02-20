@@ -262,6 +262,17 @@ module.exports.ruleRegexStreamUri = function RegexStreamUri($, source, uri, foun
   }
 };
 
+var ruleFindMagnetLinks = module.exports.ruleFindMagnetLinks = function ($, source, uri, foundItems) {
+  var links = [];
+  XRegExp.forEach(source, module.exports.magnetMatch, function (match) {
+    var item = new Endpoint(match.fulluri.toString());
+    item.isEndpoint = true;
+    foundItems.push(item);
+  });
+
+  return foundItems;
+}
+
 /**
  * Constructs a list of all possible links before searching for matches from the extensionList
  * depending on the matching algorithm chosen (searchTypes).
@@ -285,11 +296,6 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
 
       var href = utilities.joinURIS(uri, url, baseURI);
       if (href) { links[href] = true; }
-    });
-
-    // Search fo' magnets
-    XRegExp.forEach(source, module.exports.magnetMatch, function (match) {
-      links[match.fulluri.toString()] = true;
     });
 
     // Let's then grab all the a links, relative or otherwise
@@ -379,14 +385,11 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
         });
       })
       .then(function() {
-        if (mimeMatch === undefined) { // early exit as the way this was coded is a little awkward, called many times and we only want do this once
-          return;
-        }
-
         // actually not finally, we want to go through each of the links now and ping them to check the mimetypes
         // slow as all hell but will find things that are binary that don't have extensions
         var pingPromises = [];
-        Object.keys(links, function (link) {
+        Object.keys(links, function (link, value) {
+          if (value) { return; } // early return, don't revalidate links we already checked
           var p = new Promise();
           pingPromises.push(p);
           utilities.requestURLStream(link,
@@ -413,9 +416,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
       });
   };
 
-  if (!extensionList) { logger.error(new Error('Find extensions called with no extensionList')); }
-
-  return findExtensions.bind(null, extensionList, searchType, mimeMatch);
+  return findExtensions.bind(null, uriTest, mimeMatch);
 };
 
 function linkBeginsWith(link, prefixes) {
@@ -459,18 +460,14 @@ module.exports.rulesLiveTV = [module.exports.ruleEmbed
                              , module.exports.ruleRegexStreamUri
                              , module.exports.ruleSwfObject];
 
-function buildExtensionRE(extensions) {
-  var test = '(' + audioExtensions.toString().replace(/,/g, '|').replace(/\./g, '\\.') + ')';
-}
-
-function buildURITest(extensions, protocols) {
+function buildURITest(extensions) {
   return function (uri) {
-    var match = module.exports.urlMatch.exec(uri)
-    return (extensions.some(match.extension) || protocols.some(match.protocol);
-  }
+    var match = XRegExp.exec(uri, module.exports.urlMatch);
+    return extensions.some(match.extension);
+  };
 };
 
-var audioExtensions = buildExtensionRE(['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg']);
+var audioExtensions = ['.mp3', '.wav', '.flac', '.m4a', '.wma', '.ogg', '.aac', '.ra', '.m3u', '.pls', '.ogg'];
 
 var videoExtensions = ['.mp4', '.avi', '.mkv', '.m4v', '.dat', '.mov', '.mpeg', '.mpg', '.mpe', '.ogg', '.wmv'];
 
@@ -481,15 +478,18 @@ var magnetPrefixs = ['magnet'];
 var archiveExtensions = ['.zip', '.rar', '.gz', '.tar', '.7z', '.bz2'];
 
 module.exports.rulesDownloadsMusic = [
-  ruleSearchAllLinks(buildURITest(audioExtensions.concat(p2pExtensions, archiveExtensions), magnetPrefixs), /(audio)\//gi)
+  ruleSearchAllLinks(buildURITest(audioExtensions.concat(p2pExtensions, archiveExtensions)), /(audio)\//gi),
+  ruleFindMagnetLinks
 ];
 
 module.exports.rulesDownloadsMovie = [
-  ruleSearchAllLinks(buildURITest(videoExtensions.concat(p2pExtensions, archiveExtensions), magnetPrefixs), /(video)\//gi)
+  ruleSearchAllLinks(buildURITest(videoExtensions.concat(p2pExtensions, archiveExtensions)), /(video)\//gi),
+  ruleFindMagnetLinks
 ];
 
 module.exports.rulesDownloadsTorrent = [
-  ruleSearchAllLinks(buildURITest(p2pExtensions, magnetPrefixs), /(video)\//gi)
+  ruleSearchAllLinks(buildURITest(p2pExtensions), /(video)\//gi),
+  ruleFindMagnetLinks
 ];
 
 module.exports.typeExtensions = {

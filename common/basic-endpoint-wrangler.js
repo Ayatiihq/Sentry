@@ -81,7 +81,7 @@ Wrangler.prototype.beginSearch = function (uri) {
   };
 
   self.processUri(uri, []).then(cleanup, function onErrorProcessing(error) {
-    logger.error('(%s) Error processing uri: ' + error, self.uri);
+    logger.error('Error processing uri: ' + self.uri + ' - ', error);
     cleanup();
   });
 
