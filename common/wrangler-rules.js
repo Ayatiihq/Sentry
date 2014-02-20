@@ -48,7 +48,7 @@ module.exports.urlMatch = XRegExp( //ignore jslint
   '(?:(?<subdomain>[a-z0-9-]+\\.)*(?<domain>[a-z0-9-]+\\.(?:[a-z]+))(?<port>:[0-9]+)?)     (?#subdomain+domain)' +
   '|' +
   '(?<ip>[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))                               (?#or ip           )' +
-  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)|]*(?<extension>\\.[-a-z0-9]+)?)*               (?#full path       )' +
+  '(?<path>(?:/|%2F)[-a-z0-9+&@#/%=~_\\(\\)| ]*(?<extension>\\.[-a-z0-9]+)?)*               (?#full path       )' +
   '(?<paramaters>(?:\\?|%3F)[-a-z0-9+&@#/%=~_\\(\\)|]*)?                                   (?#paramaters      )' +
   ')',
   'gix'); // global, ignore case, free spacing 
