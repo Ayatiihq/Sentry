@@ -9,6 +9,7 @@
  */
 
 var acquire = require('acquire')
+  , database = acquire('database')
   , config = acquire('config')
   , events = require('events')
   , logger = acquire('logger').forFile('noticesender.js')
@@ -93,7 +94,7 @@ NoticeSender.prototype.processJob = function(err, job) {
 
   function onError(err) {
     logger.warn('Unable to process job: %s', err);
-    logger.warn(err.stack, console.trace());
+    logger.warn(err.stack, console.info());
     self.jobs_.close(job, states.jobs.state.ERRORED, err);
     self.emit('error', err);
   }
@@ -123,9 +124,17 @@ NoticeSender.prototype.processJob = function(err, job) {
       TorrentSites = torrentSites;
       self.getInfringements(this);
     })
-    .seq(function() {
-      self.sendEscalatedNotices(this);
-    })    
+    .seq(function(){
+      self.notices_.getNeedsEscalatingForCampaign(self.campaign_, this);
+    })
+    .seq(function(escalateUs){
+      var that = this;
+      database.connectAndEnsureCollection('infringements', function(err, db, table){
+        if(err)
+          return that(err);
+        self.sendEscalatedNotices(escalateUs, table, that);  
+      });      
+    })
     .seq(function() {
       logger.info('Finished sending notices');
       self.jobs_.complete(job);
@@ -301,7 +310,8 @@ NoticeSender.prototype.processBatch = function(batch, done) {
         return done();
       
       } else if (!host.noticeDetails.type && !host.hostedby) {
-        logger.warn('Host "%s" does not have engine type, nor hostedBy to escalate');
+        logger.warn('Host "%s" does not have engine type, nor hostedBy to escalate', 
+                    batch.key ? batch.key : batch.infringements[0].uri);
         return done();
       
       } else if (categoryFilters && !categoryFilters.some(host.category)) {
@@ -455,44 +465,36 @@ NoticeSender.prototype.sendNotice = function(host, infringements, done) {
     ;
 }
 
-NoticeSender.prototype.sendEscalatedNotices = function(done){
-  var self = this;
-  // If a client doesn't have the required information, we skip it
-  if (!self.noticeInfo_.authorization|| !self.noticeInfo_.copyrightContact) {
-    logger.info('Client %s does not have the required information to process notices',
-                 self.client_.name);
-    return done();
-  }
+NoticeSender.prototype.sendEscalatedNotices = function(escalateThese, infringementsTable, done){
+  var self = this
+    ;
 
   if (self.campaign_.monitoring) {
     logger.info('Campaign %s is for monitoring only', self.campaign_.name);
     return done();
   }
 
-  self.notices_.getNeedsEscalatingForCampaign(self.campaign_, function(err, results){
-    if(err){
+  Seq(escalateThese)
+    .seqEach(function(notice){
+      console.log('escalate this ' + JSON.stringify(notice));
+      self.escalateNotice(notice, infringementsTable, this);
+    })
+    .seq(function(){
+      logger.info('finished with escalating notices');
+      done();
+    })    
+    .catch(function(err){
       logger.warn('Error fetching notices that need escalating : ' + err);
-      return done(err);
-    }
-
-    Seq(results)
-      .seqEach(function(notice){
-        self.escalateNotice(notice, this);
-      })
-      .seq(function(){
-        logger.info('finished with escalating notices');
-        done();
-      })
-      .catch(function(err) {
-        done(err)
-      })
-      ;
-  });
+      done(err);
+    })
+    ;
 }
 
-NoticeSender.prototype.escalateNotice = function(notice, done){
+NoticeSender.prototype.escalateNotice = function(notice, infringementsTable, done){
   var self = this;
+  
   logger.info('escalate notice - ' + notice._id);
+
   Seq()
     .seq(function(){
       // Flesh out the original host
@@ -512,50 +514,60 @@ NoticeSender.prototype.escalateNotice = function(notice, done){
     })
     .seq(function(noticeWithHost){
       // Flesh out the hostedby host.
-      logger.info('escalate notice - have host');
       var that = this;
       if(!noticeWithHost.host.hostedBy || !noticeWithHost.host.hostedBy === ''){
-        logger.warn('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
+        logger.info('Want to escalate notice for ' + noticeWithHost.host.name +  "but don't have hostedBy information.");
         return done();      
       }
-      self.hosts_.get(noticeWithHost.host.hostedBy, function(err, hostedByHost){
+      self.hosts_.get(noticeWithHost.host.hostedBy, function(err, targetHost_){
         // just because we have a hostedBy string doesn't necessarily mean we have the full host info.
-        if(err || !hostedByHost){
+        if(err || !targetHost_){
           // Be verbose.
-          logger.warn('Want to escalate notice to ' +
+          logger.info('Want to escalate notice to ' +
                       noticeWithHost.host.hostedBy + ' for ' +
                       noticeWithHost.host.name +  
                       " but don't have " + 
                       noticeWithHost.host.hostedBy + ' information');
           return done();
         }
-        hostedByHost.campaign = self.campaign_;
-        hostedByHost.client = self.client_;
-        hostedByHost.infringements = notice.publicInfringements;
-        noticeWithHost.host.hostedBy = hostedByHost;
+        targetHost_.campaign = self.campaign_;
+        targetHost_.client = self.client_;
+        noticeWithHost.host.hostedBy = targetHost_;
+
         that(null, noticeWithHost);
       })
     })
     .seq(function(noticeWithHostedBy){
-      logger.info('escalate notice - have host.hostedBy');
+      var that = this;
+      // finally grab the full infringements and populate
+      infringementsTable.find({_id : {$in : noticeWithHostedBy.infringements}}).toArray(function(err, fullInfrigs){
+        if(err){
+          logger.warn("hmm this shouldn't happen, unable to explode infringements for escalation");
+          return done(err);
+        }
+        noticeWithHostedBy.host.hostedBy.infringements = fullInfrigs;
+        that(null, noticeWithHostedBy)
+      });
+    })
+    .seq(function(completeNotice){
+      logger.trace('escalate notice - have host.hostedBy');
       // Prepare escalation text
       var that = this;
-      self.storage_.getToText(self.campaign_._id, noticeWithHostedBy._id, {}, function(err, originalMsg){
+      self.storage_.getToText(self.campaign_._id, notice._id, {}, function(err, originalMsg){
         if(err){
-          logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + noticeWithHostedBy._id);
+          logger.warn('Unable to retrieve original notice text for escalation - notice id : ' + notice._id);
           return done();
         }
-        self.prepareEscalationText(noticeWithHostedBy, originalMsg, that);
-      })      
+        self.prepareEscalationText(completeNotice, originalMsg, that);
+      });
     })
     .seq(function(escalationText, prepdNotice){
-      logger.info('escalate notice - have host.hostedBy');
       self.loadEngineForHost(prepdNotice.host.hostedBy, escalationText, prepdNotice, this);
     })
-    .seq(function(engine, message, notice) {
-      engine.post(notice.host.hostedBy, message, notice, this);
+    .seq(function(engine, escalationMessage, prepdNotice) {
+      engine.post(prepdNotice.host.hostedBy, escalationMessage, prepdNotice, this);
     })
-    .seq(function(notice, target) {
+    .seq(function(escalatedNotice, target) {
       self.notices_.addEscalated(notice, target);
       self.notices_.setState(notice, states.notices.state.ESCALATED, this);
     })

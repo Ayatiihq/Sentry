@@ -21,7 +21,7 @@ var acquire = require('acquire')
 
 var resource = require('./webform-engine-resource');
 
-var TAKE_SCREENSHOTS = true;
+var TAKE_SCREENSHOTS = false;
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
@@ -177,9 +177,12 @@ WebFormEngine.prototype.executeForm = function (formTemplate, info) {
 
   //check for error and early exit if we find one
   var error = null;
-  Object.values(combinedInfo, function (test) {
+
+  Object.keys(combinedInfo).each(function(key) {
+    var test = combinedInfo[key];
     if (test === undefined || test === '' || test === null) {
       // can't just test for false, maybe 0 is okay
+      logger.warn('Unable to complete web form notice sending, key failed -> ' + key);
       error = true;
     }
   });
@@ -270,12 +273,12 @@ WebFormEngine.prototype.post = function (host, message, notice, done) {
   var infoObj = {
     campaignName: campaign.name,
     campaignURL: campaign.metadata.url,
-    clientAuthorization: client.authorization,
+    clientAuthorization: campaign.noticeInfo.authorization,
     clientName: client.name,
     contentMediaType: campaign.type,
     copyrightHolderFullName: client.name,
     infringingURLS: (infringements.length > 1) ? infringements.reduce(function (a, b) { return a.uri + '\n' + b.uri; }) : infringements[0].uri,
-    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}'),
+    MMDDYYYY: Date.create().format('{mm}/{dd}/{yyyy}')
   };
 
   self.executeForm(matchForm, infoObj).then(function () { return notice; }).nodeify(done);

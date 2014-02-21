@@ -508,3 +508,13 @@ Cowmangler.prototype.getCurrentUrl = function(done){
     done(err);
   });
 }
+
+Cowmangler.prototype.screenshot = function(done){
+  var self = this;
+  self.ass_.do('takeScreenshot', {}).then(function(screenshot){
+    done(null, screenshot.result);
+  },
+  function(err){    
+    done(err);
+  });
+}
