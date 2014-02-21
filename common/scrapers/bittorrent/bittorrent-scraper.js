@@ -543,6 +543,10 @@ Bittorrent.prototype.start = function (campaign, job, browser) {
   });
 
   self.engine.on('torrent', function onFoundTorrent(uri, points, metadata){
+    if(uri._string){
+      logger.warn('torrent signal with a dodgy uri ' + JSON.stringify(uri._string));
+      return;
+    }
     self.emit('infringement', uri, points, metadata);
   });
 

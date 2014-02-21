@@ -25,23 +25,6 @@ function setupSignals() {
 
 var SIGNALS = ['started', 'finished', 'error', 'infringement', 'metaInfringement', 'relation', 'metaRelation', 'infringementStateChange'];
 
-function parseObject(arg) {
-  var ret = arg;
-  console.log('parseObject ' + arg);
-  try {
-    ret = require(arg);
-  } catch (err) {
-    if (arg.endsWith('.json'))
-      console.error(err);
-    try {
-      ret = JSON.parse(arg);
-    } catch (err) { 
-      console.log(err); 
-    }
-  }
-  return ret;
-}
-
 function main() {
   var task = null;
 
@@ -58,7 +41,7 @@ function main() {
 
   var job = require(process.argv[2]);
   var campaigns = new Campaigns();
-  var scraperName = job._id.consumer.split('.')[0];
+  var scraperName = job._id.consumer.split('.')[1];
   var browser = null;
   var scraperInfo = null;
   var campaignID = job._id.owner;
@@ -68,6 +51,7 @@ function main() {
     Seq()
       .seq(function(){
         var that  = this;
+        console.log(scraperName);
         scraperInfo = scrapers.getScraper(scraperName);
         if (!scraperInfo) {
           logger.error('unable to load scraper info ' + scraperName);
