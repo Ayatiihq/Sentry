@@ -21,7 +21,7 @@ var acquire = require('acquire')
 
 var resource = require('./webform-engine-resource');
 
-var TAKE_SCREENSHOTS = true;
+var TAKE_SCREENSHOTS = false;
 
 // very simple wrapper around our browser calls, so we can replace with cow at some point
 var BrowserEngine = function () {
