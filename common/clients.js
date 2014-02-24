@@ -14,6 +14,7 @@
  */
 
 var acquire = require('acquire')
+  , bcrypt = require('bcrypt')
   , config = acquire('config')
   , database = acquire('database')
   , logger = acquire('logger').forFile('clients.js')
@@ -137,6 +138,53 @@ Clients.prototype.update = function(query, updates, callback) {
     return self.cachedCalls_.push([self.update, Object.values(arguments)]);
 
   self.clients_.update(query, { $set: updates }, callback);
+}
+
+/**
+ * Adds a user.
+ *
+ * @param {object}               client     The client to which the user will be added to.
+ * @param {object}               user       An object containing details of the user.
+ * @param {function(err, doc)}   callback   A callback to receive an error, if one occurs, otherwise the inserted documents.
+ * @return {undefined}
+ */
+Clients.prototype.addUser = function(client, user, callback) {
+  var self = this;
+  callback = callback ? callback : defaultCallback;
+
+  if (!(user && user.email && user.name && user.password)) {
+    callback = callback ? callback : defaultCallback;
+    return callback(new Error('User should have name, email and password:' + JSON.stringify(user)));
+  }
+
+  if (!self.clients_)
+    return self.cachedCalls_.push([self.addUser, Object.values(arguments)]);
+
+  user._id = user.email;
+  user.created = Date.now();
+
+  self.hashPassword(user.password, function(err, hash) {
+    if (err)
+      return callback(err);
+
+    user.password = hash;
+    var clientId
+     
+    self.clients_.update({_id: Object.isString(client) ? client : client._id},
+                         {$push : {"users" : user}},
+                         callback);
+  });
+}
+
+Clients.prototype.hashPassword = function(password, callback) {
+  var self = this;
+
+  bcrypt.genSalt(10, function(err, salt) {
+    if (err)
+      return callback(err);
+
+    bcrypt.hash(password, salt, callback);
+  });
 }
 
 /**

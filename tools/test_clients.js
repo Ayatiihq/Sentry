@@ -46,6 +46,12 @@ function main() {
     clients.get(argv[3], log);
   }
 
+  if (argv[2] === 'addUser') {
+    var user = require(argv[4]);
+    clients.addUser(argv[3], user, log);
+    return;
+  }
+
   setTimeout(function() {
     clients.listClients(function(err, list) {
       if (err)
