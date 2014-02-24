@@ -38,7 +38,6 @@ function main() {
   var clients = new Clients();
 
   if (argv[2] === 'add') {
-    console.log('add user');
     var data = require(argv[3])
     clients.add(data);
   }

@@ -163,7 +163,7 @@ Purger.prototype.purge = function(infringement, done){
       self.removeTheFat(infringement, this);
     })
     .seq(function(){
-      logger.info('done purging ' + infringement._id);
+      logger.trace('done purging ' + infringement._id);
       done();
     })
     .catch(function(err){
