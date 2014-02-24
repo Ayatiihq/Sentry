@@ -167,11 +167,10 @@ Clients.prototype.addUser = function(client, user, callback) {
     if (err)
       return callback(err);
 
-    user.password = hash;
-    var clientId
+    user.hash = hash;
      
     self.clients_.update({_id: Object.isString(client) ? client : client._id},
-                         {$push : {"users" : user}},
+                         {$push : {"users" : Object.reject(user, 'password')}},
                          callback);
   });
 }
