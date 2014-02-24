@@ -101,8 +101,6 @@ Purger.prototype.processJob = function(err, job) {
     })
     .seq(function(campaign) {
       self.campaign_ = campaign;
-    })
-    .seq(function() {
       self.infringements_.getPurgable(self.campaign_, this);
     })
     .seq(function(theGreatUnwashed_){
@@ -147,23 +145,31 @@ Purger.prototype.purge = function(infringement, done){
   var self = this
     , dldMd5s = []
   ;
-  dldMd5s = infringement.downloads.map(function(dld){ return dld.md5});
+
+  dldMd5s = infringement.downloads ? infringement.downloads.map(function(dld){ return dld.md5}) : [];
 
   Seq()
     .seq(function(){
+      if(dldMd5s.isEmpty())
+        return this();
       self.verifications_.get({md5s : dldMd5s}, this);
     })
     .seq(function(verifications){
+      if(dldMd5s.isEmpty())
+        return this();      
       self.deleteDownloads(infringement, verifications, this);
     })
+    .seq(function(){      
+      self.removeTheFat(infringement, this);
+    })
     .seq(function(){
-      self.removeTheFat(infringement, done);
+      logger.info('done purging ' + infringement._id);
+      done();
     })
     .catch(function(err){
       done(err);
     })
     ;
-
 }
 
 Purger.prototype.removeTheFat = function(infringement, done){

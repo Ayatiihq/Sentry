@@ -892,12 +892,14 @@ Infringements.prototype.processedBy = function(infringement, processor, callback
     return self.cachedCalls_.push([self.processedBy, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
+  var updates;
 
-  var updates = {
-    $push: {
-      'metadata.processedBy': processor
-    }
-  };
+  if(!infringement.metadata){
+    updates = {$set : {'metadata': {'processedBy' : [processor]}}};
+  }
+  else{
+    updates = {$push: {'metadata.processedBy': processor}};
+  }
 
   self.infringements_.update({ _id: infringement._id }, updates, callback);
 }

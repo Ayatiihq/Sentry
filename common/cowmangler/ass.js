@@ -4,7 +4,6 @@
  * (C) 2013 Ayatii Limited
  *
  */
-
 var acquire = require('acquire')
   , config = acquire('config')
   , database = acquire('database')
@@ -100,7 +99,8 @@ Ass.prototype.query = function(action){
     var statusCode = response.statusCode;
     if(statusCode !== 200){
       logger.warn('Status code ' + statusCode + ' was returned by CowMangler hub');
-      promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString()));
+      promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString() + 
+                     '\n details : ' + response.body));
     }
     else{
       promise.resolve(self.sift(response.body));

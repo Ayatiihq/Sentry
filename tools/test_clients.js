@@ -38,12 +38,19 @@ function main() {
   var clients = new Clients();
 
   if (argv[2] === 'add') {
+    console.log('add user');
     var data = require(argv[3])
     clients.add(data);
   }
 
   if (argv[2] === 'get') {
     clients.get(argv[3], log);
+  }
+
+  if (argv[2] === 'addUser') {
+    var user = require(argv[4]);
+    clients.addUser(argv[3], user, log);
+    return;
   }
 
   setTimeout(function() {
