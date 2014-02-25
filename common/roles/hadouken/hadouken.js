@@ -48,13 +48,14 @@ Hadouken.prototype.init = function() {
   var self = this;
   self.cachedCalls_ = [];
 
+  self.jobs_ = new Jobs('hadouken');
+  self.campaigns_ = new Campaigns();  
+
   database.connectAndEnsureCollection("infringements", function(err, db, coll) {
     if (err)
       return logger.error('Unable to connect to database %s', err);
     self.db_ = db;
-    self.infringements_ = coll;
-    self.campaigns_ = new Campaigns();
-    self.jobs_ = new Jobs('hadouken');
+    self.infringements_ = coll;  
     self.cachedCalls_.forEach(function(call) {
       call[0].apply(self, call[1]);
     });
