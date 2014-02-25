@@ -470,16 +470,26 @@ Infringements.prototype.setStateBy = function(infringement, state, processor, ca
     return self.cachedCalls_.push([self.setState, Object.values(arguments)]);
 
   callback = callback ? callback : defaultCallback;
-
-  var updates = {
-    $set: {
-      state: state
-    },
-    $push: {
-      'metadata.processedBy': processor
-    }
-  };
-
+  
+  var updates;
+  if(infringement.metadata){
+    updates = {    
+      $set: {
+        state: state
+      },
+      $push: {
+        'metadata.processedBy': processor
+      }
+    };
+  }
+  else{
+    updates = {    
+      $set: {
+        state: state,
+        metadata : {'processedBy': [processor]}
+      }
+    };    
+  }
   self.infringements_.update({ _id: infringement._id }, updates, callback);
 }
 
