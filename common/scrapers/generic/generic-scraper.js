@@ -217,11 +217,9 @@ Generic.prototype.pump = function (firstRun) {
                                                                  self.numInfringementsChecked,
                                                                  self.activeScrapes, self.suspendedScrapes,
                                                                  self.maxActive);
-
       self.checkInfringement(infringement).then(function () {
         self.pump();
       });
-
       self.pump(); // pump again
     });
   }
