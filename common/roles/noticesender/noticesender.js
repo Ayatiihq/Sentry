@@ -677,8 +677,8 @@ NoticeSender.prototype.orderJobs = function(campaign, client){
     , noticeInfo = campaign.noticeInfo || {}
     ;
 
-  if(!noticeInfo.authorization || !noticeInfo.copyrightContact){
-    logger.info('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods.');
+  if(!noticeInfo.authorization || !noticeInfo.copyrightContact || client.state !== states.client.state.ACTIVE){
+    logger.trace('Not going to create a noticesending job for ' + campaign.name + ', we dont have the goods or client is not ACTIVE');
     return [];
   }
   return NoticeSender.super_.prototype.orderJobs.apply(this, arguments);
