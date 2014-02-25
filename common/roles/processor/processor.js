@@ -410,7 +410,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
       });
       stream.pipe(outStream);
       stream.on('end', this);
-      stream.on('error', this);
+      stream.on('error', this.bind(null, err));
     })
     .seq(function(){
       logger.trace('Download finished for %s', outPath);
