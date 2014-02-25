@@ -81,7 +81,7 @@ var bingForm = {
   'INPUT#ctl00_ContentPlaceHolder1_country': '${ayatiiCountry}',
   'INPUT#ctl00_ContentPlaceHolder1_titleOfWork': '${campaignName}',
   'INPUT#ctl00_ContentPlaceHolder1_TypeOfWork': '${contentMediaType}',
-  'INPUT#ctl00_ContentPlaceHolder1_url': '${clientAuthorization}',
+  'INPUT#ctl00_ContentPlaceHolder1_url': '${campaignURL}',
   'TEXTAREA#ctl00_ContentPlaceHolder1_urlInfringed': '${infringingURLS}',
   'TEXTAREA#ctl00_ContentPlaceHolder1_additionalInfo': constants.ayatiiDescription,
   'INPUT#ctl00_ContentPlaceHolder1_signature': '${ayatiiFullName}'
