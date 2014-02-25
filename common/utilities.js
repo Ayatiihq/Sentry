@@ -49,7 +49,7 @@ Utilities.normalizeURI = function(uri) {
 
     // don't bother normalizing magnets
     if (uri.protocol() === 'magnet')
-      return uri;
+      return original;
 
     // Make it sane (http://medialize.github.com/URI.js/docs.html#normalize)
     uri.normalize();
