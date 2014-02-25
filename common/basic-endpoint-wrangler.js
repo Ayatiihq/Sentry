@@ -81,7 +81,9 @@ Wrangler.prototype.beginSearch = function (uri) {
   };
 
   self.processUri(uri, []).then(cleanup, function onErrorProcessing(error) {
-    logger.error('(%s) Error processing uri: ' + error, self.uri);
+    // an error isn't that bad, we dont' have to shout from the rooftops about it
+    // it happens all the time because of stupid web servers
+    logger.debug('Error processing uri: ' + self.uri + ' - ', error);
     cleanup();
   });
 
@@ -129,12 +131,14 @@ Wrangler.prototype.processIFrames = function (uri, parents, $) {
   }
 
   // build an array of promises from the iframes array
+  var baseURI = null;
+  if ($('base').length > 0) { // balls, we have a base tag
+    baseURI = $('base').attr('href');
+  }
+
   var newIFrames = self.findIFrames($).map(function foundIFrame(iframeSrc) {
-    try {
-      composedURI = URI(iframeSrc).absoluteTo(uri).toString();
-    } catch (error) {
-      return null; // probably 'javascript;'
-    }
+    var composedURI = utilities.joinURIS(uri, iframeSrc, baseURI);
+    if (!composedURI) { return null; }
 
     if (shouldIgnoreUri(composedURI)) { return null; }
     if (self.foundURIs.some(composedURI)) { return null; }

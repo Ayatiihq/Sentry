@@ -33,7 +33,52 @@ var Promise = require('node-promise').Promise
 
 var REQ_TIMEOUT = 0.5 * 1000 * 60;
 
+/* cache manager is a simple caching system
+ * it works like a dict object, you add a thing with a hashkey,
+ * but it will only keep the last limit items in memory
+ */
+var CacheManager = function (limit) {
+  this.limit = (limit) ? limit : 50;
+  this.store = {};
+}
+
+/* looks up key, returns value or null if key does not exist 
+ * gets are fast.
+ */
+CacheManager.prototype.get = function (key) { 
+  var self = this;
+  var datum = self.store[key];
+  if (datum) {
+    // update timestamp on key
+    datum.timestamp = new Date().getTime();
+    return datum.value;
+  }
+  return null;
+}
+
+ /* sets a key with value, is much slower than get as we have to trim the store
+  * 
+  */
+CacheManager.prototype.set = function (key, value) {
+  var self = this;
+  self.store[key] = { 'value': value, 'timestamp': new Date().getTime() };
+  if (self.store.length > self.limit) {
+    var oldestKey = Object.keys(self.store).sortBy(function (key) { self.store[key].timestamp }).first();
+    delete self.store[oldestKey];
+  }
+}
+
 var Utilities = module.exports;
+
+Utilities.joinURIS = function (sourceURI, targetURI, baseURI) {
+  var absoluteURI = (baseURI) ? baseURI : sourceURI;
+  try {
+    composedURI = URI(targetURI).absoluteTo(absoluteURI).toString();
+  } catch (error) {
+    return null; // probably 'javascript;'
+  }
+  return composedURI;
+}
 
 Utilities.normalizeURI = function(uri) {
   var self = this
@@ -371,10 +416,20 @@ Utilities.requestURL = function(url, options, callback) {
     , called = false
     ;
 
+  // use CacheManager to speed up generic a ton
+  if (Utilities.requestURLCache === undefined) {
+    Utilities.requestURLCache = new CacheManager();
+  }
+
   try {
     parsed = URL.parse(url);
   } catch (err) {
     return callback(err);
+  }
+
+  if (Utilities.requestURLCache.get(url)) {
+    callback.apply(null, Utilities.requestURLCache.get(url));
+    return;
   }
 
   var requestOptions = {
@@ -447,6 +502,7 @@ Utilities.requestURL = function(url, options, callback) {
         body = Buffer.concat(body);
       }
       clearTimeout(timeoutId);
+      Utilities.requestURLCache.set(url, [err, response, body]);
       done(err, response, body);
     });
 
@@ -456,6 +512,7 @@ Utilities.requestURL = function(url, options, callback) {
     clearTimeout(timeoutId);
     var done = called ? console.log.bind('Error', url) : callback;
     called = true;
+    Utilities.requestURLCache.set(url, [err]);
     done(err);    
   });
 }

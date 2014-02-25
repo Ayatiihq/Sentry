@@ -104,7 +104,10 @@ Wrangler.prototype.setupIFrameHandler = function () {
 Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
   var self = this;
   self.processing++;
-
+  var baseURI = null;
+  if ($('base').length > 0) { // balls, we have a base tag
+    baseURI = $('base').attr('href');
+  }
   var pagemods = self.modules.map(function (rule) { return rule.bind(null, $, source, uri); });
 
   var previousReturn = [];
@@ -114,21 +117,22 @@ Wrangler.prototype.processSource = function (uri, parenturls, $, source) {
 
   if (Object.isArray(previousReturn)) {
     // no promises were returned by our rules so we can act right now
-    self.constructItemsObject(previousReturn, uri, parenturls);
+    self.constructItemsObject(previousReturn, uri, parenturls, baseURI);
   }
   else {
     // we got a promise somewhere along the way, converting all subsequent calls to when
     // into returning promises so we need to wait for the promise chain to resolve.
     previousReturn.then(function onPromiseResolve(items) {
-      self.constructItemsObject(items, uri, parenturls);
+      self.constructItemsObject(items, uri, parenturls, baseURI);
     });
   }
 };
 
-Wrangler.prototype.constructItemsObject = function (items, uri, parenturls) {
+Wrangler.prototype.constructItemsObject = function (items, uri, parenturls, baseURI) {
   var self = this;
   if (items.length) {
     self.foundItems.push({
+      'baseURI': baseURI,
       'uri': uri,
       'parents': parenturls,
       'items': items
