@@ -203,10 +203,9 @@ Purger.prototype.deleteDownloads = function(infringement, verifications, done){
       var that = this;
       
       if(!Object.keys(previous).some(download.md5)){
-        return self.deleteUnverifiedDownload(infringement, download, that); 
+        self.deleteUnverifiedDownload(infringement, download, that); 
       }
-
-      if(previous[download.md5].verified){
+      else if(previous[download.md5].verified){
         // don't delete verified download md5s (dashboard needs 'em')
         logger.info('This is a verified download, leave it where it is.');
         that();
@@ -228,15 +227,15 @@ Purger.prototype.deleteDownloads = function(infringement, verifications, done){
 Purger.prototype.deleteDownload = function(infringement, download, done){
   var self = this;
   self.storage_.deleteFile(infringement.campaign, download.md5, function(err){
-    if(err) 
-      done(err);
+    if(err)
+      return done(err);
     logger.info('just purged download ' + download.md5);
     self.infringements_.downloadProcessedBy(infringement, download.md5, self.getName(), done);
   });
 }
 /*
  * This will only delete a download which has no verification associated with it
- * only if no other infringements have this download. 
+ * & only if no other infringements have it as a download. 
  */
 Purger.prototype.deleteUnverifiedDownload = function(infringement, download, done)
 {
@@ -254,6 +253,9 @@ Purger.prototype.deleteUnverifiedDownload = function(infringement, download, don
         logger.info("Looks like other infringements (of relevance) might be pointing at this download, dont delete");
         logger.info('And they are ' + JSON.stringify(infrgs_));
       }
+    })
+    .seq(function(){
+      done();
     })
     .catch(function(err){
       done(err);
