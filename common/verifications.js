@@ -610,7 +610,8 @@ Verifications.prototype.create = function(entity, callback) {
     delete entity.assetNumber;
 
   entity.count = 1;
-
+  entity.processedBy = [];
+  
   logger.info('About to add this verification ' + JSON.stringify(entity));
   self.verifications_.insert(entity, callback);
 }
