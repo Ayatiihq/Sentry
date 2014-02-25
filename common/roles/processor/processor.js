@@ -121,7 +121,7 @@ Processor.prototype.processJob = function(err, job) {
       self.run(this);
     })
     .seq(function() {
-       rimraf(self.tmpdir_, this.ok);
+      rimraf(self.tmpdir_, this.ok);
     })
     .seq(function() {
       logger.info('Finished running processor');
@@ -331,7 +331,7 @@ Processor.prototype.categorizeInfringement = function(infringement, done) {
 
     logger.info('Putting infringement into initial category of %d', infringement.category);
 
-    done(null);
+    done();
 
   });
 
@@ -488,7 +488,7 @@ Processor.prototype.reCategorizeInfringement = function(infringement, mimetype, 
   last = last ? last : '';
 
   if ([Categories.SEARCH_RESULT, Categories.CYBERLOCKER, Categories.TORRENT].some(infringement.category)) {
-    ;
+    return done();
   
   } else if (first == 'text' || last.has('xml') || last.has('html') || last.has('script')) {
     if (![Categories.WEBSITE, Categories.SOCIAL].some(infringement.category))
@@ -639,6 +639,7 @@ Processor.prototype.verifyUnavailable = function(infringement, mimetype, done) {
 
 }
 
+// To catch those links that look like file links but redirect to a web page.
 Processor.prototype.checkIfExtensionLedToWebpage = function(infringement, mimetype, done) {
   var self = this
     , hadExtension = false
