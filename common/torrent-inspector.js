@@ -1,7 +1,7 @@
 var acquire = require('acquire')
   , fs = require('fs')
   , logger = acquire('logger').forFile('bittorrent-inspector.js')
-  , isBinaryFile = require("isbinaryfile") 
+  , isTextorBinary = require('istextorbinary')
   , path = require('path')
 	, readTorrent = require('read-torrent')
 	, rimraf = require('rimraf')
@@ -109,7 +109,7 @@ TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
 
         stream.pipe(fs.createWriteStream(filename));
         stream.on('end', function() { 
-          that(null, true);
+          that();
         });
         stream.on('error', function(err) {
           result.message = 'Error requesting link ' + err;
@@ -118,20 +118,15 @@ TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
       });
     })
     .seq(function(downloaded){
-      if(downloaded){
-        logger.info('Download finished for %s', filename);
-        isBinaryFile(filename, this);
-      }
-      else{
-        result.message = 'Error requesting link ' + err;
-        done(null, result);
-      }
+      isTextorBinary.isBinary(filename, null, this);
     })
     .seq(function(isBinary) {
       if(!isBinary){
+        logger.info('we think its not binary');
         result.message = 'Not binary';
         return done(null, result);
       }      
+      logger.info('we think its binary');
       readTorrent(filename, this);
     })
     .seq(function(details) {

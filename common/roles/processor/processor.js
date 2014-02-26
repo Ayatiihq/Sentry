@@ -14,7 +14,7 @@ var acquire = require('acquire')
   , database = acquire('database')
   , events = require('events')
   , fs = require('fs')
-  , isBinaryFile = require("isbinaryfile")
+  , isTextorBinary = require('istextorbinary')
   , logger = acquire('logger').forFile('processor.js')
   , os = require('os')
   , path = require('path')
@@ -420,7 +420,7 @@ Processor.prototype.downloadInfringement = function(infringement, done) {
     })
     .seq(function(mimetype_) {
       mimetype = mimetype_;
-      isBinaryFile(outPath, this);
+      isTextorBinary.isBinary(outPath, null, this);
     })
     .seq(function(isBinary) {
       if(!isBinary) 

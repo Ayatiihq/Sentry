@@ -371,6 +371,7 @@ PageAnalyser.prototype.beginSearch = function (browser) {
       torrentPagesUnverified_.sort(function(a, b ){return a.created < b.created});
       //be careful not to trip that seq stack bug 
       respectableWorkLoad.add(torrentPagesUnverified_.slice(0, 50)); 
+      logger.info('respectableWorkLoad : ' + respectableWorkLoad.length);
       this();
     })
     .set(respectableWorkLoad)
@@ -400,17 +401,23 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
     })
     .seq(function(processed){
       keepers = keepers.union(processed.keepers);
-      self.wrangleLinks(processed.needAnotherLook, this);
+      if(processed.needsAnotherLook.isEmpty())
+        return this();
+      self.wrangleLinks(processed.needsAnotherLook, this);
     })
     .seq(function(secondPassWrangled){
+      if(!secondPassWrangled)
+        return this();
       self.processLinks(secondPassWrangled, this);
     })
     .seq(function(secondPassProcessed){
-      keepers = keepers.union(secondPassProcessed.keepers);
+      if(secondPassProcessed)
+        keepers = keepers.union(secondPassProcessed.keepers);
+      this();
     })
     .seq(function(){
       if(!keepers.isEmpty())
-        return self.broadcast(ofInterest, infringement, this);
+        return self.broadcast(keepers, infringement, this);
       
       // otherwise mark as false positive.
       self.emit('decision',
@@ -451,20 +458,24 @@ PageAnalyser.prototype.wrangleLinks = function(links, done){
 
 PageAnalyser.prototype.processLinks = function(links, done){
   var self = this;
-  results = {keepers : [], needAnotherLook : []};
+  var results = {keepers : [], needsAnotherLook : []};
 
   Seq(links)
     .seqEach(function(link){
       var that = this;
-      self.processLink(link, function(err, result){
-        if(err || !result) // ignore both errors and no result
+      self.processLink(link, function(err, verdict){
+        if(err || !verdict){ // ignore both errors and no result
+          logger.info('error or nothing to see here, move on.');
           return that();
+        }
         // its gotta be one of the two keys in results
-        results[Object.keys(result).first()].push(Object.values(result).first());
+        logger.info('push to ' + verdict);
+        results[verdict].push(link);
         that();
       });
     })
     .seq(function(){
+      logger.info('finished processLinks');
       done(null, results);
     })
     .catch(function(err){
@@ -475,26 +486,30 @@ PageAnalyser.prototype.processLinks = function(links, done){
 
 PageAnalyser.prototype.processLink = function(torrentLink, done){
   var self = this;
-
+  logger.info('process link ' + torrentLink);
   Seq()
     .seq(function(){
+      
       torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
     })
     .seq(function(details_){
+      logger.info('vell - ' + JSON.stringify(details_));
       if(details_.success){
         return torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
       }
       if(details_.message === 'Not binary'){
-        logger.info('found a torrent link which links to page and not a torrent ' + torrentLink);
-        return done(null, {needAnotherLook : torrentLink});
+        logger.info('found a torrent link which is not a torrent, it needs another look ' + torrentLink);
+        return done(null, 'needsAnotherLook');
       }
+      // more than likely a problem fetching the link, move on.
+      done();
     })
     .seq(function(good, reason){
       if(!good){
         logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
         return done();
       }
-      done(null, {keepers : torrentLink});
+      done(null, 'keepers');
     })
     .catch(function(err){
       logger.warn('Torrent error', torrentLink, err);
@@ -518,20 +533,23 @@ PageAnalyser.prototype.wrangleLink = function (targetLink, done) {
   self.wrangler.addRule(wranglerRules.rulesDownloadsTorrent);
 
   self.wrangler.on('finished', function(results){
+    logger.info('finished wrangler');
     if(!results || results.isEmpty()){
       return done();
     }
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
-    //logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
+    logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
     done(null, filtered);
   });
 
   self.wrangler.on('suspended', function onWranglerSuspend() {
+    logger.info('suspended wrangler');
   });
   self.wrangler.on('resumed', function onWranglerResume() {
+    logger.info('resumed wrangler');
   });
-
+  logger.info('start wrangler ' + targetLink);
   self.wrangler.beginSearch(targetLink);          
 }
 

@@ -2,7 +2,6 @@
   "name": "sentry",
   "version": "0.0.1",
   "description": "Sentry piracy dectection and protection system.",
-  
   "dependencies": {
     "acquire": "git://github.com/njpatel/acquire.git",
     "bcrypt": "*",
@@ -12,7 +11,7 @@
     "fs-extra": "0.6.x",
     "handlebars": "1.0.x",
     "hiredis": "*",
-    "isbinaryfile": "2.x.x",
+    "istextorbinary": "~1.0.0",
     "knox": "0.8.x",
     "knox-mpu": "0.1.x",
     "mongodb": "1.3.8",
@@ -33,21 +32,18 @@
     "socket.io-client": "0.9.x",
     "sugar": "1.x.x",
     "traceroute": "x.x.x",
-    "URIjs":"1.x.x",
+    "URIjs": "1.x.x",
     "unzip": "*",
     "winston": "0.x.x",
     "winston-papertrail": "*",
     "xmlrpc": "1.1.x",
-    "xregexp": "2.0.x"
+    "xregexp": "2.0.x",
   },
-  
   "engines": {
     "node": "0.8.x",
     "npm": "1.1.x"
   },
-  
   "devDependencies": {},
-  
   "repository": "git@github.com:afive/sentry.git",
   "license": "commercial",
   "private": true
