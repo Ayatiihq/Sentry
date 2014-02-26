@@ -387,6 +387,124 @@ PageAnalyser.prototype.beginSearch = function (browser) {
 };
 
 PageAnalyser.prototype.goWork = function (infringement, done) {
+  var self = this
+    , keepers = []
+    ;
+
+  Seq()
+    .seq(function(){
+      self.wrangleLink(infringement.uri, this);
+    })
+    .seq(function(wranglerResults){
+      self.processLinks(wranglerResults, this);
+    })
+    .seq(function(processed){
+      keepers = keepers.union(processed.keepers);
+      self.wrangleLinks(processed.needAnotherLook, this);
+    })
+    .seq(function(secondPassWrangled){
+      self.processLinks(secondPassWrangled, this);
+    })
+    .seq(function(secondPassProcessed){
+      keepers = keepers.union(secondPassProcessed.keepers);
+    })
+    .seq(function(){
+      if(!keepers.isEmpty())
+        return self.broadcast(ofInterest, infringement, this);
+      
+      // otherwise mark as false positive.
+      self.emit('decision',
+                infringement,
+                states.infringements.state.FALSE_POSITIVE);
+      this();
+    })         
+    .seq(function(){
+      done();
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+PageAnalyser.prototype.wrangleLinks = function(links, done){
+  var self = this;
+  var results = [];
+  Seq(links)
+    .seqEach(function(link){
+      var that = this;
+      self.wrangleLink(link, function(err, result){
+        if(err || !result) // ignore both errors and no result
+          return that();
+        results = results.union(result);
+        that();
+      });
+    })
+    .seq(function(){
+      done(null, results);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+PageAnalyser.prototype.processLinks = function(links, done){
+  var self = this;
+  results = {keepers : [], needAnotherLook : []};
+
+  Seq(links)
+    .seqEach(function(link){
+      var that = this;
+      self.processLink(link, function(err, result){
+        if(err || !result) // ignore both errors and no result
+          return that();
+        // its gotta be one of the two keys in results
+        results[Object.keys(result).first()].push(Object.values(result).first());
+        that();
+      });
+    })
+    .seq(function(){
+      done(null, results);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+PageAnalyser.prototype.processLink = function(torrentLink, done){
+  var self = this;
+
+  Seq()
+    .seq(function(){
+      torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
+    })
+    .seq(function(details_){
+      if(details_.success){
+        return torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
+      }
+      if(details_.message === 'Not binary'){
+        logger.info('found a torrent link which links to page and not a torrent ' + torrentLink);
+        return done(null, {needAnotherLook : torrentLink});
+      }
+    })
+    .seq(function(good, reason){
+      if(!good){
+        logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
+        return done();
+      }
+      done(null, {keepers : torrentLink});
+    })
+    .catch(function(err){
+      logger.warn('Torrent error', torrentLink, err);
+      done(); // just ignore for now.
+    })
+    ;
+}
+
+
+PageAnalyser.prototype.wrangleLink = function (targetLink, done) {
   var self  = this;
 
   if (self.wrangler) { // remove all listeners if a wrangler object was used previously
@@ -406,37 +524,7 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
     var torrentTargets = results.map(function(item){return item.items.map(function(data){ return data.data})})[0];
     var filtered = torrentTargets.filter(function(link){return !link.startsWith('magnet:')}).unique();
     //logger.info('This is what wrangler returned ' + JSON.stringify(filtered));
-    if(filtered.isEmpty())
-      return done();
-
-    var results = [];
-    Seq(filtered)
-      .seqEach(function(filteredResult){
-        var that = this;
-        self.processLink(filteredResult, function(err, keeper){
-          results.push(keeper);
-          that();
-        });
-      })
-      .seq(function(){
-        var ofInterest = results.filter(function(result){return result.result}).unique();
-
-        if(!ofInterest.isEmpty())
-          return self.broadcast(ofInterest, infringement, this);
-        
-        // otherwise mark as false positive.
-        self.emit('decision',
-                  infringement,
-                  states.infringements.state.FALSE_POSITIVE);
-        this();
-      })         
-      .seq(function(){
-        done();
-      })
-      .catch(function(err){
-        done(err);
-      })
-      ;
+    done(null, filtered);
   });
 
   self.wrangler.on('suspended', function onWranglerSuspend() {
@@ -444,56 +532,23 @@ PageAnalyser.prototype.goWork = function (infringement, done) {
   self.wrangler.on('resumed', function onWranglerResume() {
   });
 
-  self.wrangler.beginSearch(infringement.uri);
-}
-
-PageAnalyser.prototype.processLink = function(torrentLink, done){
-  var self = this
-    , result = {link : torrentLink, result: false, message: ''}
-    ;
-
-  Seq()
-    .seq(function(){
-      torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
-    })
-    .seq(function(details_){
-      if(details_.success){
-        torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
-      }
-      else if(details_.message === 'Not binary'){
-        logger.info('found a torrent link which links to page and not a torrent ' + torrentLink);
-      }
-      done(null, result);
-    })
-    .seq(function(good, reason){
-      if(!good){
-        logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
-      }
-      result.message = reason;
-      result.result = good;
-      done(null, result);
-    })
-    .catch(function(err){
-      logger.warn('Torrent error', torrentLink, err);
-      result.message = err;
-      done(null, result); // just ignore for now.
-    })
-    ;
+  self.wrangler.beginSearch(targetLink);          
 }
 
 PageAnalyser.prototype.broadcast = function(results, infringement, done){
   var self = this;
   Seq(results)
     .seqEach(function(torrent){
-      if (!torrent.link) return this();
+      if (!torrent.link) 
+        return this();
 
       self.emit('torrent',
                 torrent.link,
                 {score: MAX_SCRAPER_POINTS / 1.5,
                  source: 'scraper.bittorrent.' + self.engineName,
                  message: 'Link to actual Torrent file from ' + self.engineName});
-        self.emit('relation', infringement.uri, torrent.link);
-        this();
+      self.emit('relation', infringement.uri, torrent.link);
+      this();
     })
     .seq(function(){
       done();
@@ -511,9 +566,7 @@ var Bittorrent = module.exports = function () {
 
 util.inherits(Bittorrent, Scraper);
 
-Bittorrent.prototype.init = function () {
-  
-};
+Bittorrent.prototype.init = function () {};
 
 //
 // Overrides

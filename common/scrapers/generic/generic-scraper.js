@@ -203,6 +203,7 @@ Generic.prototype.pump = function (firstRun) {
   check = (check && (self.numInfringementsChecked <= MAX_INFRINGEMENTS));   // we have checked less than MAX_INFRINGEMENTS infringements
 
   if (check) {
+    // This should only hit the DB once. (but for now it finds and modifies inline)
     self.infringements.getOneNeedsScraping(self.campaign, function(err, infringement) {
 
       if (!infringement || !infringement.uri)
