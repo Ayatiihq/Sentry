@@ -148,6 +148,7 @@ Unarchiver.prototype.processDownloads = function(done) {
 
   var options = {};
   options.mimetypes = self.supportedMimeTypes_;
+  console.log('mimetypes ' + JSON.stringify(options.mimetypes));
   options.notProcessedBy = PROCESSOR;
   
   self.infringements_.popForCampaignByMimetypes(self.campaign_, options, function(err, infringement) {
@@ -198,12 +199,26 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
           if (err) return done(err);
 
           logger.info('Uploading %s', tmpDir)
-          self.storage_.addLocalDirectory(infringement.campaign, tmpDir, function(err) {
+          self.storage_.addLocalDirectory(infringement.campaign, tmpDir, function(err, nUploaded, fileDetails) {
 
             rimraf(tmpFile, function(err) { if (err) logger.warn(err); });
             rimraf(tmpDir, function(err) { if (err) logger.warn(err); });
-
-            done(err);
+            
+            Seq(fileDetails)
+              .seqEach(function(download){
+                self.infringements_.addDownload(infringement,
+                                                download.md5,
+                                                download.mimetype,
+                                                download.size,
+                                                this);
+              })
+              .seq(function(){
+                done();
+              })
+              .catch(function(err){
+                done(err);
+              })
+              ;
           });
         });
       });

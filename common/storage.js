@@ -321,13 +321,13 @@ Storage.prototype.addLocalFile = function(campaignID, filepath, callback) {
       self.doWeHaveThis(campaignID, md5, this);
     })
     .seq(function(alreadyExists){
+      callbackPayload = {'md5': md5, 'size':fileSize, 'mimetype': mimeType };
       if(alreadyExists){
         logger.trace('md5 : ' + md5 + ' already exists for campaign ' + campaignID);
-        callback();
+        this();
       }
       else{
         logger.info('Uploading %s to blob storage as MD5 - %s', filepath, campaignID + '/' + md5);
-        callbackPayload = {'md5': md5, 'fileSize':fileSize, 'mimeType':mimeType };
         self.createFromFile(campaignID, md5, filepath, {}, this);
       }
     })
