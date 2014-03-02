@@ -1001,7 +1001,7 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
 /**
  * Get all infringements that have downloads of a certain mimetype(s)
  *
- * @param {object}                    campaign                 A Campaign
+ * @param {object or string}          campaign                 A Campaign
  * @param {object}                    options                  An options object
  * @param {array}                     options.mimetypes        Mimetypes to filter on
  * @param {string}                    options.notProcessedBy   Name of a processor to ignore
@@ -1010,7 +1010,7 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
  */
 Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback) {
   var self = this
-    , then = Date.create('15 minutes ago').getTime()
+    , then = Date.create('1 minutes ago').getTime()
     ;
 
   if (!self.infringements_)
@@ -1018,14 +1018,13 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 
   callback = callback ? callback : defaultCallback;
   options = options || {};
-  campaign = normalizeCampaign(campaign);
+  campaignId = normalizeCampaign(campaign);
 
   var query = {
-    campaign: campaign._id,
+    campaign: campaignId,
     $or: [
       { popped: { $lt: then } },
-      { popped: { $exists: false } }
-    ]
+      { popped: { $exists: false } }]
   };
 
   if (options.mimetypes)
@@ -1038,7 +1037,7 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 
   var updates = {
     $set: {
-      popped: Date.now()
+      popped: Date.create('15 minutes ago').getTime()//Date.now()
     }
   };
 

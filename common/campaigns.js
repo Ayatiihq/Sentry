@@ -5,10 +5,9 @@
  * 
  {
   "_id": "",
-  "authorization": "",
+  "noticeInfo" : { "authorization": "",   "copyrightContact": "", categoryFilter : []},
   "avatar": "",
   "client": "",
-  "copyrightContact": "",
   "created": 0,
   "description": "",
   "heartBeats": {
