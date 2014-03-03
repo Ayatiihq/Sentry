@@ -148,7 +148,7 @@ Unarchiver.prototype.processDownloads = function(done) {
 
   var options = {};
   options.mimetypes = self.supportedMimeTypes_;
-  options.notProcessedBy = PROCESSOR;
+  options.notProcessedBy = [PROCESSOR];
   
   self.infringements_.popForCampaignByMimetypes(self.campaign_, options, function(err, infringement) {
     if (err)
@@ -168,7 +168,7 @@ Unarchiver.prototype.processDownloads = function(done) {
 
     self.unarchive(infringement, function(err) {
       if (err)
-        return closeAndGotoNext(null, infringement);
+        return closeAndGotoNext(err, infringement);
       self.infringements_.processedBy(infringement, PROCESSOR);
       setTimeout(self.processDownloads.bind(self, done), 1000);
     });
@@ -179,8 +179,6 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
   var self = this;
   
   relevantDownloads = infringement.downloads.filter(function(dl){ return self.supportedMimeTypes_.some(dl.mimetype)});
-  
-  logger.info('relevantDownloads ' + JSON.stringify(relevantDownloads));
 
   Seq(relevantDownloads)
     .seqEach(function(download){
@@ -197,9 +195,9 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
 
 Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
   var self = this
-    , tmpFile = path.join(os.tmpDir(), 'archive-' + infringement._id + '-' + download.md5)
+    , tmpFile = path.join(os.tmpDir(), 'archive-' + download.md5)
     , tmpFileStream = fs.createWriteStream(tmpFile)
-    , tmpDir = path.join(os.tmpDir(), 'unarchiver-'+ infringement._id + '-' + download.md5)
+    , tmpDir = path.join(os.tmpDir(), 'unarchiver-'+ download.md5)
     , uri = self.storage_.getURL(self.campaign_._id, download.md5)
     , started = Date.now()
     ;
@@ -225,7 +223,6 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
       stream.pipe(tmpFileStream);
       stream.on('error', done);
       stream.on('end', function() {
-        logger.info('downloaded file to extract')
         self.extractArchive(tmpFile, tmpDir, download.mimetype, function(err) {
           if (err) 
             return done(err);
@@ -234,6 +231,10 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
       });
     })
     .seq(function(){
+      self.infringements_.downloadProcessedBy(infringement, download.md5, PROCESSOR, this);
+    })
+    .seq(function(){
+      logger.info('finished unarchiving and uploading for download ' + download.md5);
       done();
     })
     .catch(function(err){
@@ -244,7 +245,7 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
 
 Unarchiver.prototype.uploadAndRegister = function(infringement, archive, extractedDir, done){
   var self = this;
-  logger.info('uploadAndRegister')
+  logger.info('uploadAndRegister');
   self.storage_.addLocalDirectory(infringement.campaign, extractedDir, function(err, nUploaded, fileDetails) {
 
     rimraf(archive, function(err) { if (err) logger.warn(err); });
