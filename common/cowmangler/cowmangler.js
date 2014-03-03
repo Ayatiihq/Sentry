@@ -59,6 +59,32 @@ Cowmangler.prototype.newTab = function(){
 }
 
 /*
+  New tab
+*/
+Cowmangler.prototype.newTabSafely = function(){
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.getStatus(this);
+    })
+    .seq(function(results){
+
+    })
+  function done(err){
+    if(err)
+      return self.emit("error", err);
+    self.tabConnected = true;
+    self.cachedCalls_.forEach(function(call) {
+      call[0].apply(self, call[1]);
+    });
+    self.setAdBlock(true);
+    self.emit('ready');
+  }
+
+  self.ass_.new(done);
+}
+
+/*
    Get
  * @param {string}    uri            target URI.
  * @param {function}  done           callback to notify once we are up and talking to cowmangler.

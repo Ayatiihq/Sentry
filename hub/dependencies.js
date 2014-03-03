@@ -105,11 +105,11 @@ Dependencies.prototype.isManglerAvailable = function(args, callback) {
     ;
   Seq()
     .seq('checkCached', function() {  
-      if (self.manglerLastCheck_.isAfter('60 seconds ago')) {
+      if (self.manglerLastCheck_.isAfter('20 seconds ago')) {
         var available = self.manglerAvailableTabs_ >= required;
         if (available){
-          self.manglerBusyTabs_ += 1;
-          self.manglerAvailableTabs_ -= 1;
+          self.manglerBusyTabs_ += required;
+          self.manglerAvailableTabs_ -= required;
         }
         return callback(null, available);
       }
@@ -132,8 +132,8 @@ Dependencies.prototype.isManglerAvailable = function(args, callback) {
       var available = self.manglerAvailableTabs_ >= required;
       
       if (available){
-        self.manglerBusyTabs_ += 1;
-        self.manglerAvailableTabs_ -= 1;
+        self.manglerBusyTabs_ += required;
+        self.manglerAvailableTabs_ -= required;
       }
       callback(null, available);
     })
