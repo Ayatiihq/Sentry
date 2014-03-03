@@ -105,7 +105,7 @@ Dependencies.prototype.isManglerAvailable = function(args, callback) {
     ;
   Seq()
     .seq('checkCached', function() {  
-      if (self.manglerLastCheck_.isAfter('20 seconds ago')) {
+      if (self.manglerLastCheck_.isAfter('30 seconds ago')) {
         var available = self.manglerAvailableTabs_ >= required;
         if (available){
           self.manglerBusyTabs_ += required;

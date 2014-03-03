@@ -9,12 +9,14 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('cowmangler.js')
   , util = require('util')
   , sugar = require('sugar')
+  ;
+
+var Ass = require('./ass.js')
+  , Campaigns = acquire('campaigns')  
   , URI = require('URIjs')  
+  , Seq = require('seq')  
   , Settings = acquire('settings')  
-  , Campaigns = acquire('campaigns')
-  , Ass = require('./ass.js')
-  , all = require('node-promise').all
-;
+  ;
 
 var Cowmangler = module.exports = function () {
   this.tabConnected = false;
@@ -59,29 +61,25 @@ Cowmangler.prototype.newTab = function(){
 }
 
 /*
-  New tab
+  Ask if there are any available tabs
 */
-Cowmangler.prototype.newTabSafely = function(){
+Cowmangler.prototype.hasAvailableTabs = function(done){
   var self = this;
   Seq()
-    .seq(function(){
+    .seq('checkStatus', function() {  
       self.getStatus(this);
     })
-    .seq(function(results){
-
+    .seq('workOutAvailableNodes', function(nodeStatus) {
+      var available = 0;
+      Object.keys(nodeStatus).each(function(node){
+        available += nodeStatus[node].max_tab_count - nodeStatus[node].tab_count;
+      });
+      done(null, available > 0);
     })
-  function done(err){
-    if(err)
-      return self.emit("error", err);
-    self.tabConnected = true;
-    self.cachedCalls_.forEach(function(call) {
-      call[0].apply(self, call[1]);
-    });
-    self.setAdBlock(true);
-    self.emit('ready');
-  }
-
-  self.ass_.new(done);
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 /*
