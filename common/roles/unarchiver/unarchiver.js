@@ -148,7 +148,7 @@ Unarchiver.prototype.processDownloads = function(done) {
 
   var options = {};
   options.mimetypes = self.supportedMimeTypes_;
-  options.notProcessedBy = [PROCESSOR];
+  options.notProcessedBy = PROCESSOR;
   
   self.infringements_.popForCampaignByMimetypes(self.campaign_, options, function(err, infringement) {
     if (err)
@@ -195,11 +195,11 @@ Unarchiver.prototype.unarchive = function(infringement, done) {
 
 Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
   var self = this
-    , tmpFile = path.join(os.tmpDir(), 'archive-' + download.md5)
-    , tmpFileStream = fs.createWriteStream(tmpFile)
-    , tmpDir = path.join(os.tmpDir(), 'unarchiver-'+ download.md5)
-    , uri = self.storage_.getURL(self.campaign_._id, download.md5)
     , started = Date.now()
+    , tmpFile = path.join(os.tmpDir(), 'archive-' + download.md5 + '-' + started)
+    , tmpFileStream = fs.createWriteStream(tmpFile)
+    , tmpDir = path.join(os.tmpDir(), 'unarchiver-'+ download.md5 + '-' + started)
+    , uri = self.storage_.getURL(self.campaign_._id, download.md5)
     ;
 
   Seq()
@@ -215,7 +215,6 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
       fs.mkdir(tmpDir, this);      
     })
     .seq(function(){
-      logger.info('just about to download');
       utilities.requestStream(uri, this);
     })
     .seq(function(req, res, stream){
@@ -234,7 +233,7 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
       self.infringements_.downloadProcessedBy(infringement, download.md5, PROCESSOR, this);
     })
     .seq(function(){
-      logger.info('finished unarchiving and uploading for download ' + download.md5);
+      logger.trace('finished unarchiving and uploading for download ' + download.md5);
       done();
     })
     .catch(function(err){
@@ -245,7 +244,6 @@ Unarchiver.prototype.unarchiveDownload = function(infringement, download, done){
 
 Unarchiver.prototype.uploadAndRegister = function(infringement, archive, extractedDir, done){
   var self = this;
-  logger.info('uploadAndRegister');
   self.storage_.addLocalDirectory(infringement.campaign, extractedDir, function(err, nUploaded, fileDetails) {
 
     rimraf(archive, function(err) { if (err) logger.warn(err); });

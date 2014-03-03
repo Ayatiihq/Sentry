@@ -1010,7 +1010,7 @@ Infringements.prototype.getOneInfringement = function(infringementID, callback) 
  */
 Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, callback) {
   var self = this
-    , then = Date.create('1 minutes ago').getTime()
+    , then = Date.create('15 minutes ago').getTime()
     ;
 
   if (!self.infringements_)
@@ -1037,7 +1037,7 @@ Infringements.prototype.popForCampaignByMimetypes = function(campaign, options, 
 
   var updates = {
     $set: {
-      popped: Date.create('15 minutes ago').getTime()//Date.now()
+      popped: Date.now()
     }
   };
 
