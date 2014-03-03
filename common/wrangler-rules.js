@@ -368,7 +368,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
 
         return all(promiseArray).then(function (lifted30Xs) {
           lifted30Xs.each(function (single30x) {
-            if (XRegExp.test(single30x.last()), module.exports.urlMatch) {  // followRedirects gets a lot of crap accumulated.
+            if (XRegExp.test(single30x.last(), module.exports.urlMatch)) {  // followRedirects gets a lot of crap accumulated.
               links[single30x.last()] = true;
             }
           });
