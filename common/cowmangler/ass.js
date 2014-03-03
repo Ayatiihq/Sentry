@@ -88,7 +88,6 @@ Ass.prototype.query = function(action){
   var self = this;
   self.headers = {'content-type': 'application/json' , 'accept': 'text/plain'};
   var query =  self.hub + "/" + action;
-  logger.info('query ' + query);
   var promise = new Promise.Promise();
 
   request.get({uri: query, timeout: MAXTHUBIMEOUT}, function(data, response){
@@ -98,9 +97,8 @@ Ass.prototype.query = function(action){
     }
     var statusCode = response.statusCode;
     if(statusCode !== 200){
-      logger.warn('Status code ' + statusCode + ' was returned by CowMangler hub');
-      promise.reject(new Error("Didn't get a 200 statusCode back from hub." + statusCode.toString() + 
-                     '\n details : ' + response.body));
+      logger.warn('Action : ' + action + ', Status code : ' + statusCode.toString() + ', From HUB -> ' + response.body);
+      promise.reject(new Error("Problems talking to the hub -> " + response.body));
     }
     else{
       promise.resolve(self.sift(response.body));
