@@ -467,8 +467,7 @@ function buildURITest(extensions, domains) {
   extensions = (extensions) ? extensions : [];
   return function (uri) {
     var match = XRegExp.exec(uri, module.exports.urlMatch);
-    if (!match) { console.log(uri); }
-    var heh = (extensions.some(match.extension) || domains.some(match.domain));
+    if (!match) { return false; }
     return (extensions.some(match.extension) || domains.some(match.domain));
   };
 };
