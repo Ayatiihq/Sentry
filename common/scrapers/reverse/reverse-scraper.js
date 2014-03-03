@@ -212,7 +212,6 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
     })
     .seq(function() {
       self.pageNumber_ += 1;
-      logger.info('Going to next page');
       self.browser_.click('#pnnext', this);
     })
     .seq(function() {

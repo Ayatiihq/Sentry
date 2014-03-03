@@ -108,65 +108,53 @@ Scraper.prototype.checkJobValidity = function(job, callback) {
 }
 
 Scraper.prototype.startJob = function(job, done) {
-  var self = this;
-  self.loadScraperForJob(job, function(err, depsAvailable,  scraper) {
-    if (err)
-      return done(err);
-    
-    if(!depsAvailable)
-      return self.jobs_.close(job, states.jobs.state.CANCELLED, "None of the dependencies were available", done);
+  var self = this
+    , scraper = null
+    ;
 
-    self.runScraper(scraper, job, done);
-  });
+  Seq()
+    .seq(function(){
+      self.loadScraperForJob(job, this);
+    })
+    .seq(function(scraperInfo, scraper_){
+      scraper = scraper_;
+      // extend for other deps if needed
+      if(!scraperInfo.dependencies || !scraperInfo.dependencies.cowmangler  || !scraperInfo.dependencies.cowmangler === 0)
+        return this(null, true);
+      
+      self.browser = new Cowmangler();    
+      self.browser.newTabSafely(this);
+    })
+    .seq(function(available){
+      if(!available)
+        return self.jobs_.close(job, states.jobs.state.CANCELLED, "None of the dependencies were available", done);
+      self.runScraper(scraper, job, done);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 Scraper.prototype.loadScraperForJob = function(job, callback) {
   var self = this;
   var scraperInfo = self.scrapers_.getScraper(job.scraperName_);
+
   if (!scraperInfo) {
     callback(new Error('Unable to find scraper'));
     return;
   }
 
   var scraper = null;
-  var depsAvailable = true;
+  var error = null;
 
   try {
     scraper = self.scrapers_.loadScraper(scraperInfo.name);
   } catch(err) {
-    return callback(err);
+    error = err;
   };
 
-  if(!scraperInfo.dependencies || !scraperInfo.dependencies.cowmangler  || !scraperInfo.dependencies.cowmangler === 0)
-    return callback(null, depsAvailable, scraper);    
-
-  // Only create a mangler instance if we actually need it
-  self.createManglerTab(function(err, goodToGo){
-    if(err)
-      return callback(err);
-    callback(null, goodToGo, scraper);
-  });
-}
-
-Scraper.prototype.createManglerTab = function(callback) {
-  var self = this;
-  self.browser = new Cowmangler();
-  
-  self.browser.on('ready', function(){
-    callback(null, true);
-  });
-
-  self.browser.on('error', function(err){
-    callback(err);
-  });
-
-  self.browser.hasAvailableTabs(function(err, available){
-    if(err)
-      return callback(err);
-    if(!available)
-      return callback(null, false);
-    self.browser.newTab(); //or we wait for the ready signal.
-  });
+  callback(error, scraperInfo, scraper);    
 }
 
 Scraper.prototype.runScraper = function(scraper, job, done) {

@@ -61,6 +61,30 @@ Cowmangler.prototype.newTab = function(){
 }
 
 /*
+  Safely create a new tab, returns err & depsAvail_bool
+*/
+Cowmangler.prototype.newTabSafely = function(done){
+  var self = this;
+  
+  self.on('ready', function(){
+    done(null, true);
+  });
+
+  self.on('error', function(err){
+    done(err);
+  });
+
+  self.hasAvailableTabs(function(err, available){
+    if(err)
+      return done(err);
+    if(!available)
+      return done(null, false);
+    self.newTab(); //or we wait for the ready signal.
+  });  
+}
+
+
+/*
   Ask if there are any available tabs
 */
 Cowmangler.prototype.hasAvailableTabs = function(done){

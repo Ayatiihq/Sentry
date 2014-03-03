@@ -256,20 +256,6 @@ Generic.prototype.onInfringementFinished = function (infringement, isBackup, ite
   return new Promise.Promise().resolve();
 };
 
-Generic.prototype.isLinkInteresting = function (uri) {
-  // If its pathless, no point.
-  if (!utilities.uriHasPath(uri)) {
-    logger.info('%s has no path, not scraping', uri);
-    return states.infringements.state.UNVERIFIED;
-  }
-  // If its safe, no point.
-  if (arrayHas(uri, safeDomains)) {
-    logger.info('%s is a safe domain', uri);
-    return states.infringements.state.FALSE_POSITIVE;
-  }
-  return null;
-};
-
 Generic.prototype.wrapWrangler = function (uri, ruleOverrides) {
   var self = this;
   var promise = new Promise.Promise();
@@ -338,10 +324,6 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
     links = links.remove(function (link) { return (link.split('#')[0].split('?')[0] === uri.split('#')[0].split('?')[0]); });
     // for each link we need to make sure its not something we should be ignoring for whatever reason
 
-    links.remove(function (uri) { return !!(self.checkURI(uri).stateChange); });
-    // foundItems contains all the links on the page, but that isn't quite enough we want to figure out
-    // which links are suspicious looking
-
     // go through the links we got from scraping all the hrefs on the page and run the checkForInfo rule on it
     // this will return with an Endpoint with wranglerRules.checkForInfoHash set as its data if checkForInfo
     // thinks the link is suspicious
@@ -408,43 +390,6 @@ Generic.prototype.doSecondAssaultOnInfringement = function (infringement) {
   });
 };
 
-/* figures out if we should continue processing this uri */
-Generic.prototype.checkURI = function (uri) {
-  var self = this;
-  var resolveData = { 'stateChange': null, 'pointsChange': null };
-
-  // check to see if there are any problems with the URI, isLinkInteresting() can return a state change
-  var linkInterestingResult = self.isLinkInteresting(uri);
-  if (linkInterestingResult !== null) {
-    resolveData.stateChange = linkInterestingResult;
-  }
-  else {
-    if (self.cyberlockers) {
-      if (arrayHas(uri, self.cyberlockers.first().domains)) {
-        logger.info('%s is a cyberlocker', uri);
-        // FIXME: This should be done in another place, is just a hack, see
-        //        https://github.com/afive/sentry/issues/65
-        // It's a cyberlocker URI, so important but we don't scrape it further
-        resolveData.stateChange = states.infringements.state.UNVERIFIED;
-        resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'cyberlocker'];
-      }
-    }
-    if (self.torrentSites) {
-      if (arrayHas(uri, self.torrentSites.first().domains)) {
-        logger.info('%s is a torrent site', uri);
-        // FIXME: This should be done in another place, is just a hack, see
-        //        https://github.com/afive/sentry/issues/65
-        // It's a cyberlocker URI, so important but we don't scrape it further
-        // TODO how this change the category on the infringement.
-        resolveData.stateChange = states.infringements.state.UNVERIFIED;
-        resolveData.pointsChange = [MAX_SCRAPER_POINTS, 'torrent'];
-      }
-    }
-  }
-  
-  return resolveData;
-};
-
 Generic.prototype.generateRulesForCampaign = function (additionalDomains) {
   var self = this;
   var musicRules = wranglerRules.rulesDownloadsMusic(additionalDomains);
@@ -462,24 +407,9 @@ Generic.prototype.generateRulesForCampaign = function (additionalDomains) {
 
 Generic.prototype.checkInfringement = function (infringement) {
   var self = this;
-  
-  var checkURIResult = self.checkURI(infringement.uri); // returns {stateChange:str, pointsChange:[number, str]}
-  if (checkURIResult.stateChange !== null && checkURIResult.pointsChange !== null) {
-    // no problems with checkURIResult so we can start endpointWrangler on this uri
-    var ruleSet = self.generateRulesForCampaign(self.combinedDomains);
-    var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
-    return wranglerPromise.then(self.onInfringementFinished.bind(self, infringement, false));
-  }
-  else {
-    if (checkURIResult.stateChange) { 
-      self.emit('infringementStateChange', infringement, checkURIResult.stateChange); 
-    }
-    if (checkURIResult.pointsChange) { 
-      self.emit('infringementPointsUpdate', infringement, 'scraper.generic', checkURIResult.pointsChange[0], checkURIResult.pointsChange[1]);
-    }
-
-    return new Promise.Promise().reject();
-  }
+  var ruleSet = self.generateRulesForCampaign(self.combinedDomains);
+  var wranglerPromise = self.wrapWrangler(infringement.uri, ruleSet);
+  return wranglerPromise.then(self.onInfringementFinished.bind(self, infringement, false));
 };
 
 Generic.prototype.stop = function () {

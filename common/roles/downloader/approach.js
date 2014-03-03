@@ -47,6 +47,7 @@ Approach.prototype.setupIgnores = function(){
 	self.ignoreExts.union(['.png', '.jpg', '.jpeg', '.gif', '.js', '.swf']);
 }
 
+// TODO Do we need this anymore ?
 Approach.prototype.validateExtension = function(uri){
   var self = this;
   var result = true;
