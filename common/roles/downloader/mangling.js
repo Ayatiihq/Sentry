@@ -30,19 +30,19 @@ var Mangling = module.exports = function (campaign, targetHost, done) {
 
 util.inherits(Mangling, Approach);
 
-Mangling.prototype.init = function(){
+Mangling.prototype.init = function(done){
   var self = this;
   self.browser = new Cowmangler();
-
   self.browser.on('error', function(err){
-  	logger.error('Cowmanger error ' + err);
+    logger.error('Cowmanger error ' + err);
   });  
-}
-
-Mangling.prototype.createTab = function(done){
-  var self = this;
   self.browser.newTabSafely(done);
 }
+
+/*Mangling.prototype.createTab = function(done){
+  var self = this;
+  self.browser.newTabSafely(done);
+}*/
 
 Mangling.prototype.download = function(infringement, done){
   var self  = this;

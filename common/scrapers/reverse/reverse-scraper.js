@@ -98,7 +98,7 @@ ReverseScraper.prototype.run = function() {
     })
     .seq(function(searchTerm) {
       if (searchTerm == '') {
-        // Probably no valid hits
+        logger.trace('no valid hits for the reverse-scraper to search with');
         return this();
       }
       self.scrape(searchTerm, this);

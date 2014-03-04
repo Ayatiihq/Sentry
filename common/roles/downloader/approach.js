@@ -19,13 +19,13 @@ var Campaigns = acquire('campaigns')
   , Seq = require('seq')
   ;
 
-var Approach = module.exports = function (campaign, targetHost) {
+var Approach = module.exports = function (campaign, targetHost, done) {
   this.campaign_ = campaign;
   this.host_ = targetHost;
   this.ignoreExts = [];
   this.mimetypes = [];
   this.setupIgnores();
-  this.init();
+  this.init(done);
 };
 
 util.inherits(Approach, events.EventEmitter);

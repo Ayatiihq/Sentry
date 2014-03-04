@@ -323,8 +323,10 @@ Downloader.prototype.registerDownloadsAndSetState = function(infringement, downl
 Downloader.prototype.makeDownloadWorker = function(host, done){
   var self = this;
   if(host.downloaderDetails.approach === states.downloaders.approach.COWMANGLING){
-    var mangler = new Mangling(self.campaign_, host);
-    mangler.createTab(done);
+    var mangler = new Mangling(self.campaign_, host, function(err, available){
+      done(err, mangler, available);
+    });
+    //mangler.createTab(done);
   }
 }
 
