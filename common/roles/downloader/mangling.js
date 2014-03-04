@@ -24,25 +24,23 @@ var Approach = require('./approach')
   , XRegExp = require('xregexp').XRegExp 
   ;
 
-var Mangling = module.exports = function (campaign, targetHost, done) {
-  this.constructor.super_.call(this, campaign, targetHost, done);
+var Mangling = module.exports = function (campaign, targetHost) {
+  this.constructor.super_.call(this, campaign, targetHost);
 };
 
 util.inherits(Mangling, Approach);
 
-Mangling.prototype.init = function(done){
+Mangling.prototype.init = function(){
   var self = this;
   self.browser = new Cowmangler();
   self.browser.on('error', function(err){
     logger.error('Cowmanger error ' + err);
   });  
-  self.browser.newTabSafely(done);
 }
 
-/*Mangling.prototype.createTab = function(done){
-  var self = this;
-  self.browser.newTabSafely(done);
-}*/
+Mangling.prototype.createTab = function(done){
+  this.browser.newTabSafely(done);
+}
 
 Mangling.prototype.download = function(infringement, done){
   var self  = this;
