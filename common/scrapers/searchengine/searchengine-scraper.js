@@ -379,7 +379,6 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
 
 GenericSearchEngine.prototype.cleanup = function () {
   var self = this;
-  logger.info('cleanup');
   Seq()
     .seq(function(){
       if(!self.browser)
@@ -502,6 +501,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
       self.browser.find('ol[id="rso"]', function(err){
         if(err){
           logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
+          self.cleanup();
           // This is not an error, no results means our search terms are off.
         }
         else{
@@ -509,9 +509,6 @@ GoogleScraper.prototype.beginSearch = function (browser) {
         }
         that();
       });
-    })
-    .seq(function(){
-
     })
     .catch(function(err){
       self.emit('error', err);
