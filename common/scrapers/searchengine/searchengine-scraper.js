@@ -109,19 +109,19 @@ GenericSearchEngine.prototype.handleResults = function () {
       
       if (newresults.length < 1) {
         logger.info("We found results but they were irrelevant due to date, url or title\n");
-        self.emit('finished');
-        self.cleanup();
         return this();
       }
 
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults.isEmpty()){ 
         logger.info('Any results we found were filtered out due to blacklists'); 
-      }
-      else{
-        self.emitLinks(filteredResults);
+        return this();
       }
 
+      self.emitLinks(filteredResults);
+      this(null, source);
+    })
+    .seq(function(source){
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
@@ -379,6 +379,7 @@ GenericSearchEngine.prototype.buildSearchQueryAlbum = function (done) {
 
 GenericSearchEngine.prototype.cleanup = function () {
   var self = this;
+  logger.info('cleanup');
   Seq()
     .seq(function(){
       if(!self.browser)
@@ -502,13 +503,15 @@ GoogleScraper.prototype.beginSearch = function (browser) {
         if(err){
           logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
           // This is not an error, no results means our search terms are off.
-          self.cleanup();
         }
         else{
           self.handleResults();
         }
         that();
       });
+    })
+    .seq(function(){
+
     })
     .catch(function(err){
       self.emit('error', err);
@@ -551,12 +554,6 @@ GoogleScraper.prototype.nextPage = function () {
   Seq()
     .seq(function(){
       self.browser.click('#pnnext', this);
-    })
-    .seq(function(){
-      self.browser.getCurrentUrl(this);
-    })
-    .seq(function(currentUrl){
-      this();
     })
     .seq(function(){
       self.browser.find('ol[id="rso"]', function(err){
@@ -622,7 +619,7 @@ YahooScraper.prototype.beginSearch = function (browser) {
       var that = this;
       self.browser.find('div#web', function(err){
         if(err){
-          logger.warn('Failed to get any search results for ' + self.name + ' using ' + self.searchTerm);
+          logger.warn('Failed to get any search results for ' + self.sourceName_ + ' using ' + self.searchTerm);
           self.cleanup();
         }
         else{

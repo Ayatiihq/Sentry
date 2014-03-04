@@ -104,8 +104,11 @@ ReverseScraper.prototype.run = function() {
       self.scrape(searchTerm, this);
     })
     .seq(function() {
+      self.browser_.quit(this);
+    })
+    .seq(function(){
       logger.info('Successfully completed scraper run');
-      self.emit('finished')
+      self.emit('finished');
     })
     .catch(function(err) {
       logger.warn('Unable to run scraper: %j %s', self.job_, err);
