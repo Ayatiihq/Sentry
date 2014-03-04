@@ -33,11 +33,13 @@ util.inherits(Mangling, Approach);
 Mangling.prototype.init = function(){
   var self = this;
   self.browser = new Cowmangler();
-  self.browser.newTab();
-
   self.browser.on('error', function(err){
-  	logger.error('Cowmanger error ' + err);
-  });
+    logger.error('Cowmanger error ' + err);
+  });  
+}
+
+Mangling.prototype.createTab = function(done){
+  this.browser.newTabSafely(done);
 }
 
 Mangling.prototype.download = function(infringement, done){

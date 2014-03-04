@@ -217,7 +217,9 @@ Downloader.prototype.run = function(done) {
     .seq(function() {
       self.makeDownloadWorker(self.downloadersMap_[work.domain], this);
     })
-    .seq(function(downloaderWorker_) {
+    .seq(function(depsAvailable, downloaderWorker_) {
+      if(!depsAvailable)
+        return self.jobs_.close(self.job_, states.jobs.state.CANCELLED, 'No deps available for downloaders', done);
       downloaderWorker = downloaderWorker_;
       this();
     })
@@ -246,7 +248,6 @@ Downloader.prototype.download = function(downloadWorker, infringement, done){
   var self = this;
   Seq()
     .seq(function(){
-      logger.info('go work ' + infringement.uri);
       downloadWorker.download(infringement, this);
     })
     .seq(function(result){
@@ -320,7 +321,10 @@ Downloader.prototype.registerDownloadsAndSetState = function(infringement, downl
 Downloader.prototype.makeDownloadWorker = function(host, done){
   var self = this;
   if(host.downloaderDetails.approach === states.downloaders.approach.COWMANGLING){
-    return done(null, new Mangling(self.campaign_, host));
+    var mangler = new Mangling(self.campaign_, host)
+    mangler.createTab(function(err, available){
+      done(err, available, mangler);
+    });
   }
 }
 

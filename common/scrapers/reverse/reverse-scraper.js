@@ -98,14 +98,17 @@ ReverseScraper.prototype.run = function() {
     })
     .seq(function(searchTerm) {
       if (searchTerm == '') {
-        // Probably no valid hits
+        logger.trace('no valid hits for the reverse-scraper to search with');
         return this();
       }
       self.scrape(searchTerm, this);
     })
     .seq(function() {
+      self.browser_.quit(this);
+    })
+    .seq(function(){
       logger.info('Successfully completed scraper run');
-      self.emit('finished')
+      self.emit('finished');
     })
     .catch(function(err) {
       logger.warn('Unable to run scraper: %j %s', self.job_, err);
@@ -212,7 +215,6 @@ ReverseScraper.prototype.scrapeSearchResults = function() {
     })
     .seq(function() {
       self.pageNumber_ += 1;
-      logger.info('Going to next page');
       self.browser_.click('#pnnext', this);
     })
     .seq(function() {

@@ -60,15 +60,16 @@ function main() {
         // Only create a mangler instance if we actually need it
         if(scraperInfo.dependencies && scraperInfo.dependencies.cowmangler > 0){
           browser = new Cowmangler();
-          browser.newTab();
-          browser.on('ready', function(){
-            that();
-          });
+          browser.newTabSafely(that);
         }
         else
-          that();
+          that(true);
       })
-      .seq(function(){
+      .seq(function(available){
+        if(!available){
+          logger.warn('looks like no tabs are free, cancelling job');
+          return process.exit(1);          
+        }
         campaigns.getDetails(campaignID, this);
       })
       .seq(function(campaign_){

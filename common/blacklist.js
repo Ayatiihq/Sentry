@@ -25,6 +25,7 @@ Blacklist.safeDomains = [
   , 'apple.com'
   , 'apunkachoice.com'
   , 'answers.yahoo.com'
+  , 'artistxite.com'
   , 'beforeitsnews.com'
   , 'bharatmovies.com'
   , 'bleep.com'

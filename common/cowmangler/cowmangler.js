@@ -9,12 +9,14 @@ var acquire = require('acquire')
   , logger = acquire('logger').forFile('cowmangler.js')
   , util = require('util')
   , sugar = require('sugar')
+  ;
+
+var Ass = require('./ass.js')
+  , Campaigns = acquire('campaigns')  
   , URI = require('URIjs')  
+  , Seq = require('seq')  
   , Settings = acquire('settings')  
-  , Campaigns = acquire('campaigns')
-  , Ass = require('./ass.js')
-  , all = require('node-promise').all
-;
+  ;
 
 var Cowmangler = module.exports = function () {
   this.tabConnected = false;
@@ -56,6 +58,52 @@ Cowmangler.prototype.newTab = function(){
   }
 
   self.ass_.new(done);
+}
+
+/*
+  Safely create a new tab, returns err & depsAvail_bool
+*/
+Cowmangler.prototype.newTabSafely = function(done){
+  var self = this;
+  
+  self.on('ready', function(){
+    done(null, true);
+  });
+
+  self.on('error', function(err){
+    done(err);
+  });
+
+  self.hasAvailableTabs(function(err, available){
+    if(err)
+      return done(err);
+    if(!available)
+      return done(null, false);
+    self.newTab(); //or we wait for the ready signal.
+  });  
+}
+
+
+/*
+  Ask if there are any available tabs
+*/
+Cowmangler.prototype.hasAvailableTabs = function(done){
+  var self = this;
+  Seq()
+    .seq('checkStatus', function() {  
+      self.getStatus(this);
+    })
+    .seq('workOutAvailableNodes', function(nodeStatus) {
+      var available = 0;
+      Object.keys(nodeStatus).each(function(node){
+        available += nodeStatus[node].max_tab_count - nodeStatus[node].tab_count;
+      });
+      done(null, available > 0);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
 }
 
 /*
