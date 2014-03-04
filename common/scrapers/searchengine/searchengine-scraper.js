@@ -646,7 +646,6 @@ YahooScraper.prototype.getLinksFromSource = function (source) {
     var title = $(this).find('a').text().replace(/cached/i, '');
     if (self.checkResultRelevancy(title, url))
       links.push(url);
-    
   });
 
   return links;
