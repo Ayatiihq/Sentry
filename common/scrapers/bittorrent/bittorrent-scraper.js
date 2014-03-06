@@ -463,14 +463,14 @@ PageAnalyser.prototype.processLinks = function(links, done){
   Seq(links)
     .seqEach(function(link){
       var that = this;
-      self.processLink(link, function(err, verdict){
+      self.processLink(link, function(err, verdict, metadata){
         if(err || !verdict){ // ignore both errors and no result
           logger.info('error or nothing to see here, move on.');
           return that();
         }
         // its gotta be one of the two keys in results
         logger.info('push to ' + verdict);
-        results[verdict].push(link);
+        results[verdict].push({'uri' : link, 'metadata' : metadata});
         that();
       });
     })
@@ -485,16 +485,18 @@ PageAnalyser.prototype.processLinks = function(links, done){
 }
 
 PageAnalyser.prototype.processLink = function(torrentLink, done){
-  var self = this;
-  logger.info('process link ' + torrentLink);
+  var self = this
+    , torrentDetails = null
+    ;
+
   Seq()
     .seq(function(){
-      
       torrentInspector.getTorrentDetails(torrentLink, self.downloadDir_, this);
     })
     .seq(function(details_){
-      logger.info('vell - ' + JSON.stringify(details_));
+      logger.info('success ' + details_.success);
       if(details_.success){
+        torrentDetails = details_.torDetails;
         return torrentInspector.checkIfTorrentIsGoodFit(details_.torDetails, self.campaign, this);
       }
       if(details_.message === 'Not binary'){
@@ -509,7 +511,7 @@ PageAnalyser.prototype.processLink = function(torrentLink, done){
         logger.info('TorrentLink %s isn\'t a good fit: %s', torrentLink, reason);
         return done();
       }
-      done(null, 'keepers');
+      done(null, 'keepers', torrentInspector.extractFileNamesAndSize(torrentDetails));
     })
     .catch(function(err){
       logger.warn('Torrent error', torrentLink, err);
@@ -557,15 +559,13 @@ PageAnalyser.prototype.broadcast = function(results, infringement, done){
   var self = this;
   Seq(results)
     .seqEach(function(torrent){
-      if (!torrent.link) 
-        return this();
-
       self.emit('torrent',
-                torrent.link,
+                torrent.uri,
                 {score: MAX_SCRAPER_POINTS / 1.5,
                  source: 'scraper.bittorrent.' + self.engineName,
-                 message: 'Link to actual Torrent file from ' + self.engineName});
-      self.emit('relation', infringement.uri, torrent.link);
+                 message: 'Link to actual Torrent file from ' + self.engineName},
+                 torrent.metadata);
+      self.emit('relation', infringement.uri, torrent.uri);
       this();
     })
     .seq(function(){

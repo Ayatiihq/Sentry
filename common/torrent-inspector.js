@@ -16,6 +16,18 @@ var Extensions = acquire('wrangler-rules').typeMediaExtensions
 
 var TorrentInspector = module.exports;
 
+TorrentInspector.extractFileNamesAndSize = function(torrent){
+  var filenames = []
+    , totalSize = 0
+    ;
+  // Load up the basics
+  torrent.files.forEach(function(file) {
+    filenames.push(file.name);
+    totalSize += file.length;
+  });
+  return {'fileNames' : filenames, 'totalSize' : totalSize};
+}
+
 TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   var	campaignName = campaign.name
     , campaignNameRegExp = new RegExp('(' + campaignName.replace(/\ /gi, '|') + ')', 'i')
@@ -32,12 +44,9 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
     ;
 
   logger.info('Checking if %s is a good fit', torrent.name);
-
-  // Load up the basics
-  torrent.files.forEach(function(file) {
-    filenames.push(file.name);
-    totalSize += file.length;
-  });
+  var tmpResults = TorrentInspector.extractFileNamesAndSize(torrent);
+  filenames = tmpResults.fileNames;
+  totalSize = tmpResults.totalSize;
 
   // First check the date and the name. Either not matching is automatic fail
   if (created.isBefore(campaignReleaseDate)) {
