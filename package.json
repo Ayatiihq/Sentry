@@ -37,7 +37,7 @@
     "winston": "0.x.x",
     "winston-papertrail": "*",
     "xmlrpc": "1.1.x",
-    "xregexp": "2.0.x",
+    "xregexp": "2.0.x"
   },
   "engines": {
     "node": "0.8.x",
