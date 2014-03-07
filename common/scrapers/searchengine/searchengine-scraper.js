@@ -27,6 +27,7 @@ var acquire = require('acquire')
   ;
 
 var Scraper = acquire('scraper')
+  , Seq = require('seq')
   , Settings = acquire('settings')
   ;
 
@@ -93,7 +94,9 @@ GenericSearchEngine.prototype.buildWordMatchess = function() {
 
 
 GenericSearchEngine.prototype.handleResults = function () {
-  var self = this;
+  var self = this
+    , source = null
+  ;
 
   // we sleep 2500ms first to let the page render
   Seq()
@@ -103,25 +106,25 @@ GenericSearchEngine.prototype.handleResults = function () {
     .seq(function(){
       self.browser.getSource(this);
     })
-    .seq(function(source){
-      // Be more verbose
-      var newresults = self.getLinksFromSource(source);
-      
+    .seq(function(source_){
+      source = source_
+      self.getLinksFromSource(source, this);
+    })
+    .seq(function(newresults){
       if (newresults.length < 1) {
         logger.info("We found results but they were irrelevant due to date, url or title\n");
         return this();
       }
-
       var filteredResults = self.filterSearchResults(newresults);
       if(filteredResults.isEmpty()){ 
         logger.info('Any results we found were filtered out due to blacklists'); 
         return this();
       }
-
+      //logger.info('results ' + JSON.stringify(newresults));
       self.emitLinks(filteredResults);
-      this(null, source);
+      this();
     })
-    .seq(function(source){
+    .seq(function(){
       if (self.checkHasNextPage(source)) {
         var randomTime = Number.random(self.idleTime[0], self.idleTime[1]);
         setTimeout(function () {
@@ -421,7 +424,7 @@ GenericSearchEngine.prototype.beginSearch = function () {
 };
 
 
-GenericSearchEngine.prototype.getLinksFromSource = function (source) {
+GenericSearchEngine.prototype.getLinksFromSource = function (source, done) {
   throw new Error('Stub!');
 };
 
@@ -518,7 +521,7 @@ GoogleScraper.prototype.beginSearch = function (browser) {
 }
 
 
-GoogleScraper.prototype.getLinksFromSource = function (source) {
+GoogleScraper.prototype.getLinksFromSource = function (source, done) {
   var self = this
     , links = []
     , $ = cheerio.load(source)
@@ -535,7 +538,7 @@ GoogleScraper.prototype.getLinksFromSource = function (source) {
       links.push(url);
     
   });
-  return links;
+  done(null, links);
 };
 
 // clicks on the next page, waits for new results
@@ -632,7 +635,26 @@ YahooScraper.prototype.beginSearch = function (browser) {
     ;
 };
 
-YahooScraper.prototype.getLinksFromSource = function (source) {
+YahooScraper.prototype.resolveLink = function(yahooLink, done){
+  var self = this;
+  Seq()
+    .seq(function(){
+      self.browser.get(yahooLink, this);
+    })
+    .seq(function(){
+      self.browser.getCurrentUrl(this);
+    })
+    .seq(function(resolvedLink){
+      done(null, resolvedLink);
+    })
+    .catch(function(err){
+      done(err);
+    })
+    ;
+}
+
+
+YahooScraper.prototype.getLinksFromSource = function (source, done) {
   var self = this
     , links = []
     , $ = cheerio.load(source)
@@ -644,8 +666,37 @@ YahooScraper.prototype.getLinksFromSource = function (source) {
     if (self.checkResultRelevancy(title, url))
       links.push(url);
   });
+  
+  var resolvedLinks = [];
+  var yahooSearchURL;
 
-  return links;
+  Seq(links)
+    .seq(function(){
+      self.browser.getCurrentUrl(this);
+    })
+    .seq(function(yahooURL_){
+      yahooSearchURL = yahooURL_;
+      this();
+    })
+    .set(links)
+    .seqEach(function(link){
+      var that = this;
+      self.resolveLink(link, function(err, resolvedLink){
+        resolvedLinks.push(resolvedLink);
+        that();
+      });
+    })
+    .seq(function(){
+      self.browser.get(yahooSearchURL, this);
+    })
+    .seq(function(){
+      done(null, resolvedLinks);
+    })
+    .catch(function(err){
+      logger.info('err ' + err);
+      //done(err);
+    })
+    ;
 };
 
 // clicks on the next page, waits for new results
@@ -738,7 +789,7 @@ BingScraper.prototype.beginSearch = function (browser) {
     ;
 }
 
-BingScraper.prototype.getLinksFromSource = function (source) {
+BingScraper.prototype.getLinksFromSource = function (source, done) {
   var self = this
     , links = []
     , $ = cheerio.load(source)
@@ -751,7 +802,8 @@ BingScraper.prototype.getLinksFromSource = function (source) {
     if (self.checkResultRelevancy(title, url))
       links.push(url);
   });
-  return links;
+
+  done(null, links);
 };
 
 // clicks on the next page, waits for new results
@@ -808,10 +860,10 @@ FilestubeScraper.prototype.beginSearch = function (browser) {
                       self.apikey + 
                       '&phrase=' + URI.encode(self.campaign.name.remove('-'));
 
-  request(requestURI, {}, self.getLinksFromSource.bind(self));  
+  request(requestURI, {}, self.extractLinks.bind(self));  
 };
 
-FilestubeScraper.prototype.getLinksFromSource = function (err, resp, html) {
+FilestubeScraper.prototype.extractLinks = function (err, resp, html) {
   var self = this;
   var links = [];
   var $ = cheerio.load(html);
