@@ -10,6 +10,7 @@
     "movie": ".*"
   },
   "engines": [
-    "kat"
+    "kat",
+    "pageAnalyser"
   ]
 }
