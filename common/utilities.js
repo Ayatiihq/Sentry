@@ -331,20 +331,20 @@ Utilities.followRedirects = function(link) {
     if(err){
       logger.warn('followRedirects : ' + err.message);
       promise.resolve(results);
-      return;      
+      return;
     }
 
     var redirect = null;
-
+    
     if(resp.headers.location){
       redirect = URI(resp.headers.location.replace(/\s/g, ""));
       if(redirect.is("relative"))
-        redirect = redirect.absoluteTo(results.last());      
+        redirect = redirect.absoluteTo(results.last()); 
     }
 
     if(!redirect){
       thePromise.resolve(results);      
-      return;      
+      return;
     }
     // Make sure to check infinite looping against the 
     // full uri and not just the headers.location
@@ -356,25 +356,25 @@ Utilities.followRedirects = function(link) {
     }
     else{
       // push this link into our results  
-      logger.info('push this link ' + redirect.toString());
       results.push(redirect.toString());
-      //logger.info('request redirect location : ' + redirect.toString());
       // go again.
       followOn(results, thePromise);
     }
   };
 
   function followOn(links, thePromise){
-    // Make sure to populate the referrer and the user-agent in the headers
-    var requestHeaders = {'Referer' : links.length < 2 ? '' : links[links.length - 2],
-                          'User-Agent': useragents.random()};
-
+    // Make sure to populate the user-agent in the headers
+    var requestHeaders = {'User-Agent': useragents.random()};
+    // Only populate the referer if we have one (get 403's otherwise)
+    if(links.length >= 2)
+      requestHeaders['Referer'] = links[links.length - 2]                      
     // Request just the headers with a long timeout
     // Don't allow redirects to follow on automatically
-    request.head(links.last(),
-                {timeout: 30000, followAllRedirects: true,
-                 headers: requestHeaders},
-                onHeadResponse.bind(null, links, thePromise));
+    request.head({uri: links.last(),
+                  timeout: 30000,
+                  headers: requestHeaders,
+                  followRedirect: false},
+                  onHeadResponse.bind(null, links, thePromise));
   };  
 
   followOn([link], promise);
