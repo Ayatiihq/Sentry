@@ -1,7 +1,7 @@
 var acquire = require('acquire')
   , fs = require('fs')
   , logger = acquire('logger').forFile('bittorrent-inspector.js')
-  , isBinaryFile = require("isbinaryfile") 
+  , isTextorBinary = require('istextorbinary')
   , path = require('path')
 	, readTorrent = require('read-torrent')
 	, rimraf = require('rimraf')
@@ -15,6 +15,18 @@ var Extensions = acquire('wrangler-rules').typeMediaExtensions
 	;
 
 var TorrentInspector = module.exports;
+
+TorrentInspector.extractFileNamesAndSize = function(torrent){
+  var filenames = []
+    , totalSize = 0
+    ;
+  // Load up the basics
+  torrent.files.forEach(function(file) {
+    filenames.push(file.name);
+    totalSize += file.length;
+  });
+  return {'fileNames' : filenames, 'totalSize' : totalSize};
+}
 
 TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
   var	campaignName = campaign.name
@@ -32,12 +44,9 @@ TorrentInspector.checkIfTorrentIsGoodFit = function(torrent, campaign, done) {
     ;
 
   logger.info('Checking if %s is a good fit', torrent.name);
-
-  // Load up the basics
-  torrent.files.forEach(function(file) {
-    filenames.push(file.name);
-    totalSize += file.length;
-  });
+  var tmpResults = TorrentInspector.extractFileNamesAndSize(torrent);
+  filenames = tmpResults.fileNames;
+  totalSize = tmpResults.totalSize;
 
   // First check the date and the name. Either not matching is automatic fail
   if (created.isBefore(campaignReleaseDate)) {
@@ -109,7 +118,7 @@ TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
 
         stream.pipe(fs.createWriteStream(filename));
         stream.on('end', function() { 
-          that(null, true);
+          that();
         });
         stream.on('error', function(err) {
           result.message = 'Error requesting link ' + err;
@@ -118,20 +127,15 @@ TorrentInspector.getTorrentDetails = function(torrentSource, targetPath, done) {
       });
     })
     .seq(function(downloaded){
-      if(downloaded){
-        logger.info('Download finished for %s', filename);
-        isBinaryFile(filename, this);
-      }
-      else{
-        result.message = 'Error requesting link ' + err;
-        done(null, result);
-      }
+      isTextorBinary.isBinary(filename, null, this);
     })
     .seq(function(isBinary) {
       if(!isBinary){
+        logger.info('we think its not binary');
         result.message = 'Not binary';
         return done(null, result);
       }      
+      logger.info('we think its binary');
       readTorrent(filename, this);
     })
     .seq(function(details) {

@@ -321,29 +321,30 @@ Utilities.notify = function(message) {
 
 /**
  * Follows redirects manually 
- * @param  {array}  links   A array usually containing one link from which to start the requesting from   
- * @param  {object} promise A promise instance which resolves at some point returning an array of link(s)
+ * @param  string  link  The link from which to start the requesting from   
  * @return {object} the given promise.
  */
-Utilities.followRedirects = function(links, promise) {
+Utilities.followRedirects = function(link) {
+  var promise = new Promise();
 
   function onHeadResponse(results, thePromise, err, resp, html){
     if(err){
       logger.warn('followRedirects : ' + err.message);
       promise.resolve(results);
-      return;      
+      return;
     }
 
     var redirect = null;
+    
     if(resp.headers.location){
       redirect = URI(resp.headers.location.replace(/\s/g, ""));
       if(redirect.is("relative"))
-        redirect = redirect.absoluteTo(results.last());      
+        redirect = redirect.absoluteTo(results.last()); 
     }
 
     if(!redirect){
       thePromise.resolve(results);      
-      return;      
+      return;
     }
     // Make sure to check infinite looping against the 
     // full uri and not just the headers.location
@@ -356,21 +357,28 @@ Utilities.followRedirects = function(links, promise) {
     else{
       // push this link into our results  
       results.push(redirect.toString());
-      //logger.info('request redirect location : ' + redirect.toString());
       // go again.
-      Utilities.followRedirects(results, thePromise);
+      followOn(results, thePromise);
     }
-  }
-  // Make sure to populate the referrer and the user-agent in the headers
-  var requestHeaders = {'Referer' : links.length < 2 ? '' : links[links.length - 2],
-                        'User-Agent': useragents.random()};
+  };
 
-  // Request just the headers with a long timeout
-  // Don't allow redirects to follow on automatically
-  request.head(links.last(),
-              {timeout: 30000, followRedirect: false,
-               headers: requestHeaders},
-              onHeadResponse.bind(null, links, promise));
+  function followOn(links, thePromise){
+    // Make sure to populate the user-agent in the headers
+    var requestHeaders = {'User-Agent': useragents.random()};
+    // Only populate the referer if we have one (get 403's otherwise)
+    if(links.length >= 2)
+      requestHeaders['Referer'] = links[links.length - 2]                      
+    // Request just the headers with a long timeout
+    // Don't allow redirects to follow on automatically
+    request.head({uri: links.last(),
+                  timeout: 30000,
+                  headers: requestHeaders,
+                  followRedirect: false},
+                  onHeadResponse.bind(null, links, thePromise));
+  };  
+
+  followOn([link], promise);
+
   return promise;
 }
 
@@ -391,9 +399,7 @@ Utilities.request = function(url, options, callback) {
     Utilities.requestURL(url, options, callback);
 
   } else {
-    var promise = new Promise();
-    Utilities.followRedirects([url], promise);
-    promise.then(function(links) {
+    Utilities.followRedirects(url).then(function(links) {
       Utilities.requestURL(links.last(), options, callback);
     },
     callback);
@@ -576,10 +582,7 @@ Utilities.requestStream = function(url, options, callback) {
   if (Object.has(options, 'followRedirects') && !options.followRedirects) {
     Utilities.requestURLStream(url, options, callback);
   } else {
-    var promise = new Promise();
-
-    Utilities.followRedirects([url], promise);
-    promise.then(function(links) {
+    Utilities.followRedirects(url).then(function(links) {
       Utilities.requestURLStream(links.last(), options, callback);
     },
     callback);

@@ -51,7 +51,6 @@ function main() {
     Seq()
       .seq(function(){
         var that  = this;
-        console.log(scraperName);
         scraperInfo = scrapers.getScraper(scraperName);
         if (!scraperInfo) {
           logger.error('unable to load scraper info ' + scraperName);

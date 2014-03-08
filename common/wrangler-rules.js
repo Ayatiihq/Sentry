@@ -363,7 +363,7 @@ var ruleSearchAllLinks = module.exports.ruleSearchAllLinks = function (uriTest, 
         });
 
         var promiseArray = shortenedLinks.map(function (link) {
-          return utilities.followRedirects([link], new Promise()); // FIXME - *never* throw promises about like this. 
+          return utilities.followRedirects(link);
         });
 
         return all(promiseArray).then(function (lifted30Xs) {
