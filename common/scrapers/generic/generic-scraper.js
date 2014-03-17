@@ -310,7 +310,8 @@ Generic.prototype.findSuspiciousLinks = function (uri) {
   .then(function (foundItems) {
     // foundItems now contains all the hrefs of the <a> tags on a page, we need to normalize them
     // with respect to the pages URI, so '<a href="test.html">' expands to '<a href="http://foo.com/test.html">'
-    var links = foundItems.first().items.map(function (foundItem) {
+    var items = (foundItems.first()) ? foundItems.first().items : [];
+    var links = items.map(function (foundItem) {
       return utilities.joinURIS(uri, foundItem.data, foundItems.first().baseURI);
     });
 
