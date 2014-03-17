@@ -62,7 +62,11 @@ PromiseBatcher.prototype.startBatches = function () {
           return nextBatch();
         });
     }
-    else { return totalResults; }
+    else { 
+      var resultPromise = new Promise.Promise(); 
+      resultPromise.resolve(totalResults); 
+      return resultPromise;
+    }
   }
 
   return nextBatch();
