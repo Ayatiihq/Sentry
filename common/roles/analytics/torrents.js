@@ -194,7 +194,7 @@ Torrents.ipInfo = function(db, collections, campaign, done) {
     Seq(docs)
       .seqEach(function(ip) {
         var that = this
-          , query = 'http://api.ipaddresslabs.com/iplocation/v1.7/locateip?key=SAK28R284C8F452PA27Z&ip=%s&format=json&compact=Y'
+          , query = 'http://api.ipaddresslabs.com/iplocation/v1.7/locateip?key=SKEYip=%s&format=json&compact=Y'
           ;
 
         url = fmt(query, ip._id);

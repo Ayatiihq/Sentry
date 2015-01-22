@@ -30,8 +30,8 @@ var Infringements = acquire('infringements')
   , Verifications = acquire('verifications');
 ;
 
-var MEDIA = 'https://s3.amazonaws.com/qarth/media/';
-var DOWNLOADS = 'https://s3.amazonaws.com/qarth/downloads/';
+var MEDIA = 'https://s3.amazonaws.com/....';
+var DOWNLOADS = 'https://s3.amazonaws.com/...';
 
 var AudioMatcher = module.exports = function() {
   this.infringements_ = null;

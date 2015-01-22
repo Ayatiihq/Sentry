@@ -44,7 +44,7 @@
     "npm": "1.1.x"
   },
   "devDependencies": {},
-  "repository": "git@github.com:afive/sentry.git",
+  "repository": "",
   "license": "commercial",
   "private": true
 }

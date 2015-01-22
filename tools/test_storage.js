@@ -49,7 +49,7 @@ function main() {
 
   if (action === 'createFromFile') {
     storage.createFromFile(arg0, arg1, {}, function(err) {
-      log(err, fmt('https://qarth.s3.amazonaws.com/%s/%s', collection, arg0));
+      log(err, fmt('', collection, arg0));
     });
   }
 

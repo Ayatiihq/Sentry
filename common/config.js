@@ -40,43 +40,43 @@ config.INCLUDE_SPIDERS = getArrayEnv(env.SENTRY_INCLUDE_SPIDERS, []);
 config.NO_NOTIFY = getEnv(env.SENTRY_NO_NOTIFY, 0);
 
 // External Services
-config.AZURE_NETWORK_ACCOUNT = getEnv(env.AZURE_NETWORK_ACCOUNT, 'nucleus');
+config.AZURE_NETWORK_ACCOUNT = getEnv(env.AZURE_NETWORK_ACCOUNT, '');
 
-config.AZURE_NETWORK_KEY = getEnv(env.AZURE_NETWORK_KEY, 'IoPtjg8kxGXJoHrD6ucPMOrTnSdUPW02t3i9pFVH1gRRQv5gBhT68sS+LNeZF8wyctRXK4lyyee1o3sNXf0SLw==');
+config.AZURE_NETWORK_KEY = getEnv(env.AZURE_NETWORK_KEY, '');
 
-config.AZURE_CORE_ACCOUNT = getEnv(env.AZURE_CORE_ACCOUNT, 'goldrush');
+config.AZURE_CORE_ACCOUNT = getEnv(env.AZURE_CORE_ACCOUNT, '');
 
-config.AZURE_CORE_KEY = getEnv(env.AZURE_CORE_KEY, '0LkjUUtQeAzaOccb5rkQbTT2sql8YrldYYdO4RhKnT4OTNfK+diveKbuDvqmxz0poyB9m2VpafBQLySvsaXNOA==');
+config.AZURE_CORE_KEY = getEnv(env.AZURE_CORE_KEY, '');
 
-config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, 'Endpoint=sb://junction.servicebus.windows.net/;SharedSecretIssuer=owner;SharedSecretValue=Bf+b/OpNVBQtIx1NkWI9TKPtU2VrE0/FPs9N0UbNKLs=');
+config.AZURE_SERVICE_BUS_CONN_KEY = getEnv(process.AZURE_SERVICE_BUS_CONN_KEY, '');
 
-config.SENDGRID_USER = getEnv(process.SENTRY_SENDGRID_USER, 'medic');
+config.SENDGRID_USER = getEnv(process.SENTRY_SENDGRID_USER, '');
 
-config.SENDGRID_KEY = getEnv(process.SENTRY_SENDGRID_KEY, 'H1uUh83AN49313U');
+config.SENDGRID_KEY = getEnv(process.SENTRY_SENDGRID_KEY, '');
 
 // Mongo
-config.MONGODB_URL = getEnv(env.SENTRY_MONGODB_URL, 'mongodb://scout:3HVb62MG2Yy4mWm@kingslanding0.7kingdoms.me:6001,kingslanding1.7kingdoms.me:6001/goldrush?replicaSet=KingsLanding');
+config.MONGODB_URL = getEnv(env.SENTRY_MONGODB_URL, '');
 
 config.MONGODB_PORTS = getEnv(env.SENTRY_MONGODB_SERVERS, ['6001', '6002', '6003']);
 
-config.MONGODB_DATABASE = getEnv(env.SENTRY_MONGODB_DATABASE, 'goldrush');
+config.MONGODB_DATABASE = getEnv(env.SENTRY_MONGODB_DATABASE, '');
 
-config.MONGODB_USERNAME = getEnv(env.SENTRY_MONGODB_USERNAME, 'scout');
+config.MONGODB_USERNAME = getEnv(env.SENTRY_MONGODB_USERNAME, '');
 
-config.MONGODB_PASSWORD = getEnv(env.SENTRY_MONGODB_PASSWORD, '3HVb62MG2Yy4mWm');
+config.MONGODB_PASSWORD = getEnv(env.SENTRY_MONGODB_PASSWORD, '');
 
-config.MONGODB_REPLICA_NAME = getEnv(env.SENTRY_MONGODB_REPLICA_NAME, 'KingsLanding');
+config.MONGODB_REPLICA_NAME = getEnv(env.SENTRY_MONGODB_REPLICA_NAME, '');
 
 // Hub
-config.HUB_ADDRESS = getEnv(env.SENTRY_HUB_ADDRESS, "kingsguard.7kingdoms.me");
+config.HUB_ADDRESS = getEnv(env.SENTRY_HUB_ADDRESS, "");
 
-config.HUB_PORT = getEnv(env.SENTRY_HUB_PORT, 4444);
+config.HUB_PORT = getEnv(env.SENTRY_HUB_PORT, 0);
 
-config.HUB_SECRET = getEnv(env.SENTRY_HUB_SECRET, 'W0b|7B3N1@-7[N]');
+config.HUB_SECRET = getEnv(env.SENTRY_HUB_SECRET, '');
 
 config.HUB_NO_TASKS = getEnv(env.SENTRY_HUB_NO_TASKS, 0);
 
-config.HUB_GIT_BRANCH = getEnv(env.SENTRY_HUB_GIT_BRANCH, 'master')
+config.HUB_GIT_BRANCH = getEnv(env.SENTRY_HUB_GIT_BRANCH, '')
 
 // Governor
 config.GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES = getEnv(env.SENTRY_GOVERNOR_CAMPAIGN_CHECK_DELAY_MINUTES, 15);
@@ -107,39 +107,39 @@ config.STANDARD_JOB_EXPIRES_SECONDS = getEnv(env.SENTRY_STANDARD_JOB_EXPIRES_SEC
 config.STANDARD_JOB_TIMEOUT_MINUTES = getEnv(env.SENTRY_STANDARD_JOB_TIMEOUT_MINUTES, 10);
 
 // Selenium
-config.SELENIUM_CONSOLE_ADDRESS =  getEnv(env.SENTRY_SELENIUM_CONSOLE_ADDRESS, 'http://khaleesi.7kingdoms.me:4444/grid/console');
+config.SELENIUM_CONSOLE_ADDRESS =  getEnv(env.SENTRY_SELENIUM_CONSOLE_ADDRESS, '');
 
-config.SELENIUM_HUB_ADDRESS = getEnv(env.SENTRY_SELENIUM_HUB_ADDRESS, 'http://khaleesi.7kingdoms.me:4444/wd/hub');
+config.SELENIUM_HUB_ADDRESS = getEnv(env.SENTRY_SELENIUM_HUB_ADDRESS, '');
 
-config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS, '.proxy');
+config.SELENIUM_CONSOLE_PROXY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_PROXY_CLASS, '');
 
-config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '.busy');
+config.SELENIUM_CONSOLE_BUSY_CLASS = getEnv(env.SENTRY_SELENIUM_CONSOLE_BUSY_CLASS, '');
 
 // Cowmangler
-config.COWMANGLER_HUB_ADDRESS = getEnv(env.COWMANGLER_HUB_ADDRESS, 'http://nightswatch.7kingdoms.me');
+config.COWMANGLER_HUB_ADDRESS = getEnv(env.COWMANGLER_HUB_ADDRESS, '');
 
-config.COWMANGLER_HUB_PORT = getEnv(env.COWMANGLER_HUB_PORT, '8421');
+config.COWMANGLER_HUB_PORT = getEnv(env.COWMANGLER_HUB_PORT, '');
 
 // Hadouken
-config.HADOUKEN_ADDRESS = getEnv(env.HADOUKEN_ADDRESS, 'http://baelish.7kingdoms.me');
+config.HADOUKEN_ADDRESS = getEnv(env.HADOUKEN_ADDRESS, '');
 
-config.HADOUKEN_PORT = getEnv(env.HADOUKEN_PORT, '12357');
+config.HADOUKEN_PORT = getEnv(env.HADOUKEN_PORT, '');
 
 // Redis
-config.REDIS_HOST = getEnv(env.REDIS_HOST, 'grandmaester.7kingdoms.me');
+config.REDIS_HOST = getEnv(env.REDIS_HOST, '');
 
-config.REDIS_AUTH = getEnv(env.REDIS_AUTH, '360676y28B9dAf5KJkpT58U1240268Lj2Y7QQ61S');
+config.REDIS_AUTH = getEnv(env.REDIS_AUTH, '');
 
-config.REDIS_PORT = getEnv(env.REDIS_PORT, 6078);
+config.REDIS_PORT = getEnv(env.REDIS_PORT, );
 
 // AWS
-config.AWS_KEY = getEnv(env.SENTRY_AWS_KEY, 'AKIAJ5FEXAYDYSTM2DMQ');
+config.AWS_KEY = getEnv(env.SENTRY_AWS_KEY, '');
 
-config.AWS_SECRET = getEnv(env.SENTRY_AWS_SECRET, 'L+gbibcc64DzwqXnt8whbF1yWQzWMpeJP1mSbFoU');
+config.AWS_SECRET = getEnv(env.SENTRY_AWS_SECRET, '');
 
-config.AWS_BUCKET = getEnv(env.SENTRY_AWS_BUCKET, 'qarth');
+config.AWS_BUCKET = getEnv(env.SENTRY_AWS_BUCKET, '');
 
 // Torrent
-config.RTORRENT_HOST = getEnv(env.SENTRY_RTORRENT_HOST, 'localhost');
+config.RTORRENT_HOST = getEnv(env.SENTRY_RTORRENT_HOST, '');
 
-config.RTORRENT_PORT = getEnv(env.SENTRY_RTORRENT_PORT, '80');
+config.RTORRENT_PORT = getEnv(env.SENTRY_RTORRENT_PORT, '');

@@ -61,7 +61,7 @@ Analytics.prototype.processJob = function(err, job) {
   var self = this;
 
   if (err) {
-    self.emit('error', err);
+    self.emit('error', err);  
     return;
   } else if (!job) {
     logger.info('No job to process');

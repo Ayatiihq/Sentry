@@ -4,7 +4,7 @@
  * (C) 2013 Ayatii Limited
  *
  * Downloader role looks for infringements that need downloading, sorts them, 
- * and make a downloader
+ * and makes a downloader
  *
  */
 

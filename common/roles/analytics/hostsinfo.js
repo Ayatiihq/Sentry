@@ -21,7 +21,7 @@ var Settings = acquire('settings')
   , Seq = require('seq')
   ;
 
-var IPINFODB_QUERY_TEMPLATE = 'http://api.ipinfodb.com/v3/ip-city/?key=eb0c816b0e98c3a1426cb2a3002ebf2146cf419cf7949d364eabc3b90e1c5504&ip=%s&format=json'
+var IPINFODB_QUERY_TEMPLATE = ''
 
 var HostsMR = module.exports;
 
